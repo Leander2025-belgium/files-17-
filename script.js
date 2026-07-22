@@ -62,20 +62,9 @@ async function loadStoredUnits(){
     if(r && r.value) Object.assign(state.units, JSON.parse(r.value));
   }catch(e){}
   state.units.model = 'knmi_seamless';
-  try{
-    const r = await window.storage.get('weerscoop:knmiKey');
-    if(r && r.value) state.knmiKey = r.value;
-  }catch(e){
-    try{ state.knmiKey = localStorage.getItem('weerscoop:knmiKey') || ''; }catch(_){}
-  }
 }
 async function saveUnits(){
   try{ await window.storage.set('weerscoop:units', JSON.stringify(state.units)); }catch(e){}
-}
-async function saveKnmiKey(){
-  try{ await window.storage.set('weerscoop:knmiKey', state.knmiKey); }catch(e){
-    try{ localStorage.setItem('weerscoop:knmiKey', state.knmiKey); }catch(_){}
-  }
 }
 
 /* ---------------- unit conversions ---------------- */
@@ -1485,13 +1474,6 @@ function wireSeg(id, key){
 wireSeg('#segTemp','temp'); wireSeg('#segWind','wind'); wireSeg('#segPrecip','precip'); wireSeg('#segPress','press'); wireSeg('#segDays','days'); wireSeg('#segModel','model');
 $("#manualRefresh").addEventListener('click', ()=>{ loadWeather(); toast('Wordt ververst...'); });
 
-$('#knmiKeyInput')?.addEventListener('change', async (e)=>{
-  state.knmiKey = e.target.value.trim();
-  await saveKnmiKey();
-  await loadWeather();
-  toast(state.knmiKey ? 'KNMI meldingen ingeschakeld' : 'KNMI key verwijderd');
-});
-
 function isStandaloneApp(){
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
@@ -2435,7 +2417,6 @@ async function init(){
   $$('#segPress button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.press));
   $$('#segDays button').forEach(b=>b.classList.toggle('active', +b.dataset.v===state.units.days));
   $$('#segModel button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.model));
-  if($('#knmiKeyInput')) $('#knmiKeyInput').value = state.knmiKey || '';
 
   const p = await getBrowserLocation();
   if(p){
