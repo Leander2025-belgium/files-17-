@@ -1636,16 +1636,31 @@ $('#openSheetBtn').addEventListener('click', openSheet);
 $('#scrim').addEventListener('click', closeSheet);
 $('#dayScrim')?.addEventListener('click', closeDayDetail);
 
+let authHistoryOpen = false;
 function openAuthSheet(){
   lockPageScroll();
   $('#authSheet')?.classList.add('show');
   $('#authScrim')?.classList.add('show');
+  document.body.classList.add('auth-open');
   updateAuthInterface(state.auth.session);
+  if(!authHistoryOpen){
+    history.pushState({weerscoopProfile:true}, '', location.href);
+    authHistoryOpen = true;
+  }
+  setTimeout(()=>$('#closeAuthSheet')?.focus(), 60);
 }
-function closeAuthSheet(){
+function closeAuthSheet(options={}){
   $('#authSheet')?.classList.remove('show');
   $('#authScrim')?.classList.remove('show');
+  document.body.classList.remove('auth-open');
   unlockPageScroll();
+  $('#profileBtn')?.focus();
+  if(authHistoryOpen && !options.fromPopState){
+    authHistoryOpen = false;
+    history.back();
+  }else if(options.fromPopState){
+    authHistoryOpen = false;
+  }
 }
 function userInitials(name='', email=''){
   const source = name || email || '?';
@@ -1719,9 +1734,9 @@ function renderProfileFavorites(){
   list.innerHTML = state.favorites.map((f,i)=>`
     <div class="profile-favorite-row" data-i="${i}">
       <b>${esc(f.name)}</b>
-      <button type="button" data-act="open" title="Openen">›</button>
-      <button type="button" data-act="up" title="Omhoog">↑</button>
-      <button type="button" data-act="delete" title="Verwijderen">×</button>
+      <button type="button" data-act="open" title="Openen">&gt;</button>
+      <button type="button" data-act="up" title="Omhoog">^</button>
+      <button type="button" data-act="delete" title="Verwijderen">x</button>
     </div>
   `).join('');
 }
@@ -1857,6 +1872,7 @@ function wireAuthUi(){
   $('#profileBtn')?.addEventListener('click', openAuthSheet);
   $('#authScrim')?.addEventListener('click', closeAuthSheet);
   $('#closeAuthSheet')?.addEventListener('click', closeAuthSheet);
+  $('#profileDoneBtn')?.addEventListener('click', closeAuthSheet);
   $('#continueGuestBtn')?.addEventListener('click', ()=>{ closeAuthSheet(); toast('Je gebruikt Weerscoop als gast.'); });
   $('#authLoginTab')?.addEventListener('click', ()=>setAuthMode('login'));
   $('#authSignupTab')?.addEventListener('click', ()=>setAuthMode('signup'));
@@ -2630,8 +2646,12 @@ document.addEventListener('fullscreenchange', ()=>{
   if(!document.fullscreenElement && tv.active) exitTV();
 });
 document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape' && document.body.classList.contains('auth-open')) closeAuthSheet();
   if(e.key === 'Escape' && document.body.classList.contains('day-detail-open')) closeDayDetail();
   if(e.key === 'Escape' && tv.active) exitTV();
+});
+window.addEventListener('popstate', ()=>{
+  if(document.body.classList.contains('auth-open')) closeAuthSheet({fromPopState:true});
 });
 document.addEventListener('visibilitychange', ()=>{
   if(!document.hidden && tv.active) refreshTvRadarFrame();
