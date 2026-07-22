@@ -19,6 +19,7 @@ const state = {
   knmiKey: KNMI_OPEN_DATA_API_KEY,
   lastUpdated: null,
   favorites: [],
+  auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null },
   map: null, marker: null,
@@ -55,6 +56,7 @@ async function loadStoredFavorites(){
 }
 async function saveFavorites(){
   try{ await window.storage.set('weerscoop:favorites', JSON.stringify(state.favorites)); }catch(e){}
+  syncFavoritesToCloud();
 }
 async function loadStoredUnits(){
   try{
@@ -65,6 +67,167 @@ async function loadStoredUnits(){
 }
 async function saveUnits(){
   try{ await window.storage.set('weerscoop:units', JSON.stringify(state.units)); }catch(e){}
+  syncProfileSettingsToCloud();
+}
+
+/* ---------------- Supabase auth + profile sync ---------------- */
+function authRedirectUrl(){
+  return new URL('./', location.href).href;
+}
+
+async function loadSupabaseConfig(){
+  try{
+    const r = await fetch(PUSH_FUNCTION_BASE + 'supabase-config', {cache:'no-store'});
+    if(r.ok){
+      const data = await r.json();
+      if(data.configured) return data;
+    }
+  }catch(e){}
+  const local = window.WEERSCOOP_SUPABASE_CONFIG || {};
+  return {
+    configured:Boolean(local.supabaseUrl && local.supabaseAnonKey),
+    supabaseUrl:local.supabaseUrl,
+    supabaseAnonKey:local.supabaseAnonKey
+  };
+}
+
+async function initAuth(){
+  updateAuthMessage('Profiel laden...');
+  try{
+    const config = await loadSupabaseConfig();
+    state.auth.configured = Boolean(config.configured);
+    if(!state.auth.configured){
+      state.auth.ready = true;
+      updateAuthInterface(null);
+      return;
+    }
+    const mod = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+    state.auth.supabase = mod.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+      auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
+    });
+    const { data:{ session } } = await state.auth.supabase.auth.getSession();
+    await applyAuthSession(session);
+    state.auth.supabase.auth.onAuthStateChange(async (event, session)=>{
+      await applyAuthSession(session, event);
+    });
+  }catch(e){
+    console.warn('Supabase auth niet beschikbaar:', e?.message || e);
+    state.auth.configured = false;
+    updateAuthInterface(null);
+  }finally{
+    state.auth.ready = true;
+  }
+}
+
+async function applyAuthSession(session, event=''){
+  state.auth.session = session || null;
+  state.auth.user = session?.user || null;
+  state.auth.guest = !state.auth.user;
+  if(event === 'PASSWORD_RECOVERY') showPasswordResetPrompt();
+  if(state.auth.user){
+    await loadCloudProfileAndFavorites();
+  }else{
+    state.auth.profile = null;
+  }
+  updateAuthInterface(state.auth.session);
+}
+
+function mapProfileToUnits(profile){
+  if(!profile) return;
+  if(profile.temperature_unit) state.units.temp = profile.temperature_unit;
+  if(profile.wind_unit) state.units.wind = profile.wind_unit;
+  if(profile.precipitation_unit) state.units.precip = profile.precipitation_unit;
+  if(profile.pressure_unit) state.units.press = profile.pressure_unit;
+  if(profile.forecast_days) state.units.days = Number(profile.forecast_days);
+  state.units.model = 'knmi_seamless';
+}
+
+function profilePayload(){
+  return {
+    display_name: state.auth.profile?.display_name || state.auth.user?.user_metadata?.display_name || state.auth.user?.email?.split('@')[0] || 'Weerscoop gebruiker',
+    home_location_name: state.loc?.name || null,
+    home_latitude: state.loc?.lat ?? null,
+    home_longitude: state.loc?.lon ?? null,
+    language:'nl',
+    temperature_unit:state.units.temp,
+    wind_unit:state.units.wind,
+    pressure_unit:state.units.press,
+    precipitation_unit:state.units.precip,
+    forecast_days:state.units.days,
+    weather_model:'knmi_seamless',
+    notifications_enabled:state.push.status === 'Ingeschakeld'
+  };
+}
+
+async function loadCloudProfileAndFavorites(){
+  const supabase = state.auth.supabase;
+  const user = state.auth.user;
+  if(!supabase || !user) return;
+  try{
+    let { data:profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    if(!profile){
+      const payload = { id:user.id, ...profilePayload() };
+      const res = await supabase.from('profiles').upsert(payload).select('*').single();
+      profile = res.data;
+    }
+    state.auth.profile = profile || null;
+    mapProfileToUnits(profile);
+    const { data:favorites } = await supabase.from('favorite_locations')
+      .select('id,name,latitude,longitude,country,sort_order')
+      .eq('user_id', user.id)
+      .order('sort_order', {ascending:true})
+      .order('created_at', {ascending:true});
+    if(Array.isArray(favorites) && favorites.length){
+      state.favorites = favorites.map(f=>({id:f.id, name:f.name, lat:+f.latitude, lon:+f.longitude, admin:f.country || ''}));
+      await window.storage.set('weerscoop:favorites', JSON.stringify(state.favorites)).catch(()=>undefined);
+    }else if(state.favorites.length){
+      await syncFavoritesToCloud(true);
+    }
+  }catch(e){
+    console.warn('Profielsync mislukt:', e?.message || e);
+    toast('Profiel kon niet worden gesynchroniseerd.');
+  }
+}
+
+async function syncProfileSettingsToCloud(){
+  if(state.auth.syncing || !state.auth.supabase || !state.auth.user) return;
+  state.auth.syncing = true;
+  try{
+    const { data, error } = await state.auth.supabase.from('profiles')
+      .upsert({id:state.auth.user.id, ...profilePayload()})
+      .select('*')
+      .single();
+    if(error) throw error;
+    state.auth.profile = data;
+    updateAuthInterface(state.auth.session);
+  }catch(e){
+    console.warn('Instellingen niet gesynchroniseerd:', e?.message || e);
+  }finally{
+    state.auth.syncing = false;
+  }
+}
+
+async function syncFavoritesToCloud(force=false){
+  if(!force && state.auth.syncing) return;
+  if(!state.auth.supabase || !state.auth.user) return;
+  try{
+    const supabase = state.auth.supabase;
+    await supabase.from('favorite_locations').delete().eq('user_id', state.auth.user.id);
+    if(!state.favorites.length) return;
+    const rows = state.favorites.map((f,i)=>({
+      user_id:state.auth.user.id,
+      name:String(f.name || 'Favoriet').slice(0,80),
+      latitude:+f.lat,
+      longitude:+f.lon,
+      country:String(f.admin || '').slice(0,120),
+      sort_order:i
+    }));
+    const { error } = await supabase.from('favorite_locations').insert(rows);
+    if(error) throw error;
+    updateAuthInterface(state.auth.session);
+  }catch(e){
+    console.warn('Favorieten niet gesynchroniseerd:', e?.message || e);
+  }
 }
 
 /* ---------------- unit conversions ---------------- */
@@ -1473,6 +1636,257 @@ $('#openSheetBtn').addEventListener('click', openSheet);
 $('#scrim').addEventListener('click', closeSheet);
 $('#dayScrim')?.addEventListener('click', closeDayDetail);
 
+function openAuthSheet(){
+  lockPageScroll();
+  $('#authSheet')?.classList.add('show');
+  $('#authScrim')?.classList.add('show');
+  updateAuthInterface(state.auth.session);
+}
+function closeAuthSheet(){
+  $('#authSheet')?.classList.remove('show');
+  $('#authScrim')?.classList.remove('show');
+  unlockPageScroll();
+}
+function userInitials(name='', email=''){
+  const source = name || email || '?';
+  const parts = source.trim().split(/\s+/).filter(Boolean);
+  if(parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return source.slice(0,2).toUpperCase();
+}
+function setAuthMode(mode){
+  const login = mode !== 'signup';
+  $('#authLoginTab')?.classList.toggle('active', login);
+  $('#authSignupTab')?.classList.toggle('active', !login);
+  $('#loginForm')?.classList.toggle('hidden', !login);
+  $('#signupForm')?.classList.toggle('hidden', login);
+  updateAuthMessage('');
+}
+function updateAuthMessage(msg, type=''){
+  const el = $('#authMessage');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.className = 'auth-message' + (type ? ' ' + type : '');
+}
+function updateProfileMessage(msg, type=''){
+  const el = $('#profileMessage');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.className = 'auth-message' + (type ? ' ' + type : '');
+}
+function dutchAuthError(error){
+  const msg = String(error?.message || error || '').toLowerCase();
+  if(msg.includes('invalid login') || msg.includes('invalid credentials')) return 'E-mailadres of wachtwoord is onjuist.';
+  if(msg.includes('already registered') || msg.includes('already been registered')) return 'Dit e-mailadres is al in gebruik.';
+  if(msg.includes('password')) return 'Controleer je wachtwoord. Het moet minstens 8 tekens bevatten.';
+  if(msg.includes('email')) return 'Vul een geldig e-mailadres in.';
+  if(msg.includes('network') || msg.includes('fetch')) return 'Er kon geen verbinding worden gemaakt. Probeer het later opnieuw.';
+  return 'Er ging iets mis. Probeer het later opnieuw.';
+}
+function updateAuthInterface(session){
+  const loggedIn = Boolean(session?.user);
+  $('#authLoggedOut')?.classList.toggle('hidden', loggedIn);
+  $('#authLoggedIn')?.classList.toggle('hidden', !loggedIn);
+  const profile = state.auth.profile;
+  const email = session?.user?.email || '';
+  const displayName = profile?.display_name || session?.user?.user_metadata?.display_name || email.split('@')[0] || 'Gast';
+  const initials = userInitials(displayName, email);
+  const avatarUrl = profile?.avatar_url || '';
+  const mini = $('#profileAvatarMini');
+  if(mini){
+    mini.innerHTML = avatarUrl ? `<img src="${esc(avatarUrl)}" alt="">` : esc(initials);
+  }
+  if($('#profileBtnText')) $('#profileBtnText').textContent = loggedIn ? displayName : 'Inloggen';
+  if($('#profileName')) $('#profileName').textContent = displayName;
+  if($('#profileEmail')) $('#profileEmail').textContent = email;
+  if($('#profileDisplayName')) $('#profileDisplayName').value = profile?.display_name || displayName;
+  if($('#profileHomeLocation')) $('#profileHomeLocation').value = profile?.home_location_name || state.loc.name || '';
+  if($('#profileFavoritesCount')) $('#profileFavoritesCount').textContent = state.favorites.length;
+  if($('#profileNotificationsStatus')) $('#profileNotificationsStatus').textContent = state.push.status === 'Ingeschakeld' ? 'Aan' : 'Uit';
+  if($('#profileSyncStatus')) $('#profileSyncStatus').textContent = loggedIn ? 'Actief' : 'Gast';
+  renderProfileFavorites();
+  if($('#profileAvatarInitials')) $('#profileAvatarInitials').textContent = initials;
+  $('#profileAvatarImage')?.classList.toggle('hidden', !avatarUrl);
+  if($('#profileAvatarImage') && avatarUrl) $('#profileAvatarImage').src = avatarUrl;
+  if(!state.auth.configured && $('#authSubtitle')) $('#authSubtitle').textContent = 'Accountsync is nog niet gekoppeld. Vul eerst Supabase in Netlify in.';
+}
+function renderProfileFavorites(){
+  const list = $('#profileFavoritesList');
+  if(!list) return;
+  if(!state.favorites.length){
+    list.innerHTML = '<div class="subtle" style="font-size:12px;">Nog geen favoriete plaatsen.</div>';
+    return;
+  }
+  list.innerHTML = state.favorites.map((f,i)=>`
+    <div class="profile-favorite-row" data-i="${i}">
+      <b>${esc(f.name)}</b>
+      <button type="button" data-act="open" title="Openen">›</button>
+      <button type="button" data-act="up" title="Omhoog">↑</button>
+      <button type="button" data-act="delete" title="Verwijderen">×</button>
+    </div>
+  `).join('');
+}
+async function handleProfileFavoriteAction(target){
+  const row = target.closest('.profile-favorite-row');
+  if(!row) return;
+  const i = +row.dataset.i;
+  const act = target.dataset.act;
+  const fav = state.favorites[i];
+  if(!fav) return;
+  if(act === 'open'){
+    await setLocation(fav.lat, fav.lon, fav.name, fav.admin);
+    closeAuthSheet();
+  }else if(act === 'up' && i > 0){
+    [state.favorites[i-1], state.favorites[i]] = [state.favorites[i], state.favorites[i-1]];
+    await saveFavorites();
+    renderProfileFavorites();
+    renderFavChips();
+    updateAuthInterface(state.auth.session);
+  }else if(act === 'delete'){
+    state.favorites.splice(i,1);
+    await saveFavorites();
+    renderProfileFavorites();
+    renderFavChips();
+    updateAuthInterface(state.auth.session);
+  }
+}
+function validateEmail(email){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+async function signInWithEmail(email, password){
+  if(!state.auth.supabase) return updateAuthMessage('Accountsync is nog niet ingesteld.', 'error');
+  if(!validateEmail(email)) return updateAuthMessage('Vul een geldig e-mailadres in.', 'error');
+  updateAuthMessage('Inloggen...');
+  const { error } = await state.auth.supabase.auth.signInWithPassword({email, password});
+  if(error) return updateAuthMessage(dutchAuthError(error), 'error');
+  updateAuthMessage('Je bent ingelogd.', 'ok');
+  toast('Je bent ingelogd.');
+}
+async function signUpWithEmail(displayName, email, password, password2, privacyOk){
+  if(!state.auth.supabase) return updateAuthMessage('Accountsync is nog niet ingesteld.', 'error');
+  if(!displayName.trim()) return updateAuthMessage('Vul een weergavenaam in.', 'error');
+  if(!validateEmail(email)) return updateAuthMessage('Vul een geldig e-mailadres in.', 'error');
+  if(password.length < 8) return updateAuthMessage('Het wachtwoord moet minstens 8 tekens bevatten.', 'error');
+  if(password !== password2) return updateAuthMessage('De wachtwoorden komen niet overeen.', 'error');
+  if(!privacyOk) return updateAuthMessage('Ga akkoord met de privacyvoorwaarden om verder te gaan.', 'error');
+  updateAuthMessage('Account aanmaken...');
+  const { error } = await state.auth.supabase.auth.signUp({
+    email,
+    password,
+    options:{data:{display_name:displayName.trim()}, emailRedirectTo:authRedirectUrl()}
+  });
+  if(error) return updateAuthMessage(dutchAuthError(error), 'error');
+  updateAuthMessage('Controleer je mailbox om je account te bevestigen.', 'ok');
+}
+async function resetPassword(email){
+  if(!state.auth.supabase) return updateAuthMessage('Accountsync is nog niet ingesteld.', 'error');
+  if(!validateEmail(email)) return updateAuthMessage('Vul eerst je e-mailadres in.', 'error');
+  updateAuthMessage('Resetmail versturen...');
+  const { error } = await state.auth.supabase.auth.resetPasswordForEmail(email, {redirectTo:authRedirectUrl()});
+  if(error) return updateAuthMessage(dutchAuthError(error), 'error');
+  updateAuthMessage('Controleer je mailbox om je wachtwoord opnieuw in te stellen.', 'ok');
+}
+async function showPasswordResetPrompt(){
+  const pw = prompt('Kies een nieuw wachtwoord van minstens 8 tekens.');
+  if(!pw) return;
+  if(pw.length < 8) return toast('Het wachtwoord moet minstens 8 tekens bevatten.');
+  const { error } = await state.auth.supabase.auth.updateUser({password:pw});
+  toast(error ? 'Wachtwoord kon niet worden gewijzigd.' : 'Wachtwoord gewijzigd.');
+}
+async function updateProfileFromForm(){
+  if(!state.auth.supabase || !state.auth.user) return updateProfileMessage('Je bent niet ingelogd.', 'error');
+  const name = $('#profileDisplayName')?.value.trim();
+  if(!name) return updateProfileMessage('Vul een weergavenaam in.', 'error');
+  updateProfileMessage('Opslaan...');
+  const payload = {...profilePayload(), display_name:name, home_location_name:$('#profileHomeLocation')?.value.trim() || state.loc.name};
+  const { data, error } = await state.auth.supabase.from('profiles')
+    .upsert({id:state.auth.user.id, ...payload})
+    .select('*')
+    .single();
+  if(error) return updateProfileMessage('Profiel kon niet worden opgeslagen.', 'error');
+  state.auth.profile = data;
+  updateAuthInterface(state.auth.session);
+  updateProfileMessage('Profiel opgeslagen.', 'ok');
+}
+async function compressAvatar(file){
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type)) throw new Error('Gebruik PNG, JPEG of WebP.');
+  if(file.size > 5 * 1024 * 1024) throw new Error('De afbeelding mag maximaal 5 MB zijn.');
+  const bitmap = await createImageBitmap(file);
+  const size = Math.min(512, Math.max(bitmap.width, bitmap.height));
+  const scale = size / Math.max(bitmap.width, bitmap.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return await new Promise(resolve=>canvas.toBlob(resolve, 'image/webp', .86));
+}
+async function uploadAvatar(file){
+  if(!state.auth.supabase || !state.auth.user) return;
+  try{
+    updateProfileMessage('Profielfoto uploaden...');
+    const blob = await compressAvatar(file);
+    const path = `${state.auth.user.id}/avatar.webp`;
+    const { error } = await state.auth.supabase.storage.from('avatars').upload(path, blob, {contentType:'image/webp', upsert:true});
+    if(error) throw error;
+    const { data } = state.auth.supabase.storage.from('avatars').getPublicUrl(path);
+    const avatarUrl = `${data.publicUrl}?v=${Date.now()}`;
+    const res = await state.auth.supabase.from('profiles').upsert({id:state.auth.user.id, ...profilePayload(), avatar_url:avatarUrl}).select('*').single();
+    if(res.error) throw res.error;
+    state.auth.profile = res.data;
+    updateAuthInterface(state.auth.session);
+    updateProfileMessage('Profielfoto opgeslagen.', 'ok');
+  }catch(e){
+    updateProfileMessage(e.message || 'Profielfoto kon niet worden opgeslagen.', 'error');
+  }
+}
+async function deleteAccount(){
+  if(!state.auth.session) return;
+  const confirmation = prompt('Typ VERWIJDEREN om je account definitief te verwijderen.');
+  if(confirmation !== 'VERWIJDEREN') return;
+  updateProfileMessage('Account verwijderen...');
+  const r = await fetch(PUSH_FUNCTION_BASE + 'delete-account', {
+    method:'POST',
+    headers:{'content-type':'application/json', authorization:`Bearer ${state.auth.session.access_token}`},
+    body:JSON.stringify({confirmation})
+  });
+  if(!r.ok) return updateProfileMessage('Account kon niet worden verwijderd. Probeer het later opnieuw.', 'error');
+  await state.auth.supabase.auth.signOut().catch(()=>undefined);
+  closeAuthSheet();
+  toast('Account verwijderd.');
+}
+function wireAuthUi(){
+  $('#profileBtn')?.addEventListener('click', openAuthSheet);
+  $('#authScrim')?.addEventListener('click', closeAuthSheet);
+  $('#closeAuthSheet')?.addEventListener('click', closeAuthSheet);
+  $('#continueGuestBtn')?.addEventListener('click', ()=>{ closeAuthSheet(); toast('Je gebruikt Weerscoop als gast.'); });
+  $('#authLoginTab')?.addEventListener('click', ()=>setAuthMode('login'));
+  $('#authSignupTab')?.addEventListener('click', ()=>setAuthMode('signup'));
+  $('#showLoginPassword')?.addEventListener('change', e=>{ $('#loginPassword').type = e.target.checked ? 'text' : 'password'; });
+  $('#loginForm')?.addEventListener('submit', e=>{
+    e.preventDefault();
+    signInWithEmail($('#loginEmail').value.trim(), $('#loginPassword').value);
+  });
+  $('#signupForm')?.addEventListener('submit', e=>{
+    e.preventDefault();
+    signUpWithEmail($('#signupName').value, $('#signupEmail').value.trim(), $('#signupPassword').value, $('#signupPassword2').value, $('#signupPrivacy').checked);
+  });
+  $('#forgotPasswordBtn')?.addEventListener('click', ()=>resetPassword($('#loginEmail').value.trim()));
+  $('#profileForm')?.addEventListener('submit', e=>{ e.preventDefault(); updateProfileFromForm(); });
+  $('#syncLocalBtn')?.addEventListener('click', async ()=>{ await syncProfileSettingsToCloud(); await syncFavoritesToCloud(true); updateProfileMessage('Lokale gegevens gekopieerd naar je account.', 'ok'); });
+  $('#resetPasswordLoggedInBtn')?.addEventListener('click', ()=>resetPassword(state.auth.user?.email || ''));
+  $('#logoutBtn')?.addEventListener('click', async ()=>{
+    if(state.push.status === 'Ingeschakeld' && !confirm('Meldingen blijven actief op dit toestel. Wil je uitloggen?')) return;
+    await state.auth.supabase?.auth.signOut();
+    toast('Je bent uitgelogd.');
+    closeAuthSheet();
+  });
+  $('#deleteAccountBtn')?.addEventListener('click', deleteAccount);
+  $('#changeAvatarBtn')?.addEventListener('click', ()=>$('#avatarInput')?.click());
+  $('#avatarInput')?.addEventListener('change', e=>{ const file = e.target.files?.[0]; if(file) uploadAvatar(file); e.target.value=''; });
+  $('#profileFavoritesList')?.addEventListener('click', e=>{
+    if(e.target.matches('button[data-act]')) handleProfileFavoriteAction(e.target);
+  });
+}
+
 function wireSeg(id, key){
   const seg = $(id);
   $$('button', seg).forEach(b=>{
@@ -1590,11 +2004,15 @@ async function enablePushNotifications(){
   }
   const r = await fetch(PUSH_FUNCTION_BASE + 'push-subscribe', {
     method:'POST',
-    headers:{'content-type':'application/json'},
+    headers:{
+      'content-type':'application/json',
+      ...(state.auth.session?.access_token ? {authorization:`Bearer ${state.auth.session.access_token}`} : {})
+    },
     body:JSON.stringify(collectPushPayload(subscription))
   });
   if(!r.ok) throw new Error(await pushErrorText(r, 'Meldingen konden niet worden ingesteld. Probeer het later opnieuw.'));
   updatePushUi('Ingeschakeld');
+  syncProfileSettingsToCloud();
   toast('Meldingen ingeschakeld');
 }
 
@@ -1611,6 +2029,7 @@ async function disablePushNotifications(){
     await subscription.unsubscribe().catch(()=>undefined);
   }
   updatePushUi('Toestemming vereist');
+  syncProfileSettingsToCloud();
   toast('Meldingen uitgeschakeld');
 }
 
@@ -2432,8 +2851,10 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
    ========================================================================= */
 async function init(){
   await loadStoredUnits();
+  wireAuthUi();
   wirePushSettings();
   await loadStoredFavorites();
+  await initAuth();
   $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
   $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));
   $$('#segPrecip button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.precip));

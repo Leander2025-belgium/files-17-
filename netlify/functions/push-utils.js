@@ -1,4 +1,5 @@
 import { getStore } from "@netlify/blobs";
+import { createClient } from "@supabase/supabase-js";
 import webpush from "web-push";
 import crypto from "node:crypto";
 
@@ -28,6 +29,15 @@ function json(statusCode, body) {
 
 function store() {
   return getStore("push-subscriptions");
+}
+
+function supabasePublicClient() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+  return createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
 }
 
 async function readSubscriptions() {
@@ -91,6 +101,24 @@ async function removeSubscription(endpoint) {
   return items.length - next.length;
 }
 
+async function removeSubscriptionsForUser(userId) {
+  const items = await readSubscriptions();
+  const next = items.filter(item => item.userId !== userId);
+  await writeSubscriptions(next);
+  return items.length - next.length;
+}
+
+async function userIdFromAuthorization(headers = {}) {
+  const authorization = headers.authorization || headers.Authorization || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!token) return null;
+  const supabase = supabasePublicClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) return null;
+  return data.user.id;
+}
+
 async function sendPush(item, payload) {
   configureWebPush();
   try {
@@ -121,5 +149,7 @@ export {
   defaultPreferences,
   sendPush,
   removeSubscription,
+  removeSubscriptionsForUser,
+  userIdFromAuthorization,
   wasSentRecently
 };

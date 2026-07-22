@@ -1,4 +1,4 @@
-const CACHE_VERSION = "weerscoop-v20260722-push-functions-esm";
+const CACHE_VERSION = "weerscoop-v20260722-auth-supabase";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -54,7 +54,8 @@ function isLiveDataRequest(url) {
     "marine-api.open-meteo.com",
     "api.rainviewer.com",
     "api.dataplatform.knmi.nl",
-    "aviationweather.gov"
+    "aviationweather.gov",
+    "supabase.co"
   ].some(host => url.hostname.includes(host));
 }
 

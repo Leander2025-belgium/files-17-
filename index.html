@@ -62,6 +62,10 @@
       </div>
       <button class="smallbtn" id="openSheetBtn" style="margin-top:8px;">Instellingen</button>
       <button class="smallbtn" id="tvBtn" style="margin-top:8px;margin-left:6px;">Tv-modus</button>
+      <button class="smallbtn profile-trigger" id="profileBtn" type="button" style="margin-top:8px;margin-left:6px;">
+        <span id="profileAvatarMini" class="profile-mini">?</span>
+        <span id="profileBtnText">Inloggen</span>
+      </button>
     </div>
     <div class="screen-inner" id="homeInner">
       <div class="loader" id="homeLoader"><div class="spinner"></div><span>Weer laden...</span></div>
@@ -193,8 +197,81 @@
 
   <!-- Settings sheet -->
   <div class="scrim" id="scrim"></div>
+  <div class="auth-scrim" id="authScrim"></div>
   <div class="day-scrim" id="dayScrim"></div>
   <div class="day-sheet" id="daySheet" role="dialog" aria-modal="true" aria-labelledby="daySheetTitle"></div>
+  <div class="auth-sheet" id="authSheet" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <button class="sheet-close auth-close" id="closeAuthSheet" type="button" aria-label="Sluiten">&times;</button>
+    <div class="auth-brand">
+      <img src="./icons/icon-96.png" alt="Weerscoop">
+      <div>
+        <h3 id="authTitle">Weerscoop account</h3>
+        <p id="authSubtitle">Synchroniseer favorieten, instellingen en meldingen.</p>
+      </div>
+    </div>
+    <div id="authLoggedOut">
+      <div class="auth-tabs">
+        <button class="active" id="authLoginTab" type="button">Inloggen</button>
+        <button id="authSignupTab" type="button">Account aanmaken</button>
+      </div>
+      <form id="loginForm" class="auth-form">
+        <label>E-mailadres<input id="loginEmail" type="email" autocomplete="email" required></label>
+        <label>Wachtwoord<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+        <label class="inline-check"><input id="showLoginPassword" type="checkbox"> Wachtwoord tonen</label>
+        <button class="smallbtn primary-auth" type="submit">Inloggen</button>
+        <button class="linkbtn" id="forgotPasswordBtn" type="button">Wachtwoord vergeten?</button>
+      </form>
+      <form id="signupForm" class="auth-form hidden">
+        <label>Weergavenaam<input id="signupName" type="text" autocomplete="name" required></label>
+        <label>E-mailadres<input id="signupEmail" type="email" autocomplete="email" required></label>
+        <label>Wachtwoord<input id="signupPassword" type="password" autocomplete="new-password" required></label>
+        <label>Wachtwoord herhalen<input id="signupPassword2" type="password" autocomplete="new-password" required></label>
+        <label class="inline-check"><input id="signupPrivacy" type="checkbox"> Ik ga akkoord met de privacyvoorwaarden.</label>
+        <button class="smallbtn primary-auth" type="submit">Account aanmaken</button>
+      </form>
+      <div class="auth-message" id="authMessage"></div>
+      <button class="linkbtn" id="continueGuestBtn" type="button">Doorgaan als gast</button>
+      <details class="privacy-note">
+        <summary>Privacy in het kort</summary>
+        <p>Weerscoop bewaart alleen je e-mailadres, profielnaam, avatar, favoriete plaatsen, instellingen en meldingsvoorkeuren. Locaties worden gebruikt om je weer, favorieten en waarschuwingen te synchroniseren. Je kunt je account en gegevens zelf verwijderen.</p>
+      </details>
+    </div>
+    <div id="authLoggedIn" class="hidden">
+      <div class="profile-hero">
+        <label class="profile-avatar-large" id="profileAvatarLarge">
+          <span id="profileAvatarInitials">?</span>
+          <img id="profileAvatarImage" alt="" class="hidden">
+          <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        </label>
+        <div>
+          <h3 id="profileName">Profiel laden...</h3>
+          <p id="profileEmail"></p>
+          <button class="linkbtn" id="changeAvatarBtn" type="button">Profielfoto wijzigen</button>
+        </div>
+      </div>
+      <form id="profileForm" class="auth-form">
+        <label>Weergavenaam<input id="profileDisplayName" type="text" autocomplete="name"></label>
+        <label>Thuislocatie<input id="profileHomeLocation" type="text" placeholder="Bijvoorbeeld Oostende"></label>
+        <div class="profile-stats">
+          <span><b id="profileFavoritesCount">0</b> favorieten</span>
+          <span><b id="profileNotificationsStatus">Uit</b> meldingen</span>
+          <span><b id="profileSyncStatus">Gast</b> status</span>
+        </div>
+        <button class="smallbtn primary-auth" type="submit">Profiel opslaan</button>
+      </form>
+      <div class="profile-favorites">
+        <div class="settings-section-head"><span>Favoriete plaatsen</span><strong id="profileFavoritesHint">Sync</strong></div>
+        <div id="profileFavoritesList" class="profile-favorites-list"></div>
+      </div>
+      <div class="account-actions">
+        <button class="smallbtn" id="syncLocalBtn" type="button">Lokale gegevens naar account kopieren</button>
+        <button class="smallbtn" id="resetPasswordLoggedInBtn" type="button">Wachtwoord wijzigen</button>
+        <button class="smallbtn" id="logoutBtn" type="button">Uitloggen</button>
+        <button class="smallbtn danger" id="deleteAccountBtn" type="button">Account verwijderen</button>
+      </div>
+      <div class="auth-message" id="profileMessage"></div>
+    </div>
+  </div>
   <div class="panelsheet" id="settingsSheet">
     <div class="sheet-handle"></div>
     <h3 style="margin:0 0 10px;">Instellingen</h3>

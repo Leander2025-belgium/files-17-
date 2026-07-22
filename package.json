@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@netlify/blobs": "^8.2.0",
+    "@supabase/supabase-js": "^2.110.8",
     "web-push": "^3.6.7"
-  },
-  "devDependencies": {}
+  }
 }
