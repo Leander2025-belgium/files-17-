@@ -1,8 +1,8 @@
-const { json, readSubscriptions, sendPush, wasSentRecently } = require("./push-utils");
+import { json, readSubscriptions, sendPush, wasSentRecently } from "./push-utils.js";
 
-exports.config = { schedule: "*/30 * * * *" };
+export const config = { schedule: "*/30 * * * *" };
 
-exports.handler = async () => {
+export async function handler() {
   const subscriptions = await readSubscriptions();
   let sent = 0;
   for (const item of subscriptions) {
@@ -22,7 +22,7 @@ exports.handler = async () => {
     if (result.ok) sent++;
   }
   return json(200, { ok: true, checked: subscriptions.length, sent });
-};
+}
 
 async function buildWeatherAlert(item) {
   const loc = item.location || {};

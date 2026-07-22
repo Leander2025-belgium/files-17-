@@ -1,6 +1,6 @@
-const { getStore } = require("@netlify/blobs");
-const webpush = require("web-push");
-const crypto = require("crypto");
+import { getStore } from "@netlify/blobs";
+import webpush from "web-push";
+import crypto from "node:crypto";
 
 const SUBSCRIPTIONS_KEY = "subscriptions";
 const DEDUPE_PREFIX = "sent:";
@@ -27,10 +27,7 @@ function json(statusCode, body) {
 }
 
 function store() {
-  const options = { name: "weerscoop-push" };
-  if (process.env.NETLIFY_SITE_ID) options.siteID = process.env.NETLIFY_SITE_ID;
-  if (process.env.NETLIFY_BLOBS_TOKEN) options.token = process.env.NETLIFY_BLOBS_TOKEN;
-  return getStore(options);
+  return getStore("push-subscriptions");
 }
 
 async function readSubscriptions() {
@@ -115,7 +112,7 @@ async function wasSentRecently(eventId, ttlMs) {
   return false;
 }
 
-module.exports = {
+export {
   json,
   readSubscriptions,
   writeSubscriptions,

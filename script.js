@@ -1588,7 +1588,7 @@ async function enablePushNotifications(){
     headers:{'content-type':'application/json'},
     body:JSON.stringify(collectPushPayload(subscription))
   });
-  if(!r.ok) throw new Error(await pushErrorText(r, 'Abonnement kon niet worden opgeslagen.'));
+  if(!r.ok) throw new Error(await pushErrorText(r, 'Meldingen konden niet worden ingesteld. Probeer het later opnieuw.'));
   updatePushUi('Ingeschakeld');
   toast('Meldingen ingeschakeld');
 }
@@ -1613,19 +1613,20 @@ async function sendTestPushNotification(){
   const registration = await navigator.serviceWorker.ready.catch(()=>null);
   const subscription = await registration?.pushManager.getSubscription();
   if(!subscription) return toast('Schakel eerst meldingen in.');
-  const r = await fetch(PUSH_FUNCTION_BASE + 'send-test-notification', {
+  const r = await fetch(PUSH_FUNCTION_BASE + 'push-test', {
     method:'POST',
     headers:{'content-type':'application/json'},
     body:JSON.stringify({endpoint:subscription.endpoint, installationId:state.push.installationId})
   });
-  if(!r.ok) return toast(await pushErrorText(r, 'Testmelding kon niet worden verzonden.'));
+  if(!r.ok) return toast(await pushErrorText(r, 'Testmelding kon niet worden verzonden. Probeer het later opnieuw.'));
   toast('Testmelding verzonden. Sluit Weerscoop om dit te testen.');
 }
 
 async function pushErrorText(response, fallback){
   try{
     const data = await response.json();
-    return data.error || fallback;
+    if(data.error) console.warn('Pushmelding fout:', data.error);
+    return fallback;
   }catch(e){
     return fallback;
   }
@@ -1682,9 +1683,9 @@ function wirePushSettings(){
       savePushSettings();
     });
   });
-  $('#enablePushBtn')?.addEventListener('click', ()=>enablePushNotifications().catch(e=>{ updatePushUi('Tijdelijk offline'); toast(e.message || 'Meldingen inschakelen mislukt.'); }));
-  $('#disablePushBtn')?.addEventListener('click', ()=>disablePushNotifications().catch(()=>toast('Uitschakelen mislukt.')));
-  $('#testPushBtn')?.addEventListener('click', ()=>sendTestPushNotification().catch(()=>toast('Testmelding mislukt.')));
+  $('#enablePushBtn')?.addEventListener('click', ()=>enablePushNotifications().catch(e=>{ console.warn(e); updatePushUi('Tijdelijk offline'); toast('Meldingen konden niet worden ingesteld. Probeer het later opnieuw.'); }));
+  $('#disablePushBtn')?.addEventListener('click', ()=>disablePushNotifications().catch(e=>{ console.warn(e); toast('Meldingen konden niet worden uitgeschakeld. Probeer het later opnieuw.'); }));
+  $('#testPushBtn')?.addEventListener('click', ()=>sendTestPushNotification().catch(e=>{ console.warn(e); toast('Testmelding kon niet worden verzonden. Probeer het later opnieuw.'); }));
   updatePushState();
 }
 

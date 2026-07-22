@@ -1,4 +1,4 @@
-const CACHE_VERSION = "weerscoop-v20260722-branding-splash";
+const CACHE_VERSION = "weerscoop-v20260722-push-functions-esm";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

@@ -2,6 +2,7 @@
   "name": "weerscoop",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Live weer, radar en weerwaarschuwingen",
   "scripts": {
     "test": "node --check script.js && node --check service-worker.js",

@@ -1,13 +1,13 @@
-const {
+import {
   json,
   readSubscriptions,
   writeSubscriptions,
   subscriptionId,
   safeLocation,
   defaultPreferences
-} = require("./push-utils");
+} from "./push-utils.js";
 
-exports.handler = async event => {
+export async function handler(event) {
   if (event.httpMethod !== "POST") return json(405, { error: "Method not allowed" });
   try {
     const body = JSON.parse(event.body || "{}");
@@ -32,6 +32,7 @@ exports.handler = async event => {
     await writeSubscriptions(next);
     return json(200, { ok: true, id, count: next.length });
   } catch (error) {
-    return json(500, { error: error.message });
+    console.error("push-subscribe failed", error);
+    return json(500, { error: "Meldingen konden niet worden ingesteld. Probeer het later opnieuw." });
   }
-};
+}
