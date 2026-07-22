@@ -2252,7 +2252,8 @@ async function sendAssistantQuestion(raw){
 function handleAssistantReply(data, fallback=false){
   const answer = data?.answer || 'Ik kon geen betrouwbaar antwoord maken met de beschikbare data.';
   const sources = Array.isArray(data?.sources) ? data.sources.slice(0,5) : [];
-  state.assistant.messages.push({role:'assistant', content:fallback ? `${answer}\n\nAI is tijdelijk niet beschikbaar; dit is een eenvoudige datagedreven samenvatting.` : answer, sources});
+  const usedFallback = fallback || data?.aiAvailable === false;
+  state.assistant.messages.push({role:'assistant', content:usedFallback ? `${answer}\n\nAI is tijdelijk niet bereikbaar; dit is een eenvoudige datagedreven samenvatting.` : answer, sources});
   state.assistant.lastReminder = data?.reminder || null;
   const box = $('#assistantReminderBox');
   if(box){

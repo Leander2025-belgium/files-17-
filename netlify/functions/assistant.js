@@ -21,17 +21,17 @@ function clientKey(event, userId) {
 
 async function rateLimit(event, userId) {
   const key = `assistant-rate:${clientKey(event, userId)}`;
-  const store = getStore("assistant-rate-limits");
   const now = Date.now();
   let record = null;
   try {
+    const store = getStore("assistant-rate-limits");
     record = await store.get(key, { type: "json" });
+    if (!record || now - record.startedAt > WINDOW_MS) record = { startedAt: now, count: 0 };
+    record.count += 1;
+    await store.setJSON(key, record).catch(() => undefined);
   } catch {
-    record = null;
+    record = { startedAt: now, count: 1 };
   }
-  if (!record || now - record.startedAt > WINDOW_MS) record = { startedAt: now, count: 0 };
-  record.count += 1;
-  await store.setJSON(key, record).catch(() => undefined);
   const limit = userId ? USER_LIMIT : GUEST_LIMIT;
   return { ok: record.count <= limit, limit, remaining: Math.max(0, limit - record.count) };
 }
@@ -120,7 +120,7 @@ function systemPrompt() {
 
 async function callOpenAI(question, context, history) {
   const apiKey = process.env.OPENAI_API_KEY || process.env.WEERSCOOP_AI_API_KEY;
-  if (!apiKey) return fallbackAnswer(question, context);
+  if (!apiKey) return { ...fallbackAnswer(question, context), providerStatus: "missing_key" };
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 14000);
   try {
@@ -145,15 +145,23 @@ async function callOpenAI(question, context, history) {
         ]
       })
     });
-    if (!res.ok) throw new Error(`AI provider status ${res.status}`);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.error("OpenAI assistant request failed", res.status, detail.slice(0, 500));
+      return { ...fallbackAnswer(question, context), providerStatus: `openai_${res.status}` };
+    }
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content || "";
     const parsed = JSON.parse(text);
     return {
       answer: clampText(parsed.answer, 1400) || fallbackAnswer(question, context).answer,
       sources: Array.isArray(parsed.sources) ? parsed.sources.map(s => clampText(s, 80)).filter(Boolean).slice(0, 5) : [],
-      reminder: validReminder(parsed.reminder)
+      reminder: validReminder(parsed.reminder),
+      providerStatus: "ok"
     };
+  } catch (error) {
+    console.error("OpenAI assistant fallback", error.message);
+    return { ...fallbackAnswer(question, context), providerStatus: error.name === "AbortError" ? "timeout" : "openai_error" };
   } finally {
     clearTimeout(timeout);
   }
@@ -190,7 +198,13 @@ export async function handler(event) {
       answer.sources = ["Uurverwachting", `Locatie ${context.location.name || "onbekend"}`];
       if (context.radar?.available) answer.sources.push(context.radar.stale ? "Radar verouderd" : "Radar");
     }
-    return json(200, { ...answer, quotaRemaining: quota.remaining, model: process.env.OPENAI_API_KEY ? MODEL : "lokale fallback" });
+    return json(200, {
+      ...answer,
+      quotaRemaining: quota.remaining,
+      model: answer.providerStatus === "ok" ? MODEL : "lokale fallback",
+      aiAvailable: answer.providerStatus === "ok",
+      providerStatus: answer.providerStatus
+    });
   } catch (error) {
     console.error("assistant failed", error);
     return json(500, { error: "De assistent is tijdelijk niet beschikbaar." });

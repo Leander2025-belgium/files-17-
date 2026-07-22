@@ -1,4 +1,4 @@
-const CACHE_VERSION = "weerscoop-v20260722-assistent";
+const CACHE_VERSION = "weerscoop-v20260722-assistent-status";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
