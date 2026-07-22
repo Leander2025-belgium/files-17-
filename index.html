@@ -1,0 +1,252 @@
+﻿<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Weerscoop - live weer &amp; radar</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="weatherBG" class="sunny">
+  <div class="wbg-sky"></div>
+  <div class="wbg-stars"></div>
+  <div class="wbg-sun"></div>
+  <div class="wbg-moon"></div>
+  <div class="wbg-clouds">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+    <div class="cloud c4"></div>
+  </div>
+  <div class="wbg-rain"></div>
+  <div class="wbg-snow"></div>
+  <div class="wbg-lightning"></div>
+</div>
+
+<div id="app">
+
+  <!-- ============ HOME ============ -->
+  <div class="screen active" id="home">
+    <div class="topbar">
+      <div class="searchwrap">
+        <div class="searchbox">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="searchInput" placeholder="Zoek een plaats..." autocomplete="off">
+          <svg class="clearbtn" id="clearSearch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+        <div class="suggestions" id="suggestions"></div>
+      </div>
+      <button class="smallbtn" id="openSheetBtn" style="margin-top:8px;">Instellingen</button>
+      <button class="smallbtn" id="tvBtn" style="margin-top:8px;margin-left:6px;">Tv-modus</button>
+    </div>
+    <div class="screen-inner" id="homeInner">
+      <div class="loader" id="homeLoader"><div class="spinner"></div><span>Weer laden...</span></div>
+    </div>
+  </div>
+
+  <!-- ============ RADAR ============ -->
+  <div class="screen" id="radarscreen">
+    <div class="radar-wrap">
+      <div id="map"></div>
+      <div class="radar-top">
+        <div class="chip-row">
+          <button class="chip active" data-layer="precip" id="chipPrecip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 13v8M8 13v8M12 15v8M20 16.58A5 5 0 0018 7h-1.26A8 8 0 104 15.25"/></svg>Buienradar</button>
+          <button class="chip" data-layer="satellite" id="chipSat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg>Satelliet</button>
+          <button class="chip" id="chipScheme">Kleur: <span id="schemeLabel">Helder</span></button>
+          <button class="chip" id="chipLocate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Mijn locatie</button>
+        </div>
+        <div class="chip-row" id="durationRow">
+          <button class="chip active" data-dur="1">1 uur</button>
+          <button class="chip" data-dur="6">6 uur</button>
+          <button class="chip" data-dur="12">12 uur</button>
+          <button class="chip" data-dur="24">24 uur</button>
+        </div>
+      </div>
+      <div class="radar-info" id="radarInfo"></div>
+      <div class="radar-bottom">
+        <div id="liveRadarPanel">
+          <div class="legend">
+            <span>Licht</span>
+            <div class="swatches">
+              <div style="background:#3d7ff0"></div><div style="background:#35c7e0"></div><div style="background:#3fd07a"></div>
+              <div style="background:#e8d64a"></div><div style="background:#f0913c"></div><div style="background:#e8503c"></div><div style="background:#b13cd6"></div>
+            </div>
+            <span>Zwaar</span>
+          </div>
+          <div class="opacity-row">
+            <span>Dekking</span>
+            <input type="range" id="opacitySlider" min="20" max="100" value="90">
+          </div>
+          <div class="timeline-row" style="margin-top:8px;">
+            <button class="playbtn" id="playBtn"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg></button>
+            <div class="timeline" id="timeline"></div>
+            <div class="timelabel" id="timeLabel">--:--</div>
+          </div>
+          <div class="radar-note">Live radarbeeld: recent verleden + korte prognose, per 10 minuten.</div>
+        </div>
+        <div id="hourlyChartPanel">
+          <div class="radar-note" id="hourlyChartNote">Neerslagverwachting per uur - geen bewegend radarbeeld beschikbaar over deze periode, wel actuele modeldata.</div>
+          <div class="hourlychart" id="hourlyChart"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ STORM CHASER ============ -->
+  <div class="screen" id="stormscreen">
+    <div class="screen-inner">
+      <h2 class="section-h">Storm chaser</h2>
+      <p class="subtle">Instabiliteitsdata (CAPE, lifted index, vrieslaagniveau) per locatie, met filters om kansrijke uren op te sporen.</p>
+
+      <div class="card">
+        <div class="card-title">Vergelijk locaties</div>
+        <div id="favchips"></div>
+        <button class="smallbtn" id="addCurrentFav" style="margin-top:6px;">+ Huidige locatie toevoegen</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Storm-risico nu - <span id="riskLocName">-</span></div>
+        <div class="risk-scope">
+          <svg viewBox="0 0 150 150">
+            <circle cx="75" cy="75" r="62" fill="none" stroke="#182543" stroke-width="11"/>
+            <circle id="riskArc" cx="75" cy="75" r="62" fill="none" stroke="#f5a524" stroke-width="11" stroke-linecap="round" stroke-dasharray="389.6" stroke-dashoffset="389.6" transform="rotate(-90 75 75)"/>
+          </svg>
+          <div class="rs-val"><div class="rs-num" id="riskNum">-</div><div class="rs-lbl">risico-index</div></div>
+        </div>
+        <div class="detail-grid" style="margin-top:10px;">
+          <div class="detail-card"><div class="dt-title">CAPE</div><div class="dt-val mono" id="capeNow">-</div><div class="dt-sub">J/kg</div></div>
+          <div class="detail-card"><div class="dt-title">Lifted index</div><div class="dt-val mono" id="liNow">-</div><div class="dt-sub">instabiliteit</div></div>
+          <div class="detail-card"><div class="dt-title">Windstoten</div><div class="dt-val mono" id="gustNow">-</div><div class="dt-sub">km/u</div></div>
+          <div class="detail-card"><div class="dt-title">Vrieslaag</div><div class="dt-val mono" id="frzNow">-</div><div class="dt-sub">m hoogte</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Filters - komende 48 uur</div>
+        <div class="filter-grid">
+          <div class="slider-block">
+            <label>Min. CAPE <b id="fCapeVal">500</b> J/kg</label>
+            <input type="range" id="fCape" min="0" max="3500" step="50" value="500">
+          </div>
+          <div class="slider-block">
+            <label>Max. lifted index <b id="fLiVal">0</b></label>
+            <input type="range" id="fLi" min="-12" max="6" step="1" value="0">
+          </div>
+          <div class="slider-block">
+            <label>Min. windstoten <b id="fGustVal">40</b> km/u</label>
+            <input type="range" id="fGust" min="0" max="150" step="5" value="40">
+          </div>
+          <div class="slider-block">
+            <label>Min. neerslagkans <b id="fPopVal">40</b> %</label>
+            <input type="range" id="fPop" min="0" max="100" step="5" value="40">
+          </div>
+        </div>
+        <div class="headerbar" style="margin-top:12px;">
+          <span class="subtle" id="hitCount" style="font-size:12.5px;">0 uur voldoet aan filters</span>
+          <button class="smallbtn" id="onlyHits">Alleen treffers</button>
+        </div>
+        <div class="tablewrap">
+          <table class="hourtable" id="hourTable">
+            <thead><tr><th>Tijd</th><th>Weer</th><th>CAPE</th><th>LI</th><th>Stoten</th><th>Neerslag%</th></tr></thead>
+            <tbody id="hourTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="safety-note"><b>Let op:</b> dit is een indicatieve modelinschatting (GFS), geen officiele waarschuwing. Volg voor veiligheid altijd de waarschuwingen van het KMI/RMI en houd voldoende afstand tot onweer en hagel.</div>
+    </div>
+  </div>
+
+  <!-- Tabbar -->
+  <div class="tabbar">
+    <button class="tabbtn active" data-tab="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>Home</button>
+    <button class="tabbtn" data-tab="radarscreen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/><path d="M12 3v3M21 12h-3"/></svg>Radar</button>
+    <button class="tabbtn" data-tab="stormscreen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>Storm</button>
+  </div>
+
+  <!-- Settings sheet -->
+  <div class="scrim" id="scrim"></div>
+  <div class="panelsheet" id="settingsSheet">
+    <div class="sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">Instellingen</h3>
+    <div class="sheet-row"><span>Temperatuur</span><div class="seg" id="segTemp"><button data-v="C" class="active">&deg;C</button><button data-v="F">&deg;F</button></div></div>
+    <div class="sheet-row"><span>Windsnelheid</span><div class="seg" id="segWind"><button data-v="kmh" class="active">km/u</button><button data-v="ms">m/s</button><button data-v="kn">kn</button><button data-v="mph">mph</button></div></div>
+    <div class="sheet-row"><span>Neerslag</span><div class="seg" id="segPrecip"><button data-v="mm" class="active">mm</button><button data-v="in">inch</button></div></div>
+    <div class="sheet-row"><span>Luchtdruk</span><div class="seg" id="segPress"><button data-v="hpa" class="active">hPa</button><button data-v="inhg">inHg</button></div></div>
+    <div class="sheet-row"><span>Vooruitzicht</span><div class="seg" id="segDays"><button data-v="7" class="active">7 dagen</button><button data-v="14">14 dagen</button></div></div>
+    <div class="sheet-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <span>Weermodel</span>
+      <div class="seg" id="segModel" style="flex-wrap:wrap;">
+        <button data-v="best_match" class="active">Automatisch</button>
+        <button data-v="ecmwf_ifs025">ECMWF</button>
+        <button data-v="icon_eu">ICON-EU</button>
+        <button data-v="gfs_seamless">GFS</button>
+        <button data-v="knmi_seamless">Harmonie (Benelux)</button>
+      </div>
+      <span class="subtle" style="font-size:11.5px;">Verschillende modellen geven soms net andere cijfers dan andere weer-apps - probeer Harmonie of ICON-EU voor de beste lokale nauwkeurigheid in Belgie.</span>
+    </div>
+    <button class="smallbtn" id="manualRefresh" style="width:100%;margin-top:10px;padding:10px;">Nu verversen</button>
+    <div class="sheet-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <span>KNMI meldingen</span>
+      <input id="knmiKeyInput" class="settings-input" placeholder="KNMI Data Platform API-key (optioneel)" autocomplete="off">
+      <span class="subtle" style="font-size:11.5px;">Met key probeert de app officiele KNMI-waarschuwingen. Zonder key toont hij een indicatieve code uit het KNMI/HARMONIE weermodel.</span>
+    </div>
+    <button class="smallbtn" id="closeSheet" style="width:100%;margin-top:8px;padding:12px;">Sluiten</button>
+  </div>
+</div>
+
+<!-- ============ TV MODE ============ -->
+<div id="tvscreen">
+  <div class="tv-top">
+    <div class="tv-loc">
+      <div class="tv-locname" id="tvLocName">-</div>
+      <div class="tv-admin" id="tvAdmin"></div>
+    </div>
+    <div class="tv-clockwrap">
+      <div class="tv-date" id="tvDate"></div>
+      <div class="tv-clock mono" id="tvClock">--:--</div>
+      <button id="tvExitBtn" title="Tv-modus verlaten (Esc)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Sluiten
+      </button>
+    </div>
+  </div>
+
+  <div class="tv-grid">
+    <div class="tv-left">
+      <div class="tv-current">
+        <div class="tv-icon" id="tvIcon"></div>
+        <div>
+          <div class="tv-temp display" id="tvTemp">-&deg;</div>
+          <div class="tv-cond" id="tvCond">-</div>
+          <div class="tv-hilo" id="tvHiLo">H: - &nbsp; L: -</div>
+        </div>
+      </div>
+      <div class="tv-hourly" id="tvHourly"></div>
+      <div class="tv-details" id="tvDetails"></div>
+    </div>
+    <div class="tv-right">
+      <div class="tv-radar-card">
+        <div class="tv-radar-label">Live buienradar</div>
+        <div id="tvmap"></div>
+      </div>
+      <div class="tv-daily" id="tvDaily"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
+
