@@ -542,7 +542,7 @@ function buildForecastUrl(model){
   return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
     `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m`+
     `&minutely_15=precipitation,weather_code,temperature_2m,wind_speed_10m,wind_gusts_10m`+
-    `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,visibility,wind_speed_10m,wind_gusts_10m,cape,lifted_index,freezing_level_height,relative_humidity_2m,dew_point_2m,uv_index`+
+    `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape,lifted_index,freezing_level_height,relative_humidity_2m,dew_point_2m,uv_index`+
     `&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,daylight_duration,sunshine_duration`+
     `&timezone=auto&forecast_days=14&wind_speed_unit=kmh`+
     (model && model !== 'best_match' ? `&models=${model}` : '');
@@ -959,7 +959,6 @@ function fourteenDaySection(){
   const n = Math.min(14, state.daily.time.length);
   return `<div class="card"><div class="card-title">${icon('sunrise',true,13)} 14-daagse verwachting</div>
     <div class="days14">${Array.from({length:n},(_,i)=>day14Card(i)).join('')}</div>
-    <div id="dayDetail" class="day-detail subtle">Klik op een dag voor details.</div>
   </div>`;
 }
 
@@ -976,12 +975,126 @@ function day14Card(i){
 function wireDailyDetails(){
   $$('.day14').forEach(btn=>btn.addEventListener('click',()=>{
     const i = +btn.dataset.day;
-    const d = new Date(state.daily.time[i]);
-    $('#dayDetail').innerHTML = `<b>${d.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'})}</b><br>
-      Min ${fmtTemp(state.daily.temperature_2m_min[i])}, max ${fmtTemp(state.daily.temperature_2m_max[i])}, gevoel ${fmtTemp(state.daily.apparent_temperature_min?.[i])}-${fmtTemp(state.daily.apparent_temperature_max?.[i])}.<br>
-      Neerslag ${fmtPrecip(state.daily.precipitation_sum[i])}, kans ${state.daily.precipitation_probability_max[i]??0}%, windstoten ${fmtWind(state.daily.wind_gusts_10m_max[i])}.<br>
-      Zon op ${state.daily.sunrise[i]?.slice(11,16) || '-'}, onder ${state.daily.sunset[i]?.slice(11,16) || '-'}.`;
+    $$('.day14').forEach(b=>b.classList.toggle('selected', b === btn));
+    btn.classList.add('tap-animate');
+    setTimeout(()=>btn.classList.remove('tap-animate'), 360);
+    openDayDetail(i);
   }));
+}
+
+function openDayDetail(i){
+  const sheet = $('#daySheet'), scrim = $('#dayScrim');
+  if(!sheet || !scrim) return;
+  sheet.innerHTML = dayDetailSheet(i);
+  sheet.classList.add('show');
+  scrim.classList.add('show');
+  document.body.classList.add('day-detail-open');
+  $('.day-sheet-close', sheet)?.addEventListener('click', closeDayDetail);
+}
+
+function closeDayDetail(){
+  $('#daySheet')?.classList.remove('show');
+  $('#dayScrim')?.classList.remove('show');
+  document.body.classList.remove('day-detail-open');
+}
+
+function dayDetailSheet(i){
+  const daily = state.daily, hourly = state.hourly;
+  const date = new Date(daily.time[i]);
+  const wc = wcInfo(daily.weather_code[i]);
+  const hours = dayHourlyIndexes(i);
+  const avg = key => average(hours.map(h=>hourly[key]?.[h]).filter(v=>v!=null && isFinite(v)));
+  const max = key => {
+    const vals = hours.map(h=>hourly[key]?.[h]).filter(v=>v!=null && isFinite(v));
+    return vals.length ? Math.max(...vals) : null;
+  };
+  const windAvg = avg('wind_speed_10m');
+  const humAvg = avg('relative_humidity_2m');
+  const pressureAvg = avg('pressure_msl');
+  const dirAvg = avgWindDirection(hours.map(h=>hourly.wind_direction_10m?.[h]).filter(v=>v!=null && isFinite(v)));
+  const dayAlerts = alertsForDay(i);
+  return `<div class="day-sheet-handle"></div>
+    <button class="day-sheet-close" type="button" aria-label="Sluiten">&times;</button>
+    <div class="day-detail-hero">
+      <div>
+        <div class="day-detail-date">${date.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'})}</div>
+        <h2 id="daySheetTitle">${wc.l}</h2>
+        <div class="day-detail-range"><b>${fmtTemp(daily.temperature_2m_max[i])}</b><span>${fmtTemp(daily.temperature_2m_min[i])}</span></div>
+      </div>
+      ${icon(wc.ic,true,86)}
+    </div>
+    <div class="day-detail-grid">
+      ${dayMetric('thermo','Gevoel', `${fmtTemp(daily.apparent_temperature_min?.[i])} - ${fmtTemp(daily.apparent_temperature_max?.[i])}`, 'min / max')}
+      ${dayMetric('drop','Neerslagkans', `${daily.precipitation_probability_max[i]??0}%`, fmtPrecip(daily.precipitation_sum[i]))}
+      ${dayMetric('wind','Wind', windAvg == null ? '-' : fmtWind(windAvg), `Stoten ${fmtWind(daily.wind_gusts_10m_max[i])}`)}
+      ${dayMetric('gauge','Windrichting', dirAvg == null ? '-' : windDirectionLabel(dirAvg), dirAvg == null ? '-' : `${Math.round(dirAvg)} deg`)}
+      ${dayMetric('gauge','Vochtigheid', humAvg == null ? '-' : `${Math.round(humAvg)}%`, 'gemiddeld')}
+      ${dayMetric('uv','UV-index', `${Math.round(daily.uv_index_max?.[i] ?? max('uv_index') ?? 0)}`, uvLabel(daily.uv_index_max?.[i] ?? max('uv_index') ?? 0))}
+      ${dayMetric('thermo','Luchtdruk', pressureAvg == null ? '-' : fmtPress(pressureAvg), 'gemiddeld')}
+      ${dayMetric('sunrise','Zon', `${formatDayTime(daily.sunrise[i])}`, `Onder ${formatDayTime(daily.sunset[i])}`)}
+    </div>
+    <div class="day-alerts ${dayAlerts.length?'':'quiet'}">
+      <b>Waarschuwingen</b>
+      ${dayAlerts.length ? dayAlerts.map(a=>`<p>${esc(a)}</p>`).join('') : '<p>Geen waarschuwingen voor deze dag.</p>'}
+    </div>
+    <div class="day-hours-title">Uur-tot-uur</div>
+    <div class="day-hours">${hours.slice(0,24).map(h=>dayHourItem(h)).join('')}</div>`;
+}
+
+function dayMetric(ic, title, value, sub){
+  return `<div class="day-metric">${icon(ic,true,18)}<div><span>${title}</span><b>${value}</b><small>${sub}</small></div></div>`;
+}
+
+function dayHourlyIndexes(dayIndex){
+  const day = state.daily.time[dayIndex];
+  const idx = [];
+  (state.hourly.time || []).forEach((t,i)=>{
+    if(String(t).slice(0,10) === day) idx.push(i);
+  });
+  return idx;
+}
+
+function dayHourItem(i){
+  const h = state.hourly, wc = wcInfo(h.weather_code[i]);
+  const time = new Date(h.time[i]).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
+  const pop = h.precipitation_probability[i] ?? 0;
+  return `<div class="day-hour">
+    <span>${time}</span>${icon(wc.ic,isDayForTime(h.time[i]),24)}
+    <b>${fmtTemp(h.temperature_2m[i])}</b>
+    <small>${pop>10 ? pop+'%' : ''}</small>
+  </div>`;
+}
+
+function average(vals){
+  return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+}
+
+function avgWindDirection(vals){
+  if(!vals.length) return null;
+  const r = vals.map(v=>v*Math.PI/180);
+  const x = r.reduce((a,v)=>a+Math.cos(v),0), y = r.reduce((a,v)=>a+Math.sin(v),0);
+  return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
+}
+
+function windDirectionLabel(deg){
+  const dirs = ['N','NO','O','ZO','Z','ZW','W','NW'];
+  return dirs[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+}
+
+function formatDayTime(value){
+  return value ? String(value).slice(11,16) : '-';
+}
+
+function alertsForDay(dayIndex){
+  const out = [];
+  const d = state.daily;
+  const hIdx = dayHourlyIndexes(dayIndex);
+  if((d.precipitation_probability_max[dayIndex] ?? 0) >= 70) out.push('Verhoogde kans op neerslag.');
+  if((d.wind_gusts_10m_max[dayIndex] ?? 0) >= 60) out.push('Kans op sterke windstoten.');
+  if((d.uv_index_max?.[dayIndex] ?? 0) >= 6) out.push('Hoge UV-index, bescherm je huid.');
+  if(hIdx.some(i=>[95,96,99].includes(state.hourly.weather_code[i]))) out.push('Kans op onweer.');
+  const official = (state.alerts || []).filter(a=>a.level && a.level !== 'green').map(a=>a.headline || a.description).filter(Boolean);
+  return [...new Set(out.concat(dayIndex === 0 ? official : []))];
 }
 
 function sunMoonSection(){
@@ -1194,6 +1307,7 @@ function closeSheet(){ $('#settingsSheet').classList.remove('show'); $('#scrim')
 $('#closeSheet').addEventListener('click', closeSheet);
 $('#openSheetBtn').addEventListener('click', openSheet);
 $('#scrim').addEventListener('click', closeSheet);
+$('#dayScrim')?.addEventListener('click', closeDayDetail);
 document.body.addEventListener('touchmove', (e)=>{}, {passive:true});
 
 function wireSeg(id, key){
@@ -1744,6 +1858,7 @@ document.addEventListener('fullscreenchange', ()=>{
   if(!document.fullscreenElement && tv.active) exitTV();
 });
 document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape' && document.body.classList.contains('day-detail-open')) closeDayDetail();
   if(e.key === 'Escape' && tv.active) exitTV();
 });
 document.addEventListener('visibilitychange', ()=>{
