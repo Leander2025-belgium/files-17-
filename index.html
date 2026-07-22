@@ -3,19 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#081426">
+<meta name="theme-color" content="#0a3f8f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Weerscoop">
+<meta name="application-name" content="Weerscoop">
 <title>Weerscoop - live weer &amp; radar</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+<link rel="manifest" href="./manifest.webmanifest">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<div id="app-splash" class="app-splash" aria-label="Weerscoop wordt geladen">
+  <div class="app-splash-content">
+    <div class="app-splash-logo-wrap">
+      <img class="app-splash-logo" src="./icons/icon-512.png" alt="Weerscoop">
+    </div>
+    <div class="app-splash-name">Weerscoop</div>
+    <div class="app-splash-status">Live weer wordt geladen</div>
+    <div class="app-splash-progress" aria-hidden="true"><span></span></div>
+  </div>
+</div>
 
 <div id="weatherBG" class="sunny">
   <div class="wbg-sky"></div>
@@ -212,6 +226,7 @@
         <strong id="pushStatusText">Controleren...</strong>
       </div>
       <div class="install-card" id="pushInstallCard">
+        <img class="settings-logo" src="./icons/icon-96.png" alt="Weerscoop">
         <b>Installeer Weerscoop op je beginscherm om weerwaarschuwingen te ontvangen.</b>
         <ol>
           <li>Tik op Deel.</li>
@@ -248,6 +263,12 @@
         <label>Vorst onder <input id="pushFrostThreshold" type="number" min="-30" max="10" value="0">&deg;C</label>
       </div>
       <span class="subtle" id="pushHelpText" style="font-size:11.5px;">Vraag toestemming alleen via deze knop. Op iPhone werkt dit na installatie op je beginscherm.</span>
+    </div>
+    <div class="sheet-row about-weerscoop" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div class="about-brand">
+        <img src="./icons/icon-96.png" alt="Weerscoop">
+        <div><b>Weerscoop</b><span>Live weer, radar en persoonlijke waarschuwingen</span></div>
+      </div>
     </div>
     <button class="smallbtn" id="closeSheet" style="width:100%;margin-top:8px;padding:12px;">Sluiten</button>
   </div>

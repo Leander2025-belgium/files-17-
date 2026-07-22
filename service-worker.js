@@ -1,14 +1,29 @@
-const CACHE_VERSION = "weerscoop-v20260722-push-fullscreen";
+const CACHE_VERSION = "weerscoop-v20260722-branding-splash";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
   "./index.html",
+  "./offline.html",
   "./style.css",
   "./script.js",
   "./manifest.webmanifest",
+  "./assets/branding/weerscoop-logo-master.png",
+  "./icons/favicon-16.png",
+  "./icons/favicon-32.png",
+  "./icons/icon-48.png",
+  "./icons/icon-72.png",
+  "./icons/icon-96.png",
+  "./icons/icon-128.png",
+  "./icons/icon-144.png",
+  "./icons/icon-152.png",
+  "./icons/icon-167.png",
+  "./icons/icon-180.png",
   "./icons/icon-192.png",
+  "./icons/icon-256.png",
+  "./icons/icon-384.png",
   "./icons/icon-512.png",
   "./icons/icon-512-maskable.png",
+  "./icons/apple-touch-icon.png",
   "./icons/badge-96.png"
 ];
 
@@ -59,7 +74,7 @@ self.addEventListener("fetch", event => {
         const copy = response.clone();
         caches.open(APP_CACHE).then(cache => cache.put(request, copy));
         return response;
-      }).catch(() => caches.match(request).then(cached => cached || caches.match("./index.html")))
+      }).catch(() => caches.match(request).then(cached => cached || caches.match("./index.html") || caches.match("./offline.html")))
     );
     return;
   }

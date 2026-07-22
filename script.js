@@ -35,6 +35,17 @@ function toast(msg){
   clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2200);
 }
 
+let appSplashHidden = false;
+function hideAppSplash(){
+  if(appSplashHidden) return;
+  const splash = $('#app-splash');
+  if(!splash){ appSplashHidden = true; return; }
+  appSplashHidden = true;
+  splash.classList.add('is-hidden');
+  splash.addEventListener('transitionend', ()=>splash.remove(), {once:true});
+}
+setTimeout(hideAppSplash, 2500);
+
 /* ---------------- storage helpers (best effort, non-blocking) ---------------- */
 async function loadStoredFavorites(){
   try{
@@ -576,6 +587,7 @@ async function loadWeather(){
     $('#homeInner').innerHTML = `<div class="empty-state">${icon('cloud',true,38)}<div>Kon het weer niet laden.<br>Controleer je internetverbinding en probeer opnieuw.</div></div>`;
   }finally{
     $('#homeLoader')?.classList.add('hide');
+    setTimeout(hideAppSplash, 260);
   }
 }
 

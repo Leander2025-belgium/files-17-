@@ -39,6 +39,98 @@ h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
 button{font-family:inherit;}
 a{color:inherit;}
 
+/* ---------- Branded startup splash ---------- */
+.app-splash{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100vh;
+  height:100dvh;
+  z-index:5000;
+  display:grid;
+  place-items:center;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(47,147,255,.22), transparent 42%),
+    linear-gradient(180deg,#102d59 0%,#081a35 55%,#050f20 100%);
+  transition:opacity 420ms ease, visibility 420ms ease;
+}
+.app-splash.is-hidden{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+.app-splash-content{
+  display:grid;
+  justify-items:center;
+  gap:14px;
+  padding:calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px);
+}
+.app-splash-logo-wrap{
+  position:relative;
+  overflow:hidden;
+  border-radius:28%;
+  box-shadow:0 26px 70px rgba(0,0,0,.26);
+}
+.app-splash-logo-wrap::after{
+  content:"";
+  position:absolute;
+  inset:-20%;
+  background:linear-gradient(105deg,transparent 20%,rgba(255,255,255,.34) 48%,transparent 72%);
+  transform:translateX(-120%);
+  animation:splashSheen 900ms ease 320ms both;
+  pointer-events:none;
+}
+.app-splash-logo{
+  width:clamp(112px,29vw,168px);
+  height:auto;
+  display:block;
+  animation:splashLogoEnter 720ms cubic-bezier(.2,.8,.2,1) both;
+}
+.app-splash-name{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:clamp(28px,7vw,42px);
+  font-weight:800;
+  letter-spacing:.02em;
+  opacity:0;
+  animation:splashTextIn 520ms ease 260ms forwards;
+}
+.app-splash-status{
+  color:rgba(235,244,255,.72);
+  font-size:14px;
+  opacity:0;
+  animation:splashTextIn 520ms ease 360ms forwards;
+}
+.app-splash-progress{
+  width:min(210px,54vw);
+  height:3px;
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(255,255,255,.14);
+  margin-top:4px;
+}
+.app-splash-progress span{
+  display:block;
+  width:45%;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,rgba(101,216,255,.25),#70d9ff,rgba(101,216,255,.25));
+  animation:splashProgress 1.25s ease-in-out infinite;
+}
+@keyframes splashLogoEnter{
+  from{opacity:0;transform:scale(.92) translateY(8px);}
+  to{opacity:1;transform:scale(1) translateY(0);}
+}
+@keyframes splashTextIn{
+  to{opacity:1;}
+}
+@keyframes splashProgress{
+  from{transform:translateX(-110%);}
+  to{transform:translateX(230%);}
+}
+@keyframes splashSheen{
+  to{transform:translateX(120%);}
+}
+
 /* ---------- App shell ---------- */
 #app{flex:1;display:flex;flex-direction:column;min-height:0;position:relative;z-index:1;background:transparent;}
 .screen{flex:1;overflow-y:auto;overflow-x:hidden;display:none;-webkit-overflow-scrolling:touch;}
@@ -732,8 +824,17 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
   background:var(--bg);z-index:2;flex-direction:column;gap:10px;
 }
 .loader.hide{display:none;}
-.spinner{width:30px;height:30px;border-radius:50%;border:3px solid var(--elev2);border-top-color:var(--cool);animation:spin 1s linear infinite;}
+.spinner{
+  width:46px;
+  height:46px;
+  border-radius:14px;
+  border:none;
+  background:url("./icons/icon-96.png") center/contain no-repeat;
+  box-shadow:0 12px 32px rgba(0,0,0,.20);
+  animation:loaderLogoPulse 1.2s ease-in-out infinite;
+}
 @keyframes spin{to{transform:rotate(360deg);}}
+@keyframes loaderLogoPulse{0%,100%{transform:scale(1);opacity:.86;}50%{transform:scale(1.04);opacity:1;}}
 .loader span{font-size:12.5px;color:var(--dim);}
 
 .toast{
@@ -2215,7 +2316,14 @@ body{
   .sun-metric .metric-value{font-size:13.5px;}
 }
 @media (prefers-reduced-motion: reduce){
+  .app-splash-logo,
+  .app-splash-logo-wrap::after,
+  .app-splash-name,
+  .app-splash-status,
+  .app-splash-progress span,
+  .spinner,
   .sun-path-glow,
+  .sun-path-line,
   .sun-position,
   .sun-metric,
   .premium-moon,
@@ -2223,6 +2331,7 @@ body{
     animation:none!important;
   }
   .day-sheet,
+  .app-splash,
   .day-scrim,
   #home .day14{
     transition:none!important;
@@ -2301,6 +2410,14 @@ body{
   padding:12px;
 }
 .install-card.show{display:block;}
+.settings-logo{
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  display:block;
+  margin-bottom:8px;
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+}
 .install-card b{
   display:block;
   margin-bottom:8px;
@@ -2324,6 +2441,28 @@ body{
 .notify-actions .smallbtn:disabled{
   opacity:.42;
   cursor:not-allowed;
+}
+.about-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.075);
+  padding:11px;
+}
+.about-brand img{
+  width:48px;
+  height:48px;
+  border-radius:14px;
+  flex:0 0 auto;
+}
+.about-brand b,
+.about-brand span{display:block;}
+.about-brand span{
+  margin-top:2px;
+  color:rgba(233,238,251,.68);
+  font-size:12px;
 }
 .notify-prefs{
   display:grid;
