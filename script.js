@@ -7,6 +7,7 @@
 const KNMI_OPEN_DATA_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6IjU0YWM2YmI3NmVmZDRhMTI4NzEwMmUxMWE2NzRlYmMwIiwiaCI6Im11cm11cjEyOCJ9';
 const KNMI_WMS_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6ImI5YmEzN2M4ZWZiYjRhZjdhMjBkYjlmNzNhN2M1NmQwIiwiaCI6Im11cm11cjEyOCJ9';
 const RADAR_MAX_AGE_MINUTES = 90;
+const PUSH_FUNCTION_BASE = new URL('/.netlify/functions/', location.origin).href;
 
 const state = {
   loc: { lat: 51.2405, lon: 2.9309, name: "Oostende", admin: "West-Vlaanderen, Belgie" },
@@ -18,6 +19,7 @@ const state = {
   knmiKey: KNMI_OPEN_DATA_API_KEY,
   lastUpdated: null,
   favorites: [],
+  push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null },
   map: null, marker: null,
   activeTab: 'home',
@@ -742,6 +744,35 @@ function renderHome(){
   wireSectionNav();
   wireDailyDetails();
   renderPremiumCharts();
+  positionSunPaths();
+}
+
+function defaultPushPreferences(){
+  return {
+    codeYellow:true, codeOrange:true, codeRed:true, thunder:true, heavyRain:true, snow:true, ice:true,
+    wind:true, heat:true, frost:true, uv:true, rainSoon:true, dailyMorning:false, coast:true
+  };
+}
+function defaultPushThresholds(){
+  return { rainProbability:70, windGust:70, heat:30, frost:0 };
+}
+function loadPushSettings(){
+  try{
+    state.push.installationId = localStorage.getItem('weerscoop:installationId') || crypto.randomUUID();
+    localStorage.setItem('weerscoop:installationId', state.push.installationId);
+    state.push.preferences = {...defaultPushPreferences(), ...JSON.parse(localStorage.getItem('weerscoop:pushPrefs') || '{}')};
+    state.push.thresholds = {...defaultPushThresholds(), ...JSON.parse(localStorage.getItem('weerscoop:pushThresholds') || '{}')};
+  }catch(e){
+    state.push.installationId = 'install-' + Date.now();
+    state.push.preferences = defaultPushPreferences();
+    state.push.thresholds = defaultPushThresholds();
+  }
+}
+function savePushSettings(){
+  try{
+    localStorage.setItem('weerscoop:pushPrefs', JSON.stringify(state.push.preferences));
+    localStorage.setItem('weerscoop:pushThresholds', JSON.stringify(state.push.thresholds));
+  }catch(e){}
 }
 
 function appSections(){
@@ -1294,13 +1325,13 @@ function sunArcCard(sunrise, sunset){
   let frac = (nowMin - srMin) / (ssMin - srMin);
   const isNight = frac < 0 || frac > 1;
   frac = Math.min(1, Math.max(0, frac));
-  const x = 8 + frac*84, y = 78 - Math.sin(frac*Math.PI)*58;
+  const progress = frac.toFixed(4);
   return `<div class="sun-path">
-      <svg viewBox="0 0 100 84" role="img" aria-label="Zonnetraject">
+      <svg viewBox="0 0 100 84" role="img" aria-label="Zonnetraject" data-sun-progress="${progress}">
         <path class="sun-path-base" d="M8,78 C24,24 76,24 92,78" fill="none"/>
-        <path class="sun-path-glow" d="M8,78 C24,24 76,24 92,78" fill="none"/>
+        <path class="sun-path-line" d="M8,78 C24,24 76,24 92,78" fill="none"/>
         <line class="sun-horizon" x1="5" x2="95" y1="78" y2="78"/>
-        ${!isNight ? `<circle class="sun-position" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.8"/>` : ''}
+        ${!isNight ? `<circle class="sun-position" cx="8" cy="78" r="4.8"/>` : '<circle class="sun-position night" cx="50" cy="82" r="3.4"/>'}
       </svg>
     </div>`;
 }
@@ -1345,6 +1376,21 @@ function formatDuration(seconds){
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${h} u ${m} min`;
+}
+
+function positionSunPaths(){
+  $$('.sun-path svg').forEach(svg=>{
+    const path = $('.sun-path-line', svg);
+    const dot = $('.sun-position', svg);
+    if(!path || !dot || dot.classList.contains('night')) return;
+    const progress = Math.min(1, Math.max(0, Number(svg.dataset.sunProgress || 0)));
+    try{
+      const len = path.getTotalLength();
+      const point = path.getPointAtLength(len * progress);
+      dot.setAttribute('cx', point.x.toFixed(2));
+      dot.setAttribute('cy', point.y.toFixed(2));
+    }catch(e){}
+  });
 }
 function moonCard(moon){
   const illumPct = Math.round(moon.illumination*100);
@@ -1433,6 +1479,193 @@ $('#knmiKeyInput')?.addEventListener('change', async (e)=>{
   await loadWeather();
   toast(state.knmiKey ? 'KNMI meldingen ingeschakeld' : 'KNMI key verwijderd');
 });
+
+function isStandaloneApp(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function supportsPushNotifications(){
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+async function registerAppServiceWorker(){
+  if(!('serviceWorker' in navigator)) return null;
+  const reg = await navigator.serviceWorker.register(new URL('./service-worker.js', location.href), {scope:'./'});
+  if(reg.waiting) showUpdateToast(reg.waiting);
+  reg.addEventListener('updatefound', ()=>{
+    const worker = reg.installing;
+    worker?.addEventListener('statechange', ()=>{
+      if(worker.state === 'installed' && navigator.serviceWorker.controller) showUpdateToast(worker);
+    });
+  });
+  return reg;
+}
+
+function showUpdateToast(worker){
+  const t = $('#toast');
+  t.innerHTML = `Nieuwe versie beschikbaar <button id="reloadAppBtn" type="button">Vernieuwen</button>`;
+  t.classList.add('show','update');
+  $('#reloadAppBtn')?.addEventListener('click', ()=>{
+    worker.postMessage?.({type:'SKIP_WAITING'});
+    location.reload();
+  });
+}
+
+async function getPushConfig(){
+  try{
+    const r = await fetch(PUSH_FUNCTION_BASE + 'push-config', {cache:'no-store'});
+    if(!r.ok) return {configured:false};
+    return await r.json();
+  }catch(e){
+    return {configured:false};
+  }
+}
+
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for(let i=0;i<rawData.length;i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function collectPushPayload(subscription){
+  return {
+    installationId: state.push.installationId,
+    subscription: subscription.toJSON ? subscription.toJSON() : subscription,
+    location: state.loc,
+    preferences: state.push.preferences,
+    thresholds: state.push.thresholds
+  };
+}
+
+async function enablePushNotifications(){
+  updatePushUi('Controleren...');
+  if(!supportsPushNotifications()){
+    updatePushUi('Niet ondersteund');
+    return toast('Meldingen worden niet ondersteund op dit toestel.');
+  }
+  state.push.standalone = isStandaloneApp();
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if(isIos && !state.push.standalone){
+    updatePushUi('Installeer eerst de app');
+    return;
+  }
+  const config = await getPushConfig();
+  if(!config.configured || !config.vapidPublicKey){
+    updatePushUi('Tijdelijk offline');
+    return toast('Pushserver is nog niet geconfigureerd in Netlify.');
+  }
+  const registration = await registerAppServiceWorker();
+  const permission = await Notification.requestPermission();
+  if(permission !== 'granted'){
+    updatePushUi(permission === 'denied' ? 'Geblokkeerd' : 'Toestemming vereist');
+    return;
+  }
+  const ready = await navigator.serviceWorker.ready;
+  let subscription = await ready.pushManager.getSubscription();
+  if(!subscription){
+    subscription = await ready.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:urlBase64ToUint8Array(config.vapidPublicKey)
+    });
+  }
+  const r = await fetch(PUSH_FUNCTION_BASE + 'push-subscribe', {
+    method:'POST',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify(collectPushPayload(subscription))
+  });
+  if(!r.ok) throw new Error('Abonnement kon niet worden opgeslagen.');
+  updatePushUi('Ingeschakeld');
+  toast('Meldingen ingeschakeld');
+}
+
+async function disablePushNotifications(){
+  if(!supportsPushNotifications()) return updatePushUi('Niet ondersteund');
+  const registration = await navigator.serviceWorker.ready.catch(()=>null);
+  const subscription = await registration?.pushManager.getSubscription();
+  if(subscription){
+    await fetch(PUSH_FUNCTION_BASE + 'push-unsubscribe', {
+      method:'DELETE',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({endpoint:subscription.endpoint, installationId:state.push.installationId})
+    }).catch(()=>undefined);
+    await subscription.unsubscribe().catch(()=>undefined);
+  }
+  updatePushUi('Toestemming vereist');
+  toast('Meldingen uitgeschakeld');
+}
+
+async function sendTestPushNotification(){
+  const registration = await navigator.serviceWorker.ready.catch(()=>null);
+  const subscription = await registration?.pushManager.getSubscription();
+  if(!subscription) return toast('Schakel eerst meldingen in.');
+  const r = await fetch(PUSH_FUNCTION_BASE + 'send-test-notification', {
+    method:'POST',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({endpoint:subscription.endpoint, installationId:state.push.installationId})
+  });
+  if(!r.ok) return toast('Testmelding kon niet worden verzonden.');
+  toast('Testmelding verzonden. Sluit Weerscoop om dit te testen.');
+}
+
+async function updatePushState(){
+  state.push.supported = supportsPushNotifications();
+  state.push.standalone = isStandaloneApp();
+  if(!state.push.supported) return updatePushUi('Niet ondersteund');
+  if(Notification.permission === 'denied') return updatePushUi('Geblokkeerd');
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if(isIos && !state.push.standalone) return updatePushUi('Installeer eerst de app');
+  const config = await getPushConfig();
+  state.push.configured = Boolean(config.configured);
+  if(!state.push.configured) return updatePushUi('Tijdelijk offline');
+  const reg = await registerAppServiceWorker().catch(()=>null);
+  const sub = await reg?.pushManager.getSubscription().catch(()=>null);
+  if(sub) return updatePushUi('Ingeschakeld');
+  updatePushUi(Notification.permission === 'granted' ? 'Toestemming vereist' : 'Toestemming vereist');
+}
+
+function updatePushUi(status){
+  state.push.status = status;
+  const statusEl = $('#pushStatusText');
+  if(statusEl) statusEl.textContent = status;
+  $('#pushInstallCard')?.classList.toggle('show', status === 'Installeer eerst de app');
+  const enabled = status === 'Ingeschakeld';
+  if($('#enablePushBtn')) $('#enablePushBtn').disabled = enabled || status === 'Niet ondersteund' || status === 'Geblokkeerd';
+  if($('#testPushBtn')) $('#testPushBtn').disabled = !enabled;
+  if($('#disablePushBtn')) $('#disablePushBtn').disabled = !enabled;
+}
+
+function wirePushSettings(){
+  loadPushSettings();
+  $$('#pushPrefs input[type=checkbox]').forEach(input=>{
+    input.checked = state.push.preferences[input.dataset.pref] !== false;
+    input.addEventListener('change', ()=>{
+      state.push.preferences[input.dataset.pref] = input.checked;
+      savePushSettings();
+    });
+  });
+  const map = [
+    ['pushRainThreshold','rainProbability'],
+    ['pushWindThreshold','windGust'],
+    ['pushHeatThreshold','heat'],
+    ['pushFrostThreshold','frost']
+  ];
+  map.forEach(([id,key])=>{
+    const el = $('#'+id);
+    if(!el) return;
+    el.value = state.push.thresholds[key];
+    el.addEventListener('change', ()=>{
+      state.push.thresholds[key] = Number(el.value);
+      savePushSettings();
+    });
+  });
+  $('#enablePushBtn')?.addEventListener('click', ()=>enablePushNotifications().catch(e=>{ updatePushUi('Tijdelijk offline'); toast(e.message || 'Meldingen inschakelen mislukt.'); }));
+  $('#disablePushBtn')?.addEventListener('click', ()=>disablePushNotifications().catch(()=>toast('Uitschakelen mislukt.')));
+  $('#testPushBtn')?.addEventListener('click', ()=>sendTestPushNotification().catch(()=>toast('Testmelding mislukt.')));
+  updatePushState();
+}
 
 // long-press / click on home hero opens settings quickly via a gear tap area (top-right)
 $('#home').addEventListener('dblclick', openSheet);
@@ -1960,6 +2193,16 @@ document.addEventListener('visibilitychange', ()=>{
 window.addEventListener('focus', ()=>{
   if(tv.active) refreshTvRadarFrame();
 });
+window.addEventListener('resize', ()=>{
+  if(state.map) setTimeout(()=>state.map.invalidateSize(), 120);
+  if(tv.map) setTimeout(()=>tv.map.invalidateSize(), 120);
+  positionSunPaths();
+});
+window.addEventListener('orientationchange', ()=>{
+  if(state.map) setTimeout(()=>state.map.invalidateSize(), 350);
+  if(tv.map) setTimeout(()=>tv.map.invalidateSize(), 350);
+  setTimeout(positionSunPaths, 350);
+});
 
 function tickClock(){
   const now = new Date();
@@ -2162,6 +2405,7 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
    ========================================================================= */
 async function init(){
   await loadStoredUnits();
+  wirePushSettings();
   await loadStoredFavorites();
   $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
   $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));

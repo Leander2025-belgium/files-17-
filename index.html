@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#081426">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Weerscoop">
 <title>Weerscoop - live weer &amp; radar</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -199,6 +205,49 @@
       <span>KNMI meldingen</span>
       <input id="knmiKeyInput" class="settings-input" placeholder="KNMI Data Platform API-key (optioneel)" autocomplete="off">
       <span class="subtle" style="font-size:11.5px;">Met key probeert de app officiele KNMI-waarschuwingen. Zonder key toont hij een indicatieve code uit het KNMI/HARMONIE weermodel.</span>
+    </div>
+    <div class="sheet-row notification-settings" style="flex-direction:column;align-items:stretch;gap:10px;">
+      <div class="settings-section-head">
+        <span>Meldingen</span>
+        <strong id="pushStatusText">Controleren...</strong>
+      </div>
+      <div class="install-card" id="pushInstallCard">
+        <b>Installeer Weerscoop op je beginscherm om weerwaarschuwingen te ontvangen.</b>
+        <ol>
+          <li>Tik op Deel.</li>
+          <li>Kies 'Zet op beginscherm'.</li>
+          <li>Open daarna Weerscoop via het appicoon.</li>
+          <li>Schakel meldingen in via Instellingen.</li>
+        </ol>
+      </div>
+      <div class="notify-actions">
+        <button class="smallbtn" id="enablePushBtn" type="button">Meldingen inschakelen</button>
+        <button class="smallbtn" id="testPushBtn" type="button">Testmelding sturen</button>
+        <button class="smallbtn" id="disablePushBtn" type="button">Meldingen uitschakelen</button>
+      </div>
+      <div class="notify-prefs" id="pushPrefs">
+        <label><input type="checkbox" data-pref="codeYellow" checked> Code geel</label>
+        <label><input type="checkbox" data-pref="codeOrange" checked> Code oranje</label>
+        <label><input type="checkbox" data-pref="codeRed" checked> Code rood</label>
+        <label><input type="checkbox" data-pref="thunder" checked> Onweer in de buurt</label>
+        <label><input type="checkbox" data-pref="heavyRain" checked> Zware regen</label>
+        <label><input type="checkbox" data-pref="snow" checked> Sneeuw</label>
+        <label><input type="checkbox" data-pref="ice" checked> Gladheid</label>
+        <label><input type="checkbox" data-pref="wind" checked> Extreme windstoten</label>
+        <label><input type="checkbox" data-pref="heat" checked> Hitte</label>
+        <label><input type="checkbox" data-pref="frost" checked> Vorst</label>
+        <label><input type="checkbox" data-pref="uv" checked> Sterke UV</label>
+        <label><input type="checkbox" data-pref="rainSoon" checked> Regen binnen 30 minuten</label>
+        <label><input type="checkbox" data-pref="dailyMorning"> Dagelijkse ochtendverwachting</label>
+        <label><input type="checkbox" data-pref="coast" checked> Kustwaarschuwingen Oostende</label>
+      </div>
+      <div class="threshold-grid">
+        <label>Neerslag vanaf <input id="pushRainThreshold" type="number" min="0" max="100" value="70">%</label>
+        <label>Windstoten vanaf <input id="pushWindThreshold" type="number" min="0" max="160" value="70"> km/u</label>
+        <label>Hitte vanaf <input id="pushHeatThreshold" type="number" min="20" max="50" value="30">&deg;C</label>
+        <label>Vorst onder <input id="pushFrostThreshold" type="number" min="-30" max="10" value="0">&deg;C</label>
+      </div>
+      <span class="subtle" id="pushHelpText" style="font-size:11.5px;">Vraag toestemming alleen via deze knop. Op iPhone werkt dit na installatie op je beginscherm.</span>
     </div>
     <button class="smallbtn" id="closeSheet" style="width:100%;margin-top:8px;padding:12px;">Sluiten</button>
   </div>
