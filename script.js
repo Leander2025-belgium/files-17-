@@ -1576,7 +1576,7 @@ async function enablePushNotifications(){
     headers:{'content-type':'application/json'},
     body:JSON.stringify(collectPushPayload(subscription))
   });
-  if(!r.ok) throw new Error('Abonnement kon niet worden opgeslagen.');
+  if(!r.ok) throw new Error(await pushErrorText(r, 'Abonnement kon niet worden opgeslagen.'));
   updatePushUi('Ingeschakeld');
   toast('Meldingen ingeschakeld');
 }
@@ -1606,8 +1606,17 @@ async function sendTestPushNotification(){
     headers:{'content-type':'application/json'},
     body:JSON.stringify({endpoint:subscription.endpoint, installationId:state.push.installationId})
   });
-  if(!r.ok) return toast('Testmelding kon niet worden verzonden.');
+  if(!r.ok) return toast(await pushErrorText(r, 'Testmelding kon niet worden verzonden.'));
   toast('Testmelding verzonden. Sluit Weerscoop om dit te testen.');
+}
+
+async function pushErrorText(response, fallback){
+  try{
+    const data = await response.json();
+    return data.error || fallback;
+  }catch(e){
+    return fallback;
+  }
 }
 
 async function updatePushState(){

@@ -27,7 +27,10 @@ function json(statusCode, body) {
 }
 
 function store() {
-  return getStore("weerscoop-push");
+  const options = { name: "weerscoop-push" };
+  if (process.env.NETLIFY_SITE_ID) options.siteID = process.env.NETLIFY_SITE_ID;
+  if (process.env.NETLIFY_BLOBS_TOKEN) options.token = process.env.NETLIFY_BLOBS_TOKEN;
+  return getStore(options);
 }
 
 async function readSubscriptions() {
