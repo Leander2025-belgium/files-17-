@@ -21,6 +21,7 @@ const state = {
   favorites: [],
   auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
   community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', map: null, markers: null, selectedFile: null, realtimeChannel: null },
+  climate: { records: [], settings: {mode:'off'}, period:'month', location:'all', chart:null, loaded:false },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null },
   map: null, marker: null,
@@ -69,6 +70,23 @@ async function loadStoredUnits(){
 async function saveUnits(){
   try{ await window.storage.set('weerscoop:units', JSON.stringify(state.units)); }catch(e){}
   syncProfileSettingsToCloud();
+}
+
+async function loadStoredClimate(){
+  try{
+    const settings = await window.storage.get('weerscoop:climateSettings');
+    if(settings?.value) state.climate.settings = {...state.climate.settings, ...JSON.parse(settings.value)};
+    const records = await window.storage.get('weerscoop:climateRecords');
+    if(records?.value) state.climate.records = normalizeClimateRecords(JSON.parse(records.value));
+  }catch(e){}
+}
+
+async function saveClimateSettings(){
+  try{ await window.storage.set('weerscoop:climateSettings', JSON.stringify(state.climate.settings)); }catch(e){}
+}
+
+async function saveLocalClimateRecords(){
+  try{ await window.storage.set('weerscoop:climateRecords', JSON.stringify(state.climate.records)); }catch(e){}
 }
 
 /* ---------------- Supabase auth + profile sync ---------------- */
@@ -127,10 +145,14 @@ async function applyAuthSession(session, event=''){
   if(event === 'PASSWORD_RECOVERY') showPasswordResetPrompt();
   if(state.auth.user){
     await loadCloudProfileAndFavorites();
+    await migrateLocalClimateToCloud();
+    await loadCloudClimateRecords();
   }else{
     state.auth.profile = null;
+    state.climate.loaded = true;
   }
   updateAuthInterface(state.auth.session);
+  renderClimateDashboard();
 }
 
 function mapProfileToUnits(profile){
@@ -732,6 +754,7 @@ async function loadWeather(){
     await loadAirQuality();
     await loadAlerts();
     renderHome();
+    await captureTodayClimate('auto');
     updateLastUpdatedText();
     if(tv.active) renderTV();
     if($('#stormscreen').classList.contains('active')) updateStormTab();
@@ -1912,6 +1935,424 @@ function wireAuthUi(){
   $('#profileFavoritesList')?.addEventListener('click', e=>{
     if(e.target.matches('button[data-act]')) handleProfileFavoriteAction(e.target);
   });
+}
+
+/* ---------------- Mijn Klimaat ---------------- */
+function initClimateUi(){
+  $('#climateBtn')?.addEventListener('click', openClimateScreen);
+  $('#climateBackBtn')?.addEventListener('click', ()=>showAppScreen('home'));
+  $('#climateMode')?.addEventListener('change', async e=>{
+    state.climate.settings.mode = e.target.value;
+    await saveClimateSettings();
+    updateClimateStatus();
+    if(state.climate.settings.mode !== 'off') await captureTodayClimate('manual');
+    renderClimateDashboard();
+  });
+  $('#climatePeriod')?.addEventListener('change', e=>{
+    state.climate.period = e.target.value;
+    renderClimateDashboard();
+  });
+  $('#climateLocationFilter')?.addEventListener('change', e=>{
+    state.climate.location = e.target.value;
+    renderClimateDashboard();
+  });
+  $('#climateSaveToday')?.addEventListener('click', ()=>captureTodayClimate('manual'));
+  $('#climateExport')?.addEventListener('click', exportClimateData);
+  $('#climateDeleteLocation')?.addEventListener('click', deleteClimateLocation);
+  $('#climateDeleteAll')?.addEventListener('click', deleteAllClimateData);
+  updateClimateStatus();
+}
+
+function showAppScreen(id){
+  $$('.tabbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab === id));
+  $$('.screen').forEach(s=>s.classList.remove('active'));
+  $('#'+id)?.classList.add('active');
+  state.activeTab = id;
+  if(id === 'climatescreen') renderClimateDashboard();
+}
+
+function openClimateScreen(){
+  showAppScreen('climatescreen');
+  renderClimateDashboard();
+}
+
+function climateLocalKey(row){
+  return [row.date, row.location_name || 'Locatie', row.latitude_rounded ?? '', row.longitude_rounded ?? ''].join('|');
+}
+
+function normalizeClimateRecords(rows){
+  const map = new Map();
+  (Array.isArray(rows) ? rows : []).forEach(row=>{
+    if(!row?.date) return;
+    map.set(climateLocalKey(row), row);
+  });
+  return [...map.values()].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+}
+
+function climateLocationAllowed(){
+  const mode = state.climate.settings.mode || 'off';
+  if(mode === 'off') return false;
+  if(mode === 'manual'){
+    return state.favorites.some(f => Math.abs(+f.lat - +state.loc.lat) < .03 && Math.abs(+f.lon - +state.loc.lon) < .03);
+  }
+  if(mode === 'home' && state.auth.profile?.home_location_name){
+    return String(state.auth.profile.home_location_name).toLowerCase() === String(state.loc.name).toLowerCase();
+  }
+  return true;
+}
+
+function roundedClimateCoord(value, mode){
+  if(value == null) return null;
+  if(mode === 'rounded') return Math.round(value * 10) / 10;
+  if(mode === 'municipality' || mode === 'home' || mode === 'manual') return Math.round(value * 100) / 100;
+  return null;
+}
+
+function buildClimateRecord(reason='auto'){
+  if(!state.daily || !state.current) return null;
+  const mode = state.climate.settings.mode || 'off';
+  if(mode === 'off' || !climateLocationAllowed()) return null;
+  const d = state.daily;
+  const date = d.time?.[0] || new Date().toISOString().slice(0,10);
+  const code = d.weather_code?.[0] ?? state.current.weather_code ?? null;
+  const min = d.temperature_2m_min?.[0] ?? null;
+  const max = d.temperature_2m_max?.[0] ?? null;
+  const mean = min != null && max != null ? (Number(min) + Number(max)) / 2 : state.current.temperature_2m ?? null;
+  const officialWarnings = state.alerts.filter(a=>a?.level && a.level !== 'green').length;
+  return {
+    date,
+    location_name: mode === 'off' ? null : state.loc.name,
+    latitude_rounded: mode === 'municipality' ? null : roundedClimateCoord(state.loc.lat, mode),
+    longitude_rounded: mode === 'municipality' ? null : roundedClimateCoord(state.loc.lon, mode),
+    min_temperature:min,
+    max_temperature:max,
+    mean_temperature:mean,
+    precipitation_total:d.precipitation_sum?.[0] ?? state.current.precipitation ?? null,
+    max_wind_gust:d.wind_gusts_10m_max?.[0] ?? state.current.wind_gusts_10m ?? null,
+    uv_max:d.uv_index_max?.[0] ?? null,
+    weather_code:code,
+    warning_count:officialWarnings,
+    source_name:state.observation?.source || (preferredWeatherModel()==='knmi_seamless' ? 'KNMI HARMONIE via Open-Meteo' : 'Open-Meteo'),
+    data_quality:state.observation ? 'observatie + model' : 'model',
+    capture_reason:reason,
+    created_at:new Date().toISOString()
+  };
+}
+
+async function captureTodayClimate(reason='auto'){
+  const row = buildClimateRecord(reason);
+  if(!row){
+    if(reason === 'manual') setClimateMessage('Mijn Klimaat staat uit of deze locatie past niet bij je privacykeuze.', 'error');
+    return;
+  }
+  const existingKey = climateLocalKey(row);
+  state.climate.records = normalizeClimateRecords([...state.climate.records.filter(r=>climateLocalKey(r)!==existingKey), row]);
+  await saveLocalClimateRecords();
+  if(state.auth.supabase && state.auth.user){
+    const payload = {...row, user_id:state.auth.user.id};
+    delete payload.capture_reason;
+    const { error } = await state.auth.supabase.from('personal_weather_days')
+      .upsert(payload, {onConflict:'user_id,date,location_name'})
+      .select('id')
+      .maybeSingle();
+    if(error){
+      console.warn('Mijn Klimaat opslaan mislukt:', error.message);
+      if(reason === 'manual') setClimateMessage('Bewaren in Supabase lukte niet. Lokaal staat de dag wel klaar.', 'error');
+    }
+  }
+  if(reason === 'manual') setClimateMessage('Vandaag is bewaard in Mijn Klimaat.', 'ok');
+  renderClimateDashboard();
+}
+
+async function migrateLocalClimateToCloud(){
+  if(!state.auth.supabase || !state.auth.user || !state.climate.records.length) return;
+  const rows = state.climate.records.map(r=>{
+    const row = {...r, user_id:state.auth.user.id};
+    delete row.capture_reason;
+    return row;
+  });
+  await state.auth.supabase.from('personal_weather_days').upsert(rows, {onConflict:'user_id,date,location_name'}).catch(()=>undefined);
+}
+
+async function loadCloudClimateRecords(){
+  if(!state.auth.supabase || !state.auth.user) return;
+  try{
+    const { data, error } = await state.auth.supabase.from('personal_weather_days')
+      .select('*')
+      .eq('user_id', state.auth.user.id)
+      .order('date', {ascending:true});
+    if(error) throw error;
+    state.climate.records = normalizeClimateRecords(data || []);
+    await saveLocalClimateRecords();
+  }catch(e){
+    console.warn('Mijn Klimaat laden mislukt:', e?.message || e);
+  }finally{
+    state.climate.loaded = true;
+  }
+}
+
+function updateClimateStatus(){
+  const mode = state.climate.settings.mode || 'off';
+  if($('#climateMode')) $('#climateMode').value = mode;
+  if($('#climateStatus')) $('#climateStatus').textContent = mode === 'off' ? 'Uit' : 'Aan';
+}
+
+function setClimateMessage(msg, type=''){
+  const el = $('#climateMessage');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.className = 'auth-message' + (type ? ' ' + type : '');
+}
+
+function filteredClimateRecords(period=state.climate.period, location=state.climate.location){
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  return state.climate.records
+    .filter(r=>r?.date)
+    .filter(r=>{
+      const d = new Date(r.date + 'T00:00:00');
+      if(period === 'month') return d.getFullYear() === year && d.getMonth() === month;
+      if(period === 'year') return d.getFullYear() === year;
+      if(period === 'lastYear') return d.getFullYear() === year - 1;
+      return true;
+    })
+    .filter(r=>location === 'all' || r.location_name === location)
+    .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+}
+
+function climateRecordExtremes(rows){
+  const byMax = rows.filter(r=>r.max_temperature != null).sort((a,b)=>b.max_temperature-a.max_temperature)[0];
+  const byMin = rows.filter(r=>r.min_temperature != null).sort((a,b)=>a.min_temperature-b.min_temperature)[0];
+  const byRain = rows.filter(r=>r.precipitation_total != null).sort((a,b)=>b.precipitation_total-a.precipitation_total)[0];
+  const byWind = rows.filter(r=>r.max_wind_gust != null).sort((a,b)=>b.max_wind_gust-a.max_wind_gust)[0];
+  const rainDays = rows.filter(r=>(r.precipitation_total || 0) >= 1).length;
+  const frostDays = rows.filter(r=>(r.min_temperature ?? 99) < 0).length;
+  const warmDays = rows.filter(r=>(r.max_temperature ?? -99) >= 25).length;
+  const thunderDays = rows.filter(r=>[95,96,99].includes(Number(r.weather_code))).length;
+  const warningDays = rows.filter(r=>(r.warning_count || 0) > 0).length;
+  const sunnyMonth = climateSunniestMonth(rows);
+  const streak = climateCurrentStreak(rows);
+  return {byMax, byMin, byRain, byWind, rainDays, frostDays, warmDays, thunderDays, warningDays, sunnyMonth, streak};
+}
+
+function climateSunniestMonth(rows){
+  const months = new Map();
+  rows.forEach(r=>{
+    if(r.uv_max == null) return;
+    const key = String(r.date).slice(0,7);
+    const item = months.get(key) || {sum:0, n:0};
+    item.sum += Number(r.uv_max); item.n += 1;
+    months.set(key,item);
+  });
+  return [...months.entries()].map(([k,v])=>({key:k, avg:v.sum/v.n})).sort((a,b)=>b.avg-a.avg)[0] || null;
+}
+
+function climateCurrentStreak(rows){
+  const dates = new Set(rows.map(r=>r.date));
+  let d = new Date();
+  let n = 0;
+  while(dates.has(d.toISOString().slice(0,10))){
+    n += 1;
+    d.setDate(d.getDate()-1);
+  }
+  return n;
+}
+
+function climateCompareText(){
+  const current = filteredClimateRecords();
+  if(!current.length) return 'Nog geen vergelijking beschikbaar.';
+  const avg = arr => arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : null;
+  const currentAvg = avg(current.map(r=>r.mean_temperature).filter(v=>v != null));
+  if(currentAvg == null) return 'Nog geen temperatuurvergelijking beschikbaar.';
+  const now = new Date();
+  let comparePeriod = 'vorig jaar';
+  let comparison = [];
+  if(state.climate.period === 'month'){
+    const prev = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    comparison = state.climate.records.filter(r=>{
+      const d = new Date(r.date + 'T00:00:00');
+      return d.getFullYear() === prev.getFullYear() && d.getMonth() === prev.getMonth() && (state.climate.location === 'all' || r.location_name === state.climate.location);
+    });
+    comparePeriod = 'vorige maand';
+  }else{
+    comparison = state.climate.records.filter(r=>{
+      const d = new Date(r.date + 'T00:00:00');
+      return d.getFullYear() === now.getFullYear()-1 && (state.climate.location === 'all' || r.location_name === state.climate.location);
+    });
+    comparePeriod = 'vorig jaar';
+  }
+  const cmpAvg = avg(comparison.map(r=>r.mean_temperature).filter(v=>v != null));
+  if(cmpAvg == null) return `Er zijn nog te weinig bewaarde dagen voor vergelijking met ${comparePeriod}.`;
+  const diff = currentAvg - cmpAvg;
+  const warmer = diff >= 0 ? 'warmer' : 'kouder';
+  const loc = state.climate.location === 'all' ? 'jouw opgeslagen locaties' : state.climate.location;
+  return `Deze periode was op ${loc} tot nu toe ${Math.abs(diff).toFixed(1).replace('.',',')} °C ${warmer} dan ${comparePeriod}.`;
+}
+
+function formatClimateDate(date){
+  return new Date(date + 'T00:00:00').toLocaleDateString('nl-BE',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function climateMetric(label, value, sub=''){
+  return `<div class="climate-metric"><span>${esc(label)}</span><b>${value}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
+}
+
+function updateClimateLocationFilter(){
+  const select = $('#climateLocationFilter');
+  if(!select) return;
+  const locations = [...new Set(state.climate.records.map(r=>r.location_name).filter(Boolean))].sort();
+  const current = state.climate.location;
+  select.innerHTML = '<option value="all">Alle locaties</option>' + locations.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('');
+  select.value = locations.includes(current) ? current : 'all';
+  state.climate.location = select.value;
+}
+
+function renderClimateDashboard(){
+  if(!$('#climatescreen')) return;
+  updateClimateStatus();
+  if($('#climatePeriod')) $('#climatePeriod').value = state.climate.period;
+  updateClimateLocationFilter();
+  const rows = filteredClimateRecords();
+  const summary = $('#climateSummary');
+  if(!rows.length){
+    if(summary) summary.innerHTML = `<div class="community-empty" style="grid-column:1/-1;">Nog geen persoonlijke klimaatdagen. Zet bewaren aan en open de app op dagen die je wilt archiveren.</div>`;
+    renderClimateChart([]);
+    renderClimateCalendar([]);
+    renderClimateTimeline([]);
+    renderClimateMemories();
+    return;
+  }
+  const x = climateRecordExtremes(rows);
+  if(summary) summary.innerHTML = [
+    climateMetric('Warmste dag', x.byMax ? fmtTemp(x.byMax.max_temperature) : '-', x.byMax ? formatClimateDate(x.byMax.date) : ''),
+    climateMetric('Koudste dag', x.byMin ? fmtTemp(x.byMin.min_temperature) : '-', x.byMin ? formatClimateDate(x.byMin.date) : ''),
+    climateMetric('Natste dag', x.byRain ? fmtPrecip(x.byRain.precipitation_total) : '-', x.byRain ? formatClimateDate(x.byRain.date) : ''),
+    climateMetric('Sterkste wind', x.byWind ? fmtWind(x.byWind.max_wind_gust) : '-', x.byWind ? formatClimateDate(x.byWind.date) : ''),
+    climateMetric('Zonnigste maand', x.sunnyMonth ? new Date(x.sunnyMonth.key + '-01').toLocaleDateString('nl-BE',{month:'long',year:'numeric'}) : '-', x.sunnyMonth ? `Gem. UV ${x.sunnyMonth.avg.toFixed(1)}` : ''),
+    climateMetric('Regendagen', x.rainDays, 'Minstens 1 mm'),
+    climateMetric('Vorstdagen', x.frostDays, 'Minimum onder 0 °C'),
+    climateMetric('Warme dagen', x.warmDays, 'Maximum vanaf 25 °C'),
+    climateMetric('Onweersdagen', x.thunderDays, 'Code 95/96/99'),
+    climateMetric('Waarschuwingsdagen', x.warningDays, 'Code geel of hoger'),
+    climateMetric('Persoonlijke reeks', `${x.streak} dagen`, 'Aaneengesloten bewaard'),
+    climateMetric('Vergelijking', climateCompareText(), 'Geen verklaring voor klimaatverandering')
+  ].join('');
+  renderClimateChart(rows);
+  renderClimateCalendar(rows);
+  renderClimateTimeline(rows);
+  renderClimateMemories();
+}
+
+function renderClimateChart(rows){
+  const canvas = $('#climateChart');
+  if(!canvas || !window.Chart) return;
+  if(state.climate.chart) state.climate.chart.destroy();
+  const sorted = rows.slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  state.climate.chart = new Chart(canvas, {
+    type:'line',
+    data:{
+      labels:sorted.map(r=>r.date),
+      datasets:[
+        {label:'Gem. temperatuur (°C)', data:sorted.map(r=>r.mean_temperature ?? null), borderColor:'#8fe7ff', backgroundColor:'rgba(143,231,255,.12)', tension:.25, spanGaps:false, yAxisID:'y'},
+        {label:'Neerslag (mm)', data:sorted.map(r=>r.precipitation_total ?? null), type:'bar', backgroundColor:'rgba(73,167,255,.38)', borderColor:'rgba(73,167,255,.85)', yAxisID:'y1'}
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{legend:{labels:{color:'#e9eefb'}}, tooltip:{callbacks:{title:items=>formatClimateDate(items[0].label)}}},
+      scales:{
+        x:{ticks:{color:'rgba(233,238,251,.68)', maxTicksLimit:8}, grid:{color:'rgba(255,255,255,.06)'}},
+        y:{title:{display:true,text:'°C',color:'#e9eefb'}, ticks:{color:'rgba(233,238,251,.68)'}, grid:{color:'rgba(255,255,255,.08)'}},
+        y1:{position:'right', title:{display:true,text:'mm',color:'#e9eefb'}, ticks:{color:'rgba(233,238,251,.68)'}, grid:{drawOnChartArea:false}}
+      }
+    }
+  });
+}
+
+function renderClimateCalendar(rows){
+  const el = $('#climateCalendar');
+  if(!el) return;
+  if(!rows.length){ el.innerHTML = '<div class="climate-empty" style="grid-column:1/-1;">Geen kalenderdata.</div>'; return; }
+  const byDate = new Map(rows.map(r=>[r.date,r]));
+  const latest = rows[rows.length-1]?.date || new Date().toISOString().slice(0,10);
+  const base = new Date(latest + 'T00:00:00');
+  const first = new Date(base.getFullYear(), base.getMonth(), 1);
+  const last = new Date(base.getFullYear(), base.getMonth()+1, 0);
+  let html = '';
+  const offset = (first.getDay()+6)%7;
+  for(let i=0;i<offset;i++) html += '<div></div>';
+  for(let day=1; day<=last.getDate(); day++){
+    const date = `${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const r = byDate.get(date);
+    html += `<div class="climate-day ${r?'has-data':''}"><b>${day}</b>${r ? `${fmtTemp(r.max_temperature)}<br>${fmtPrecip(r.precipitation_total || 0)}` : ''}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderClimateTimeline(rows){
+  const el = $('#climateTimeline');
+  if(!el) return;
+  const list = rows.slice(-10).reverse();
+  el.innerHTML = list.length ? list.map(r=>{
+    const wc = wcInfo(r.weather_code);
+    return `<div class="climate-row">${icon(wc.ic,true,24)}<div><b>${formatClimateDate(r.date)} - ${esc(r.location_name || 'Locatie')}</b><span>${esc(wc.l)} - ${fmtTemp(r.min_temperature)} / ${fmtTemp(r.max_temperature)} - ${fmtPrecip(r.precipitation_total || 0)}</span></div><span>${r.data_quality || ''}</span></div>`;
+  }).join('') : '<div class="climate-empty">Nog geen tijdlijn.</div>';
+}
+
+function renderClimateMemories(){
+  const el = $('#climateMemories');
+  if(!el) return;
+  const today = new Date();
+  const lastYearKey = `${today.getFullYear()-1}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const memories = [];
+  state.climate.records.filter(r=>r.date === lastYearKey).forEach(r=>{
+    memories.push(`<div class="climate-row">${icon(wcInfo(r.weather_code).ic,true,24)}<div><b>Een jaar geleden in ${esc(r.location_name || 'jouw locatie')}</b><span>${esc(wcInfo(r.weather_code).l)} - ${fmtTemp(r.min_temperature)} / ${fmtTemp(r.max_temperature)}</span></div></div>`);
+  });
+  state.community.posts.filter(p=>String(p.created_at || '').slice(0,10) === lastYearKey && p.user_id === state.auth.user?.id).forEach(p=>{
+    memories.push(`<div class="climate-row"><img class="climate-memory-photo" src="${esc(p.photo_url)}" alt=""><div><b>Een jaar geleden deelde je deze weerfoto</b><span>${esc(p.location_name || '')} - ${esc(communityCategory(p.category).label)}</span></div></div>`);
+  });
+  el.innerHTML = memories.length ? memories.join('') : '<div class="climate-empty">Nog geen weerherinneringen voor vandaag.</div>';
+}
+
+function exportClimateData(){
+  const rows = filteredClimateRecords('all', state.climate.location);
+  if(!rows.length) return setClimateMessage('Er is nog niets om te exporteren.', 'error');
+  const blob = new Blob([JSON.stringify(rows, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `weerscoop-mijn-klimaat-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  setClimateMessage('Export klaar.', 'ok');
+}
+
+async function deleteClimateLocation(){
+  const location = state.climate.location;
+  if(location === 'all') return setClimateMessage('Kies eerst een specifieke locatie.', 'error');
+  if(!confirm(`Alle klimaatdata voor ${location} verwijderen?`)) return;
+  state.climate.records = state.climate.records.filter(r=>r.location_name !== location);
+  await saveLocalClimateRecords();
+  if(state.auth.supabase && state.auth.user){
+    await state.auth.supabase.from('personal_weather_days').delete().eq('user_id', state.auth.user.id).eq('location_name', location);
+  }
+  state.climate.location = 'all';
+  setClimateMessage('Locatiegeschiedenis verwijderd.', 'ok');
+  renderClimateDashboard();
+}
+
+async function deleteAllClimateData(){
+  if(!confirm('Alle persoonlijke klimaatdata verwijderen?')) return;
+  state.climate.records = [];
+  await saveLocalClimateRecords();
+  if(state.auth.supabase && state.auth.user){
+    await state.auth.supabase.from('personal_weather_days').delete().eq('user_id', state.auth.user.id);
+  }
+  setClimateMessage('Alle klimaatdata verwijderd.', 'ok');
+  renderClimateDashboard();
 }
 
 /* ---------------- Weerscoop Community ---------------- */
@@ -3316,8 +3757,10 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
    ========================================================================= */
 async function init(){
   await loadStoredUnits();
+  await loadStoredClimate();
   wireAuthUi();
   initCommunityUi();
+  initClimateUi();
   wirePushSettings();
   await loadStoredFavorites();
   await initAuth();

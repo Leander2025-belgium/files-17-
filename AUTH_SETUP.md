@@ -61,6 +61,7 @@ Dit maakt:
 - `profiles`
 - `favorite_locations`
 - `push_subscriptions`
+- `personal_weather_days`
 - `community_posts`
 - `community_comments`
 - `community_likes`

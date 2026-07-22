@@ -44,6 +44,28 @@ create table if not exists public.push_subscriptions (
   updated_at timestamptz default now()
 );
 
+create table if not exists public.personal_weather_days (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  date date not null,
+  location_name text not null,
+  latitude_rounded numeric,
+  longitude_rounded numeric,
+  min_temperature numeric,
+  max_temperature numeric,
+  mean_temperature numeric,
+  precipitation_total numeric,
+  max_wind_gust numeric,
+  uv_max numeric,
+  weather_code integer,
+  warning_count integer default 0,
+  source_name text,
+  data_quality text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (user_id, date, location_name)
+);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -62,6 +84,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists push_subscriptions_set_updated_at on public.push_subscriptions;
 create trigger push_subscriptions_set_updated_at
 before update on public.push_subscriptions
+for each row execute function public.set_updated_at();
+
+drop trigger if exists personal_weather_days_set_updated_at on public.personal_weather_days;
+create trigger personal_weather_days_set_updated_at
+before update on public.personal_weather_days
 for each row execute function public.set_updated_at();
 
 create or replace function public.handle_new_user()
@@ -89,6 +116,7 @@ for each row execute function public.handle_new_user();
 alter table public.profiles enable row level security;
 alter table public.favorite_locations enable row level security;
 alter table public.push_subscriptions enable row level security;
+alter table public.personal_weather_days enable row level security;
 
 drop policy if exists "Users can view own profile" on public.profiles;
 create policy "Users can view own profile"
@@ -147,6 +175,30 @@ drop policy if exists "Users can delete own push subscriptions" on public.push_s
 create policy "Users can delete own push subscriptions"
 on public.push_subscriptions for delete
 using (auth.uid() = user_id);
+
+drop policy if exists "Users can view own personal weather days" on public.personal_weather_days;
+create policy "Users can view own personal weather days"
+on public.personal_weather_days for select
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own personal weather days" on public.personal_weather_days;
+create policy "Users can insert own personal weather days"
+on public.personal_weather_days for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own personal weather days" on public.personal_weather_days;
+create policy "Users can update own personal weather days"
+on public.personal_weather_days for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own personal weather days" on public.personal_weather_days;
+create policy "Users can delete own personal weather days"
+on public.personal_weather_days for delete
+using (auth.uid() = user_id);
+
+create index if not exists personal_weather_days_user_date_idx on public.personal_weather_days (user_id, date);
+create index if not exists personal_weather_days_user_location_idx on public.personal_weather_days (user_id, location_name);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
