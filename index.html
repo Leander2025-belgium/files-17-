@@ -65,6 +65,7 @@
       <button class="smallbtn" id="openSheetBtn" style="margin-top:8px;">Instellingen</button>
       <button class="smallbtn" id="tvBtn" style="margin-top:8px;margin-left:6px;">Tv-modus</button>
       <button class="smallbtn" id="climateBtn" style="margin-top:8px;margin-left:6px;">Mijn Klimaat</button>
+      <button class="smallbtn" id="assistantBtn" style="margin-top:8px;margin-left:6px;">Assistent</button>
       <button class="profile-trigger" id="profileBtn" type="button" aria-label="Profiel openen" title="Profiel" style="margin-top:8px;margin-left:6px;">
         <span id="profileAvatarMini" class="profile-mini">?</span>
       </button>
@@ -345,6 +346,54 @@
       <div class="community-captured-weather" id="communityCapturedWeather">Weergegevens worden toegevoegd bij plaatsen.</div>
       <div class="auth-message" id="communityComposerMessage"></div>
     </div>
+  </div>
+  <div class="assistant-scrim" id="assistantScrim"></div>
+  <div class="assistant-sheet" id="assistantSheet" role="dialog" aria-modal="true" aria-labelledby="assistantTitle">
+    <header class="assistant-head">
+      <button class="profile-close-button" id="assistantClose" type="button" aria-label="Assistent sluiten">&times;</button>
+      <div>
+        <h3 id="assistantTitle">Weerscoop Assistent</h3>
+        <span>Automatisch advies op basis van actuele Weerscoop-data.</span>
+      </div>
+      <button class="profile-done-button" id="assistantNewChat" type="button">Nieuw</button>
+    </header>
+    <div class="assistant-privacy">
+      <label><input id="assistantSaveHistory" type="checkbox" checked> Beperkte geschiedenis bewaren</label>
+      <button class="linkbtn" id="assistantClearHistory" type="button">Geschiedenis wissen</button>
+    </div>
+    <div class="assistant-context-row">
+      <select id="assistantLocationMode" aria-label="Locatie">
+        <option value="current">Huidige locatie</option>
+        <option value="home">Thuislocatie</option>
+        <option value="favorite">Favoriet</option>
+      </select>
+      <select id="assistantFavoriteLocation" aria-label="Favoriete locatie"></select>
+      <select id="assistantPeriod" aria-label="Periode">
+        <option value="today">Vandaag</option>
+        <option value="tomorrow">Morgen</option>
+        <option value="evening">Vanavond</option>
+        <option value="weekend">Weekend</option>
+      </select>
+    </div>
+    <div class="assistant-quick" id="assistantQuickActions">
+      <button type="button" data-q="Gaat het vandaag regenen?">Regen vandaag?</button>
+      <button type="button" data-q="Heb ik vandaag een jas nodig?">Kledingadvies</button>
+      <button type="button" data-q="Wanneer kan ik het beste wandelen zonder regen?">Beste wandelmoment</button>
+      <button type="button" data-q="Gaat het regenen tijdens mijn route?">Routeweer</button>
+      <button type="button" data-q="Welke dag is het beste voor het strand?">Strandweer</button>
+      <button type="button" data-q="Is het vanavond goed weer om sterren te kijken?">Sterrenkijken</button>
+      <button type="button" data-q="Vat het weer van morgen samen.">Morgen samenvatten</button>
+    </div>
+    <div class="assistant-messages" id="assistantMessages"></div>
+    <div class="assistant-reminder hidden" id="assistantReminderBox">
+      <span id="assistantReminderText"></span>
+      <button class="smallbtn" id="assistantReminderBtn" type="button">Waarschuw mij hiervoor</button>
+    </div>
+    <form class="assistant-compose" id="assistantForm">
+      <textarea id="assistantInput" maxlength="600" rows="1" placeholder="Vraag iets over het weer..."></textarea>
+      <button class="smallbtn" type="submit">Stuur</button>
+    </form>
+    <div class="auth-message" id="assistantMessage"></div>
   </div>
   <div class="day-sheet" id="daySheet" role="dialog" aria-modal="true" aria-labelledby="daySheetTitle"></div>
   <div class="auth-sheet" id="authSheet" role="dialog" aria-modal="true" aria-labelledby="profileSheetTitle">

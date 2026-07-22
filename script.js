@@ -22,6 +22,7 @@ const state = {
   auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
   community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', map: null, markers: null, selectedFile: null, realtimeChannel: null },
   climate: { records: [], settings: {mode:'off'}, period:'month', location:'all', chart:null, loaded:false },
+  assistant: { messages: [], saveHistory:true, lastContext:null, lastReminder:null, loading:false },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null },
   map: null, marker: null,
@@ -87,6 +88,28 @@ async function saveClimateSettings(){
 
 async function saveLocalClimateRecords(){
   try{ await window.storage.set('weerscoop:climateRecords', JSON.stringify(state.climate.records)); }catch(e){}
+}
+
+async function loadStoredAssistant(){
+  try{
+    const settings = await window.storage.get('weerscoop:assistantSettings');
+    if(settings?.value){
+      const parsed = JSON.parse(settings.value);
+      state.assistant.saveHistory = parsed.saveHistory !== false;
+    }
+    if(state.assistant.saveHistory){
+      const history = await window.storage.get('weerscoop:assistantHistory');
+      if(history?.value) state.assistant.messages = JSON.parse(history.value).slice(-12);
+    }
+  }catch(e){}
+}
+
+async function saveAssistantState(){
+  try{
+    await window.storage.set('weerscoop:assistantSettings', JSON.stringify({saveHistory:state.assistant.saveHistory}));
+    if(state.assistant.saveHistory) await window.storage.set('weerscoop:assistantHistory', JSON.stringify(state.assistant.messages.slice(-12)));
+    else await window.storage.set('weerscoop:assistantHistory', JSON.stringify([]));
+  }catch(e){}
 }
 
 /* ---------------- Supabase auth + profile sync ---------------- */
@@ -1937,6 +1960,338 @@ function wireAuthUi(){
   });
 }
 
+/* ---------------- Weerscoop Assistent ---------------- */
+function initAssistantUi(){
+  $('#assistantBtn')?.addEventListener('click', openAssistant);
+  $('#assistantClose')?.addEventListener('click', closeAssistant);
+  $('#assistantScrim')?.addEventListener('click', closeAssistant);
+  $('#assistantNewChat')?.addEventListener('click', newAssistantChat);
+  $('#assistantClearHistory')?.addEventListener('click', clearAssistantHistory);
+  $('#assistantSaveHistory')?.addEventListener('change', e=>{
+    state.assistant.saveHistory = e.target.checked;
+    if(!state.assistant.saveHistory) state.assistant.messages = [];
+    saveAssistantState();
+    renderAssistantMessages();
+  });
+  $('#assistantForm')?.addEventListener('submit', e=>{
+    e.preventDefault();
+    sendAssistantQuestion($('#assistantInput')?.value || '');
+  });
+  $('#assistantInput')?.addEventListener('input', e=>{
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(120, e.target.scrollHeight) + 'px';
+  });
+  $('#assistantQuickActions')?.addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-q]');
+    if(btn) sendAssistantQuestion(btn.dataset.q);
+  });
+  $('#assistantLocationMode')?.addEventListener('change', updateAssistantLocationOptions);
+  $('#assistantReminderBtn')?.addEventListener('click', saveAssistantReminder);
+  updateAssistantLocationOptions();
+}
+
+function openAssistant(){
+  lockPageScroll();
+  $('#assistantSheet')?.classList.add('show');
+  $('#assistantScrim')?.classList.add('show');
+  if($('#assistantSaveHistory')) $('#assistantSaveHistory').checked = state.assistant.saveHistory;
+  updateAssistantLocationOptions();
+  renderAssistantMessages();
+  setTimeout(()=>$('#assistantInput')?.focus(), 250);
+}
+
+function closeAssistant(){
+  $('#assistantSheet')?.classList.remove('show');
+  $('#assistantScrim')?.classList.remove('show');
+  unlockPageScroll();
+}
+
+function newAssistantChat(){
+  state.assistant.messages = [];
+  state.assistant.lastContext = null;
+  state.assistant.lastReminder = null;
+  $('#assistantReminderBox')?.classList.add('hidden');
+  saveAssistantState();
+  renderAssistantMessages();
+}
+
+function clearAssistantHistory(){
+  state.assistant.messages = [];
+  state.assistant.lastContext = null;
+  state.assistant.lastReminder = null;
+  saveAssistantState();
+  renderAssistantMessages();
+  setAssistantMessage('Geschiedenis gewist.', 'ok');
+}
+
+function setAssistantMessage(msg, type=''){
+  const el = $('#assistantMessage');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.className = 'auth-message' + (type ? ' ' + type : '');
+}
+
+function updateAssistantLocationOptions(){
+  const fav = $('#assistantFavoriteLocation');
+  if(fav) fav.innerHTML = state.favorites.length
+    ? state.favorites.map((f,i)=>`<option value="${i}">${esc(f.name)}</option>`).join('')
+    : '<option value="">Geen favorieten</option>';
+  const mode = $('#assistantLocationMode')?.value || 'current';
+  if(fav) fav.style.display = mode === 'favorite' ? 'block' : 'none';
+}
+
+function assistantSelectedLocation(){
+  const mode = $('#assistantLocationMode')?.value || 'current';
+  if(mode === 'home' && state.auth.profile?.home_latitude != null){
+    return {
+      name:state.auth.profile.home_location_name || state.loc.name,
+      admin:'',
+      lat:Math.round(Number(state.auth.profile.home_latitude) * 100) / 100,
+      lon:Math.round(Number(state.auth.profile.home_longitude) * 100) / 100,
+      mode
+    };
+  }
+  if(mode === 'favorite'){
+    const fav = state.favorites[Number($('#assistantFavoriteLocation')?.value || 0)];
+    if(fav) return {name:fav.name, admin:fav.admin || '', lat:Math.round(+fav.lat*100)/100, lon:Math.round(+fav.lon*100)/100, mode};
+  }
+  return {name:state.loc.name, admin:state.loc.admin || '', lat:Math.round(+state.loc.lat*100)/100, lon:Math.round(+state.loc.lon*100)/100, mode:'current'};
+}
+
+function assistantPeriodRange(){
+  const period = $('#assistantPeriod')?.value || 'today';
+  const now = new Date();
+  const start = new Date(now);
+  const end = new Date(now);
+  if(period === 'tomorrow'){
+    start.setDate(start.getDate()+1); start.setHours(0,0,0,0);
+    end.setDate(end.getDate()+1); end.setHours(23,59,0,0);
+  }else if(period === 'evening'){
+    start.setHours(17,0,0,0); end.setHours(23,59,0,0);
+  }else if(period === 'weekend'){
+    const day = now.getDay();
+    const untilSat = (6 - day + 7) % 7;
+    start.setDate(now.getDate()+untilSat); start.setHours(0,0,0,0);
+    end.setTime(start.getTime()); end.setDate(start.getDate()+1); end.setHours(23,59,0,0);
+  }else{
+    start.setHours(0,0,0,0); end.setHours(23,59,0,0);
+  }
+  return {label:period, start:start.toISOString(), end:end.toISOString()};
+}
+
+function compactHourlyForAssistant(range){
+  const h = state.hourly || {};
+  const rows = [];
+  (h.time || []).forEach((time,i)=>{
+    const ms = new Date(time).getTime();
+    if(ms < new Date(range.start).getTime() || ms > new Date(range.end).getTime()) return;
+    rows.push({
+      time,
+      temperature:h.temperature_2m?.[i] ?? null,
+      apparent_temperature:h.apparent_temperature?.[i] ?? null,
+      precipitation_probability:h.precipitation_probability?.[i] ?? null,
+      precipitation:h.precipitation?.[i] ?? null,
+      weather_code:h.weather_code?.[i] ?? null,
+      wind_speed:h.wind_speed_10m?.[i] ?? null,
+      wind_gust:h.wind_gusts_10m?.[i] ?? null,
+      wind_direction:h.wind_direction_10m?.[i] ?? null,
+      humidity:h.relative_humidity_2m?.[i] ?? null,
+      uv:h.uv_index?.[i] ?? null,
+      cloud_cover:h.cloud_cover?.[i] ?? null
+    });
+  });
+  return rows.slice(0, 48);
+}
+
+function compactDailyForAssistant(){
+  const d = state.daily || {};
+  return (d.time || []).slice(0,7).map((time,i)=>({
+    date:time,
+    weather_code:d.weather_code?.[i] ?? null,
+    min_temperature:d.temperature_2m_min?.[i] ?? null,
+    max_temperature:d.temperature_2m_max?.[i] ?? null,
+    apparent_min:d.apparent_temperature_min?.[i] ?? null,
+    apparent_max:d.apparent_temperature_max?.[i] ?? null,
+    precipitation_sum:d.precipitation_sum?.[i] ?? null,
+    precipitation_probability:d.precipitation_probability_max?.[i] ?? null,
+    wind_gust:d.wind_gusts_10m_max?.[i] ?? null,
+    uv:d.uv_index_max?.[i] ?? null,
+    sunrise:d.sunrise?.[i] ?? null,
+    sunset:d.sunset?.[i] ?? null,
+    sunshine_duration:d.sunshine_duration?.[i] ?? null
+  }));
+}
+
+function assistantWeatherContext(question){
+  const range = assistantPeriodRange();
+  const cur = liveWeatherSnapshot();
+  const loc = assistantSelectedLocation();
+  const radarFrame = state.radar.frames?.[state.radar.index] || state.radar.frames?.at?.(-1) || null;
+  const radarAge = radarFrame?.time ? Math.round((Date.now() - Number(radarFrame.time) * 1000) / 60000) : null;
+  const context = {
+    generated_at:new Date().toISOString(),
+    question:String(question).slice(0,600),
+    location:loc,
+    period:range,
+    current:{
+      temperature:cur.temperature_2m ?? null,
+      apparent_temperature:cur.apparent_temperature ?? null,
+      humidity:cur.relative_humidity_2m ?? null,
+      precipitation:cur.precipitation ?? null,
+      weather_code:cur.weather_code ?? null,
+      weather_label:wcInfo(cur.weather_code).l,
+      wind_speed:cur.wind_speed_10m ?? null,
+      wind_gust:cur.wind_gusts_10m ?? null,
+      pressure:cur.pressure_msl ?? null,
+      is_day:cur.is_day ?? null
+    },
+    hourly:compactHourlyForAssistant(range),
+    daily:compactDailyForAssistant(),
+    alerts:state.alerts.map(a=>({level:a.level, headline:a.headline, description:a.description, official:Boolean(a.official)})).slice(0,4),
+    air:state.air ? {aqi:state.air.european_aqi, pm10:state.air.pm10, pm25:state.air.pm2_5, ozone:state.air.ozone} : null,
+    marine:state.marine ? {tide:state.marine.tide, waveHeight:state.marine.waveHeight} : null,
+    radar:{available:Boolean(state.radar.frames?.length), updated_at:radarFrame?.time ? new Date(Number(radarFrame.time)*1000).toISOString() : null, age_minutes:radarAge, stale:radarAge != null && radarAge > RADAR_MAX_AGE_MINUTES},
+    preferences:{
+      temp_unit:state.units.temp,
+      wind_unit:state.units.wind,
+      precip_unit:state.units.precip,
+      saved_locations:state.favorites.map(f=>({name:f.name, admin:f.admin || ''})).slice(0,8)
+    }
+  };
+  state.assistant.lastContext = context;
+  return context;
+}
+
+function renderAssistantMessages(){
+  const box = $('#assistantMessages');
+  if(!box) return;
+  if(!state.assistant.messages.length){
+    box.innerHTML = `<div class="assistant-bubble assistant">Vraag iets praktisch, bijvoorbeeld wanneer je droog kunt wandelen, of je een jas nodig hebt, of welke stranddag het best lijkt.</div>`;
+    return;
+  }
+  box.innerHTML = state.assistant.messages.map(m=>{
+    const sources = m.role === 'assistant' && m.sources?.length ? `<div class="assistant-message-sources">${m.sources.map(s=>`<span>${esc(s)}</span>`).join('')}</div>` : '';
+    return `<div class="assistant-bubble ${m.role === 'user' ? 'user' : 'assistant'}">${esc(m.content).replace(/\n/g,'<br>')}${sources}</div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderAssistantTyping(show){
+  const box = $('#assistantMessages');
+  if(!box) return;
+  box.querySelector('.assistant-typing')?.remove();
+  if(show){
+    const el = document.createElement('div');
+    el.className = 'assistant-typing';
+    el.textContent = 'Weerdata bekijken...';
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+function localAssistantFallback(question, context){
+  const hourly = context.hourly || [];
+  const dry = hourly.filter(h=>(h.precipitation_probability ?? 100) <= 30 && (h.precipitation ?? 0) < .2).slice(0,3);
+  const wet = hourly.filter(h=>(h.precipitation_probability ?? 0) >= 60 || (h.precipitation ?? 0) >= .5)[0];
+  const best = dry[0];
+  const parts = [];
+  if(best){
+    parts.push(`Het beste droge moment lijkt rond ${new Date(best.time).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}.`);
+    parts.push(`Dan is de regenkans ongeveer ${Math.round(best.precipitation_probability ?? 0)}% en de wind ${Math.round(best.wind_speed ?? 0)} km/u.`);
+  }else{
+    parts.push('Ik zie geen duidelijk droog venster in de gekozen periode.');
+  }
+  if(wet) parts.push(`Let op: rond ${new Date(wet.time).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})} stijgt de kans op regen.`);
+  if(context.radar?.stale) parts.push('De radar lijkt verouderd, dus ik baseer dit vooral op de uurverwachting.');
+  return {
+    answer:parts.join(' '),
+    sources:['Uurverwachting', `Locatie ${context.location.name}`, context.radar?.available ? `Radar ${context.radar.updated_at ? new Date(context.radar.updated_at).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : 'beschikbaar'}` : 'Radar niet beschikbaar'],
+    reminder:null
+  };
+}
+
+async function sendAssistantQuestion(raw){
+  const question = String(raw || '').trim();
+  if(!question || state.assistant.loading) return;
+  if(question.length > 600) return setAssistantMessage('Je vraag is te lang. Maak hem iets korter.', 'error');
+  const input = $('#assistantInput');
+  if(input){ input.value=''; input.style.height='auto'; }
+  state.assistant.messages.push({role:'user', content:question});
+  renderAssistantMessages();
+  renderAssistantTyping(true);
+  state.assistant.loading = true;
+  setAssistantMessage('');
+  const context = assistantWeatherContext(question);
+  try{
+    const headers = {'content-type':'application/json'};
+    if(state.auth.session?.access_token) headers.authorization = `Bearer ${state.auth.session.access_token}`;
+    const res = await fetch(PUSH_FUNCTION_BASE + 'assistant', {
+      method:'POST',
+      headers,
+      body:JSON.stringify({
+        question,
+        context,
+        history:state.assistant.messages.slice(-6).map(m=>({role:m.role, content:m.content.slice(0,500)}))
+      }),
+      signal:AbortSignal.timeout ? AbortSignal.timeout(18000) : undefined
+    });
+    let data = null;
+    try{ data = await res.json(); }catch(e){}
+    if(!res.ok) throw new Error(data?.error || 'Assistent niet beschikbaar');
+    handleAssistantReply(data);
+  }catch(e){
+    console.warn('Assistent fallback:', e?.message || e);
+    handleAssistantReply(localAssistantFallback(question, context), true);
+  }finally{
+    renderAssistantTyping(false);
+    state.assistant.loading = false;
+    saveAssistantState();
+  }
+}
+
+function handleAssistantReply(data, fallback=false){
+  const answer = data?.answer || 'Ik kon geen betrouwbaar antwoord maken met de beschikbare data.';
+  const sources = Array.isArray(data?.sources) ? data.sources.slice(0,5) : [];
+  state.assistant.messages.push({role:'assistant', content:fallback ? `${answer}\n\nAI is tijdelijk niet beschikbaar; dit is een eenvoudige datagedreven samenvatting.` : answer, sources});
+  state.assistant.lastReminder = data?.reminder || null;
+  const box = $('#assistantReminderBox');
+  if(box){
+    const valid = state.assistant.lastReminder?.title && state.assistant.lastReminder?.triggerAt;
+    box.classList.toggle('hidden', !valid);
+    if(valid) $('#assistantReminderText').textContent = state.assistant.lastReminder.title;
+  }
+  renderAssistantMessages();
+}
+
+async function saveAssistantReminder(){
+  const reminder = state.assistant.lastReminder;
+  if(!reminder) return;
+  if(state.push.status !== 'Ingeschakeld') return toast('Schakel eerst meldingen in.');
+  try{
+    const registration = await navigator.serviceWorker?.ready;
+    const subscription = await registration?.pushManager.getSubscription();
+    if(!subscription) return toast('Geen actief pushabonnement gevonden.');
+    const headers = {'content-type':'application/json'};
+    if(state.auth.session?.access_token) headers.authorization = `Bearer ${state.auth.session.access_token}`;
+    const res = await fetch(PUSH_FUNCTION_BASE + 'assistant-reminder', {
+      method:'POST',
+      headers,
+      body:JSON.stringify({
+        reminder,
+        endpoint:subscription.endpoint,
+        installationId:state.push.installationId,
+        location:assistantSelectedLocation()
+      })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error);
+    toast('Herinnering ingesteld.');
+    $('#assistantReminderBox')?.classList.add('hidden');
+  }catch(e){
+    toast('Herinnering kon niet worden ingesteld.');
+  }
+}
+
 /* ---------------- Mijn Klimaat ---------------- */
 function initClimateUi(){
   $('#climateBtn')?.addEventListener('click', openClimateScreen);
@@ -3758,9 +4113,11 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
 async function init(){
   await loadStoredUnits();
   await loadStoredClimate();
+  await loadStoredAssistant();
   wireAuthUi();
   initCommunityUi();
   initClimateUi();
+  initAssistantUi();
   wirePushSettings();
   await loadStoredFavorites();
   await initAuth();

@@ -49,6 +49,15 @@ SUPABASE_SERVICE_ROLE_KEY=jouw-service-role-key
 
 Gebruik de service-role key alleen hier, nooit in frontendcode.
 
+Voor Weerscoop Assistent voeg je server-side ook toe:
+
+```env
+OPENAI_API_KEY=jouw-openai-key
+WEERSCOOP_ASSISTANT_MODEL=gpt-4.1-mini
+```
+
+Zet `OPENAI_API_KEY` nooit in frontendcode en gebruik hiervoor geen `VITE_` of `NEXT_PUBLIC_` naam.
+
 ## 5. SQL uitvoeren
 
 1. Open Supabase > SQL Editor.
