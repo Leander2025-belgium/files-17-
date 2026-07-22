@@ -20,6 +20,7 @@ const state = {
   lastUpdated: null,
   favorites: [],
   auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
+  community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', map: null, markers: null, selectedFile: null, realtimeChannel: null },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null },
   map: null, marker: null,
@@ -1595,12 +1596,21 @@ function moonPhase(date){
 /* ---------------- tabs ---------------- */
 $$('.tabbtn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
+    if(btn.dataset.tab === 'profile'){
+      openAuthSheet();
+      return;
+    }
     $$('.tabbtn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     $$('.screen').forEach(s=>s.classList.remove('active'));
     $('#'+btn.dataset.tab).classList.add('active');
     state.activeTab = btn.dataset.tab;
     if(btn.dataset.tab === 'radarscreen'){ initMapIfNeeded(); setTimeout(()=>state.map && state.map.invalidateSize(),150); }
+    if(btn.dataset.tab === 'communityscreen'){
+      loadCommunityPosts(true);
+      subscribeCommunityRealtime();
+      if(state.community.view === 'map') setTimeout(initCommunityMap,150);
+    }
     if(btn.dataset.tab === 'stormscreen'){ updateStormTab(); }
   });
 });
@@ -1902,6 +1912,440 @@ function wireAuthUi(){
   $('#profileFavoritesList')?.addEventListener('click', e=>{
     if(e.target.matches('button[data-act]')) handleProfileFavoriteAction(e.target);
   });
+}
+
+/* ---------------- Weerscoop Community ---------------- */
+const COMMUNITY_CATEGORIES = [
+  {id:'thunder', label:'Onweer', color:'#ffd24d'},
+  {id:'rain', label:'Regen', color:'#49a7ff'},
+  {id:'shower', label:'Bui', color:'#35d0c4'},
+  {id:'rainbow', label:'Regenboog', color:'#b971ff'},
+  {id:'fog', label:'Mist', color:'#b8c2d4'},
+  {id:'snow', label:'Sneeuw', color:'#f3fbff'},
+  {id:'coast', label:'Kustweer', color:'#45d6ff'},
+  {id:'sunset', label:'Zonsondergang', color:'#ff9a45'},
+  {id:'sunrise', label:'Zonsopkomst', color:'#ffd36b'},
+  {id:'clouds', label:'Bijzondere wolken', color:'#9fb5d4'},
+  {id:'storm', label:'Storm', color:'#ef4b5f'},
+  {id:'hail', label:'Hagel', color:'#dbe7ff'},
+  {id:'other', label:'Overig', color:'#8fe7ff'}
+];
+const communityCategory = id => COMMUNITY_CATEGORIES.find(c=>c.id===id) || COMMUNITY_CATEGORIES[COMMUNITY_CATEGORIES.length - 1];
+const safeRandomId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+
+function initCommunityUi(){
+  const catOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
+  if($('#communityCategorySelect')) $('#communityCategorySelect').innerHTML = catOptions;
+  if($('#communityCategoryFilter')) $('#communityCategoryFilter').innerHTML = '<option value="">Alle categorieen</option>' + catOptions;
+  $('#communityUploadOpen')?.addEventListener('click', openCommunityComposer);
+  $('#communityComposerClose')?.addEventListener('click', closeCommunityComposer);
+  $('#communityScrim')?.addEventListener('click', closeCommunityComposer);
+  $('#communitySubmitPost')?.addEventListener('click', createCommunityPost);
+  $('#communityPhotoInput')?.addEventListener('change', handleCommunityPhotoSelect);
+  $('#communityUseGps')?.addEventListener('change', updateCommunityCapturedWeather);
+  $('#communityLoadMore')?.addEventListener('click', ()=>loadCommunityPosts(false));
+  $('#communitySearch')?.addEventListener('input', debounce(e=>{
+    state.community.query = e.target.value.trim();
+    loadCommunityPosts(true);
+  }, 350));
+  $('#communityCategoryFilter')?.addEventListener('change', e=>{
+    state.community.category = e.target.value;
+    loadCommunityPosts(true);
+  });
+  $$('.community-tabs button').forEach(btn=>btn.addEventListener('click', ()=>{
+    $$('.community-tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.community.view = btn.dataset.communityView;
+    $$('.community-panel').forEach(panel=>panel.classList.remove('active'));
+    $(`#community${state.community.view[0].toUpperCase()+state.community.view.slice(1)}Panel`)?.classList.add('active');
+    if(state.community.view === 'map') setTimeout(initCommunityMap, 120);
+    if(state.community.view === 'collection') renderCommunityCollection();
+  }));
+  $('#communityFeed')?.addEventListener('click', handleCommunityAction);
+  $('#communityFeed')?.addEventListener('submit', handleCommunityCommentSubmit);
+}
+
+function debounce(fn, wait){
+  let t;
+  return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), wait); };
+}
+
+function communitySupabase(){
+  return state.auth.supabase || null;
+}
+
+function requireCommunityLogin(){
+  if(state.auth.user) return true;
+  toast('Log in om dit te gebruiken.');
+  openAuthSheet();
+  return false;
+}
+
+async function loadCommunityPosts(reset=false){
+  const supabase = communitySupabase();
+  if(!supabase || state.community.loading) {
+    if(!supabase) renderCommunityEmpty('Community wordt actief zodra Supabase is ingesteld.');
+    return;
+  }
+  if(reset){
+    state.community.page = 0;
+    state.community.posts = [];
+    state.community.hasMore = true;
+  }
+  if(!state.community.hasMore) return;
+  state.community.loading = true;
+  renderCommunityLoading();
+  try{
+    let q = supabase.from('community_posts')
+      .select('*, community_likes(id,user_id), community_favorites(id,user_id), community_comments(id, body, created_at, user_id)')
+      .eq('moderation_status','approved')
+      .eq('visibility','public')
+      .order('created_at', {ascending:false})
+      .range(state.community.page * state.community.pageSize, (state.community.page + 1) * state.community.pageSize - 1);
+    if(state.community.category) q = q.eq('category', state.community.category);
+    if(state.community.query){
+      const cleanQuery = state.community.query.replace(/[%_,{}()]/g,' ').trim();
+      const term = `%${cleanQuery}%`;
+      const tag = cleanQuery.replace(/^#/,'').toLowerCase().replace(/[^a-z0-9_]/g,'');
+      const filters = [`caption.ilike.${term}`, `location_name.ilike.${term}`];
+      if(tag) filters.push(`hashtags.cs.{${tag}}`);
+      q = q.or(filters.join(','));
+    }
+    const { data, error } = await q;
+    if(error) throw error;
+    const posts = await attachCommunityProfiles(data || []);
+    state.community.posts = reset ? posts : [...state.community.posts, ...posts];
+    state.community.hasMore = posts.length === state.community.pageSize;
+    state.community.page += 1;
+    renderCommunityFeed();
+    renderCommunityLiveStats();
+    if(state.community.view === 'map') renderCommunityMapMarkers();
+  }catch(e){
+    console.warn('Community laden mislukt:', e?.message || e);
+    renderCommunityEmpty('Community kon niet worden geladen. Probeer later opnieuw.');
+  }finally{
+    state.community.loading = false;
+  }
+}
+
+async function attachCommunityProfiles(posts){
+  const supabase = communitySupabase();
+  const ids = new Set();
+  posts.forEach(post=>{
+    if(post.user_id) ids.add(post.user_id);
+    (post.community_comments || []).forEach(c=>{ if(c.user_id) ids.add(c.user_id); });
+  });
+  if(!ids.size) return posts;
+  const { data } = await supabase.from('community_public_profiles').select('id,display_name,avatar_url').in('id', [...ids]);
+  const profiles = new Map((data || []).map(p=>[p.id,p]));
+  return posts.map(post=>({
+    ...post,
+    profiles: profiles.get(post.user_id) || null,
+    community_comments: (post.community_comments || []).map(c=>({...c, profiles: profiles.get(c.user_id) || null}))
+  }));
+}
+
+function renderCommunityLoading(){
+  if(state.community.posts.length) return;
+  const feed = $('#communityFeed');
+  if(feed) feed.innerHTML = '<div class="community-empty">Community laden...</div>';
+}
+
+function renderCommunityEmpty(text){
+  const feed = $('#communityFeed');
+  if(feed) feed.innerHTML = `<div class="community-empty">${esc(text)}</div>`;
+  $('#communityLoadMore')?.classList.add('hidden');
+  renderCommunityLiveStats();
+}
+
+function timeAgo(value){
+  const diff = Math.max(0, Date.now() - new Date(value).getTime());
+  const min = Math.floor(diff/60000);
+  if(min < 1) return 'net nu';
+  if(min < 60) return `${min} min geleden`;
+  const h = Math.floor(min/60);
+  if(h < 24) return `${h} u geleden`;
+  return `${Math.floor(h/24)} d geleden`;
+}
+
+function renderCommunityFeed(){
+  const feed = $('#communityFeed');
+  if(!feed) return;
+  if(!state.community.posts.length){
+    feed.innerHTML = '<div class="community-empty">Nog geen communityposts. Deel de eerste weerfoto vanuit jouw buurt.</div>';
+  }else{
+    feed.innerHTML = state.community.posts.map(communityPostHtml).join('');
+  }
+  $('#communityLoadMore')?.classList.toggle('hidden', !state.community.hasMore);
+}
+
+function communityPostHtml(post){
+  const cat = communityCategory(post.category);
+  const profile = post.profiles || {};
+  const name = profile.display_name || 'Weerscoop gebruiker';
+  const avatar = profile.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : esc(userInitials(name));
+  const liked = post.community_likes?.some(l=>l.user_id === state.auth.user?.id);
+  const saved = post.community_favorites?.some(f=>f.user_id === state.auth.user?.id);
+  const comments = (post.community_comments || []).slice(0,3);
+  return `<article class="community-post" data-post-id="${post.id}">
+    <div class="community-post-head">
+      <div class="community-avatar">${avatar}</div>
+      <div>
+        <div class="community-post-name">${esc(name)}</div>
+        <div class="community-post-place">${esc(post.location_name || 'Locatie verborgen')} - ${timeAgo(post.created_at)}</div>
+      </div>
+      <div class="community-category" style="box-shadow:inset 0 -2px 0 ${cat.color};">${esc(cat.label)}</div>
+    </div>
+    <img class="community-photo" src="${esc(post.photo_url)}" alt="${esc(post.caption || cat.label)}" loading="lazy">
+    <div class="community-body">
+      ${post.caption ? `<p class="community-caption">${linkHashtags(esc(post.caption))}</p>` : ''}
+      <div class="community-weather-line">
+        <span>${fmtTemp(post.temperature)}</span>
+        <span>Voelt ${fmtTemp(post.apparent_temperature)}</span>
+        <span>Wind ${fmtWind(post.wind_speed)}</span>
+        <span>${fmtPrecip(post.precipitation || 0)}</span>
+        <span>${post.humidity ?? '-'}% vocht</span>
+      </div>
+    </div>
+    <div class="community-actions">
+      <button class="${liked?'active':''}" data-act="like">${liked?'Geliked':'Like'} ${post.like_count || 0}</button>
+      <button data-act="comment">Reacties ${post.comment_count || 0}</button>
+      <button data-act="share">Delen</button>
+      <button class="${saved?'active':''}" data-act="save">${saved?'Bewaard':'Opslaan'}</button>
+      <button data-act="report">Rapport</button>
+    </div>
+    <div class="community-comments">
+      ${comments.map(c=>`<div class="subtle"><b>${esc(c.profiles?.display_name || 'Gebruiker')}</b> ${esc(c.body)}</div>`).join('')}
+      <form class="community-comment-row">
+        <input name="body" maxlength="240" placeholder="Reageer..." autocomplete="off">
+        <button type="submit">Plaats</button>
+      </form>
+    </div>
+  </article>`;
+}
+
+function linkHashtags(text){
+  return text.replace(/(^|\s)(#[a-zA-Z0-9_]+)/g, (m, space, tag)=>`${space}<button class="linkbtn community-hashtag" data-tag="${esc(tag.slice(1).toLowerCase())}" type="button">${esc(tag)}</button>`);
+}
+
+async function handleCommunityAction(e){
+  const tagButton = e.target.closest('.community-hashtag');
+  if(tagButton){
+    state.community.query = '#' + tagButton.dataset.tag;
+    $('#communitySearch').value = state.community.query;
+    loadCommunityPosts(true);
+    return;
+  }
+  const btn = e.target.closest('button[data-act]');
+  if(!btn) return;
+  const postEl = btn.closest('.community-post');
+  const postId = postEl?.dataset.postId;
+  if(!postId) return;
+  const act = btn.dataset.act;
+  if(act === 'share') return shareCommunityPost(postId);
+  if(!requireCommunityLogin()) return;
+  if(act === 'like') await toggleCommunityRelation('community_likes', postId);
+  if(act === 'save') await toggleCommunityRelation('community_favorites', postId);
+  if(act === 'report') await reportCommunityPost(postId);
+  if(act === 'comment') postEl.querySelector('input[name=body]')?.focus();
+}
+
+async function toggleCommunityRelation(table, postId){
+  const supabase = communitySupabase();
+  const userId = state.auth.user?.id;
+  const { data:existing } = await supabase.from(table).select('id').eq('post_id', postId).eq('user_id', userId).maybeSingle();
+  if(existing?.id){
+    await supabase.from(table).delete().eq('id', existing.id);
+  }else{
+    await supabase.from(table).insert({post_id:postId, user_id:userId});
+  }
+  await loadCommunityPosts(true);
+}
+
+async function handleCommunityCommentSubmit(e){
+  const form = e.target.closest('.community-comment-row');
+  if(!form) return;
+  e.preventDefault();
+  if(!requireCommunityLogin()) return;
+  const postId = form.closest('.community-post')?.dataset.postId;
+  const body = form.body.value.trim();
+  if(!postId || !body) return;
+  const { error } = await communitySupabase().from('community_comments').insert({post_id:postId, user_id:state.auth.user.id, body});
+  if(error) return toast('Reactie kon niet worden geplaatst.');
+  form.reset();
+  await loadCommunityPosts(true);
+}
+
+async function reportCommunityPost(postId){
+  const reason = prompt('Waarom wil je deze post rapporteren?');
+  if(!reason) return;
+  const { error } = await communitySupabase().from('community_reports').insert({post_id:postId, reporter_id:state.auth.user.id, reason:reason.slice(0,300)});
+  toast(error ? 'Rapport kon niet worden verzonden.' : 'Bedankt, we bekijken deze melding.');
+}
+
+function shareCommunityPost(postId){
+  const url = `${location.origin}${location.pathname}#community-${postId}`;
+  if(navigator.share) navigator.share({title:'Weerscoop Community', url}).catch(()=>undefined);
+  else navigator.clipboard?.writeText(url).then(()=>toast('Link gekopieerd.'));
+}
+
+function renderCommunityLiveStats(){
+  const counts = state.community.posts.reduce((acc,p)=>{ acc[p.category]=(acc[p.category]||0)+1; return acc; }, {});
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([cat,n])=>`${n} ${communityCategory(cat).label.toLowerCase()}`).join(' - ');
+  const text = state.community.posts.length ? `${state.community.posts.length} recente uploads${top ? ' - ' + top : ''}` : 'Nog geen live uploads';
+  if($('#communityLiveStats b')) $('#communityLiveStats b').textContent = text;
+}
+
+function openCommunityComposer(){
+  if(!requireCommunityLogin()) return;
+  lockPageScroll();
+  $('#communityComposer')?.classList.add('show');
+  $('#communityScrim')?.classList.add('show');
+  updateCommunityCapturedWeather();
+}
+function closeCommunityComposer(){
+  $('#communityComposer')?.classList.remove('show');
+  $('#communityScrim')?.classList.remove('show');
+  unlockPageScroll();
+}
+
+function handleCommunityPhotoSelect(e){
+  const file = e.target.files?.[0];
+  state.community.selectedFile = file || null;
+  const preview = $('#communityPhotoPreview');
+  if(file && preview){
+    preview.src = URL.createObjectURL(file);
+    preview.classList.remove('hidden');
+  }
+}
+
+function updateCommunityCapturedWeather(){
+  const cur = liveWeatherSnapshot();
+  if(!cur || !$('#communityCapturedWeather')) return;
+  $('#communityCapturedWeather').textContent = `${state.loc.name}: ${fmtTemp(cur.temperature_2m)}, voelt ${fmtTemp(cur.apparent_temperature)}, wind ${fmtWind(cur.wind_speed_10m)}, ${fmtPrecip(cur.precipitation || 0)}, ${cur.relative_humidity_2m}% vocht.`;
+}
+
+async function createCommunityPost(){
+  if(!requireCommunityLogin()) return;
+  const file = state.community.selectedFile;
+  if(!file) return setCommunityComposerMessage('Kies eerst een foto.', 'error');
+  try{
+    setCommunityComposerMessage('Foto voorbereiden...');
+    const blob = await compressAvatar(file); // canvas-export verwijdert EXIF metadata en GPS
+    const id = safeRandomId();
+    const path = `${state.auth.user.id}/${new Date().getFullYear()}/${id}.webp`;
+    const supabase = communitySupabase();
+    const upload = await supabase.storage.from('community-photos').upload(path, blob, {contentType:'image/webp', upsert:false});
+    if(upload.error) throw upload.error;
+    const { data:publicUrl } = supabase.storage.from('community-photos').getPublicUrl(path);
+    const gps = $('#communityUseGps')?.checked ? await getBrowserLocation() : null;
+    const privacy = $('#communityLocationPrivacy')?.value || 'municipality';
+    const loc = gps ? {lat:gps.lat, lon:gps.lon, ...(await reverseGeocode(gps.lat,gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
+    const cur = liveWeatherSnapshot();
+    const caption = $('#communityCaption')?.value.trim() || '';
+    const hashtags = Array.from(new Set((caption.match(/#[a-zA-Z0-9_]+/g) || []).map(t=>t.slice(1).toLowerCase())));
+    const row = {
+      user_id:state.auth.user.id,
+      photo_url:publicUrl.publicUrl,
+      photo_path:path,
+      caption,
+      category:$('#communityCategorySelect')?.value || 'other',
+      hashtags,
+      location_privacy:privacy,
+      location_name:privacy === 'none' ? null : (loc.name || state.loc.name),
+      latitude:privacy === 'exact' ? loc.lat : null,
+      longitude:privacy === 'exact' ? loc.lon : null,
+      temperature:cur?.temperature_2m ?? null,
+      apparent_temperature:cur?.apparent_temperature ?? null,
+      wind_speed:cur?.wind_speed_10m ?? null,
+      precipitation:cur?.precipitation ?? null,
+      humidity:cur?.relative_humidity_2m ?? null,
+      uv_index:state.hourly?.uv_index?.[nowIndexInHourly()] ?? null,
+      pressure:cur?.pressure_msl ?? null,
+      weather_source:state.observation ? state.observation.source : 'KNMI HARMONIE'
+    };
+    const { error } = await supabase.from('community_posts').insert(row);
+    if(error) throw error;
+    setCommunityComposerMessage('Geplaatst.', 'ok');
+    $('#communityCaption').value = '';
+    $('#communityPhotoInput').value = '';
+    $('#communityPhotoPreview')?.classList.add('hidden');
+    state.community.selectedFile = null;
+    closeCommunityComposer();
+    await loadCommunityPosts(true);
+    toast('Weerfoto gedeeld.');
+  }catch(e){
+    console.warn('Community upload mislukt:', e?.message || e);
+    setCommunityComposerMessage('Uploaden lukte niet. Controleer je verbinding en Supabase Storage.', 'error');
+  }
+}
+
+function setCommunityComposerMessage(msg, type=''){
+  const el = $('#communityComposerMessage');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.className = 'auth-message' + (type ? ' ' + type : '');
+}
+
+function initCommunityMap(){
+  if(!window.L || !$('#communityMap')) return;
+  if(!state.community.map){
+    state.community.map = L.map('communityMap', {zoomControl:true, attributionControl:true, zoomSnap:.25}).setView([50.85,4.35], 7);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, attribution:'&copy; OpenStreetMap, &copy; CARTO'}).addTo(state.community.map);
+    state.community.markers = window.L.markerClusterGroup
+      ? L.markerClusterGroup({showCoverageOnHover:false, maxClusterRadius:46, spiderfyOnMaxZoom:true})
+      : L.layerGroup();
+    state.community.markers.addTo(state.community.map);
+  }
+  state.community.map.invalidateSize();
+  renderCommunityMapMarkers();
+}
+
+function renderCommunityMapMarkers(){
+  if(!state.community.map || !state.community.markers) return;
+  state.community.markers.clearLayers();
+  state.community.posts.filter(p=>p.latitude != null && p.longitude != null).forEach(post=>{
+    const cat = communityCategory(post.category);
+    const marker = L.circleMarker([+post.latitude, +post.longitude], {radius:9, color:'#fff', weight:2, fillColor:cat.color, fillOpacity:.95});
+    marker.bindPopup(`<b>${esc(cat.label)}</b><br>${esc(post.location_name || '')}<br>${post.photo_url ? `<img src="${esc(post.photo_url)}" style="width:150px;border-radius:10px;margin-top:6px;">` : ''}`);
+    marker.addTo(state.community.markers);
+  });
+}
+
+function renderCommunityCollection(){
+  const mine = state.community.posts.filter(p=>p.user_id === state.auth.user?.id);
+  const likes = mine.reduce((sum,p)=>sum + (p.like_count || 0), 0);
+  const counts = mine.reduce((acc,p)=>{ acc[p.category]=(acc[p.category]||0)+1; return acc; }, {});
+  const topCat = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+  $('#communityCollection').innerHTML = `<div class="community-stat-grid">
+    <div class="community-stat"><b>${mine.length}</b><span>Uploads</span></div>
+    <div class="community-stat"><b>${likes}</b><span>Likes ontvangen</span></div>
+    <div class="community-stat"><b>${topCat ? communityCategory(topCat[0]).label : '-'}</b><span>Meeste categorie</span></div>
+    <div class="community-stat"><b>${state.loc.name}</b><span>Favoriete plaats</span></div>
+  </div>`;
+  renderCommunityLeaderboard();
+}
+
+function renderCommunityLeaderboard(){
+  const byUser = new Map();
+  state.community.posts.forEach(p=>{
+    const name = p.profiles?.display_name || 'Gebruiker';
+    const cur = byUser.get(name) || {uploads:0, likes:0};
+    cur.uploads += 1; cur.likes += p.like_count || 0;
+    byUser.set(name, cur);
+  });
+  const rows = [...byUser.entries()].sort((a,b)=>(b[1].likes+b[1].uploads)-(a[1].likes+a[1].uploads)).slice(0,5);
+  $('#communityLeaderboard').innerHTML = `<div class="card"><div class="card-title">Top spotters</div>${rows.length ? rows.map(([name,v],i)=>`<div class="sheet-row"><span>${i+1}. ${esc(name)}</span><b>${v.uploads} uploads - ${v.likes} likes</b></div>`).join('') : '<div class="subtle">Nog geen leaderboarddata.</div>'}</div>`;
+}
+
+function subscribeCommunityRealtime(){
+  const supabase = communitySupabase();
+  if(!supabase || state.community.realtimeChannel) return;
+  state.community.realtimeChannel = supabase.channel('community-public-feed')
+    .on('postgres_changes', {event:'*', schema:'public', table:'community_posts'}, ()=>loadCommunityPosts(true))
+    .on('postgres_changes', {event:'*', schema:'public', table:'community_comments'}, ()=>loadCommunityPosts(true))
+    .on('postgres_changes', {event:'*', schema:'public', table:'community_likes'}, ()=>loadCommunityPosts(true))
+    .subscribe();
 }
 
 function wireSeg(id, key){
@@ -2873,9 +3317,11 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
 async function init(){
   await loadStoredUnits();
   wireAuthUi();
+  initCommunityUi();
   wirePushSettings();
   await loadStoredFavorites();
   await initAuth();
+  subscribeCommunityRealtime();
   $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
   $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));
   $$('#segPrecip button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.precip));

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "weerscoop-v20260722-auth-supabase";
+const CACHE_VERSION = "weerscoop-v20260722-community";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

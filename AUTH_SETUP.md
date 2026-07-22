@@ -61,7 +61,17 @@ Dit maakt:
 - `profiles`
 - `favorite_locations`
 - `push_subscriptions`
+- `community_posts`
+- `community_comments`
+- `community_likes`
+- `community_favorites`
+- `community_followers`
+- `community_notifications`
+- `community_badges`
+- `community_reports`
+- `community_blocks`
 - avatar bucket `avatars`
+- communityfoto bucket `community-photos`
 - triggers
 - Row Level Security policies
 
@@ -98,11 +108,11 @@ Aanbevolen:
 
 ## 8. Avatarbucket
 
-De SQL maakt de bucket `avatars` automatisch aan.
+De SQL maakt de buckets `avatars` en `community-photos` automatisch aan.
 
 Controleer in Storage:
 
-- bucket bestaat;
+- buckets bestaan;
 - public access staat aan voor lezen;
 - upload policies staan op eigen gebruikersmap.
 
