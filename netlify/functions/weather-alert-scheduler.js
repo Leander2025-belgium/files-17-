@@ -1,4 +1,3 @@
-import { getStore } from "@netlify/blobs";
 import { json, readSubscriptions, sendPush, wasSentRecently } from "./push-utils.js";
 
 export const config = { schedule: "*/30 * * * *" };
@@ -22,40 +21,7 @@ export async function handler() {
     });
     if (result.ok) sent++;
   }
-  const assistantSent = await sendAssistantReminders(subscriptions);
-  return json(200, { ok: true, checked: subscriptions.length, sent: sent + assistantSent, weatherSent: sent, assistantSent });
-}
-
-async function sendAssistantReminders(subscriptions) {
-  const store = getStore("assistant-reminders");
-  const now = Date.now();
-  const items = (await store.get("items", { type: "json" }).catch(() => [])) || [];
-  let sent = 0;
-  const next = [];
-  for (const item of items) {
-    if (item.sentAt) continue;
-    const trigger = new Date(item.triggerAt).getTime();
-    const expires = new Date(item.expiresAt).getTime();
-    if (!Number.isFinite(trigger) || !Number.isFinite(expires) || expires < now) continue;
-    if (trigger > now) {
-      next.push(item);
-      continue;
-    }
-    const target = subscriptions.find(sub => sub.subscription?.endpoint === item.endpoint || sub.id === item.installationId);
-    if (!target) continue;
-    const result = await sendPush(target, {
-      title: item.title || "Weerscoop herinnering",
-      body: item.body || "Je gekozen weersmoment begint binnenkort.",
-      tag: `assistant-reminder-${item.id}`,
-      renotify: false,
-      requireInteraction: false,
-      url: "./",
-      type: "assistant-reminder"
-    });
-    if (result.ok) sent++;
-  }
-  await store.setJSON("items", next).catch(() => undefined);
-  return sent;
+  return json(200, { ok: true, checked: subscriptions.length, sent });
 }
 
 async function buildWeatherAlert(item) {
