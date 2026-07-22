@@ -728,7 +728,7 @@ function renderHome(){
   html += `<div class="detail-grid">`;
   html += windCompassCard(cur.wind_speed_10m, cur.wind_gusts_10m, cur.wind_direction_10m);
   html += pressureGaugeCard(cur.pressure_msl);
-  html += sunArcCard(daily.sunrise[0], daily.sunset[0]);
+  html += sunArcDetailCard(daily.sunrise[0], daily.sunset[0]);
   html += uvBarCard(daily.uv_index_max[0]);
   html += detailCard('drop','Neerslag', fmtPrecip(cur.precipitation), 'Kans '+(hourly.precipitation_probability[nowIdx]??0)+'%');
   html += detailCard('eye','Zicht', (hourly.visibility[nowIdx]/1000).toFixed(1)+' km', hourly.visibility[nowIdx] > 8000 ? 'Goed zicht':'Beperkt zicht');
@@ -966,9 +966,18 @@ function day14Card(i){
   const d = new Date(state.daily.time[i]);
   const wc = wcInfo(state.daily.weather_code[i]);
   return `<button class="day14" data-day="${i}" type="button">
-    <span>${i===0?'Vandaag':d.toLocaleDateString('nl-BE',{weekday:'short'})}</span>${icon(wc.ic,true,24)}
-    <b>${fmtTemp(state.daily.temperature_2m_max[i])}</b><em>${fmtTemp(state.daily.temperature_2m_min[i])}</em>
-    <small>${state.daily.precipitation_probability_max[i]??0}% - ${fmtWind(state.daily.wind_gusts_10m_max[i])}</small>
+    <div class="forecast-card-top">
+      <span class="forecast-day">${i===0?'Vandaag':d.toLocaleDateString('nl-BE',{weekday:'short'})}</span>
+      <span class="forecast-icon">${icon(wc.ic,true,24)}</span>
+    </div>
+    <div class="forecast-temperatures">
+      <strong class="forecast-max">${fmtTemp(state.daily.temperature_2m_max[i])}</strong>
+      <span class="forecast-min">${fmtTemp(state.daily.temperature_2m_min[i])}</span>
+    </div>
+    <div class="forecast-meta">
+      <span>${state.daily.precipitation_probability_max[i]??0}% regen</span>
+      <span>${fmtWind(state.daily.wind_gusts_10m_max[i])}</span>
+    </div>
   </button>`;
 }
 
@@ -990,12 +999,28 @@ function openDayDetail(i){
   scrim.classList.add('show');
   document.body.classList.add('day-detail-open');
   $('.day-sheet-close', sheet)?.addEventListener('click', closeDayDetail);
+  wireDaySheetSwipe(sheet);
 }
 
 function closeDayDetail(){
   $('#daySheet')?.classList.remove('show');
   $('#dayScrim')?.classList.remove('show');
   document.body.classList.remove('day-detail-open');
+}
+
+function wireDaySheetSwipe(sheet){
+  let startY = 0, dragging = false;
+  sheet.onpointerdown = e => {
+    if(sheet.scrollTop > 4) return;
+    startY = e.clientY;
+    dragging = true;
+  };
+  sheet.onpointerup = e => {
+    if(!dragging) return;
+    dragging = false;
+    if(e.clientY - startY > 90) closeDayDetail();
+  };
+  sheet.onpointercancel = () => { dragging = false; };
 }
 
 function dayDetailSheet(i){
@@ -1100,13 +1125,41 @@ function alertsForDay(dayIndex){
 function sunMoonSection(){
   const moon = moonPhase(new Date());
   const sr = state.daily.sunrise[0], ss = state.daily.sunset[0];
-  return `<div class="card"><div class="card-title">${icon('sunrise',true,13)} Zon en maan</div>
-    ${sunArcCard(sr, ss)}
-    <div class="astro-grid">
-      <div><b>Maanfase</b><span>${moon.name}</span></div><div><b>Verlichting</b><span>${Math.round(moon.illumination*100)}%</span></div>
-      <div><b>Gouden uur</b><span>${sr.slice(11,16)} / ${ss.slice(11,16)}</span></div><div><b>Schemering</b><span>Details beperkt beschikbaar</span></div>
+  const srTime = formatDayTime(sr), ssTime = formatDayTime(ss);
+  const daylight = formatDuration(state.daily.daylight_duration?.[0]);
+  const morningGold = `${srTime}-${addMinutesText(sr,45)}`;
+  const eveningGold = `${addMinutesText(ss,-47)}-${ssTime}`;
+  const twilight = `${addMinutesText(sr,-40)}-${addMinutesText(ss,40)}`;
+  const moonTimes = moonTimesForToday();
+  return `<div class="card sun-moon-card"><div class="card-title">${icon('sunrise',true,13)} Zon en maan</div>
+    <div class="sun-moon-layout">
+      <div class="sun-panel">
+        ${sunArcCard(sr, ss)}
+        <div class="sun-moon-metrics">
+          ${astroMetric('Zonsopkomst', srTime)}
+          ${astroMetric('Zonsondergang', ssTime)}
+          ${astroMetric('Daglengte', daylight)}
+          ${astroMetric('Gouden uur', `${morningGold} &middot; ${eveningGold}`)}
+          ${astroMetric('Burgerlijke schemering', twilight)}
+        </div>
+      </div>
+      <div class="moon-panel">
+        <div class="moon-phase-row">
+          ${moonVisual(moon)}
+          <div><strong>${moon.name}</strong><span>${Math.round(moon.illumination*100)}% verlicht</span></div>
+        </div>
+        <div class="sun-moon-metrics moon-metrics">
+          ${astroMetric('Maanopkomst', moonTimes.rise)}
+          ${astroMetric('Maanondergang', moonTimes.set)}
+          ${astroMetric('Volgende volle maan', `${moon.daysToFull} dagen`)}
+        </div>
+      </div>
     </div>
   </div>`;
+}
+
+function astroMetric(label, value){
+  return `<div class="sun-metric"><span class="metric-label">${label}</span><strong class="metric-value">${value || '-'}</strong></div>`;
 }
 
 function airQualitySection(){
@@ -1237,21 +1290,61 @@ function sunArcCard(sunrise, sunset){
   const toMin = t => { const [h,m] = t.slice(11,16).split(':').map(Number); return h*60+m; };
   const srMin = toMin(sunrise), ssMin = toMin(sunset);
   const nowLocal = new Date();
-  const nowMin = nowLocal.getUTCHours()*60 + nowLocal.getUTCMinutes();
+  const nowMin = nowLocal.getHours()*60 + nowLocal.getMinutes();
   let frac = (nowMin - srMin) / (ssMin - srMin);
   const isNight = frac < 0 || frac > 1;
   frac = Math.min(1, Math.max(0, frac));
-  const x = 6 + frac*88, y = 45 - Math.sin(frac*Math.PI)*38;
+  const x = 8 + frac*84, y = 78 - Math.sin(frac*Math.PI)*58;
+  return `<div class="sun-path">
+      <svg viewBox="0 0 100 84" role="img" aria-label="Zonnetraject">
+        <path class="sun-path-base" d="M8,78 C24,24 76,24 92,78" fill="none"/>
+        <path class="sun-path-glow" d="M8,78 C24,24 76,24 92,78" fill="none"/>
+        <line class="sun-horizon" x1="5" x2="95" y1="78" y2="78"/>
+        ${!isNight ? `<circle class="sun-position" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.8"/>` : ''}
+      </svg>
+    </div>`;
+}
+
+function sunArcDetailCard(sunrise, sunset){
   return `<div class="detail-card wide">
     <div class="dt-title">${icon('sunrise',true,12)} Zon op / onder</div>
-    <div class="sunarc">
-      <svg viewBox="0 0 100 48">
-        <path d="M6,45 Q50,-8 94,45" fill="none" stroke="#182543" stroke-width="2" stroke-dasharray="3 3"/>
-        ${!isNight ? `<circle cx="${x}" cy="${y}" r="4" fill="#f5c451"/>` : ''}
-      </svg>
-      <div class="sunarc-labels"><span>${sunrise.slice(11,16)}</span><span>${sunset.slice(11,16)}</span></div>
-    </div>
+    ${sunArcCard(sunrise, sunset)}
+    <div class="sunarc-labels"><span>${formatDayTime(sunrise)}</span><span>${formatDayTime(sunset)}</span></div>
   </div>`;
+}
+
+function moonVisual(moon){
+  const offset = Math.round((1 - moon.illumination * 2) * 42);
+  return `<div class="premium-moon" style="--moon-shadow:${offset}px"><span></span></div>`;
+}
+
+function moonTimesForToday(){
+  try{
+    if(!window.SunCalc || !state.loc) return {rise:'-', set:'-'};
+    const mt = window.SunCalc.getMoonTimes(new Date(), state.loc.lat, state.loc.lon);
+    return {
+      rise: mt.rise ? mt.rise.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : '-',
+      set: mt.set ? mt.set.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : '-'
+    };
+  }catch(e){
+    return {rise:'-', set:'-'};
+  }
+}
+
+function addMinutesText(value, minutes){
+  if(!value) return '-';
+  const d = new Date(value);
+  if(Number.isNaN(d.getTime())) return '-';
+  d.setMinutes(d.getMinutes() + minutes);
+  return d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
+}
+
+function formatDuration(seconds){
+  if(seconds == null || !isFinite(seconds)) return '-';
+  const mins = Math.round(seconds / 60);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h} u ${m} min`;
 }
 function moonCard(moon){
   const illumPct = Math.round(moon.illumination*100);
