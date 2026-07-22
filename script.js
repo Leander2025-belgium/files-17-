@@ -1027,6 +1027,7 @@ function openDayDetail(i){
   const sheet = $('#daySheet'), scrim = $('#dayScrim');
   if(!sheet || !scrim) return;
   sheet.innerHTML = dayDetailSheet(i);
+  lockPageScroll();
   sheet.classList.add('show');
   scrim.classList.add('show');
   document.body.classList.add('day-detail-open');
@@ -1038,12 +1039,13 @@ function closeDayDetail(){
   $('#daySheet')?.classList.remove('show');
   $('#dayScrim')?.classList.remove('show');
   document.body.classList.remove('day-detail-open');
+  unlockPageScroll();
 }
 
 function wireDaySheetSwipe(sheet){
   let startY = 0, dragging = false;
   sheet.onpointerdown = e => {
-    if(sheet.scrollTop > 4) return;
+    if(!e.target.closest('.day-sheet-handle')) return;
     startY = e.clientY;
     dragging = true;
   };
@@ -1442,13 +1444,34 @@ $$('.tabbtn').forEach(btn=>{
 $('.scopebadge')?.addEventListener?.('click', ()=>{});
 
 /* ---------------- settings sheet ---------------- */
-function openSheet(){ $('#settingsSheet').classList.add('show'); $('#scrim').classList.add('show'); }
-function closeSheet(){ $('#settingsSheet').classList.remove('show'); $('#scrim').classList.remove('show'); }
+let lockedScrollY = 0;
+let pageScrollLocked = false;
+function lockPageScroll(){
+  if(pageScrollLocked) return;
+  lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${lockedScrollY}px`;
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+  pageScrollLocked = true;
+}
+function unlockPageScroll(){
+  if(!pageScrollLocked) return;
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  pageScrollLocked = false;
+  window.scrollTo(0, lockedScrollY);
+}
+function openSheet(){ lockPageScroll(); $('#settingsSheet').classList.add('show'); $('#scrim').classList.add('show'); }
+function closeSheet(){ $('#settingsSheet').classList.remove('show'); $('#scrim').classList.remove('show'); unlockPageScroll(); }
 $('#closeSheet').addEventListener('click', closeSheet);
 $('#openSheetBtn').addEventListener('click', openSheet);
 $('#scrim').addEventListener('click', closeSheet);
 $('#dayScrim')?.addEventListener('click', closeDayDetail);
-document.body.addEventListener('touchmove', (e)=>{}, {passive:true});
 
 function wireSeg(id, key){
   const seg = $(id);
