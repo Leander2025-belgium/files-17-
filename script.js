@@ -1710,7 +1710,8 @@ function updateAuthInterface(session){
   if(mini){
     mini.innerHTML = avatarUrl ? `<img src="${esc(avatarUrl)}" alt="">` : esc(initials);
   }
-  if($('#profileBtnText')) $('#profileBtnText').textContent = loggedIn ? displayName : 'Inloggen';
+  $('#profileBtn')?.setAttribute('aria-label', loggedIn ? `Profiel openen van ${displayName}` : 'Inloggen of profiel openen');
+  $('#profileBtn')?.setAttribute('title', loggedIn ? displayName : 'Inloggen');
   if($('#profileName')) $('#profileName').textContent = displayName;
   if($('#profileEmail')) $('#profileEmail').textContent = email;
   if($('#profileDisplayName')) $('#profileDisplayName').value = profile?.display_name || displayName;
@@ -2002,7 +2003,7 @@ async function enablePushNotifications(){
   const config = await getPushConfig();
   if(!config.configured || !config.vapidPublicKey){
     updatePushUi('Tijdelijk offline');
-    return toast('Pushserver is nog niet geconfigureerd in Netlify.');
+    return toast('Meldingen zijn nog niet volledig ingesteld in Netlify.');
   }
   const registration = await registerAppServiceWorker();
   const permission = await Notification.requestPermission();
@@ -2026,7 +2027,7 @@ async function enablePushNotifications(){
     },
     body:JSON.stringify(collectPushPayload(subscription))
   });
-  if(!r.ok) throw new Error(await pushErrorText(r, 'Meldingen konden niet worden ingesteld. Probeer het later opnieuw.'));
+  if(!r.ok) throw new Error(await pushErrorText(r, 'Meldingen konden niet worden ingesteld. Controleer Supabase en Netlify.'));
   updatePushUi('Ingeschakeld');
   syncProfileSettingsToCloud();
   toast('Meldingen ingeschakeld');

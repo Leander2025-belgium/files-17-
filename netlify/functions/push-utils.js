@@ -40,12 +40,80 @@ function supabasePublicClient() {
   });
 }
 
+function supabaseAdminClient() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) return null;
+  return createClient(url, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+
+function rowToSubscription(row) {
+  return {
+    id: row.endpoint ? subscriptionId({ endpoint: row.endpoint }) : row.id,
+    userId: row.user_id || null,
+    endpointHash: row.endpoint ? subscriptionId({ endpoint: row.endpoint }) : row.id,
+    subscription: {
+      endpoint: row.endpoint,
+      keys: {
+        p256dh: row.p256dh,
+        auth: row.auth
+      }
+    },
+    location: {
+      name: row.location_name || "Onbekende locatie",
+      admin: "",
+      lat: row.latitude == null ? null : Number(row.latitude),
+      lon: row.longitude == null ? null : Number(row.longitude)
+    },
+    preferences: row.preferences?.preferences || row.preferences || {},
+    thresholds: row.preferences?.thresholds || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+async function readBlobSubscriptions() {
+  try {
+    return (await store().get(SUBSCRIPTIONS_KEY, { type: "json" })) || [];
+  } catch (error) {
+    console.warn("Netlify Blobs push store niet beschikbaar:", error.message);
+    return [];
+  }
+}
+
+async function readSupabaseSubscriptions() {
+  const supabase = supabaseAdminClient();
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.from("push_subscriptions").select("*");
+    if (error) throw error;
+    return (data || []).map(rowToSubscription).filter(item => item.subscription?.endpoint);
+  } catch (error) {
+    console.warn("Supabase push store niet beschikbaar:", error.message);
+    return [];
+  }
+}
+
 async function readSubscriptions() {
-  return (await store().get(SUBSCRIPTIONS_KEY, { type: "json" })) || [];
+  const [blobItems, supabaseItems] = await Promise.all([
+    readBlobSubscriptions(),
+    readSupabaseSubscriptions()
+  ]);
+  const byEndpoint = new Map();
+  [...blobItems, ...supabaseItems].forEach(item => {
+    if (item?.subscription?.endpoint) byEndpoint.set(item.subscription.endpoint, item);
+  });
+  return [...byEndpoint.values()];
 }
 
 async function writeSubscriptions(items) {
-  await store().setJSON(SUBSCRIPTIONS_KEY, items);
+  try {
+    await store().setJSON(SUBSCRIPTIONS_KEY, items);
+  } catch (error) {
+    console.warn("Netlify Blobs push store kon niet schrijven:", error.message);
+  }
 }
 
 function subscriptionId(subscription) {
@@ -98,6 +166,8 @@ async function removeSubscription(endpoint) {
   const items = await readSubscriptions();
   const next = items.filter(item => item.subscription?.endpoint !== endpoint);
   await writeSubscriptions(next);
+  const supabase = supabaseAdminClient();
+  if (supabase) await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint).catch(() => undefined);
   return items.length - next.length;
 }
 
@@ -105,6 +175,8 @@ async function removeSubscriptionsForUser(userId) {
   const items = await readSubscriptions();
   const next = items.filter(item => item.userId !== userId);
   await writeSubscriptions(next);
+  const supabase = supabaseAdminClient();
+  if (supabase) await supabase.from("push_subscriptions").delete().eq("user_id", userId).catch(() => undefined);
   return items.length - next.length;
 }
 
@@ -134,9 +206,18 @@ async function sendPush(item, payload) {
 
 async function wasSentRecently(eventId, ttlMs) {
   const key = DEDUPE_PREFIX + eventId;
-  const existing = await store().get(key, { type: "json" });
+  let existing = null;
+  try {
+    existing = await store().get(key, { type: "json" });
+  } catch {
+    existing = null;
+  }
   if (existing?.sentAt && Date.now() - existing.sentAt < ttlMs) return true;
-  await store().setJSON(key, { sentAt: Date.now() });
+  try {
+    await store().setJSON(key, { sentAt: Date.now() });
+  } catch {
+    return false;
+  }
   return false;
 }
 

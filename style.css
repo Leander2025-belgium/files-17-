@@ -2596,20 +2596,30 @@ body{
   font-weight:800;
 }
 .profile-trigger{
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
+  display:inline-grid;
+  place-items:center;
+  width:46px;
+  height:46px;
+  padding:0;
+  border:none;
+  border-radius:50%;
+  background:rgba(255,255,255,.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 12px 28px rgba(0,0,0,.18);
+  backdrop-filter:blur(24px) saturate(170%);
+  -webkit-backdrop-filter:blur(24px) saturate(170%);
+  color:#fff;
+  cursor:pointer;
 }
 .profile-mini{
-  width:22px;
-  height:22px;
+  width:38px;
+  height:38px;
   border-radius:50%;
   display:inline-grid;
   place-items:center;
   overflow:hidden;
   background:linear-gradient(135deg,#70d9ff,#5b7cff);
   color:#fff;
-  font-size:10px;
+  font-size:14px;
   font-weight:900;
 }
 .profile-mini img{
