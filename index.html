@@ -65,7 +65,6 @@
       <button class="smallbtn" id="openSheetBtn" style="margin-top:8px;">Instellingen</button>
       <button class="smallbtn" id="tvBtn" style="margin-top:8px;margin-left:6px;">Tv-modus</button>
       <button class="smallbtn" id="climateBtn" style="margin-top:8px;margin-left:6px;">Mijn Klimaat</button>
-      <button class="smallbtn" id="earth3dBtn" style="margin-top:8px;margin-left:6px;">3D Aarde</button>
       <button class="profile-trigger" id="profileBtn" type="button" aria-label="Profiel openen" title="Profiel" style="margin-top:8px;margin-left:6px;">
         <span id="profileAvatarMini" class="profile-mini">?</span>
       </button>
@@ -83,7 +82,6 @@
         <div class="chip-row">
           <button class="chip active" data-layer="precip" id="chipPrecip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 13v8M8 13v8M12 15v8M20 16.58A5 5 0 0018 7h-1.26A8 8 0 104 15.25"/></svg>Buienradar</button>
           <button class="chip" data-layer="satellite" id="chipSat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg>Satelliet</button>
-          <button class="chip" id="chip3dEarth" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg>3D Aarde</button>
           <button class="chip" id="chipScheme">Kleur: <span id="schemeLabel">Helder</span></button>
           <button class="chip" id="chipLocate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Mijn locatie</button>
         </div>
@@ -538,45 +536,6 @@
       </div>
       <div class="tv-daily" id="tvDaily"></div>
     </div>
-  </div>
-</div>
-
-<!-- ============ 3D EARTH ============ -->
-<div id="earth3dScreen" aria-hidden="true">
-  <div id="earth3dCanvas"></div>
-  <div class="earth3d-topbar">
-    <button class="earth3d-close" id="earth3dClose" type="button" aria-label="3D Aarde sluiten">×</button>
-    <div>
-      <strong>3D Aarde</strong>
-      <span id="earth3dSubtitle">Live weerlagen laden...</span>
-    </div>
-    <button class="earth3d-lite" id="earth3dBack2d" type="button">2D-kaart</button>
-  </div>
-  <div class="earth3d-controls" role="group" aria-label="3D Aarde bediening">
-    <label>Laag<select id="earth3dLayer" aria-label="Weerlaag kiezen">
-      <option value="precip">Neerslagradar</option>
-      <option value="satellite">Satelliet IR</option>
-      <option value="daynight">Dag/nacht</option>
-    </select></label>
-    <button id="earth3dLocate" type="button">Mijn locatie</button>
-    <button id="earth3dPlay" type="button">Afspelen</button>
-    <label>Snelheid<select id="earth3dSpeed" aria-label="Animatiesnelheid">
-      <option value="1200">Rustig</option>
-      <option value="800" selected>Normaal</option>
-      <option value="450">Snel</option>
-    </select></label>
-    <label class="inline-check"><input id="earth3dEco" type="checkbox"> Energie besparen</label>
-  </div>
-  <div class="earth3d-search">
-    <input id="earth3dSearchInput" type="search" placeholder="Zoek een plaats..." autocomplete="off" aria-label="Plaats zoeken op 3D aarde">
-    <div class="earth3d-suggestions" id="earth3dSuggestions"></div>
-  </div>
-  <div class="earth3d-legend" id="earth3dLegend"></div>
-  <div class="earth3d-timeline" id="earth3dTimeline" aria-label="Beschikbare frames"></div>
-  <div class="earth3d-fallback hidden" id="earth3dFallback">
-    <strong>3D is zwaar voor dit toestel.</strong>
-    <span>Gebruik de lichte 2D-radar als de wereldbol hapert.</span>
-    <button class="smallbtn" id="earth3dFallback2d" type="button">Open 2D-radar</button>
   </div>
 </div>
 
