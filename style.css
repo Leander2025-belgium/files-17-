@@ -2784,6 +2784,9 @@ body{
 }
 
 /* ---------- Weerscoop Community ---------- */
+#communityscreen .screen-inner{
+  padding-top:calc(10px + env(safe-area-inset-top));
+}
 .community-inner{
   display:grid;
   gap:12px;
