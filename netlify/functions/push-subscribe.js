@@ -44,7 +44,7 @@ export async function handler(event) {
     next.push(entry);
     await writeSubscriptions(next);
     const supabase = supabaseAdminClient();
-    if (supabase && userId) {
+    if (supabase) {
       await supabase.from("push_subscriptions").upsert({
         user_id: userId,
         endpoint: body.subscription.endpoint,

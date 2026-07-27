@@ -7,7 +7,10 @@
 const KNMI_OPEN_DATA_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6IjU0YWM2YmI3NmVmZDRhMTI4NzEwMmUxMWE2NzRlYmMwIiwiaCI6Im11cm11cjEyOCJ9';
 const KNMI_WMS_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6ImI5YmEzN2M4ZWZiYjRhZjdhMjBkYjlmNzNhN2M1NmQwIiwiaCI6Im11cm11cjEyOCJ9';
 const RADAR_MAX_AGE_MINUTES = 90;
-const PUSH_FUNCTION_BASE = new URL('/.netlify/functions/', location.origin).href;
+const FUNCTION_BASE = location.hostname.endsWith('vercel.app')
+  ? new URL('/api/', location.origin).href
+  : new URL('/.netlify/functions/', location.origin).href;
+const PUSH_FUNCTION_BASE = FUNCTION_BASE;
 const XWEATHER_SDK_VERSION = '1.9.3';
 const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEATHER_SDK_VERSION}/dist/`;
 
@@ -3403,7 +3406,7 @@ async function initXweatherMap(force=false){
 }
 
 async function fetchXweatherConfig(){
-  const r = await fetch('/.netlify/functions/xweather-config', {cache:'no-store'});
+  const r = await fetch(FUNCTION_BASE + 'xweather-config', {cache:'no-store'});
   if(!r.ok) return {configured:false};
   return r.json();
 }
