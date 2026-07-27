@@ -91,9 +91,40 @@
           <button class="chip" data-dur="12">12 uur</button>
           <button class="chip" data-dur="24">24 uur</button>
         </div>
+        <div class="xweather-layerbar" id="xweatherLayerBar" aria-label="Professionele weerlagen"></div>
       </div>
       <div class="radar-info" id="radarInfo"></div>
       <div class="radar-bottom">
+        <div id="xweatherPanel" class="xweather-panel hide">
+          <div class="xweather-panel-head">
+            <div>
+              <b id="xweatherLayerTitle">Radar</b>
+              <span id="xweatherLayerMeta">Xweather MapsGL laden...</span>
+            </div>
+            <button class="smallbtn" id="xweatherRetry" type="button">Opnieuw proberen</button>
+          </div>
+          <div class="xweather-timeline" id="xweatherTimelinePanel">
+            <button class="playbtn" id="xweatherPlay" type="button" aria-label="Animatie afspelen"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg></button>
+            <button class="chip" id="xweatherPrev" type="button">Vorige</button>
+            <input id="xweatherTimeSlider" type="range" min="0" max="100" value="100" aria-label="Tijdlijn">
+            <button class="chip" id="xweatherNext" type="button">Volgende</button>
+            <button class="chip" id="xweatherNow" type="button">Nu</button>
+            <select id="xweatherSpeed" aria-label="Animatiesnelheid">
+              <option value="0.5">0,5x</option>
+              <option value="1" selected>1x</option>
+              <option value="2">2x</option>
+            </select>
+            <span id="xweatherTimeLabel">--:--</span>
+          </div>
+          <div class="xweather-legend" id="xweatherLegend"></div>
+          <details class="xweather-wind-settings" id="xweatherWindSettings">
+            <summary>Windinstellingen</summary>
+            <label>Snelheid <input id="windParticleSpeed" type="range" min="20" max="120" value="55"></label>
+            <label>Dichtheid <input id="windParticleDensity" type="range" min="15" max="100" value="45"></label>
+            <label>Lengte <input id="windParticleTrail" type="range" min="20" max="100" value="60"></label>
+            <label>Dekking <input id="windParticleOpacity" type="range" min="25" max="100" value="75"></label>
+          </details>
+        </div>
         <div id="liveRadarPanel">
           <div class="legend">
             <span>Licht</span>
