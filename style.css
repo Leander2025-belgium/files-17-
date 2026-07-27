@@ -1752,6 +1752,97 @@ body:has(#weatherBG.night) #tvscreen{
   color:rgba(235,244,255,.66);
   font-size:12px;
 }
+.seaspark-card{
+  position:relative;
+  overflow:hidden;
+}
+.seaspark-card::after{
+  content:'';
+  position:absolute;
+  right:-28px;
+  top:-36px;
+  width:120px;
+  height:120px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(75,245,255,.26),transparent 68%);
+  pointer-events:none;
+}
+.seaspark-main{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin-top:8px;
+}
+.seaspark-ring{
+  --score:0;
+  flex:0 0 auto;
+  width:76px;
+  height:76px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  text-align:center;
+  background:
+    radial-gradient(circle at center,rgba(12,25,46,.96) 0 56%,transparent 57%),
+    conic-gradient(#68f4ff calc(var(--score) * 1%),rgba(255,255,255,.14) 0);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.20),0 0 24px rgba(77,226,255,.18);
+}
+.seaspark-ring b{
+  display:block;
+  font-family:'Space Grotesk',sans-serif;
+  font-size:18px;
+  line-height:1;
+}
+.seaspark-ring span{
+  display:block;
+  margin-top:2px;
+  color:rgba(233,238,251,.72);
+  font-size:10px;
+  font-weight:800;
+}
+.seaspark-panel{
+  margin-top:12px;
+  border:1px solid rgba(104,244,255,.22);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 88% 10%,rgba(104,244,255,.18),transparent 32%),
+    rgba(255,255,255,.055);
+  padding:13px;
+}
+.seaspark-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.seaspark-head p{
+  margin:5px 0 0;
+  color:rgba(233,238,251,.76);
+  font-size:12px;
+  line-height:1.45;
+}
+.seaspark-factors{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:11px;
+}
+.seaspark-factors span{
+  border:1px solid rgba(255,255,255,.13);
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  color:rgba(233,238,251,.86);
+  padding:5px 8px;
+  font-size:11px;
+  font-weight:750;
+}
+.seaspark-advice{
+  margin:10px 0 0;
+  padding-left:18px;
+  color:rgba(233,238,251,.78);
+  font-size:12px;
+  line-height:1.45;
+}
 #home .travel-panel{
   border-radius:18px;
   padding:12px;

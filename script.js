@@ -15,7 +15,7 @@ const state = {
   loc: { lat: 51.2405, lon: 2.9309, name: "Oostende", admin: "West-Vlaanderen, Belgie" },
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
   current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
-  observation: null, marine: null, air: null,
+  observation: null, marine: null, seaspark: null, air: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
   knmiKey: KNMI_OPEN_DATA_API_KEY,
@@ -387,10 +387,11 @@ function isCoastalLocation(){
 
 async function loadMarine(){
   state.marine = null;
+  state.seaspark = null;
   const coast = nearestCoastalPlace();
   if(!coast || coast.dist > 18) return;
   try{
-    const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${coast.lat}&longitude=${coast.lon}&hourly=wave_height,wave_period,wave_direction&timezone=auto&forecast_days=2`;
+    const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${coast.lat}&longitude=${coast.lon}&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature&timezone=auto&forecast_days=2`;
     const r = await fetch(url);
     if(!r.ok) return;
     const d = await r.json();
@@ -400,9 +401,123 @@ async function loadMarine(){
       waveHeight:d.hourly.wave_height?.[idx] ?? null,
       wavePeriod:d.hourly.wave_period?.[idx] ?? null,
       waveDirection:d.hourly.wave_direction?.[idx] ?? null,
+      seaSurfaceTemperature:d.hourly.sea_surface_temperature?.[idx] ?? null,
+      hourly:d.hourly,
       tide:tideStateForOostende(new Date())
     };
+    state.seaspark = buildSeaSparkForecast(coast, d.hourly);
   }catch(e){}
+}
+
+function clamp(n, min=0, max=100){
+  return Math.max(min, Math.min(max, n));
+}
+
+function buildSeaSparkForecast(coast, marineHourly){
+  if(!coast || !state.hourly || !state.daily) return null;
+  const now = new Date();
+  const start = new Date(now);
+  if(start.getHours() < 18) start.setHours(20,0,0,0);
+  else start.setMinutes(0,0,0);
+  const end = new Date(start);
+  end.setHours(3,0,0,0);
+  if(end <= start) end.setDate(end.getDate()+1);
+
+  const hours = [];
+  for(let i=0;i<state.hourly.time.length;i++){
+    const t = new Date(state.hourly.time[i]);
+    if(t >= start && t <= end) hours.push(i);
+  }
+  const marineHours = [];
+  for(let i=0;i<(marineHourly?.time || []).length;i++){
+    const t = new Date(marineHourly.time[i]);
+    if(t >= start && t <= end) marineHours.push(i);
+  }
+  const avg = arr => {
+    const vals = arr.filter(v=>v!=null && Number.isFinite(Number(v))).map(Number);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  };
+  const max = arr => {
+    const vals = arr.filter(v=>v!=null && Number.isFinite(Number(v))).map(Number);
+    return vals.length ? Math.max(...vals) : null;
+  };
+  const min = arr => {
+    const vals = arr.filter(v=>v!=null && Number.isFinite(Number(v))).map(Number);
+    return vals.length ? Math.min(...vals) : null;
+  };
+
+  const seaTemp = avg(marineHours.map(i=>marineHourly.sea_surface_temperature?.[i]));
+  const wave = avg(marineHours.map(i=>marineHourly.wave_height?.[i]));
+  const wind = avg(hours.map(i=>state.hourly.wind_speed_10m?.[i]));
+  const gust = max(hours.map(i=>state.hourly.wind_gusts_10m?.[i]));
+  const rain = avg(hours.map(i=>state.hourly.precipitation?.[i]));
+  const pop = max(hours.map(i=>state.hourly.precipitation_probability?.[i]));
+  const cloud = avg(hours.map(i=>state.hourly.cloud_cover?.[i]));
+  const visibility = min(hours.map(i=>state.hourly.visibility?.[i]));
+  const season = seaSparkSeasonScore(now);
+  const tempScore = seaTemp == null ? 12 : seaTemp >= 20 ? 24 : seaTemp >= 18 ? 20 : seaTemp >= 16 ? 14 : seaTemp >= 14 ? 8 : 3;
+  const calmScore = wind == null ? 10 : wind <= 8 ? 20 : wind <= 14 ? 15 : wind <= 22 ? 7 : 0;
+  const waveScore = wave == null ? 8 : wave <= .25 ? 16 : wave <= .55 ? 12 : wave <= .9 ? 6 : 0;
+  const dryScore = (rain ?? 0) <= .1 && (pop ?? 0) <= 35 ? 12 : (rain ?? 0) <= .5 ? 6 : 0;
+  const darkScore = cloud == null ? 8 : cloud >= 55 ? 12 : cloud >= 25 ? 8 : 5;
+  const visibilityScore = visibility == null ? 4 : visibility >= 6000 ? 6 : visibility >= 3000 ? 3 : 0;
+  const score = clamp(Math.round(season + tempScore + calmScore + waveScore + dryScore + darkScore + visibilityScore));
+  const level = score >= 72 ? 'Hoog' : score >= 48 ? 'Matig' : score >= 25 ? 'Laag' : 'Zeer laag';
+  const bestHour = bestSeaSparkHour(hours, marineHourly, marineHours, seaTemp);
+  const factors = [];
+  if(seaTemp != null) factors.push(`zeewater ${seaTemp.toFixed(1)} °C`);
+  if(wind != null) factors.push(`wind ${Math.round(wind)} km/u`);
+  if(wave != null) factors.push(`golven ${wave.toFixed(1)} m`);
+  if(pop != null) factors.push(`regenkans ${Math.round(pop)}%`);
+  const advice = [];
+  if(score >= 48) advice.push('Ga pas na volledige duisternis kijken en beweeg het water zachtjes.');
+  if((wind ?? 99) > 18) advice.push('Veel wind kan het effect moeilijk zichtbaar maken.');
+  if((wave ?? 99) > .8) advice.push('Een ruwe zee verlaagt de zichtbaarheid.');
+  if((seaTemp ?? 0) < 16) advice.push('Het zeewater is nog koel, daardoor is de kans lager.');
+  if(!advice.length) advice.push('Kijk op donkere plekken zonder fel licht, liefst bij rustig water.');
+
+  return {
+    place:coast.name,
+    score,
+    level,
+    bestTime:bestHour,
+    seaTemp,
+    wind,
+    gust,
+    wave,
+    rain,
+    pop,
+    cloud,
+    factors,
+    advice,
+    source:'Open-Meteo weer + marine, indicatieve natuurkans'
+  };
+}
+
+function seaSparkSeasonScore(date){
+  const m = date.getMonth() + 1;
+  if(m === 6 || m === 7 || m === 8) return 20;
+  if(m === 5 || m === 9) return 12;
+  if(m === 4 || m === 10) return 5;
+  return 0;
+}
+
+function bestSeaSparkHour(hours, marineHourly, marineHours, fallbackSeaTemp){
+  if(!hours.length) return null;
+  let best = {score:-1, time:null};
+  hours.forEach(i=>{
+    const t = new Date(state.hourly.time[i]);
+    const hour = t.getHours();
+    const dark = hour >= 22 || hour <= 3 ? 22 : hour >= 20 ? 12 : 4;
+    const wind = state.hourly.wind_speed_10m?.[i] ?? 16;
+    const pop = state.hourly.precipitation_probability?.[i] ?? 40;
+    const marineIndex = closestIndex(marineHourly?.time || [], t.getTime());
+    const wave = marineHourly?.wave_height?.[marineIndex] ?? .7;
+    const seaTemp = marineHourly?.sea_surface_temperature?.[marineIndex] ?? fallbackSeaTemp ?? 16;
+    const score = dark + (seaTemp >= 18 ? 18 : seaTemp >= 16 ? 11 : 4) + (wind <= 10 ? 18 : wind <= 18 ? 10 : 2) + (wave <= .45 ? 12 : wave <= .8 ? 7 : 1) + (pop <= 30 ? 8 : 2);
+    if(score > best.score) best = {score, time:t};
+  });
+  return best.time;
 }
 
 async function loadAirQuality(){
@@ -953,6 +1068,7 @@ function renderHome(){
   html += detailCard('gauge','Vochtigheid', cur.relative_humidity_2m+'%', 'Dauwpunt '+fmtTemp(hourly.dew_point_2m[nowIdx]));
   html += detailCard('cloud','Bewolking', cur.cloud_cover+'%', cur.cloud_cover<30?'Overwegend helder':cur.cloud_cover<70?'Half bewolkt':'Bewolkt');
   html += moonCard(moon);
+  html += seaSparkDetailCard();
   html += `</div>`;
   html += appSections();
 
@@ -1446,9 +1562,58 @@ function coastSection(){
     <div class="coast-grid premium-coast-grid">
       <div><b>${m.waveHeight?.toFixed(1) ?? '-'} m</b><span>Golfhoogte</span></div><div><b>${m.wavePeriod?.toFixed(1) ?? '-'} s</b><span>Golfperiode</span></div>
       <div><b>${Math.round(m.waveDirection ?? 0)}&deg;</b><span>Golfrichting</span></div><div><b>${tide.state}</b><span>Getij</span></div>
-      <div><b>${tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</b><span>Volgende ${tide.nextType}</span></div><div><b>Geen officiele vlaginformatie beschikbaar</b><span>Vlagkleur</span></div>
+      <div><b>${tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</b><span>Volgende ${tide.nextType}</span></div><div><b>${m.seaSurfaceTemperature?.toFixed(1) ?? '-'} &deg;C</b><span>Zeewater</span></div>
     </div><div class="tide-line"><span></span></div>
+    ${seaSparkCoastPanel()}
   </div>`;
+}
+
+function seaSparkDetailCard(){
+  if(!state.seaspark) return '';
+  const s = state.seaspark;
+  return `<div class="detail-card wide seaspark-card">
+    <div class="dt-title">${icon('drop',true,12)} Zeevonk</div>
+    <div class="seaspark-main">
+      <div class="seaspark-ring" style="--score:${s.score}"><b>${s.score}%</b><span>${esc(s.level)}</span></div>
+      <div>
+        <div class="dt-val mono">${esc(s.level)} kans</div>
+        <div class="dt-sub">${seaSparkBestTimeText(s)} - ${esc(s.place)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function seaSparkCoastPanel(){
+  if(!state.seaspark) return '';
+  const s = state.seaspark;
+  return `<div class="seaspark-panel">
+    <div class="seaspark-head">
+      <div>
+        <div class="card-title">${icon('drop',true,13)} Zeevonk-kans vanavond</div>
+        <p>${seaSparkSummary(s)}</p>
+      </div>
+      <div class="seaspark-ring" style="--score:${s.score}"><b>${s.score}%</b><span>${esc(s.level)}</span></div>
+    </div>
+    <div class="seaspark-factors">
+      ${s.factors.map(f=>`<span>${esc(f)}</span>`).join('')}
+    </div>
+    <ul class="seaspark-advice">${s.advice.map(a=>`<li>${esc(a)}</li>`).join('')}</ul>
+    <div class="subtle">Indicatie, geen officiele voorspelling. Zeevonk blijft afhankelijk van lokale algenbloei, stroming en lichtvervuiling.</div>
+  </div>`;
+}
+
+function seaSparkBestTimeText(s){
+  if(!s?.bestTime) return 'Beste moment: na zonsondergang';
+  return 'Beste moment rond ' + s.bestTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
+}
+
+function seaSparkSummary(s){
+  const parts = [];
+  if(s.seaTemp != null) parts.push(`zeewater ${s.seaTemp.toFixed(1)} &deg;C`);
+  if(s.wind != null) parts.push(`wind ${Math.round(s.wind)} km/u`);
+  if(s.wave != null) parts.push(`golfhoogte ${s.wave.toFixed(1)} m`);
+  const basis = parts.length ? parts.join(', ') : 'beperkte kustdata';
+  return `${s.level} indicatie op basis van ${basis}. ${seaSparkBestTimeText(s)}.`;
 }
 
 function travelWeatherSection(){
@@ -4092,7 +4257,8 @@ function tvMarineCard(){
   const nextLabel = tide.nextType === 'hoogwater' ? 'vloed' : 'eb';
   const nextTime = tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
   const wave = state.marine.waveHeight != null ? `${state.marine.waveHeight.toFixed(1)} m` : 'n.b.';
-  return `<div class="dcard tv-marine">${icon('drop',true,18)}<div><div class="dt-title">Kust</div><div class="dt-val">${tide.state}</div><div class="dt-sub">Volgende ${nextLabel} ${nextTime} - golfhoogte ${wave}</div></div></div>`;
+  const spark = state.seaspark ? ` - zeevonk ${state.seaspark.score}%` : '';
+  return `<div class="dcard tv-marine">${icon('drop',true,18)}<div><div class="dt-title">Kust</div><div class="dt-val">${tide.state}</div><div class="dt-sub">Volgende ${nextLabel} ${nextTime} - golfhoogte ${wave}${spark}</div></div></div>`;
 }
 
 async function initTvMap(){
