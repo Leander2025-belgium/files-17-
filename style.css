@@ -4073,7 +4073,7 @@ body{
   body.auth-open .tabbar{
     opacity:0!important;
     pointer-events:none!important;
-    transform:translateY(120%)!important;
+    transform:translateX(-50%) translateY(120%)!important;
   }
 }
 @media (max-width:360px){
@@ -4177,6 +4177,7 @@ input{
   position:fixed!important;
   left:50%!important;
   right:auto!important;
+  top:auto!important;
   bottom:calc(12px + env(safe-area-inset-bottom))!important;
   width:min(620px, calc(100vw - max(24px, env(safe-area-inset-left)) - max(24px, env(safe-area-inset-right))))!important;
   min-height:64px!important;
@@ -4204,6 +4205,12 @@ input{
   -webkit-backdrop-filter:blur(24px) saturate(180%) brightness(1.08)!important;
   transform:translateX(-50%) translateZ(0)!important;
   transition:transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s ease, background .28s ease!important;
+}
+body.tabbar-anchored .tabbar{
+  position:absolute!important;
+  top:var(--tabbar-top)!important;
+  bottom:auto!important;
+  transform:translateX(-50%) translateZ(0)!important;
 }
 .tabbar::before{
   content:''!important;
