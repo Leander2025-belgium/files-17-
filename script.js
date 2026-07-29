@@ -1816,6 +1816,8 @@ function moonPhase(date){
 $$('.tabbtn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     if(btn.dataset.tab === 'profile'){
+      $$('.tabbtn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
       openAuthSheet();
       return;
     }
@@ -1824,6 +1826,14 @@ $$('.tabbtn').forEach(btn=>{
     $$('.screen').forEach(s=>s.classList.remove('active'));
     $('#'+btn.dataset.tab).classList.add('active');
     state.activeTab = btn.dataset.tab;
+    if(btn.dataset.tab === 'home' && btn.dataset.section){
+      const target = btn.dataset.section;
+      setTimeout(()=>{
+        const el = document.querySelector(target);
+        if(target === '#sec0') window.scrollTo({top:0, behavior:'smooth'});
+        else el?.scrollIntoView({behavior:'smooth', block:'start'});
+      }, 80);
+    }
     if(btn.dataset.tab === 'radarscreen'){ initMapIfNeeded(); setTimeout(()=>state.map && state.map.invalidateSize(),150); }
     if(btn.dataset.tab === 'communityscreen'){
       loadCommunityPosts(true);
