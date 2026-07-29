@@ -4126,7 +4126,21 @@ function renderHourTable(){
 /* =========================================================================
    TV MODE - volledig scherm dashboard voor laptop/tv
    ========================================================================= */
-const tv = { active:false, map:null, animator:null, radarLayer:null, frames:[], index:0, loopTimer:null, clockTimer:null, refreshTimer:null };
+const TV_RADAR_REFRESH_MS = 5 * 60 * 1000;
+const tv = {
+  active:false,
+  map:null,
+  animator:null,
+  radarLayer:null,
+  knmiLayer:null,
+  xweatherController:null,
+  xweatherReady:false,
+  frames:[],
+  index:0,
+  loopTimer:null,
+  clockTimer:null,
+  refreshTimer:null
+};
 
 async function enterTV(){
   tv.active = true;
@@ -4147,6 +4161,7 @@ function exitTV(){
   tv.active = false;
   document.getElementById('tvscreen').classList.remove('active');
   clearInterval(tv.clockTimer); clearInterval(tv.refreshTimer); clearInterval(tv.loopTimer);
+  disposeTvXweatherRadar();
   if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
 }
 $('#tvBtn').addEventListener('click', enterTV);
@@ -4289,22 +4304,18 @@ async function initTvMap(){
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(tv.map);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, pane:'labelPane'}).addTo(tv.map);
     L.circleMarker([state.loc.lat, state.loc.lon], {radius:7, color:'#fff', weight:3, fillColor:'#1677ff', fillOpacity:.95}).addTo(tv.map);
-    if(shouldUseKnmiWmsRadar()){
-      const KnmiLayer = createKnmiWmsGridLayer();
-      tv.knmiLayer = new KnmiLayer({
-        pane:'radarPane',
-        opacity:.9,
-        tileSize:256,
-        maxZoom:10,
-        className:'radar-tile-layer knmi-wms-layer',
-        keepBuffer:3
-      }).addTo(tv.map);
-    }
   } else {
     const rv = tvRadarView();
     tv.map.setView(rv.center, rv.zoom);
   }
   setTimeout(()=>tv.map.invalidateSize(), 200);
+
+  const xweatherOk = await initTvXweatherRadar();
+  if(xweatherOk){
+    clearInterval(tv.loopTimer);
+    tv.loopTimer = setInterval(refreshTvXweatherRadar, TV_RADAR_REFRESH_MS);
+    return;
+  }
 
   if(tv.knmiLayer){
     tv.knmiLayer.redraw();
@@ -4313,13 +4324,113 @@ async function initTvMap(){
       if(!tv.knmiLayer) return;
       tv.knmiLayer.redraw();
       tv.map.invalidateSize();
-    }, 60*1000);
+    }, TV_RADAR_REFRESH_MS);
+    return;
+  }
+
+  if(shouldUseKnmiWmsRadar()){
+    const KnmiLayer = createKnmiWmsGridLayer();
+    tv.knmiLayer = new KnmiLayer({
+      pane:'radarPane',
+      opacity:.9,
+      tileSize:256,
+      maxZoom:10,
+      className:'radar-tile-layer knmi-wms-layer',
+      keepBuffer:3
+    }).addTo(tv.map);
+    updateTvRadarLabel(null, 'Live buienradar - KNMI');
+    clearInterval(tv.loopTimer);
+    tv.loopTimer = setInterval(()=>{
+      if(!tv.knmiLayer) return;
+      tv.knmiLayer.redraw();
+      tv.map.invalidateSize();
+    }, TV_RADAR_REFRESH_MS);
     return;
   }
 
   await refreshTvRadarFrame();
   clearInterval(tv.loopTimer);
-  tv.loopTimer = setInterval(refreshTvRadarFrame, 60*1000);
+  tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
+}
+
+async function initTvXweatherRadar(){
+  if(!tv.map || !window.L) return false;
+  if(tv.xweatherReady && tv.xweatherController){
+    refreshTvXweatherRadar();
+    return true;
+  }
+  try{
+    const config = await fetchXweatherConfig();
+    if(!config?.configured || !config.clientId || !config.clientSecret) return false;
+    await ensureXweatherSdk();
+    const maps = window.mapsgl;
+    if(!maps?.Account || !maps?.LeafletMapController) return false;
+    clearTvRadarLayer();
+    if(tv.knmiLayer){
+      tv.map.removeLayer(tv.knmiLayer);
+      tv.knmiLayer = null;
+    }
+    const account = new maps.Account(config.clientId, config.clientSecret);
+    const controller = new maps.LeafletMapController(tv.map, {
+      account,
+      units:{
+        temperature:'C',
+        speed:'km/h',
+        pressure:'hPa',
+        distance:'km',
+        precipitation:'mm'
+      },
+      animation:{
+        duration:0,
+        endDelay:0,
+        pauseWhileLoading:true,
+        resumeOnMoveEnd:false,
+        preloadData:false
+      }
+    });
+    tv.xweatherController = controller;
+    await controller.initialize();
+    controller.setRefreshInterval(5, true);
+    controller.addWeatherLayer('radar', xweatherLayerOverrides('radar'));
+    tv.xweatherReady = true;
+    await refreshTvXweatherRadar();
+    setTimeout(()=>controller.resize?.(), 120);
+    return true;
+  }catch(err){
+    console.warn('Xweather tv-radar kon niet starten', err);
+    disposeTvXweatherRadar();
+    return false;
+  }
+}
+
+async function refreshTvXweatherRadar(){
+  const controller = tv.xweatherController;
+  if(!controller) return false;
+  try{
+    const timeline = controller.timeline;
+    if(timeline?.goToDate) timeline.goToDate(new Date());
+    if(timeline?.pause) timeline.pause();
+    if(controller.setRefreshInterval) controller.setRefreshInterval(5, true);
+    if(controller.refresh) await controller.refresh();
+    if(controller.resize) controller.resize();
+    const currentDate = timeline?.info?.currentDate || new Date();
+    updateTvRadarLabel(Math.round(currentDate.getTime() / 1000), 'Live buienradar - Xweather');
+    return true;
+  }catch(err){
+    console.warn('Xweather tv-radar kon niet verversen', err);
+    updateTvRadarLabel(null, 'Radar vernieuwen mislukt');
+    return false;
+  }
+}
+
+function disposeTvXweatherRadar(){
+  if(tv.xweatherController){
+    try{ tv.xweatherController.timeline?.pause?.(); }catch(e){}
+    try{ tv.xweatherController.removeWeatherLayer?.('radar'); }catch(e){}
+    try{ tv.xweatherController.dispose?.(); }catch(e){}
+  }
+  tv.xweatherController = null;
+  tv.xweatherReady = false;
 }
 async function refreshTvRadarFrame(){
   try{
