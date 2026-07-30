@@ -1845,23 +1845,6 @@ $$('.tabbtn').forEach(btn=>{
 });
 $('.scopebadge')?.addEventListener?.('click', ()=>{});
 
-function syncTabbarAnchor(){
-  const bar = $('.tabbar');
-  if(!bar) return;
-  const vv = window.visualViewport;
-  const viewportTop = vv ? vv.pageTop : window.scrollY;
-  const viewportHeight = vv ? vv.height : window.innerHeight;
-  const bottomGap = 12;
-  const top = Math.max(0, viewportTop + viewportHeight - bar.offsetHeight - bottomGap);
-  document.documentElement.style.setProperty('--tabbar-top', `${Math.round(top)}px`);
-  document.body.classList.add('tabbar-anchored');
-}
-syncTabbarAnchor();
-window.addEventListener('scroll', syncTabbarAnchor, {passive:true});
-window.addEventListener('resize', syncTabbarAnchor, {passive:true});
-window.visualViewport?.addEventListener('scroll', syncTabbarAnchor, {passive:true});
-window.visualViewport?.addEventListener('resize', syncTabbarAnchor, {passive:true});
-
 /* ---------------- settings sheet ---------------- */
 let lockedScrollY = 0;
 let pageScrollLocked = false;

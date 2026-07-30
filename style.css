@@ -4189,6 +4189,9 @@ input{
   box-sizing:border-box!important;
   overflow:hidden!important;
   border-radius:999px!important;
+  clip-path:inset(0 round 999px)!important;
+  contain:layout paint style!important;
+  background-clip:padding-box!important;
   isolation:isolate!important;
   background:
     linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.08) 46%,rgba(255,255,255,.12)),
@@ -4205,12 +4208,6 @@ input{
   -webkit-backdrop-filter:blur(24px) saturate(180%) brightness(1.08)!important;
   transform:translateX(-50%) translateZ(0)!important;
   transition:transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s ease, background .28s ease!important;
-}
-body.tabbar-anchored .tabbar{
-  position:absolute!important;
-  top:var(--tabbar-top)!important;
-  bottom:auto!important;
-  transform:translateX(-50%) translateZ(0)!important;
 }
 .tabbar::before{
   content:''!important;
@@ -4233,7 +4230,6 @@ body.tabbar-anchored .tabbar{
   border-radius:999px!important;
   pointer-events:none!important;
   background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,.02) 22%,rgba(255,255,255,.28) 48%,rgba(255,255,255,.03) 72%,transparent 100%)!important;
-  filter:blur(.5px)!important;
   transform:rotate(8deg)!important;
   animation:tabbarGlassSheen 9s ease-in-out infinite!important;
   z-index:0!important;
