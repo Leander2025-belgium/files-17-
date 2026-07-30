@@ -30,7 +30,7 @@ const state = {
   xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null },
-  map: null, marker: null,
+  map: null, marker: null, homeMap: { map:null, base:null, overlay:null, xweatherController:null, activeLayer:'radar' },
   activeTab: 'home',
   refreshTimer: null, clockTickTimer: null
 };
@@ -1077,6 +1077,7 @@ function renderHome(){
 
   $('#homeInner').innerHTML = html;
   wireSectionNav();
+  wireHomeMapLayers();
   wireDailyDetails();
   renderPremiumCharts();
   positionSunPaths();
@@ -1166,14 +1167,172 @@ function smartMessages(){
 }
 
 function mapLayerSection(){
-  const layers = ['Buienradar','Temperatuur','Wind','Bewolking','Onweer','Zeetemperatuur','Sneeuw','Satelliet'];
+  const layers = [
+    ['radar','Buienradar'],
+    ['temperatures','Temperatuur'],
+    ['wind-speeds','Wind'],
+    ['cloud-cover','Bewolking'],
+    ['lightning-strikes-icons','Onweer'],
+    ['wave-heights','Zeetemperatuur'],
+    ['snow','Sneeuw'],
+    ['satellite','Satelliet']
+  ];
   return `<div class="card"><div class="card-title">${icon('gauge',true,13)} Interactieve weerkaart</div>
-    <div class="map-tabs">${layers.map((l,i)=>`<button class="${i===0?'active':''}" type="button">${l}</button>`).join('')}</div>
+    <div class="map-tabs">${layers.map(([id,l],i)=>`<button class="${i===0?'active':''}" data-home-layer="${id}" type="button">${l}</button>`).join('')}</div>
     <div class="map-preview">
-      <div>${icon('cloud',true,42)}<b>Kaartlagen voorbereid</b><span>Buienradar gebruikt de bestaande radarkaart. Extra lagen worden pas geladen wanneer je ze opent.</span></div>
+      <div id="homeWeatherMap" class="home-weather-map" aria-label="Interactieve weerkaart"></div>
+      <div class="map-preview-status" id="homeMapStatus">Kaart laden...</div>
     </div>
     <div class="legend-row"><span>Legenda</span><i></i><span id="mapLayerTime">Actuele modeltijd</span></div>
   </div>`;
+}
+
+function wireHomeMapLayers(){
+  const mapEl = $('#homeWeatherMap');
+  if(!mapEl || !window.L) return;
+  $$('.map-tabs [data-home-layer]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      $$('.map-tabs [data-home-layer]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      setHomeMapLayer(btn.dataset.homeLayer);
+    });
+  });
+  setTimeout(()=>{
+    initHomeWeatherMap();
+    setHomeMapLayer(state.homeMap.activeLayer || 'radar');
+  }, 80);
+}
+
+function initHomeWeatherMap(){
+  if(state.homeMap.map || !$('#homeWeatherMap') || !window.L) return;
+  const rv = radarView();
+  const map = L.map('homeWeatherMap', {
+    zoomControl:false,
+    attributionControl:false,
+    dragging:true,
+    scrollWheelZoom:false,
+    doubleClickZoom:false,
+    boxZoom:false,
+    keyboard:false,
+    tap:true,
+    zoomSnap:.25,
+    minZoom:5,
+    maxZoom:10
+  }).setView(rv.center, Math.min(8, rv.zoom));
+  state.homeMap.map = map;
+  state.homeMap.base = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains:'abcd',
+    maxZoom:19
+  }).addTo(map);
+  L.circleMarker([state.loc.lat,state.loc.lon], {radius:6,color:'#fff',weight:2,fillColor:'#1677ff',fillOpacity:.9}).addTo(map);
+  setTimeout(()=>map.invalidateSize(), 120);
+}
+
+async function setHomeMapLayer(layerId){
+  state.homeMap.activeLayer = layerId || 'radar';
+  initHomeWeatherMap();
+  const map = state.homeMap.map;
+  if(!map) return;
+  setHomeMapStatus('Kaartlaag laden...');
+  clearHomeMapOverlay();
+  try{
+    if(layerId === 'radar' || layerId === 'satellite'){
+      await setHomeLegacyLayer(layerId);
+    }else{
+      const ok = await setHomeXweatherLayer(layerId);
+      if(!ok) throw new Error('Xweather laag niet beschikbaar');
+    }
+    setHomeMapStatus('');
+    $('#mapLayerTime').textContent = new Date().toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
+  }catch(err){
+    console.error('Home weather map layer failed', {layerId, err});
+    setHomeMapStatus(homeMapLayerError(layerId));
+  }finally{
+    setTimeout(()=>map.invalidateSize(), 80);
+  }
+}
+
+function clearHomeMapOverlay(){
+  const map = state.homeMap.map;
+  if(state.homeMap.overlay && map){
+    try{ map.removeLayer(state.homeMap.overlay); }catch(e){}
+  }
+  state.homeMap.overlay = null;
+  if(state.homeMap.xweatherController){
+    try{ state.homeMap.xweatherController.timeline?.pause?.(); }catch(e){}
+    try{ state.homeMap.xweatherController.dispose?.(); }catch(e){}
+  }
+  state.homeMap.xweatherController = null;
+}
+
+async function setHomeLegacyLayer(layerId){
+  const map = state.homeMap.map;
+  const r = await fetch('https://api.rainviewer.com/public/weather-maps.json?ts=' + Date.now(), {cache:'no-store'});
+  if(!r.ok) throw new Error('RainViewer '+r.status);
+  const meta = await r.json();
+  const frames = layerId === 'satellite' ? (meta.satellite?.infrared || meta.satellite?.visible || []) : (meta.radar?.past || []);
+  const latest = frames[frames.length - 1];
+  if(!latest) throw new Error('Geen kaartframe beschikbaar');
+  if(layerId === 'radar' && !isFreshRadarFrame(latest)) throw new Error('Radarframe is te oud');
+  const url = layerId === 'satellite'
+    ? `${meta.host}${latest.path}/256/{z}/{x}/{y}/0/0_0.png?home=${latest.time}-${Date.now()}`
+    : `${meta.host}${latest.path}/256/{z}/{x}/{y}/4/1_1.png?home=${latest.time}-${Date.now()}`;
+  state.homeMap.overlay = L.tileLayer(url, {
+    opacity:layerId === 'satellite' ? .74 : .86,
+    maxZoom:10,
+    maxNativeZoom:10,
+    crossOrigin:true
+  }).addTo(map);
+}
+
+async function setHomeXweatherLayer(layerId){
+  const map = state.homeMap.map;
+  const def = findXweatherLayerDefinition(layerId);
+  if(!def) return false;
+  const config = await fetchXweatherConfig();
+  if(!config?.configured || !config.clientId || !config.clientSecret) return false;
+  await ensureXweatherSdk();
+  const maps = window.mapsgl;
+  if(!maps?.Account || !maps?.LeafletMapController) return false;
+  const controller = new maps.LeafletMapController(map, {
+    account:new maps.Account(config.clientId, config.clientSecret),
+    units:{temperature:'C',speed:'km/h',pressure:'hPa',distance:'km',precipitation:'mm'},
+    animation:{duration:0,endDelay:0,pauseWhileLoading:true,resumeOnMoveEnd:false,preloadData:false}
+  });
+  state.homeMap.xweatherController = controller;
+  await controller.initialize();
+  const code = resolveXweatherLayerCode(def, controller);
+  if(!code){
+    try{ controller.dispose?.(); }catch(e){}
+    if(state.homeMap.xweatherController === controller) state.homeMap.xweatherController = null;
+    return false;
+  }
+  try{
+    controller.addWeatherLayer(code, xweatherLayerOverrides(code));
+  }catch(err){
+    console.error('Home weather map Xweather layer failed', {layerId, code, error:err});
+    try{ controller.dispose?.(); }catch(e){}
+    if(state.homeMap.xweatherController === controller) state.homeMap.xweatherController = null;
+    return false;
+  }
+  controller.timeline?.goToDate?.(new Date());
+  controller.timeline?.pause?.();
+  controller.redraw?.();
+  return true;
+}
+
+function setHomeMapStatus(text){
+  const el = $('#homeMapStatus');
+  if(!el) return;
+  el.textContent = text || '';
+  el.classList.toggle('hidden', !text);
+}
+
+function homeMapLayerError(layerId){
+  if(['cloud-cover','temperatures','wind-speeds','lightning-strikes-icons','wave-heights','snow'].includes(layerId)){
+    return 'Deze Xweather-kaartlaag is niet beschikbaar met de huidige sleutel of verbinding.';
+  }
+  return 'Kaartlaag kon niet worden geladen.';
 }
 
 function chartsSection(){
@@ -1192,7 +1351,7 @@ function chartsSection(){
       ${stat('Wind', points.map(i=>state.hourly.wind_speed_10m[i]), ' km/u')}
     </div>
     <div class="chart-grid premium-charts">
-      ${premiumChartShell('temp','Temperatuur','Gevoelstemperatuur en luchttemperatuur','Â°C')}
+      ${premiumChartShell('temp','Temperatuur','Gevoelstemperatuur en luchttemperatuur','&deg;C')}
       ${premiumChartShell('rain','Neerslag','Kans en hoeveelheid per uur','% / mm')}
       ${premiumChartShell('uv','UV-index','Sterkte van de zon doorheen de dag','UV')}
       ${premiumChartShell('wind','Wind','Windsnelheid en windstoten','km/u')}
@@ -1221,7 +1380,7 @@ function renderPremiumCharts(){
     ['temp', labels, [
       premiumDataset('Temperatuur', points.map(i=>h.temperature_2m[i]), '#65d8ff', true),
       premiumDataset('Voelt als', points.map(i=>h.apparent_temperature?.[i]), '#ffd36b', false)
-    ], 'Â°C'],
+    ], '°C'],
     ['rain', labels, [
       premiumDataset('Neerslagkans', points.map(i=>h.precipitation_probability[i]), '#69e7ff', true),
       premiumDataset('Neerslag mm', points.map(i=>h.precipitation[i]), '#4ade80', false, 'bar')
@@ -1938,6 +2097,7 @@ function dutchAuthError(error){
 }
 function updateAuthInterface(session){
   const loggedIn = Boolean(session?.user);
+  updateAuthMessage('');
   $('#authLoggedOut')?.classList.toggle('hidden', loggedIn);
   $('#authLoggedIn')?.classList.toggle('hidden', !loggedIn);
   const profile = state.auth.profile;
@@ -2393,7 +2553,7 @@ function climateCompareText(){
   const diff = currentAvg - cmpAvg;
   const warmer = diff >= 0 ? 'warmer' : 'kouder';
   const loc = state.climate.location === 'all' ? 'jouw opgeslagen locaties' : state.climate.location;
-  return `Deze periode was op ${loc} tot nu toe ${Math.abs(diff).toFixed(1).replace('.',',')} Â°C ${warmer} dan ${comparePeriod}.`;
+  return `Deze periode was op ${loc} tot nu toe ${Math.abs(diff).toFixed(1).replace('.',',')} °C ${warmer} dan ${comparePeriod}.`;
 }
 
 function formatClimateDate(date){
@@ -2437,8 +2597,8 @@ function renderClimateDashboard(){
     climateMetric('Sterkste wind', x.byWind ? fmtWind(x.byWind.max_wind_gust) : '-', x.byWind ? formatClimateDate(x.byWind.date) : ''),
     climateMetric('Zonnigste maand', x.sunnyMonth ? new Date(x.sunnyMonth.key + '-01').toLocaleDateString('nl-BE',{month:'long',year:'numeric'}) : '-', x.sunnyMonth ? `Gem. UV ${x.sunnyMonth.avg.toFixed(1)}` : ''),
     climateMetric('Regendagen', x.rainDays, 'Minstens 1 mm'),
-    climateMetric('Vorstdagen', x.frostDays, 'Minimum onder 0 Â°C'),
-    climateMetric('Warme dagen', x.warmDays, 'Maximum vanaf 25 Â°C'),
+    climateMetric('Vorstdagen', x.frostDays, 'Minimum onder 0 °C'),
+    climateMetric('Warme dagen', x.warmDays, 'Maximum vanaf 25 °C'),
     climateMetric('Onweersdagen', x.thunderDays, 'Code 95/96/99'),
     climateMetric('Waarschuwingsdagen', x.warningDays, 'Code geel of hoger'),
     climateMetric('Persoonlijke reeks', `${x.streak} dagen`, 'Aaneengesloten bewaard'),
@@ -2460,7 +2620,7 @@ function renderClimateChart(rows){
     data:{
       labels:sorted.map(r=>r.date),
       datasets:[
-        {label:'Gem. temperatuur (Â°C)', data:sorted.map(r=>r.mean_temperature ?? null), borderColor:'#8fe7ff', backgroundColor:'rgba(143,231,255,.12)', tension:.25, spanGaps:false, yAxisID:'y'},
+        {label:'Gem. temperatuur (°C)', data:sorted.map(r=>r.mean_temperature ?? null), borderColor:'#8fe7ff', backgroundColor:'rgba(143,231,255,.12)', tension:.25, spanGaps:false, yAxisID:'y'},
         {label:'Neerslag (mm)', data:sorted.map(r=>r.precipitation_total ?? null), type:'bar', backgroundColor:'rgba(73,167,255,.38)', borderColor:'rgba(73,167,255,.85)', yAxisID:'y1'}
       ]
     },
@@ -2471,7 +2631,7 @@ function renderClimateChart(rows){
       plugins:{legend:{labels:{color:'#e9eefb'}}, tooltip:{callbacks:{title:items=>formatClimateDate(items[0].label)}}},
       scales:{
         x:{ticks:{color:'rgba(233,238,251,.68)', maxTicksLimit:8}, grid:{color:'rgba(255,255,255,.06)'}},
-        y:{title:{display:true,text:'Â°C',color:'#e9eefb'}, ticks:{color:'rgba(233,238,251,.68)'}, grid:{color:'rgba(255,255,255,.08)'}},
+        y:{title:{display:true,text:'°C',color:'#e9eefb'}, ticks:{color:'rgba(233,238,251,.68)'}, grid:{color:'rgba(255,255,255,.08)'}},
         y1:{position:'right', title:{display:true,text:'mm',color:'#e9eefb'}, ticks:{color:'rgba(233,238,251,.68)'}, grid:{drawOnChartArea:false}}
       }
     }
@@ -2643,22 +2803,7 @@ async function loadCommunityPosts(reset=false){
   state.community.loading = true;
   renderCommunityLoading();
   try{
-    let q = supabase.from('community_posts')
-      .select('*, community_likes(id,user_id), community_favorites(id,user_id), community_comments(id, body, created_at, user_id)')
-      .eq('moderation_status','approved')
-      .eq('visibility','public')
-      .order('created_at', {ascending:false})
-      .range(state.community.page * state.community.pageSize, (state.community.page + 1) * state.community.pageSize - 1);
-    if(state.community.category) q = q.eq('category', state.community.category);
-    if(state.community.query){
-      const cleanQuery = state.community.query.replace(/[%_,{}()]/g,' ').trim();
-      const term = `%${cleanQuery}%`;
-      const tag = cleanQuery.replace(/^#/,'').toLowerCase().replace(/[^a-z0-9_]/g,'');
-      const filters = [`caption.ilike.${term}`, `location_name.ilike.${term}`];
-      if(tag) filters.push(`hashtags.cs.{${tag}}`);
-      q = q.or(filters.join(','));
-    }
-    const { data, error } = await q;
+    const { data, error } = await runCommunityQuery(supabase, true);
     if(error) throw error;
     const posts = await attachCommunityProfiles(data || []);
     state.community.posts = reset ? posts : [...state.community.posts, ...posts];
@@ -2668,11 +2813,69 @@ async function loadCommunityPosts(reset=false){
     renderCommunityLiveStats();
     if(state.community.view === 'map') renderCommunityMapMarkers();
   }catch(e){
-    console.warn('Community laden mislukt:', e?.message || e);
-    renderCommunityEmpty('Community kon niet worden geladen. Probeer later opnieuw.');
+    console.error('Community feed load failed', {
+      error:e,
+      message:e?.message,
+      code:e?.code,
+      details:e?.details,
+      hint:e?.hint,
+      supabaseConfigured:state.auth.configured,
+      hasUser:Boolean(state.auth.user),
+      category:state.community.category,
+      query:state.community.query
+    });
+    renderCommunityEmpty(communityLoadErrorMessage(e));
   }finally{
     state.community.loading = false;
   }
+}
+
+async function runCommunityQuery(supabase, withRelations){
+  const from = state.community.page * state.community.pageSize;
+  const to = (state.community.page + 1) * state.community.pageSize - 1;
+  const select = withRelations
+    ? '*, community_likes(id,user_id), community_favorites(id,user_id), community_comments(id, body, created_at, user_id)'
+    : '*';
+  let q = supabase.from('community_posts')
+    .select(select)
+    .eq('moderation_status','approved')
+    .eq('visibility','public')
+    .order('created_at', {ascending:false})
+    .range(from, to);
+  if(state.community.category) q = q.eq('category', state.community.category);
+  if(state.community.query){
+    const cleanQuery = state.community.query.replace(/[%_,{}()]/g,' ').trim();
+    const term = `%${cleanQuery}%`;
+    const tag = cleanQuery.replace(/^#/,'').toLowerCase().replace(/[^a-z0-9_]/g,'');
+    const filters = [`caption.ilike.${term}`, `location_name.ilike.${term}`];
+    if(tag) filters.push(`hashtags.cs.{${tag}}`);
+    q = q.or(filters.join(','));
+  }
+  const result = await q;
+  if(result.error && withRelations && isCommunityRelationError(result.error)){
+    console.error('Community relational query failed; retrying base feed query', result.error);
+    return runCommunityQuery(supabase, false);
+  }
+  return result;
+}
+
+function isCommunityRelationError(error){
+  const msg = String(error?.message || error?.details || '').toLowerCase();
+  return error?.code === 'PGRST200' || msg.includes('relationship') || msg.includes('schema cache') || msg.includes('community_likes') || msg.includes('community_comments') || msg.includes('community_favorites');
+}
+
+function communityLoadErrorMessage(error){
+  const msg = String(error?.message || error?.details || '').toLowerCase();
+  if(error?.code === '42501' || msg.includes('permission') || msg.includes('row-level security') || msg.includes('rls')){
+    return 'Community kan niet worden gelezen door de huidige beveiligingsregels. Controleer Supabase RLS voor publieke posts.';
+  }
+  if(msg.includes('failed to fetch') || msg.includes('network') || msg.includes('cors')){
+    return 'Community kon geen verbinding maken. Controleer netwerk of CORS-instellingen.';
+  }
+  if(msg.includes('does not exist') || msg.includes('community_posts')){
+    return 'Communitytabel ontbreekt of is anders genoemd in Supabase.';
+  }
+  return 'Community kon niet worden geladen. Open de browserconsole voor de exacte fout.';
 }
 
 async function attachCommunityProfiles(posts){
@@ -2683,7 +2886,11 @@ async function attachCommunityProfiles(posts){
     (post.community_comments || []).forEach(c=>{ if(c.user_id) ids.add(c.user_id); });
   });
   if(!ids.size) return posts;
-  const { data } = await supabase.from('community_public_profiles').select('id,display_name,avatar_url').in('id', [...ids]);
+  const { data, error } = await supabase.from('community_public_profiles').select('id,display_name,avatar_url').in('id', [...ids]);
+  if(error){
+    console.error('Community profile enrichment failed', error);
+    return posts;
+  }
   const profiles = new Map((data || []).map(p=>[p.id,p]));
   return posts.map(post=>({
     ...post,
@@ -3433,8 +3640,8 @@ function availableXweatherLayers(){
   return XWEATHER_LAYER_DEFS.filter(def=>{
     if(def.overlay) return false;
     if(state.xweather.disabledCodes.has(def.code)) return false;
-    if(state.xweather.availableCodes.size && !state.xweather.availableCodes.has(def.code)){
-      try{ return Boolean(provider?.getWeatherLayerConfig(def.code)); }catch(e){ return false; }
+    if(state.xweather.availableCodes.size && !xweatherLayerCodeCandidates(def).some(code=>state.xweather.availableCodes.has(code))){
+      try{ return Boolean(resolveXweatherLayerCode(def)); }catch(e){ return false; }
     }
     return true;
   });
@@ -3442,6 +3649,34 @@ function availableXweatherLayers(){
 
 function findAvailableXweatherLayer(id){
   return availableXweatherLayers().find(def=>def.id === id || def.code === id) || null;
+}
+
+function findXweatherLayerDefinition(id){
+  return XWEATHER_LAYER_DEFS.find(def=>def.id === id || def.code === id) || null;
+}
+
+function resolveXweatherLayerCode(def, controller=state.xweather.controller){
+  if(!def || !controller) return null;
+  const candidates = xweatherLayerCodeCandidates(def);
+  for(const code of candidates){
+    if(state.xweather.disabledCodes.has(code)) continue;
+    if(state.xweather.availableCodes.size && state.xweather.availableCodes.has(code)) return code;
+    try{
+      if(controller.weatherProvider?.getWeatherLayerConfig(code)) return code;
+    }catch(err){
+      console.error('Xweather layer config lookup failed', {code, layer:def.id, err});
+    }
+  }
+  return null;
+}
+
+function xweatherLayerCodeCandidates(def){
+  const fallback = {
+    'cloud-cover':['cloud-cover','clouds','cloud-cover-global'],
+    'lightning-strikes-icons':['lightning-strikes-icons','lightning-strikes'],
+    'wave-heights':['wave-heights','waves','wave-periods']
+  };
+  return [...new Set([def.code, def.id, ...(fallback[def.id] || [])].filter(Boolean))];
 }
 
 function setupXweatherUi(){
@@ -3503,11 +3738,29 @@ async function setXweatherLayer(id){
   const def = findAvailableXweatherLayer(id);
   if(!def){
     toast('Deze weerlaag is momenteel niet beschikbaar.');
+    setXweatherStatus(`Laag "${id}" is niet beschikbaar met deze Xweather-configuratie.`);
     return;
   }
+  const previousLayer = state.xweather.activeLayer;
   state.xweather.activeLayer = def;
   localStorage.setItem('weerscoop:xweatherLayer', def.id);
-  await refreshXweatherLayers();
+  const ok = await refreshXweatherLayers();
+  if(!ok){
+    setXweatherStatus(`${def.label} is niet beschikbaar met deze Xweather-sleutel of dit abonnement. Kies een andere kaartlaag.`);
+    if(def.id !== 'radar'){
+      const fallback = findAvailableXweatherLayer('radar');
+      if(fallback){
+        state.xweather.activeLayer = fallback;
+        localStorage.setItem('weerscoop:xweatherLayer', fallback.id);
+        await refreshXweatherLayers();
+      }else{
+        state.xweather.activeLayer = previousLayer || null;
+      }
+    }
+    renderXweatherLayerSelector();
+    updateXweatherLegend();
+    return;
+  }
   $$('.xweather-layer-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.xweatherLayer === def.id));
   $('#chipPrecip')?.classList.toggle('active', def.id === 'radar');
   $('#chipSat')?.classList.toggle('active', def.id === 'satellite');
@@ -3520,10 +3773,17 @@ async function setXweatherLayer(id){
 async function refreshXweatherLayers(){
   const controller = state.xweather.controller;
   const def = state.xweather.activeLayer;
-  if(!controller || !def) return;
-  const wanted = [def.code];
+  if(!controller || !def) return false;
+  const primaryCode = resolveXweatherLayerCode(def, controller);
+  if(!primaryCode){
+    console.error('Xweather layer unavailable before add', {layer:def, metadata:state.xweather.metadata});
+    state.xweather.disabledCodes.add(def.code);
+    return false;
+  }
+  const wanted = [primaryCode];
   const lightning = XWEATHER_LAYER_DEFS.find(d=>d.id === 'lightning-strikes-icons');
-  if(state.xweather.overlayLightning && lightning && def.id !== lightning.id && canUseXweatherCode(lightning.code)) wanted.push(lightning.code);
+  const lightningCode = lightning ? resolveXweatherLayerCode(lightning, controller) : null;
+  if(state.xweather.overlayLightning && lightningCode && def.id !== lightning.id) wanted.push(lightningCode);
   state.xweather.activeCodes.forEach(code=>{
     if(!wanted.includes(code)){
       try{ controller.removeWeatherLayer(code); }catch(e){}
@@ -3537,14 +3797,22 @@ async function refreshXweatherLayers(){
       }
       state.xweather.activeCodes.push(code);
     }catch(err){
-      console.warn('Xweather laag niet beschikbaar', code, err);
+      console.error('Xweather layer add failed', {
+        code,
+        requestedLayer:def.id,
+        activeLayer:def,
+        metadata:state.xweather.metadata,
+        error:err
+      });
       state.xweather.disabledCodes.add(code);
+      if(code === def.code || code === primaryCode) state.xweather.disabledCodes.add(def.code);
       try{ controller.removeWeatherLayer(code); }catch(e){}
-      toast('Deze weerlaag is momenteel niet beschikbaar.');
+      if(code === primaryCode) return false;
     }
   }
   applyWindParticleSettings();
-  controller.redraw();
+  try{ controller.redraw(); }catch(err){ console.error('Xweather redraw failed', err); }
+  return state.xweather.activeCodes.includes(primaryCode);
 }
 
 function xweatherLayerOverrides(code){
