@@ -612,7 +612,49 @@ function liveWeatherSnapshot(){
     });
     if(obs.weather_code != null) cur.weather_code = obs.weather_code;
   }
+  cur.weather_code = effectiveCurrentWeatherCode(cur);
   return cur;
+}
+
+function precipitationSignal(){
+  const signal = {now:0, soon:0, pop:0, thunder:false};
+  const currentPrecip = Number(state.current?.precipitation) || 0;
+  signal.now = Math.max(signal.now, currentPrecip);
+  signal.soon = Math.max(signal.soon, currentPrecip);
+  const targetMs = Date.now();
+  if(state.minutely?.time?.length){
+    const idx = closestIndex(state.minutely.time, targetMs);
+    const minuteAge = Math.abs(new Date(state.minutely.time[idx]).getTime() - targetMs) / 60000;
+    if(minuteAge <= 35){
+      const slots = state.minutely.precipitation.slice(idx, idx + 4).map(v=>Number(v) || 0);
+      signal.now = slots[0] || 0;
+      signal.soon = Math.max(0, ...slots);
+      const codes = state.minutely.weather_code?.slice(idx, idx + 4) || [];
+      signal.thunder = codes.some(code=>[95,96,99].includes(Number(code)));
+    }
+  }
+  if(state.hourly?.time?.length){
+    const idx = nowIndexInHourly();
+    const hourPrecip = Number(state.hourly.precipitation?.[idx]) || 0;
+    const nextPrecip = Number(state.hourly.precipitation?.[idx + 1]) || 0;
+    signal.now = Math.max(signal.now, hourPrecip);
+    signal.soon = Math.max(signal.soon, hourPrecip, nextPrecip);
+    signal.pop = Number(state.hourly.precipitation_probability?.[idx]) || 0;
+    signal.thunder = signal.thunder || [95,96,99].includes(Number(state.hourly.weather_code?.[idx]));
+  }
+  return signal;
+}
+
+function effectiveCurrentWeatherCode(cur=state.current || {}){
+  const code = Number(cur.weather_code);
+  const rainCodes = [51,53,55,56,57,61,63,65,66,67,80,81,82];
+  const snowCodes = [71,73,75,77,85,86];
+  if([95,96,99].includes(code) || rainCodes.includes(code) || snowCodes.includes(code)) return code;
+  const p = precipitationSignal();
+  if(p.thunder && (p.now >= 0.1 || p.soon >= 0.2 || p.pop >= 60)) return 95;
+  if(p.now >= 2 || p.soon >= 3) return 63;
+  if(p.now >= 0.1 || p.soon >= 0.4 || (p.pop >= 75 && p.soon >= 0.1)) return 61;
+  return Number.isFinite(code) ? code : 0;
 }
 
 function isNetherlandsLocation(){

@@ -4363,3 +4363,34 @@ input{
 .day-sheet.show{
   visibility:visible!important;
 }
+
+/* Final condition-layer guard: keep weather animations visible after cleanup overrides. */
+#weatherBG.sunny:not(.night) .wbg-sun,
+#weatherBG.cloudy .wbg-clouds,
+#weatherBG.rainy .wbg-clouds,
+#weatherBG.stormy .wbg-clouds,
+#weatherBG.snowy .wbg-clouds,
+#weatherBG.rainy .wbg-rain,
+#weatherBG.stormy .wbg-rain,
+#weatherBG.snowy .wbg-snow,
+#weatherBG.stormy .wbg-lightning,
+#weatherBG.night .wbg-moon{
+  display:block!important;
+}
+#weatherBG.rainy .wbg-rain,
+#weatherBG.stormy .wbg-rain{
+  opacity:1!important;
+  animation-play-state:running!important;
+}
+#weatherBG.cloudy .cloud,
+#weatherBG.rainy .cloud,
+#weatherBG.stormy .cloud,
+#weatherBG.snowy .cloud{
+  animation-play-state:running!important;
+}
+#weatherBG.rainy .cloud.c5,
+#weatherBG.rainy .cloud.c6,
+#weatherBG.stormy .cloud.c5,
+#weatherBG.stormy .cloud.c6{
+  opacity:.58!important;
+}
