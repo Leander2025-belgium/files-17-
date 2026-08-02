@@ -397,6 +397,19 @@ a{color:inherit;}
 .sugg-name{font-weight:600;font-size:14.5px;}
 .sugg-sub{color:var(--dim);font-size:12.5px;text-align:right;}
 .sugg-empty{padding:14px;color:var(--dim);font-size:13.5px;}
+.sugg-location{
+  justify-content:flex-start;
+  background:linear-gradient(180deg,rgba(105,231,255,.14),rgba(255,255,255,.06));
+}
+.sugg-location-icon{
+  width:34px;height:34px;border-radius:50%;
+  display:grid;place-items:center;flex:0 0 auto;
+  color:#081426;background:var(--accent);
+  box-shadow:0 8px 22px rgba(53,208,196,.24);
+}
+.sugg-location-icon svg{width:18px;height:18px;}
+.sugg-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.sugg-main .sugg-sub{text-align:left;}
 
 /* ---------- Home hero ---------- */
 .hero{text-align:center;padding:18px 0 22px;}

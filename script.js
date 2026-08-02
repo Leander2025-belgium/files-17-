@@ -864,12 +864,53 @@ $('#searchInput').addEventListener('input', (e)=>{
   const q = e.target.value.trim();
   $('#clearSearch').style.display = q ? 'block' : 'none';
   clearTimeout(searchTimer);
-  if(q.length < 2){ $('#suggestions').classList.remove('show'); return; }
+  if(q.length < 2){ showLocationSuggestion(); return; }
   searchTimer = setTimeout(()=>doSearch(q), 300);
 });
-$('#clearSearch').addEventListener('click', ()=>{
-  $('#searchInput').value=''; $('#clearSearch').style.display='none'; $('#suggestions').classList.remove('show');
+$('#searchInput').addEventListener('focus', ()=>{
+  if(!$('#searchInput').value.trim()) showLocationSuggestion();
 });
+$('#clearSearch').addEventListener('click', ()=>{
+  $('#searchInput').value=''; $('#clearSearch').style.display='none'; showLocationSuggestion();
+});
+
+function locationSuggestionHtml(){
+  return `<div class="sugg-item sugg-location" data-use-current-location="true">
+    <span class="sugg-location-icon">${icon('gauge',true,18)}</span>
+    <span class="sugg-main"><span class="sugg-name">Gebruik mijn locatie</span><span class="sugg-sub">Laat Wheaterflow je huidige positie bepalen</span></span>
+  </div>`;
+}
+
+function showLocationSuggestion(){
+  const box = $('#suggestions');
+  if(!box) return;
+  box.innerHTML = locationSuggestionHtml();
+  box.classList.add('show');
+  wireCurrentLocationSuggestion(box);
+}
+
+function wireCurrentLocationSuggestion(box=$('#suggestions')){
+  $('[data-use-current-location]', box)?.addEventListener('click', useCurrentBrowserLocation);
+}
+
+async function useCurrentBrowserLocation(){
+  const box = $('#suggestions');
+  if(box){
+    box.innerHTML = `<div class="sugg-empty">Je locatie wordt opgehaald...</div>`;
+    box.classList.add('show');
+  }
+  const p = await getBrowserLocation();
+  if(!p){
+    if(box) box.innerHTML = `<div class="sugg-empty">Locatie kon niet worden opgehaald. Controleer je toestemming voor locatie.</div>`;
+    return;
+  }
+  const g = await reverseGeocode(p.lat, p.lon);
+  await setLocation(p.lat, p.lon, g.name, g.admin);
+  if(box) box.classList.remove('show');
+  $('#searchInput').value='';
+  $('#clearSearch').style.display='none';
+}
+
 async function doSearch(q){
   const box = $('#suggestions');
   try{
@@ -880,12 +921,13 @@ async function doSearch(q){
       box.innerHTML = `<div class="sugg-empty">Geen plaatsen gevonden voor "${q}"</div>`;
       box.classList.add('show'); return;
     }
-    box.innerHTML = results.map((res,i)=>`
+    box.innerHTML = locationSuggestionHtml() + results.map((res,i)=>`
       <div class="sugg-item" data-i="${i}">
         <span class="sugg-name">${res.name}</span>
         <span class="sugg-sub">${[res.admin1, res.country].filter(Boolean).join(', ')}</span>
       </div>`).join('');
     box.classList.add('show');
+    wireCurrentLocationSuggestion(box);
     $$('.sugg-item', box).forEach(el=>{
       el.addEventListener('click', ()=>{
         const res = results[+el.dataset.i];
