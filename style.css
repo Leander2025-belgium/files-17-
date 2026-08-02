@@ -4394,3 +4394,203 @@ input{
 #weatherBG.stormy .cloud.c6{
   opacity:.58!important;
 }
+
+/* ---------- Mobile home: Apple Weather inspired vertical composition ---------- */
+@media (max-width:760px){
+  #home .topbar{
+    background:transparent!important;
+    border:0!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    padding-top:calc(8px + env(safe-area-inset-top))!important;
+  }
+  #home .searchbar{
+    background:rgba(10,20,34,.22)!important;
+    border-color:rgba(255,255,255,.14)!important;
+  }
+  #home .screen-inner{
+    max-width:none!important;
+    width:100%!important;
+    padding:calc(18px + env(safe-area-inset-top)) 18px calc(var(--tabbar-h,72px) + 30px + env(safe-area-inset-bottom))!important;
+    box-sizing:border-box!important;
+  }
+  #home .hero{
+    min-height:54vh!important;
+    padding:74px 0 34px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    text-align:center!important;
+    color:#fff!important;
+  }
+  #home .hero .hero-kicker{
+    font-size:13px!important;
+    line-height:1!important;
+    font-weight:800!important;
+    letter-spacing:.095em!important;
+    color:rgba(255,255,255,.76)!important;
+    text-transform:uppercase!important;
+    margin-bottom:8px!important;
+    text-shadow:0 2px 18px rgba(0,0,0,.34)!important;
+  }
+  #home .hero .locname{
+    font-size:clamp(38px,10vw,58px)!important;
+    line-height:1.02!important;
+    font-weight:400!important;
+    letter-spacing:-.01em!important;
+    text-shadow:0 4px 26px rgba(0,0,0,.34)!important;
+  }
+  #home .hero .bignum{
+    font-size:clamp(112px,31vw,188px)!important;
+    line-height:.78!important;
+    font-weight:200!important;
+    margin:16px 0 18px!important;
+    letter-spacing:-.045em!important;
+    text-shadow:0 8px 40px rgba(0,0,0,.32)!important;
+  }
+  #home .hero .cond{
+    font-size:clamp(24px,6.8vw,34px)!important;
+    line-height:1.08!important;
+    font-weight:650!important;
+    color:rgba(255,255,255,.70)!important;
+    text-shadow:0 3px 22px rgba(0,0,0,.36)!important;
+  }
+  #home .hero .hilo{
+    margin-top:7px!important;
+    font-size:clamp(20px,5.3vw,28px)!important;
+    line-height:1.15!important;
+    color:rgba(255,255,255,.94)!important;
+    font-weight:700!important;
+  }
+  #home .hero .updated{
+    margin-top:14px!important;
+    font-size:11px!important;
+    color:rgba(255,255,255,.48)!important;
+  }
+  #home .card,
+  #home .detail-card{
+    border-radius:26px!important;
+    border:1px solid rgba(255,255,255,.13)!important;
+    background:
+      linear-gradient(180deg,rgba(72,91,112,.36),rgba(24,43,66,.28)),
+      rgba(19,36,58,.30)!important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.12),
+      0 18px 44px rgba(0,0,0,.18)!important;
+    backdrop-filter:blur(26px) saturate(160%)!important;
+    -webkit-backdrop-filter:blur(26px) saturate(160%)!important;
+  }
+  #home .card{
+    padding:20px 22px!important;
+    margin-bottom:16px!important;
+  }
+  #home .alert-card .card-title{
+    font-size:25px!important;
+    color:#fff!important;
+    text-transform:none!important;
+    letter-spacing:-.02em!important;
+  }
+  #home .alert-code{
+    margin-top:10px!important;
+    font-size:17px!important;
+  }
+  #home .alert-title{
+    font-size:21px!important;
+    font-weight:800!important;
+    margin-top:12px!important;
+  }
+  #home .alert-text{
+    font-size:18px!important;
+    line-height:1.35!important;
+    color:rgba(255,255,255,.88)!important;
+  }
+  #home .rain-now-card h3,
+  #home .compact-aq-card h3{
+    margin:0 0 8px!important;
+    font-size:26px!important;
+    line-height:1.1!important;
+    letter-spacing:-.02em!important;
+  }
+  #home .rain-now-card p,
+  #home .compact-aq-card p{
+    margin:0!important;
+    font-size:18px!important;
+    line-height:1.32!important;
+    color:rgba(255,255,255,.86)!important;
+  }
+  #home .rain-now-chart{
+    height:50px!important;
+    margin-top:18px!important;
+    padding:0 2px 8px!important;
+    display:flex!important;
+    align-items:flex-end!important;
+    gap:4px!important;
+    border-bottom:1px solid rgba(255,255,255,.25)!important;
+    background:repeating-linear-gradient(180deg,transparent 0,transparent 15px,rgba(255,255,255,.12) 16px,transparent 17px)!important;
+  }
+  #home .rain-now-chart i{
+    flex:1!important;
+    min-width:3px!important;
+    border-radius:999px!important;
+    background:rgba(159,226,255,.88)!important;
+    box-shadow:0 0 10px rgba(125,210,255,.34)!important;
+  }
+  #home .rain-now-chart i.now{
+    background:#fff!important;
+  }
+  #home .rain-now-axis{
+    display:flex!important;
+    justify-content:space-between!important;
+    gap:8px!important;
+    margin-top:7px!important;
+    font-size:13px!important;
+    color:rgba(255,255,255,.56)!important;
+    font-weight:700!important;
+  }
+  #home .aq-strip{
+    position:relative!important;
+    height:7px!important;
+    margin:22px 0 12px!important;
+    border-radius:999px!important;
+    background:linear-gradient(90deg,#29c7ff,#4ade80,#e5e843,#f59e0b,#ef3c78,#8b5cf6)!important;
+    box-shadow:0 0 18px rgba(255,255,255,.16)!important;
+  }
+  #home .aq-strip i{
+    position:absolute!important;
+    top:50%!important;
+    width:10px!important;
+    height:10px!important;
+    border-radius:50%!important;
+    background:#fff!important;
+    transform:translate(-50%,-50%)!important;
+    box-shadow:0 0 0 2px rgba(255,255,255,.45),0 3px 10px rgba(0,0,0,.35)!important;
+  }
+  #home .hourly-scroll{
+    padding-bottom:2px!important;
+  }
+  #home .daily-card,
+  #home .detail-grid,
+  #home .app-section{
+    scroll-margin-top:18px!important;
+  }
+  #weatherBG.rainy .wbg-sky,
+  #weatherBG.stormy .wbg-sky{
+    background:
+      radial-gradient(circle at 50% -10%, rgba(189,207,225,.22), transparent 34%),
+      linear-gradient(180deg,#28384b 0%,#26384d 38%,#18283b 67%,#0b1728 100%)!important;
+  }
+  #weatherBG.rainy::after,
+  #weatherBG.stormy::after{
+    background:
+      radial-gradient(circle at 50% 46%, transparent 0 37%, rgba(0,0,0,.18) 100%),
+      linear-gradient(180deg,rgba(255,255,255,.04),transparent 28%,rgba(0,0,0,.28) 100%)!important;
+  }
+  #weatherBG.rainy .wbg-rain,
+  #weatherBG.stormy .wbg-rain{
+    opacity:.72!important;
+    background-size:120px 240px,160px 260px,90px 180px!important;
+    animation-duration:1.08s!important;
+  }
+}

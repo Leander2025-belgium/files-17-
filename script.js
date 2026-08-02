@@ -1007,6 +1007,31 @@ function nowcastText(){
   return 'Geen neerslag verwacht de komende 2 uur';
 }
 
+function rainNowcastCard(){
+  if(!state.minutely?.time?.length) return '';
+  const idx = closestIndex(state.minutely.time, Date.now());
+  const slots = state.minutely.precipitation.slice(idx, idx + 12).map(v=>Number(v) || 0);
+  const rainingNow = (slots[0] || 0) >= 0.1;
+  const firstDryIdx = slots.findIndex(v=>v < 0.1);
+  const firstRainIdx = slots.findIndex(v=>v >= 0.1);
+  const title = rainingNow ? 'Het stopt met regenen' : firstRainIdx > 0 ? 'Regen op komst' : 'Geen regen verwacht';
+  const body = rainingNow && firstDryIdx > 0
+    ? `Lichte regen houdt naar verwachting over ${firstDryIdx * 15} min. op.`
+    : rainingNow
+      ? 'Neerslag houdt waarschijnlijk nog minstens 2 uur aan.'
+      : firstRainIdx > 0
+        ? `Neerslag wordt verwacht over ${firstRainIdx * 15} min.`
+        : 'De komende 2 uur blijft het waarschijnlijk droog.';
+  const maxRain = Math.max(.4, ...slots);
+  const bars = slots.map((v,i)=>`<i class="${i===0?'now':''}" style="height:${Math.max(4, Math.round((v / maxRain) * 34))}px"></i>`).join('');
+  return `<div class="card rain-now-card">
+    <h3>${title}</h3>
+    <p>${body}</p>
+    <div class="rain-now-chart">${bars}</div>
+    <div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 u</span></div>
+  </div>`;
+}
+
 /* ---------------- animated background: matches current conditions ---------------- */
 let lightningTimer = null;
 function applyWeatherBG(code, isDay, cloudCover=0){
@@ -1052,15 +1077,17 @@ function renderHome(){
 
   let html = '';
   html += `<div class="hero">
-    <div class="locname">${icon('drop',true,15,'pin')}${state.loc.name}</div>
+    <div class="hero-kicker">MIJN LOCATIE</div>
+    <div class="locname">${state.loc.name}</div>
     <div class="bignum display">${fmtTemp(cur.temperature_2m)}</div>
     <div class="cond">${wc.l}</div>
-    <div class="hilo">H:<b>${fmtTemp(todayMax)}</b>&nbsp;&nbsp;L:<b>${fmtTemp(todayMin)}</b>&nbsp;&nbsp;Voelt als ${fmtTemp(cur.apparent_temperature)}</div>
-    <div class="nowcast" id="nowcastLine">${nowcastText()||''}</div>
+    <div class="hilo">Max: <b>${fmtTemp(todayMax)}</b>&nbsp;&nbsp;Min: <b>${fmtTemp(todayMin)}</b></div>
     <div class="updated"><span id="updatedText">Bijgewerkt zojuist</span> - ${state.loc.admin||''} - ${currentSource}</div>
   </div>`;
 
   html += alertsCard();
+  html += rainNowcastCard();
+  html += compactAirQualityCard();
 
   // hourly
   html += `<div class="card"><div class="card-title">${icon('gauge',true,13)} Komende 24 uur</div><div class="hourly-scroll">`;
@@ -1837,7 +1864,7 @@ function alertsCard(){
   return `<div class="card alert-card ${level.cls}">
     <div class="alert-head">
       <div>
-        <div class="card-title">${icon('gauge',true,13)} Weercode & meldingen</div>
+        <div class="card-title">${icon('gauge',true,13)} ${isGreen ? 'Weermelding' : 'Extreem weer'}</div>
         <div class="alert-code">${level.label}</div>
       </div>
     </div>
@@ -1928,6 +1955,18 @@ function sunArcDetailCard(sunrise, sunset){
     <div class="dt-title">${icon('sunrise',true,12)} Zon op / onder</div>
     ${sunArcCard(sunrise, sunset)}
     <div class="sunarc-labels"><span>${formatDayTime(sunrise)}</span><span>${formatDayTime(sunset)}</span></div>
+  </div>`;
+}
+
+function compactAirQualityCard(){
+  const a = state.air;
+  const aqi = Number(a?.european_aqi);
+  if(!Number.isFinite(aqi)) return '';
+  const label = aqi <= 20 ? 'Goed' : aqi <= 40 ? 'Redelijk' : aqi <= 60 ? 'Ondermaats' : aqi <= 80 ? 'Slecht' : 'Zeer slecht';
+  return `<div class="card compact-aq-card">
+    <h3>${aqi} - ${label}</h3>
+    <div class="aq-strip"><i style="left:${Math.min(100, Math.max(0, aqi))}%"></i></div>
+    <p>Luchtkwaliteit op basis van de huidige locatie.</p>
   </div>`;
 }
 
