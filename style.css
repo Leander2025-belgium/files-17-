@@ -4430,7 +4430,7 @@ input{
   }
   #home .hero{
     min-height:38vh!important;
-    padding:44px 0 18px!important;
+    padding:18px 0 18px!important;
     display:flex!important;
     flex-direction:column!important;
     align-items:center!important;
