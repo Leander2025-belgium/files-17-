@@ -4429,8 +4429,8 @@ input{
     box-sizing:border-box!important;
   }
   #home .hero{
-    min-height:54vh!important;
-    padding:74px 0 34px!important;
+    min-height:38vh!important;
+    padding:44px 0 18px!important;
     display:flex!important;
     flex-direction:column!important;
     align-items:center!important;
@@ -4459,7 +4459,7 @@ input{
     font-size:clamp(112px,31vw,188px)!important;
     line-height:.78!important;
     font-weight:200!important;
-    margin:16px 0 18px!important;
+    margin:10px 0 12px!important;
     letter-spacing:-.045em!important;
     text-shadow:0 8px 40px rgba(0,0,0,.32)!important;
   }
@@ -4478,7 +4478,7 @@ input{
     font-weight:700!important;
   }
   #home .hero .updated{
-    margin-top:14px!important;
+    margin-top:10px!important;
     font-size:11px!important;
     color:rgba(255,255,255,.48)!important;
   }
