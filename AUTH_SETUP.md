@@ -1,4 +1,4 @@
-# Weerscoop Supabase Auth Setup
+# Wheaterflow Supabase Auth Setup
 
 ## 1. Supabase-project maken
 

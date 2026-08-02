@@ -198,7 +198,7 @@ function mapProfileToUnits(profile){
 
 function profilePayload(){
   return {
-    display_name: state.auth.profile?.display_name || state.auth.user?.user_metadata?.display_name || state.auth.user?.email?.split('@')[0] || 'Weerscoop gebruiker',
+    display_name: state.auth.profile?.display_name || state.auth.user?.user_metadata?.display_name || state.auth.user?.email?.split('@')[0] || 'Wheaterflow gebruiker',
     home_location_name: state.loc?.name || null,
     home_latitude: state.loc?.lat ?? null,
     home_longitude: state.loc?.lon ?? null,
@@ -2354,7 +2354,7 @@ function wireAuthUi(){
   $('#authScrim')?.addEventListener('click', closeAuthSheet);
   $('#closeAuthSheet')?.addEventListener('click', closeAuthSheet);
   $('#profileDoneBtn')?.addEventListener('click', closeAuthSheet);
-  $('#continueGuestBtn')?.addEventListener('click', ()=>{ closeAuthSheet(); toast('Je gebruikt Weerscoop als gast.'); });
+  $('#continueGuestBtn')?.addEventListener('click', ()=>{ closeAuthSheet(); toast('Je gebruikt Wheaterflow als gast.'); });
   $('#authLoginTab')?.addEventListener('click', ()=>setAuthMode('login'));
   $('#authSignupTab')?.addEventListener('click', ()=>setAuthMode('signup'));
   $('#showLoginPassword')?.addEventListener('change', e=>{ $('#loginPassword').type = e.target.checked ? 'text' : 'password'; });
@@ -2771,7 +2771,7 @@ function exportClimateData(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `weerscoop-mijn-klimaat-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `wheaterflow-mijn-klimaat-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
   setClimateMessage('Export klaar.', 'ok');
@@ -2802,7 +2802,7 @@ async function deleteAllClimateData(){
   renderClimateDashboard();
 }
 
-/* ---------------- Weerscoop Community ---------------- */
+/* ---------------- Wheaterflow Community ---------------- */
 const COMMUNITY_CATEGORIES = [
   {id:'thunder', label:'Onweer', color:'#ffd24d'},
   {id:'rain', label:'Regen', color:'#49a7ff'},
@@ -3017,7 +3017,7 @@ function renderCommunityFeed(){
 function communityPostHtml(post){
   const cat = communityCategory(post.category);
   const profile = post.profiles || {};
-  const name = profile.display_name || 'Weerscoop gebruiker';
+  const name = profile.display_name || 'Wheaterflow gebruiker';
   const avatar = profile.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : esc(userInitials(name));
   const liked = post.community_likes?.some(l=>l.user_id === state.auth.user?.id);
   const saved = post.community_favorites?.some(f=>f.user_id === state.auth.user?.id);
@@ -3120,7 +3120,7 @@ async function reportCommunityPost(postId){
 
 function shareCommunityPost(postId){
   const url = `${location.origin}${location.pathname}#community-${postId}`;
-  if(navigator.share) navigator.share({title:'Weerscoop Community', url}).catch(()=>undefined);
+  if(navigator.share) navigator.share({title:'Wheaterflow Community', url}).catch(()=>undefined);
   else navigator.clipboard?.writeText(url).then(()=>toast('Link gekopieerd.'));
 }
 
@@ -3439,7 +3439,7 @@ async function sendTestPushNotification(){
     body:JSON.stringify({endpoint:subscription.endpoint, installationId:state.push.installationId})
   });
   if(!r.ok) return toast(await pushErrorText(r, 'Testmelding kon niet worden verzonden. Probeer het later opnieuw.'));
-  toast('Testmelding verzonden. Sluit Weerscoop om dit te testen.');
+  toast('Testmelding verzonden. Sluit Wheaterflow om dit te testen.');
 }
 
 async function pushErrorText(response, fallback){

@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Weerscoop",
-  "short_name": "Weerscoop",
+  "name": "Wheaterflow",
+  "short_name": "Wheaterflow",
   "description": "Live weer, radar en persoonlijke weerwaarschuwingen",
   "start_url": "./",
   "scope": "./",

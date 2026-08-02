@@ -354,7 +354,7 @@ create or replace view public.community_public_profiles
 as
 select
   id,
-  coalesce(display_name, 'Weerscoop gebruiker') as display_name,
+  coalesce(display_name, 'Wheaterflow gebruiker') as display_name,
   avatar_url
 from public.profiles;
 

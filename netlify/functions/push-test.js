@@ -12,11 +12,11 @@ export async function handler(event) {
     if (!target) return json(404, { error: "Geen abonnement gevonden." });
 
     const result = await sendPush(target, {
-      title: "Weerscoop testmelding",
-      body: "Testmelding verzonden. Sluit Weerscoop om te controleren of meldingen buiten de app aankomen.",
+      title: "Wheaterflow testmelding",
+      body: "Testmelding verzonden. Sluit Wheaterflow om te controleren of meldingen buiten de app aankomen.",
       icon: "./icons/icon-192.png",
       badge: "./icons/badge-96.png",
-      tag: "weerscoop-test",
+      tag: "wheaterflow-test",
       renotify: true,
       url: "./",
       type: "test"

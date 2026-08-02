@@ -1,4 +1,4 @@
-const CACHE_VERSION = "weerscoop-v20260722-zonder-ai";
+const CACHE_VERSION = "wheaterflow-v20260802";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -98,18 +98,18 @@ self.addEventListener("push", event => {
     data = event.data ? event.data.json() : {};
   } catch {
     data = {
-      title: "Weerscoop",
+      title: "Wheaterflow",
       body: event.data?.text() || "Nieuwe weerinformatie beschikbaar."
     };
   }
 
-  const title = data.title || "Weerscoop";
+  const title = data.title || "Wheaterflow";
   const options = {
     body: data.body || "",
     icon: data.icon || "./icons/icon-192.png",
     badge: data.badge || "./icons/badge-96.png",
     image: data.image,
-    tag: data.tag || "weerscoop-weather",
+    tag: data.tag || "wheaterflow-weather",
     renotify: Boolean(data.renotify),
     requireInteraction: Boolean(data.requireInteraction),
     data: {

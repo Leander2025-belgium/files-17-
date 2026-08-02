@@ -1,4 +1,4 @@
-# Weerscoop
+# Wheaterflow
 
 Live weer, radar, waarschuwingen, community, persoonlijke klimaatdata en een professionele weerkaart.
 

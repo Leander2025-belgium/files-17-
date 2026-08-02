@@ -9,7 +9,7 @@ const DEDUPE_PREFIX = "sent:";
 function configureWebPush() {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT || "mailto:beheer@weerscoop.be";
+  const subject = process.env.VAPID_SUBJECT || "mailto:beheer@wheaterflow.be";
   if (!publicKey || !privateKey) {
     throw new Error("VAPID_PUBLIC_KEY en VAPID_PRIVATE_KEY ontbreken.");
   }
