@@ -4607,3 +4607,170 @@ input{
     animation-duration:1.08s!important;
   }
 }
+
+/* ---------- Near-real weather backgrounds ---------- */
+#weatherBG{
+  background:#142235!important;
+}
+#weatherBG .wbg-sky{
+  overflow:hidden!important;
+}
+#weatherBG .wbg-sky::before,
+#weatherBG .wbg-sky::after{
+  content:''!important;
+  position:absolute!important;
+  inset:-18% -22%!important;
+  pointer-events:none!important;
+  opacity:.78!important;
+  transform:translateZ(0)!important;
+}
+#weatherBG .wbg-sky::before{
+  background:
+    radial-gradient(ellipse at 18% 18%, rgba(255,255,255,.78) 0 9%, rgba(214,225,235,.54) 16%, transparent 31%),
+    radial-gradient(ellipse at 52% 20%, rgba(242,247,252,.72) 0 12%, rgba(153,174,192,.38) 24%, transparent 41%),
+    radial-gradient(ellipse at 82% 26%, rgba(226,237,246,.68) 0 12%, rgba(119,143,163,.44) 27%, transparent 44%),
+    radial-gradient(ellipse at 34% 48%, rgba(168,187,204,.52) 0 14%, rgba(72,91,112,.40) 31%, transparent 50%),
+    radial-gradient(ellipse at 70% 64%, rgba(228,237,244,.45) 0 10%, rgba(89,111,133,.34) 26%, transparent 46%);
+  filter:blur(18px) contrast(1.08) saturate(.9)!important;
+}
+#weatherBG .wbg-sky::after{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.22), transparent 18%, rgba(5,14,26,.34) 86%),
+    radial-gradient(circle at 50% 38%, transparent 0 30%, rgba(0,0,0,.17) 68%, rgba(0,0,0,.30) 100%);
+  opacity:.86!important;
+}
+#weatherBG.sunny:not(.night) .wbg-sky{
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255,243,194,.95) 0 8%, rgba(255,214,111,.40) 16%, transparent 36%),
+    linear-gradient(180deg,#73c7ff 0%,#45a2f2 44%,#1e66af 72%,#0b315f 100%)!important;
+}
+#weatherBG.sunny:not(.night) .wbg-sky::before{
+  opacity:.46!important;
+  filter:blur(24px) contrast(1.02) saturate(1.05)!important;
+  background:
+    radial-gradient(ellipse at 18% 28%, rgba(255,255,255,.85) 0 8%, rgba(255,255,255,.32) 20%, transparent 38%),
+    radial-gradient(ellipse at 78% 30%, rgba(255,255,255,.55) 0 9%, rgba(255,255,255,.20) 23%, transparent 42%),
+    radial-gradient(ellipse at 48% 70%, rgba(255,255,255,.34) 0 10%, transparent 36%)!important;
+}
+#weatherBG.cloudy:not(.night) .wbg-sky{
+  background:
+    linear-gradient(180deg,#d5e0e8 0%,#9eafbe 24%,#70859a 55%,#31465e 82%,#142238 100%)!important;
+}
+#weatherBG.cloudy:not(.night) .wbg-sky::before{
+  opacity:.98!important;
+  filter:blur(14px) contrast(1.18) saturate(.82)!important;
+  background:
+    radial-gradient(ellipse at 20% 19%, rgba(248,252,255,.80) 0 10%, rgba(171,189,204,.60) 22%, transparent 39%),
+    radial-gradient(ellipse at 56% 18%, rgba(222,233,241,.76) 0 14%, rgba(105,129,151,.55) 30%, transparent 50%),
+    radial-gradient(ellipse at 83% 28%, rgba(238,246,252,.66) 0 10%, rgba(89,111,132,.58) 28%, transparent 47%),
+    radial-gradient(ellipse at 42% 48%, rgba(99,122,143,.64) 0 16%, rgba(48,66,86,.52) 35%, transparent 56%),
+    radial-gradient(ellipse at 68% 73%, rgba(207,220,230,.46) 0 12%, rgba(45,63,82,.44) 31%, transparent 51%)!important;
+}
+#weatherBG.rainy:not(.night) .wbg-sky,
+#weatherBG.stormy:not(.night) .wbg-sky{
+  background:
+    linear-gradient(180deg,#bcc8d1 0%,#738397 21%,#46576d 49%,#223247 76%,#0b1627 100%)!important;
+}
+#weatherBG.rainy:not(.night) .wbg-sky::before,
+#weatherBG.stormy:not(.night) .wbg-sky::before{
+  opacity:1!important;
+  filter:blur(12px) contrast(1.24) saturate(.72)!important;
+  background:
+    radial-gradient(ellipse at 18% 15%, rgba(214,225,234,.62) 0 10%, rgba(90,111,132,.58) 24%, transparent 43%),
+    radial-gradient(ellipse at 52% 17%, rgba(165,181,196,.68) 0 15%, rgba(49,65,83,.66) 34%, transparent 56%),
+    radial-gradient(ellipse at 82% 24%, rgba(191,205,217,.56) 0 12%, rgba(48,64,82,.68) 31%, transparent 52%),
+    radial-gradient(ellipse at 38% 49%, rgba(73,91,110,.76) 0 18%, rgba(22,34,51,.62) 42%, transparent 64%),
+    radial-gradient(ellipse at 76% 69%, rgba(104,122,141,.52) 0 14%, rgba(18,30,47,.54) 39%, transparent 61%)!important;
+}
+#weatherBG.snowy:not(.night) .wbg-sky{
+  background:
+    linear-gradient(180deg,#dfe9f2 0%,#a9bbce 34%,#70879f 66%,#203149 100%)!important;
+}
+#weatherBG.night .wbg-sky{
+  background:
+    radial-gradient(circle at 52% 13%, rgba(167,190,232,.24), transparent 28%),
+    linear-gradient(180deg,#172947 0%,#101d35 45%,#060c18 100%)!important;
+}
+#weatherBG.night .wbg-sky::before{
+  opacity:.40!important;
+  filter:blur(20px) contrast(1.05) saturate(.72)!important;
+}
+#weatherBG .wbg-clouds{
+  opacity:0!important;
+  filter:blur(.6px) saturate(.82)!important;
+}
+#weatherBG.cloudy .wbg-clouds,
+#weatherBG.rainy .wbg-clouds,
+#weatherBG.stormy .wbg-clouds,
+#weatherBG.snowy .wbg-clouds{
+  opacity:1!important;
+}
+#weatherBG .wbg-clouds .cloud{
+  background:
+    radial-gradient(ellipse at 30% 48%, rgba(255,255,255,.70), rgba(204,217,229,.48) 34%, rgba(77,98,119,.18) 62%, transparent 72%)!important;
+  box-shadow:
+    inset -28px -32px 70px rgba(38,52,69,.30),
+    inset 18px 16px 48px rgba(255,255,255,.22),
+    0 28px 90px rgba(10,20,34,.20)!important;
+  opacity:.58!important;
+}
+#weatherBG.rainy .wbg-clouds .cloud,
+#weatherBG.stormy .wbg-clouds .cloud{
+  background:
+    radial-gradient(ellipse at 30% 48%, rgba(198,210,221,.58), rgba(98,117,136,.48) 35%, rgba(28,42,60,.36) 64%, transparent 74%)!important;
+  box-shadow:
+    inset -34px -36px 78px rgba(8,16,28,.42),
+    inset 18px 16px 40px rgba(255,255,255,.10),
+    0 34px 100px rgba(3,10,22,.24)!important;
+}
+#weatherBG .wbg-clouds .cloud::before,
+#weatherBG .wbg-clouds .cloud::after{
+  opacity:.58!important;
+}
+#weatherBG .cloud.c1{width:72vw!important;height:22vh!important;top:2%!important;left:-20%!important;}
+#weatherBG .cloud.c2{width:68vw!important;height:21vh!important;top:10%!important;left:18%!important;}
+#weatherBG .cloud.c3{width:80vw!important;height:25vh!important;top:0!important;left:48%!important;}
+#weatherBG .cloud.c4{width:54vw!important;height:17vh!important;top:30%!important;left:58%!important;}
+#weatherBG .cloud.c5{width:86vw!important;height:26vh!important;top:39%!important;left:-28%!important;opacity:.42!important;}
+#weatherBG .cloud.c6{width:88vw!important;height:27vh!important;top:52%!important;left:28%!important;opacity:.38!important;}
+#weatherBG .cloud.c7{width:95vw!important;height:28vh!important;top:67%!important;left:5%!important;opacity:.30!important;}
+#weatherBG .cloud.c8{width:62vw!important;height:20vh!important;top:75%!important;left:-18%!important;opacity:.24!important;}
+#weatherBG.rainy .wbg-rain,
+#weatherBG.stormy .wbg-rain{
+  opacity:.82!important;
+  background-image:
+    repeating-linear-gradient(104deg, rgba(214,235,255,.00) 0 8px, rgba(214,235,255,.30) 9px 10px, rgba(214,235,255,.00) 11px 24px),
+    repeating-linear-gradient(104deg, rgba(255,255,255,.00) 0 16px, rgba(255,255,255,.18) 17px 18px, rgba(255,255,255,.00) 19px 38px)!important;
+  background-size:92px 220px,146px 310px!important;
+  filter:blur(.15px)!important;
+}
+@media (max-width:760px){
+  #weatherBG .wbg-sky::before{inset:-14% -34%!important;}
+  #weatherBG.cloudy:not(.night) .wbg-sky::before,
+  #weatherBG.rainy:not(.night) .wbg-sky::before,
+  #weatherBG.stormy:not(.night) .wbg-sky::before{
+    transform:scale(1.12)!important;
+  }
+  #home .hero .locname,
+  #home .hero .bignum,
+  #home .hero .cond,
+  #home .hero .hilo{
+    color:rgba(7,29,54,.92)!important;
+    text-shadow:0 1px 18px rgba(255,255,255,.18)!important;
+  }
+  #weatherBG.rainy ~ #app #home .hero .locname,
+  #weatherBG.rainy ~ #app #home .hero .bignum,
+  #weatherBG.rainy ~ #app #home .hero .cond,
+  #weatherBG.rainy ~ #app #home .hero .hilo,
+  #weatherBG.stormy ~ #app #home .hero .locname,
+  #weatherBG.stormy ~ #app #home .hero .bignum,
+  #weatherBG.stormy ~ #app #home .hero .cond,
+  #weatherBG.stormy ~ #app #home .hero .hilo,
+  #weatherBG.night ~ #app #home .hero .locname,
+  #weatherBG.night ~ #app #home .hero .bignum,
+  #weatherBG.night ~ #app #home .hero .cond,
+  #weatherBG.night ~ #app #home .hero .hilo{
+    color:rgba(255,255,255,.92)!important;
+    text-shadow:0 5px 28px rgba(0,0,0,.42)!important;
+  }
+}
