@@ -4612,8 +4612,21 @@ input{
 #weatherBG{
   background:#142235!important;
 }
+#weatherBG::before{
+  content:''!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:0!important;
+  pointer-events:none!important;
+  opacity:0!important;
+  background-size:cover!important;
+  background-position:center!important;
+  transform:scale(1.03)!important;
+  transition:opacity .75s ease, filter .75s ease!important;
+}
 #weatherBG .wbg-sky{
   overflow:hidden!important;
+  z-index:1!important;
 }
 #weatherBG .wbg-sky::before,
 #weatherBG .wbg-sky::after{
@@ -4656,6 +4669,15 @@ input{
   background:
     linear-gradient(180deg,#d5e0e8 0%,#9eafbe 24%,#70859a 55%,#31465e 82%,#142238 100%)!important;
 }
+#weatherBG.cloudy:not(.night)::before{
+  opacity:1!important;
+  background-image:url('./assets/backgrounds/cloudy-sky.png')!important;
+  filter:saturate(.82) contrast(1.07) brightness(1.04)!important;
+}
+#weatherBG.cloudy:not(.night) .wbg-sky{
+  opacity:.32!important;
+  mix-blend-mode:multiply!important;
+}
 #weatherBG.cloudy:not(.night) .wbg-sky::before{
   opacity:.98!important;
   filter:blur(14px) contrast(1.18) saturate(.82)!important;
@@ -4670,6 +4692,17 @@ input{
 #weatherBG.stormy:not(.night) .wbg-sky{
   background:
     linear-gradient(180deg,#bcc8d1 0%,#738397 21%,#46576d 49%,#223247 76%,#0b1627 100%)!important;
+}
+#weatherBG.rainy:not(.night)::before,
+#weatherBG.stormy:not(.night)::before{
+  opacity:1!important;
+  background-image:url('./assets/backgrounds/rainy-sky.png')!important;
+  filter:saturate(.78) contrast(1.10) brightness(.88)!important;
+}
+#weatherBG.rainy:not(.night) .wbg-sky,
+#weatherBG.stormy:not(.night) .wbg-sky{
+  opacity:.24!important;
+  mix-blend-mode:multiply!important;
 }
 #weatherBG.rainy:not(.night) .wbg-sky::before,
 #weatherBG.stormy:not(.night) .wbg-sky::before{
@@ -4694,6 +4727,11 @@ input{
 #weatherBG.night .wbg-sky::before{
   opacity:.40!important;
   filter:blur(20px) contrast(1.05) saturate(.72)!important;
+}
+#weatherBG.cloudy:not(.night) .wbg-clouds,
+#weatherBG.rainy:not(.night) .wbg-clouds,
+#weatherBG.stormy:not(.night) .wbg-clouds{
+  opacity:.18!important;
 }
 #weatherBG .wbg-clouds{
   opacity:0!important;

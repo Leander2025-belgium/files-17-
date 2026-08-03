@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260802";
+const CACHE_VERSION = "wheaterflow-v20260803-bg";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -8,6 +8,8 @@ const STATIC_ASSETS = [
   "./script.js",
   "./manifest.webmanifest",
   "./assets/branding/weerscoop-logo-master.png",
+  "./assets/backgrounds/cloudy-sky.png",
+  "./assets/backgrounds/rainy-sky.png",
   "./icons/favicon-16.png",
   "./icons/favicon-32.png",
   "./icons/icon-48.png",
