@@ -858,10 +858,11 @@ async function reverseGeocode(lat, lon){
   try{
     const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=nl`);
     const d = await r.json();
-    const name = d.city || d.locality || d.principalSubdivision || 'Onbekende locatie';
-    const admin = [d.principalSubdivision, d.countryName].filter(Boolean).join(', ');
-    return {name, admin};
-  }catch(e){ return {name:'Huidige locatie', admin:''}; }
+   const name = d.city || d.locality || d.principalSubdivision || 'Onbekende locatie';
+   const admin = d.principalSubdivision || '';
+   const country = d.countryName || '';
+return {name, admin, country};
+}catch(e){ return {name:'Huidige locatie', admin:'', country:''}; }
 }
 
 /* ---------------- geocoding search ---------------- */
@@ -4936,7 +4937,7 @@ async function init(){
   const p = await getBrowserLocation();
   if(p){
     const g = await reverseGeocode(p.lat, p.lon);
-    state.loc = {lat:p.lat, lon:p.lon, name:g.name, admin:g.admin};
+    state.loc = {lat:p.lat, lon:p.lon, name:g.name, admin:g.admin, country:g.country};
   }
   await loadWeather();await laadWeerMeldingen();
 setInterval(laadWeerMeldingen, 5 * 60 * 1000);
@@ -4951,7 +4952,9 @@ async function laadWeerMeldingen() {
     const params = new URLSearchParams();
 
     // Land: pas 'België' aan of laat weg als je geen land-filtering nodig hebt
-    params.set('land', 'België');
+    if (state.loc && state.loc.country) {
+      params.set('land', state.loc.country);
+    }
 
     if (state.loc && state.loc.admin) {
       params.set('provincie', state.loc.admin);
