@@ -1,12 +1,13 @@
 ﻿/* =========================================================================
    WEERSCOOP - live weer, radar en storm-chaser tool
-   Databronnen: Open-Meteo (weer + geocoding, gratis, geen key) en
-   RainViewer (radar/satelliet tegels, gratis, geen key).
+   Databronnen: Open-Meteo (weer + geocoding), KNMI en WeatherFlow radar-worker.
    ========================================================================= */
 
 const KNMI_OPEN_DATA_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6IjU0YWM2YmI3NmVmZDRhMTI4NzEwMmUxMWE2NzRlYmMwIiwiaCI6Im11cm11cjEyOCJ9';
 const KNMI_WMS_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6ImI5YmEzN2M4ZWZiYjRhZjdhMjBkYjlmNzNhN2M1NmQwIiwiaCI6Im11cm11cjEyOCJ9';
 const RADAR_MAX_AGE_MINUTES = 90;
+const WEATHERFLOW_RADAR_WORKER = 'https://weatherflow-radar.leanderdevriendt.workers.dev';
+const WEATHERFLOW_RADAR_OFFSETS = [-120,-110,-100,-90,-80,-70,-60,-50,-40,-30,-20,-10,0];
 const FUNCTION_BASE = location.hostname.endsWith('vercel.app')
   ? new URL('/api/', location.origin).href
   : new URL('/.netlify/functions/', location.origin).href;
@@ -667,12 +668,17 @@ function shouldUseKnmiWmsRadar(){
 }
 
 function radarView(){
-  if(isBeneluxLocation()) return {center:[50.85, 4.35], zoom:7};
-  return {center:[state.loc.lat, state.loc.lon], zoom:7};
+  const lat = Number(state.loc?.lat);
+  const lon = Number(state.loc?.lon);
+  if(Number.isFinite(lat) && Number.isFinite(lon)) return {center:[lat, lon], zoom:8};
+  return {center:[50.85, 4.55], zoom:7};
 }
 
 function tvRadarView(){
-  return {center:[50.85, 4.35], zoom:7};
+  const lat = Number(state.loc?.lat);
+  const lon = Number(state.loc?.lon);
+  if(Number.isFinite(lat) && Number.isFinite(lon)) return {center:[lat, lon], zoom:7};
+  return {center:[50.85, 4.55], zoom:7};
 }
 
 const ALERT_LEVELS = {
@@ -1378,18 +1384,26 @@ function clearHomeMapOverlay(){
 
 async function setHomeLegacyLayer(layerId){
   const map = state.homeMap.map;
+  if(layerId === 'radar'){
+    state.homeMap.overlay = L.tileLayer(weatherflowRadarTileUrl(0), {
+      opacity:.86,
+      maxZoom:10,
+      maxNativeZoom:10,
+      crossOrigin:true,
+      updateWhenIdle:false,
+      updateWhenZooming:false
+    }).addTo(map);
+    return;
+  }
   const r = await fetch('https://api.rainviewer.com/public/weather-maps.json?ts=' + Date.now(), {cache:'no-store'});
   if(!r.ok) throw new Error('RainViewer '+r.status);
   const meta = await r.json();
-  const frames = layerId === 'satellite' ? (meta.satellite?.infrared || meta.satellite?.visible || []) : (meta.radar?.past || []);
+  const frames = meta.satellite?.infrared || meta.satellite?.visible || [];
   const latest = frames[frames.length - 1];
   if(!latest) throw new Error('Geen kaartframe beschikbaar');
-  if(layerId === 'radar' && !isFreshRadarFrame(latest)) throw new Error('Radarframe is te oud');
-  const url = layerId === 'satellite'
-    ? `${meta.host}${latest.path}/256/{z}/{x}/{y}/0/0_0.png?home=${latest.time}-${Date.now()}`
-    : `${meta.host}${latest.path}/256/{z}/{x}/{y}/4/1_1.png?home=${latest.time}-${Date.now()}`;
+  const url = `${meta.host}${latest.path}/256/{z}/{x}/{y}/0/0_0.png?home=${latest.time}-${Date.now()}`;
   state.homeMap.overlay = L.tileLayer(url, {
-    opacity:layerId === 'satellite' ? .74 : .86,
+    opacity:.74,
     maxZoom:10,
     maxNativeZoom:10,
     crossOrigin:true
@@ -3641,19 +3655,11 @@ function initMapIfNeeded(){
     }catch(err){ showRadarInfo('Kon puntgegevens niet laden.', lat,lng); }
   });
 
-  initXweatherMap().then(ok=>{
-    if(ok) return;
-    startLegacyRadar();
-  });
+  startLegacyRadar();
   clearInterval(state.radar.refreshTimer);
   state.radar.refreshTimer = setInterval(()=>{
     if(document.hidden) return;
-    if(state.xweather.ready && state.xweather.controller){
-      try{ state.xweather.controller.setRefreshInterval(5, true); }catch(e){}
-      return;
-    }
-    if(state.radar.knmiLayer && shouldUseKnmiWmsRadar()) state.radar.knmiLayer.redraw();
-    else loadRadarFrames(true);
+    loadRadarFrames(true);
   }, 5*60*1000);
 }
 
@@ -3662,11 +3668,8 @@ function startLegacyRadar(){
   $('#xweatherPanel')?.classList.add('hide');
   $('#xweatherLayerBar')?.classList.add('hide');
   $('#liveRadarPanel')?.classList.remove('hide');
-  if(shouldUseKnmiWmsRadar()){
-    addKnmiWmsRadarLayer();
-  } else {
-    loadRadarFrames();
-  }
+  removeKnmiWmsRadarLayer();
+  loadRadarFrames();
 }
 
 async function initXweatherMap(force=false){
@@ -4120,6 +4123,21 @@ $('#chipLocate').addEventListener('click', async ()=>{
     }).addTo(state.map);
   }
 });
+$('#radarFullscreen')?.addEventListener('click', async ()=>{
+  const target = $('#radarscreen') || document.documentElement;
+  try{
+    if(!document.fullscreenElement && target.requestFullscreen) await target.requestFullscreen();
+    else if(document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
+    setTimeout(()=>state.map?.invalidateSize(), 180);
+  }catch(err){
+    console.warn('Radar fullscreen niet beschikbaar', err);
+    toast('Volledig scherm is niet beschikbaar');
+  }
+});
+$('#xweatherLayersBtn')?.addEventListener('click', async ()=>{
+  const ok = await initXweatherMap(true);
+  if(ok) toast('Professionele weerlagen geladen');
+});
 
 /* ----- flikkervrije tegel-animator (dubbele buffer: nieuwe laag pas tonen als tegels geladen zijn) ----- */
 function createRadarAnimator(map){
@@ -4138,6 +4156,10 @@ function createRadarAnimator(map){
         updateWhenIdle:false,
         updateWhenZooming:false
       }).addTo(map);
+      layers[idx].on('tileerror', err=>{
+        console.error('Radar tegel kon niet laden', {url, error:err});
+        showRadarInfo('Radarbeeld kon niet volledig laden. Probeer opnieuw of zoom iets uit.');
+      });
     } else {
       layers[idx].setUrl(url);
     }
@@ -4241,31 +4263,48 @@ function removeKnmiWmsRadarLayer(){
 function refreshRadarSource(){
   if(!state.map) return;
   stopPlaying();
-  if(shouldUseKnmiWmsRadar()){
-    addKnmiWmsRadarLayer();
-  } else {
-    removeKnmiWmsRadarLayer();
-    loadRadarFrames();
-    const note = $('.radar-note');
-    if(note) note.textContent = 'Europees radarbeeld voor Belgie: recent verleden + korte prognose, per 10 minuten.';
-  }
+  removeKnmiWmsRadarLayer();
+  loadRadarFrames();
+  const note = $('.radar-note');
+  if(note) note.textContent = 'WeatherFlow radar: echte neerslagframes via de Xweather-worker, vernieuwd om de 5 minuten.';
 }
 
-/* ----- RainViewer radar/satellite frames ----- */
+/* ----- WeatherFlow radar-worker + satellietframes ----- */
 let rainviewerMeta = null;
+function weatherflowRadarTileUrl(offset){
+  const minutes = Number.isFinite(Number(offset)) ? Number(offset) : 0;
+  const refreshBucket = Math.floor(Date.now() / TV_RADAR_REFRESH_MS);
+  return `${WEATHERFLOW_RADAR_WORKER}/radar/{z}/{x}/{y}/${minutes}?v=${refreshBucket}`;
+}
+function weatherflowRadarFrames(){
+  const now = Date.now();
+  return WEATHERFLOW_RADAR_OFFSETS.map(offset=>({
+    offset,
+    time:Math.round((now + offset * 60000) / 1000),
+    isNow:offset === 0,
+    source:'weatherflow-worker'
+  }));
+}
+function updateRadarLocationUi(){
+  const place = $('#radarPlaceLabel');
+  if(place) place.textContent = state.loc?.name ? `Radar rond ${state.loc.name}` : 'Radar rond Belgie';
+}
 async function loadRadarFrames(keepFrame=false){
+  updateRadarLocationUi();
+  if(state.radar.layer === 'precip'){
+    rainviewerMeta = null;
+    buildFrameList(keepFrame);
+    return;
+  }
   try{
     const r = await fetch('https://api.rainviewer.com/public/weather-maps.json?ts=' + Date.now(), {cache:'no-store'});
     if(!r.ok) throw new Error('RainViewer '+r.status);
     rainviewerMeta = await r.json();
-    const latest = latestRainviewerObservedFrame(rainviewerMeta);
-    if(state.radar.layer === 'precip' && !isFreshRadarFrame(latest)){
-      throw new Error('RainViewer radarbeeld is te oud');
-    }
     buildFrameList(keepFrame);
   }catch(e){
+    console.error('Satellietframes konden niet laden', e);
     $('#timeline').innerHTML = '';
-    toast('Radardata kon niet geladen worden');
+    toast('Kaartdata kon niet geladen worden');
   }
 }
 function latestRainviewerObservedFrame(meta){
@@ -4278,6 +4317,7 @@ function isFreshRadarFrame(frame){
   return ageMinutes >= -10 && ageMinutes <= RADAR_MAX_AGE_MINUTES;
 }
 function currentFrameSet(){
+  if(state.radar.layer === 'precip') return weatherflowRadarFrames();
   if(!rainviewerMeta) return [];
   if(state.radar.layer === 'satellite'){
     return (rainviewerMeta.satellite && rainviewerMeta.satellite.infrared) || [];
@@ -4302,60 +4342,86 @@ function buildFrameList(keepFrame=false){
     toast('Geen radarbeeld beschikbaar');
     return;
   }
-  const pastShown = state.radar.frames.filter(f=>!f.isNowcast);
+  const pastShown = state.radar.frames.filter(f=>!f.isNowcast && !f.isNow);
   if(keepFrame && previousTime){
     const same = state.radar.frames.findIndex(f=>f.time === previousTime);
     state.radar.index = same >= 0 ? same : Math.max(0, state.radar.frames.length-1);
   } else {
-    state.radar.index = state.radar.layer==='satellite' ? state.radar.frames.length-1 : Math.max(0, pastShown.length-1);
+    state.radar.index = state.radar.frames.length-1;
   }
   renderTimeline();
   setFrame(state.radar.index);
 }
 function renderTimeline(){
   const tl = $('#timeline'); tl.innerHTML='';
-  const observedCount = state.radar.frames.filter(f=>!f.isNowcast).length;
+  const observedCount = state.radar.layer === 'precip'
+    ? state.radar.frames.length
+    : state.radar.frames.filter(f=>!f.isNowcast).length;
   tl.style.setProperty('--observed-count', observedCount || state.radar.frames.length);
   tl.style.setProperty('--frame-count', state.radar.frames.length || 1);
+  const slider = $('#radarFrameSlider');
+  if(slider){
+    slider.max = String(Math.max(0, state.radar.frames.length - 1));
+    slider.value = String(state.radar.index);
+  }
   state.radar.frames.forEach((f,i)=>{
     const b = document.createElement('div');
-    b.className = 'tframe' + (f.isNowcast ? ' nowcast':'') + (i===state.radar.index?' active':'');
+    b.className = 'tframe' + (f.isNowcast ? ' nowcast':'') + (f.isNow ? ' now':'') + (i===state.radar.index?' active':'');
     const d = new Date(f.time*1000);
-    b.title = d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast ? ' verwacht' : ' gemeten');
+    b.title = state.radar.layer === 'precip'
+      ? (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`)
+      : d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast ? ' verwacht' : ' gemeten');
     b.addEventListener('click', ()=>{ stopPlaying(); setFrame(i); });
     tl.appendChild(b);
   });
 }
 function setFrame(i){
-  if(!rainviewerMeta || !state.radar.frames.length || !state.map) return;
+  if(!state.radar.frames.length || !state.map) return;
   state.radar.index = i;
   const f = state.radar.frames[i];
-  const host = rainviewerMeta.host;
-  const color = state.radar.scheme;
-  const url = state.radar.layer === 'satellite'
-    ? `${host}${f.path}/256/{z}/{x}/{y}/0/0_0.png?rv=${f.time}-${Date.now()}`
-    : `${host}${f.path}/256/{z}/{x}/{y}/${color}/1_1.png?rv=${f.time}-${Date.now()}`;
+  let url = '';
+  if(state.radar.layer === 'precip'){
+    url = weatherflowRadarTileUrl(f.offset);
+  }else{
+    if(!rainviewerMeta) return;
+    const host = rainviewerMeta.host;
+    url = `${host}${f.path}/256/{z}/{x}/{y}/0/0_0.png?rv=${f.time}-${Date.now()}`;
+  }
   if(!state.radar.animator) state.radar.animator = createRadarAnimator(state.map);
   state.radar.animator.showFrame(url, state.radar.opacity);
   const d = new Date(f.time*1000);
-  const latestObserved = !f.isNowcast && i === state.radar.frames.filter(x=>!x.isNowcast).length-1;
-  $('#timeLabel').textContent = (latestObserved ? 'Nu ' : '') + d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast?' verwacht':'');
+  const label = state.radar.layer === 'precip'
+    ? (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`)
+    : d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast?' verwacht':'');
+  $('#timeLabel').textContent = label;
+  $('#radarNowBadge')?.classList.toggle('show', state.radar.layer === 'precip' && f.isNow);
+  if($('#radarFrameSlider')) $('#radarFrameSlider').value = String(i);
   $$('.tframe').forEach((el,idx)=>el.classList.toggle('active', idx===i));
 }
 function stopPlaying(){
   state.radar.playing = false;
-  clearInterval(state.radar.timer);
+  clearTimeout(state.radar.timer);
   $('#playBtn').innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>`;
+}
+function scheduleRadarPlayback(){
+  clearTimeout(state.radar.timer);
+  const delay = state.radar.index >= state.radar.frames.length - 1 ? 1350 : 820;
+  state.radar.timer = setTimeout(()=>{
+    if(!state.radar.playing) return;
+    const next = state.radar.index + 1 >= state.radar.frames.length ? 0 : state.radar.index + 1;
+    setFrame(next);
+    scheduleRadarPlayback();
+  }, delay);
 }
 $('#playBtn').addEventListener('click', ()=>{
   if(state.radar.playing){ stopPlaying(); return; }
   state.radar.playing = true;
   $('#playBtn').innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`;
-  state.radar.timer = setInterval(()=>{
-    let next = state.radar.index + 1;
-    if(next >= state.radar.frames.length) next = 0;
-    setFrame(next);
-  }, 520);
+  scheduleRadarPlayback();
+});
+$('#radarFrameSlider')?.addEventListener('input', (e)=>{
+  stopPlaying();
+  setFrame(Number(e.target.value || 0));
 });
 $('#opacitySlider').addEventListener('input', (e)=>{
   state.radar.opacity = (+e.target.value)/100;
@@ -4363,18 +4429,22 @@ $('#opacitySlider').addEventListener('input', (e)=>{
   if(state.radar.animator) state.radar.animator.setOpacity(state.radar.opacity);
 });
 $('#chipPrecip').addEventListener('click', ()=>{
-  if(state.xweather.ready){ setXweatherLayer('radar'); return; }
   switchLayer('precip');
 });
 $('#chipSat').addEventListener('click', ()=>{
-  if(state.xweather.ready){ setXweatherLayer('satellite'); return; }
   switchLayer('satellite');
 });
 function switchLayer(l){
+  if(state.xweather.ready || state.xweather.controller){
+    teardownXweather();
+    state.xweather.fallback = true;
+    $('#liveRadarPanel')?.classList.remove('hide');
+  }
   state.radar.layer = l;
   $('#chipPrecip').classList.toggle('active', l==='precip');
   $('#chipSat').classList.toggle('active', l==='satellite');
-  buildFrameList();
+  if(state.radar.animator){ state.radar.animator.destroy(); state.radar.animator = null; }
+  loadRadarFrames();
 }
 const SCHEMES = [
   {v:4, l:'Helder'}, {v:2, l:'Universeel'}, {v:8, l:'Intens'}, {v:3, l:'Origineel'}, {v:6, l:'Zwart-wit'}
@@ -4710,46 +4780,12 @@ async function initTvMap(){
     tv.map.setView(rv.center, rv.zoom);
   }
   setTimeout(()=>tv.map.invalidateSize(), 200);
-
-  const xweatherOk = await initTvXweatherRadar();
-  if(xweatherOk){
-    clearInterval(tv.loopTimer);
-    tv.loopTimer = setInterval(refreshTvXweatherRadar, TV_RADAR_REFRESH_MS);
-    return;
-  }
-
+  disposeTvXweatherRadar();
   if(tv.knmiLayer){
-    tv.knmiLayer.redraw();
-    clearInterval(tv.loopTimer);
-    tv.loopTimer = setInterval(()=>{
-      if(!tv.knmiLayer) return;
-      tv.knmiLayer.redraw();
-      tv.map.invalidateSize();
-    }, TV_RADAR_REFRESH_MS);
-    return;
+    tv.map.removeLayer(tv.knmiLayer);
+    tv.knmiLayer = null;
   }
-
-  if(shouldUseKnmiWmsRadar()){
-    const KnmiLayer = createKnmiWmsGridLayer();
-    tv.knmiLayer = new KnmiLayer({
-      pane:'radarPane',
-      opacity:.9,
-      tileSize:256,
-      maxZoom:10,
-      className:'radar-tile-layer knmi-wms-layer',
-      keepBuffer:3
-    }).addTo(tv.map);
-    updateTvRadarLabel(null, 'Live buienradar - KNMI');
-    clearInterval(tv.loopTimer);
-    tv.loopTimer = setInterval(()=>{
-      if(!tv.knmiLayer) return;
-      tv.knmiLayer.redraw();
-      tv.map.invalidateSize();
-    }, TV_RADAR_REFRESH_MS);
-    return;
-  }
-
-  await refreshTvRadarFrame();
+  refreshTvRadarFrame();
   clearInterval(tv.loopTimer);
   tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
 }
@@ -4834,26 +4870,15 @@ function disposeTvXweatherRadar(){
   tv.xweatherReady = false;
 }
 async function refreshTvRadarFrame(){
-  try{
-    const r = await fetch('https://api.rainviewer.com/public/weather-maps.json?ts=' + Date.now(), {cache:'no-store'});
-    if(!r.ok) throw new Error('RainViewer '+r.status);
-    rainviewerMeta = await r.json();
-    const past = (rainviewerMeta.radar && rainviewerMeta.radar.past) || [];
-    const latest = past[past.length - 1] || null;
-    if(!isFreshRadarFrame(latest)) throw new Error('Radarbeeld is niet actueel');
-    tv.frames = past;
-    setTvFrame(Math.max(0, past.length-1));
-    if(tv.map) tv.map.invalidateSize();
-  }catch(e){
-    clearTvRadarLayer();
-    updateTvRadarLabel(null, 'Radar niet actueel');
-  }
+  if(!tv.map) return;
+  setTvFrame(WEATHERFLOW_RADAR_OFFSETS.length - 1);
+  tv.map.invalidateSize();
 }
 function setTvFrame(i){
-  if(!tv.frames.length || !tv.map) return;
+  if(!tv.map) return;
   tv.index = i;
-  const f = tv.frames[i];
-  const url = `${rainviewerMeta.host}${f.path}/256/{z}/{x}/{y}/4/1_1.png?tv=${f.time}-${Date.now()}`;
+  const offset = WEATHERFLOW_RADAR_OFFSETS[i] ?? 0;
+  const url = weatherflowRadarTileUrl(offset);
   clearTvRadarLayer();
   tv.radarLayer = L.tileLayer(url, {
     opacity:0.9,
@@ -4866,7 +4891,7 @@ function setTvFrame(i){
     updateWhenIdle:false,
     updateWhenZooming:false
   }).addTo(tv.map);
-  updateTvRadarLabel(f.time);
+  updateTvRadarLabel(Math.round(Date.now()/1000), 'Live buienradar - Nu');
 }
 
 function clearTvRadarLayer(){

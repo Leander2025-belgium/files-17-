@@ -88,6 +88,8 @@
           <button class="chip" data-layer="satellite" id="chipSat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg>Satelliet</button>
           <button class="chip" id="chipScheme">Kleur: <span id="schemeLabel">Helder</span></button>
           <button class="chip" id="chipLocate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Mijn locatie</button>
+          <button class="chip" id="xweatherLayersBtn" type="button">Weerlagen</button>
+          <button class="chip" id="radarFullscreen" type="button">Volledig scherm</button>
         </div>
         <div class="chip-row" id="durationRow">
           <button class="chip active" data-dur="1">1 uur</button>
@@ -130,6 +132,13 @@
           </details>
         </div>
         <div id="liveRadarPanel">
+          <div class="radar-panel-head">
+            <div>
+              <b>WeatherFlow buienradar</b>
+              <span id="radarPlaceLabel">Radar rond Belgie</span>
+            </div>
+            <span class="radar-now-badge" id="radarNowBadge">NU</span>
+          </div>
           <div class="legend">
             <span>Licht</span>
             <div class="swatches">
@@ -147,7 +156,9 @@
             <div class="timeline" id="timeline"></div>
             <div class="timelabel" id="timeLabel">--:--</div>
           </div>
-          <div class="radar-note">Live radarbeeld: recent verleden + korte prognose, per 10 minuten.</div>
+          <input class="radar-frame-slider" id="radarFrameSlider" type="range" min="0" max="12" value="12" aria-label="Radartijdlijn">
+          <div class="radar-axis"><span>-2u</span><span>-1u</span><span>Nu</span></div>
+          <div class="radar-note">WeatherFlow radar: laatste 2 uur neerslag, per 10 minuten. Beweeg de schuif om een frame vast te zetten.</div>
         </div>
         <div id="hourlyChartPanel">
           <div class="radar-note" id="hourlyChartNote">Neerslagverwachting per uur - geen bewegend radarbeeld beschikbaar over deze periode, wel actuele modeldata.</div>

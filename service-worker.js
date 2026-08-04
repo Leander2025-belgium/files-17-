@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260803-bg";
+const CACHE_VERSION = "wheaterflow-v20260804-radar-worker";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -55,6 +55,7 @@ function isLiveDataRequest(url) {
     "air-quality-api.open-meteo.com",
     "marine-api.open-meteo.com",
     "api.rainviewer.com",
+    "weatherflow-radar.leanderdevriendt.workers.dev",
     "api.dataplatform.knmi.nl",
     "aviationweather.gov",
     "supabase.co"
