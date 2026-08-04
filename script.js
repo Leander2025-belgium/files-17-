@@ -4938,7 +4938,8 @@ async function init(){
     const g = await reverseGeocode(p.lat, p.lon);
     state.loc = {lat:p.lat, lon:p.lon, name:g.name, admin:g.admin};
   }
-  await loadWeather();
+  await loadWeather();await laadWeerMeldingen();
+setInterval(laadWeerMeldingen, 5 * 60 * 1000);
   startAutoRefresh();
 }
 init();
@@ -4947,7 +4948,19 @@ init();
 
 async function laadWeerMeldingen() {
   try {
-    const res = await fetch('/api/alerts');
+    const params = new URLSearchParams();
+
+    // Land: pas 'België' aan of laat weg als je geen land-filtering nodig hebt
+    params.set('land', 'België');
+
+    if (state.loc && state.loc.admin) {
+      params.set('provincie', state.loc.admin);
+    }
+    if (state.loc && state.loc.name) {
+      params.set('stad', state.loc.name);
+    }
+
+    const res = await fetch(`/api/alerts?${params.toString()}`);
     if (!res.ok) return;
     const alerts = await res.json();
     toonMeldingen(alerts);
@@ -4957,7 +4970,7 @@ async function laadWeerMeldingen() {
 }
 
 function toonMeldingen(alerts) {
-  const container = document.getElementById('alerts-container'); // voeg dit element toe aan je index.html
+  const container = document.getElementById('alerts-container');
   if (!container) return;
   container.innerHTML = '';
 
@@ -4972,9 +4985,14 @@ function toonMeldingen(alerts) {
   });
 }
 
-// Roep bij opstarten aan, en herhaal elke 5 minuten
-laadWeerMeldingen();
-setInterval(laadWeerMeldingen, 5 * 60 * 1000);
+// BELANGRIJK: verplaats deze aanroep naar NA de regel "await loadWeather();" in je init() functie,
+// zodat state.loc al gevuld is met de locatie van de bezoeker vóór we filteren.
+// Verwijder de losse "laadWeerMeldingen();" en "setInterval(...)" aanroepen die buiten init() stonden,
+// en zet in plaats daarvan dit binnenin init(), net na "await loadWeather();":
+//
+//   await laadWeerMeldingen();
+//   setInterval(laadWeerMeldingen, 5 * 60 * 1000);
+
 
 /* Bijhorende CSS (voeg toe aan style.css):
 

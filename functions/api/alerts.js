@@ -1,6 +1,6 @@
 // Cloudflare Pages Function — /api/alerts
-// Vereist: KV-namespace gebonden als "ALERTS" in de Pages instellingen
-// Vereist: environment variable/secret "ADMIN_TOKEN" (jouw eigen wachtwoord/token)
+// Vereist: KV-namespace gebonden als "ALERTS"
+// Vereist: environment variable/secret "ADMIN_TOKEN"
 
 const KV_KEY = "alerts";
 
@@ -20,12 +20,31 @@ export async function onRequestOptions() {
   return cors(new Response(null, { status: 204 }));
 }
 
-// Publiek: geeft alle actieve meldingen terug (verlopen meldingen worden eruit gefilterd)
+// Publiek: geeft alle actieve meldingen terug
+// Optioneel filterbaar via query params: ?land=...&provincie=...&stad=...
 export async function onRequestGet(context) {
-  const { env } = context;
+  const { env, request } = context;
   const all = (await env.ALERTS.get(KV_KEY, { type: "json" })) || [];
   const now = new Date().toISOString();
-  const active = all.filter(a => !a.endsAt || a.endsAt > now);
+  let active = all.filter(a => !a.endsAt || a.endsAt > now);
+
+  const url = new URL(request.url);
+  const land = url.searchParams.get("land");
+  const provincie = url.searchParams.get("provincie");
+  const stad = url.searchParams.get("stad");
+
+  if (land || provincie || stad) {
+    const norm = s => (s || "").trim().toLowerCase();
+    active = active.filter(a => {
+      const scope = a.scope || "all";
+      if (scope === "all") return true;
+      if (scope === "land") return norm(a.scopeValue) === norm(land);
+      if (scope === "provincie") return norm(a.scopeValue) === norm(provincie);
+      if (scope === "stad") return norm(a.scopeValue) === norm(stad);
+      return true;
+    });
+  }
+
   return cors(
     new Response(JSON.stringify(active), {
       headers: { "Content-Type": "application/json" },
@@ -51,12 +70,22 @@ export async function onRequestPost(context) {
     return cors(new Response("title en message zijn verplicht", { status: 400 }));
   }
 
+  const validScopes = ["all", "land", "provincie", "stad"];
+  const scope = validScopes.includes(body.scope) ? body.scope : "all";
+  const scopeValue = scope === "all" ? null : (body.scopeValue || "").trim();
+
+  if (scope !== "all" && !scopeValue) {
+    return cors(new Response("scopeValue is verplicht als scope niet 'all' is", { status: 400 }));
+  }
+
   const alerts = (await env.ALERTS.get(KV_KEY, { type: "json" })) || [];
   const newAlert = {
     id: crypto.randomUUID(),
     type: ["info", "warning", "danger"].includes(body.type) ? body.type : "info",
     title: body.title,
     message: body.message,
+    scope,
+    scopeValue,
     startsAt: body.startsAt || new Date().toISOString(),
     endsAt: body.endsAt || null,
     createdAt: new Date().toISOString(),
