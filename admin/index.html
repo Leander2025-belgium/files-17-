@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wheaterflow — Beheer meldingen</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #3b82f6;
+    --info: #3b82f6;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 80px;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  p.sub { color: var(--muted); margin-top: 0; font-size: 0.9rem; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin: 12px 0 4px; }
+  input, textarea, select {
+    width: 100%;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
+  textarea { min-height: 80px; resize: vertical; }
+
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 16px;
+  }
+  button:hover { opacity: 0.9; }
+  button.danger { background: var(--danger); }
+  button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+  .alert-item {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--info);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .alert-item.warning { border-left-color: var(--warning); }
+  .alert-item.danger { border-left-color: var(--danger); }
+  .alert-item .meta { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+  .alert-item .title-row { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+  .alert-item h3 { margin: 0 0 4px; font-size: 1rem; }
+  .alert-item p { margin: 0; font-size: 0.9rem; color: var(--text); }
+
+  .badge {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(59,130,246,0.15);
+    color: var(--info);
+    white-space: nowrap;
+  }
+  .badge.warning { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .badge.danger { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+  #loginScreen { max-width: 320px; margin: 80px auto; text-align: center; }
+  .error { color: var(--danger); font-size: 0.85rem; margin-top: 8px; }
+  .empty { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h1>🔒 Beheer</h1>
+  <p class="sub">Voer je admin-token in</p>
+  <input type="password" id="tokenInput" placeholder="Token">
+  <button onclick="login()">Inloggen</button>
+  <div class="error" id="loginError"></div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <h1>Wheaterflow — Meldingen</h1>
+  <p class="sub">Voeg waarschuwingen of meldingen toe voor op de site</p>
+
+  <div class="card">
+    <label>Type</label>
+    <select id="type">
+      <option value="info">Info</option>
+      <option value="warning">Waarschuwing</option>
+      <option value="danger">Gevaar / code rood</option>
+    </select>
+
+    <label>Titel</label>
+    <input type="text" id="title" placeholder="Bv. Onweer op komst">
+
+    <label>Bericht</label>
+    <textarea id="message" placeholder="Bv. Vanavond vanaf 20u kans op zware onweersbuien aan de kust."></textarea>
+
+    <label>Einddatum (optioneel — verloopt automatisch)</label>
+    <input type="datetime-local" id="endsAt">
+
+    <button onclick="createAlert()">Melding plaatsen</button>
+    <div class="error" id="createError"></div>
+  </div>
+
+  <h2 style="font-size:1.1rem;">Actieve meldingen</h2>
+  <div id="alertsList"></div>
+</div>
+
+<script>
+  const API = '/api/alerts';
+  let token = '';
+
+  function login() {
+    const val = document.getElementById('tokenInput').value.trim();
+    if (!val) return;
+    token = val;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadAlerts();
+  }
+
+  async function loadAlerts() {
+    const listEl = document.getElementById('alertsList');
+    listEl.innerHTML = '<p class="empty">Laden...</p>';
+    try {
+      const res = await fetch(API);
+      const alerts = await res.json();
+      if (!alerts.length) {
+        listEl.innerHTML = '<p class="empty">Geen actieve meldingen</p>';
+        return;
+      }
+      listEl.innerHTML = alerts.map(a => `
+        <div class="alert-item ${a.type}">
+          <div class="title-row">
+            <div>
+              <span class="badge ${a.type}">${a.type}</span>
+              <h3>${escapeHtml(a.title)}</h3>
+            </div>
+            <button class="danger" onclick="deleteAlert('${a.id}')" style="margin:0;padding:6px 10px;font-size:0.8rem;">Verwijder</button>
+          </div>
+          <p>${escapeHtml(a.message)}</p>
+          <div class="meta">Geplaatst: ${new Date(a.createdAt).toLocaleString('nl-BE')}${a.endsAt ? ' · Verloopt: ' + new Date(a.endsAt).toLocaleString('nl-BE') : ''}</div>
+        </div>
+      `).join('');
+    } catch (e) {
+      listEl.innerHTML = '<p class="error">Kon meldingen niet laden</p>';
+    }
+  }
+
+  async function createAlert() {
+    const type = document.getElementById('type').value;
+    const title = document.getElementById('title').value.trim();
+    const message = document.getElementById('message').value.trim();
+    const endsAtRaw = document.getElementById('endsAt').value;
+    const errEl = document.getElementById('createError');
+    errEl.textContent = '';
+
+    if (!title || !message) {
+      errEl.textContent = 'Titel en bericht zijn verplicht.';
+      return;
+    }
+
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          type, title, message,
+          endsAt: endsAtRaw ? new Date(endsAtRaw).toISOString() : null,
+        }),
+      });
+      if (res.status === 401) {
+        errEl.textContent = 'Ongeldig token.';
+        return;
+      }
+      if (!res.ok) {
+        errEl.textContent = 'Er ging iets mis bij het opslaan.';
+        return;
+      }
+      document.getElementById('title').value = '';
+      document.getElementById('message').value = '';
+      document.getElementById('endsAt').value = '';
+      loadAlerts();
+    } catch (e) {
+      errEl.textContent = 'Netwerkfout.';
+    }
+  }
+
+  async function deleteAlert(id) {
+    if (!confirm('Deze melding verwijderen?')) return;
+    try {
+      await fetch(`${API}?id=${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      loadAlerts();
+    } catch (e) {
+      alert('Kon melding niet verwijderen.');
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+
+</body>
+</html>

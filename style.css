@@ -4862,3 +4862,15 @@ input{
     text-shadow:0 5px 28px rgba(0,0,0,.42)!important;
   }
 }
+.weather-alert {
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border-left: 4px solid #3b82f6;
+  background: rgba(59,130,246,0.1);
+}
+.weather-alert--warning { border-left-color: #f59e0b; background: rgba(245,158,11,0.1); }
+.weather-alert--danger  { border-left-color: #ef4444; background: rgba(239,68,68,0.1); }
+.weather-alert strong { display: block; margin-bottom: 4px; }
+.weather-alert p { margin: 0; font-size: 0.9rem; }
+

@@ -4942,3 +4942,52 @@ async function init(){
   startAutoRefresh();
 }
 init();
+// Toevoegen aan script.js van wheaterflow.be
+// Toont actieve meldingen bovenaan als banner(s)
+
+async function laadWeerMeldingen() {
+  try {
+    const res = await fetch('/api/alerts');
+    if (!res.ok) return;
+    const alerts = await res.json();
+    toonMeldingen(alerts);
+  } catch (e) {
+    console.error('Kon meldingen niet laden', e);
+  }
+}
+
+function toonMeldingen(alerts) {
+  const container = document.getElementById('alerts-container'); // voeg dit element toe aan je index.html
+  if (!container) return;
+  container.innerHTML = '';
+
+  alerts.forEach(a => {
+    const el = document.createElement('div');
+    el.className = `weather-alert weather-alert--${a.type}`;
+    el.innerHTML = `
+      <strong>${a.title}</strong>
+      <p>${a.message}</p>
+    `;
+    container.appendChild(el);
+  });
+}
+
+// Roep bij opstarten aan, en herhaal elke 5 minuten
+laadWeerMeldingen();
+setInterval(laadWeerMeldingen, 5 * 60 * 1000);
+
+/* Bijhorende CSS (voeg toe aan style.css):
+
+.weather-alert {
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border-left: 4px solid #3b82f6;
+  background: rgba(59,130,246,0.1);
+}
+.weather-alert--warning { border-left-color: #f59e0b; background: rgba(245,158,11,0.1); }
+.weather-alert--danger  { border-left-color: #ef4444; background: rgba(239,68,68,0.1); }
+.weather-alert strong { display: block; margin-bottom: 4px; }
+.weather-alert p { margin: 0; font-size: 0.9rem; }
+
+*/
