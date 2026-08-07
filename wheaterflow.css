@@ -5040,3 +5040,50 @@ input{
   }
 }
 
+/* ========================================================================
+   iOS HOME SCROLL BACKGROUND FIX
+   After returning from the fixed radar screen, Safari can temporarily drop
+   the fixed #weatherBG compositor layer while scrolling. The body then showed
+   the old blue/purple fallback. Keep the same selected weather photo on the
+   document itself as a safety layer, and stabilize the fixed layer.
+   ======================================================================== */
+html{
+  background:#0b172b !important;
+}
+
+body{
+  background-color:#0b172b !important;
+  background-image:var(--weather-photo) !important;
+  background-repeat:no-repeat !important;
+  background-size:cover !important;
+  background-position:center top !important;
+}
+
+#app,
+.screen,
+.screen.active{
+  background-color:transparent !important;
+}
+
+#weatherBG.photo-weather-bg{
+  -webkit-transform:translateZ(0) !important;
+  transform:translateZ(0) !important;
+  -webkit-backface-visibility:hidden !important;
+  backface-visibility:hidden !important;
+  will-change:transform !important;
+}
+
+@media (max-width:760px){
+  body{
+    background-image:var(--weather-photo) !important;
+    background-position:right top !important;
+    background-size:cover !important;
+    background-attachment:scroll !important;
+  }
+
+  #weatherBG.photo-weather-bg{
+    background-position:right top !important;
+    background-attachment:scroll !important;
+  }
+}
+
