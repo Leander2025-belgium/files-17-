@@ -1,4 +1,4 @@
-﻿:root{
+:root{
   --bg:#080d17;
   --bg-day:#163a64;
   --elev:rgba(18,28,48,.68);
@@ -192,7 +192,29 @@ a{color:inherit;}
 #weatherBG::after{
   content:"";position:absolute;inset:0;
   background:linear-gradient(180deg, rgba(255,255,255,.05), transparent 24%, rgba(0,0,0,.18) 100%);
+  z-index:3;
 }
+.wbg-photo{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background-position:center center;
+  background-repeat:no-repeat;
+  background-size:cover;
+  opacity:0;
+  transform:scale(1.015);
+  transition:opacity .9s ease, filter .9s ease;
+  will-change:opacity;
+}
+.wbg-photo.is-active{opacity:1;}
+#weatherBG.photo-background .wbg-sky,
+#weatherBG.photo-background .wbg-stars,
+#weatherBG.photo-background .wbg-sun,
+#weatherBG.photo-background .wbg-moon,
+#weatherBG.photo-background .wbg-clouds,
+#weatherBG.photo-background .wbg-rain,
+#weatherBG.photo-background .wbg-lightning{opacity:0 !important;}
+#weatherBG.photo-background.night .wbg-photo{filter:brightness(.48) saturate(.78) contrast(1.06);}
 #weatherBG.night .wbg-sky{background:radial-gradient(circle at 52% 14%, rgba(126,160,225,.18), transparent 24%),linear-gradient(165deg,#1c2e55 0%,#111d3a 42%,#080d17 78%);}
 #weatherBG.cloudy .wbg-sky{background:radial-gradient(circle at 22% 6%, rgba(210,225,244,.3), transparent 28%),linear-gradient(165deg,#607b9f 0%,#344b6f 44%,#0a1324 86%);}
 #weatherBG.rainy .wbg-sky{background:radial-gradient(circle at 18% 0%, rgba(157,189,225,.22), transparent 30%),linear-gradient(165deg,#415d7f 0%,#263a58 45%,#09111f 86%);}

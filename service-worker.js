@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260804-radar-worker";
+const CACHE_VERSION = "wheaterflow-v20260807-photo-backgrounds-nl";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -10,6 +10,21 @@ const STATIC_ASSETS = [
   "./assets/branding/weerscoop-logo-master.png",
   "./assets/backgrounds/cloudy-sky.png",
   "./assets/backgrounds/rainy-sky.png",
+  "./assets/backgrounds/zonnig.png",
+  "./assets/backgrounds/licht bewolkt.png",
+  "./assets/backgrounds/Overwegend zonnig.png",
+  "./assets/backgrounds/Half bewolkt.png",
+  "./assets/backgrounds/Bewolkt.png",
+  "./assets/backgrounds/Zwaarbewolkt.png",
+  "./assets/backgrounds/Mist.png",
+  "./assets/backgrounds/Nevel.png",
+  "./assets/backgrounds/Lichte regen.png",
+  "./assets/backgrounds/Regen.png",
+  "./assets/backgrounds/Hevige regen.png",
+  "./assets/backgrounds/Motregen.png",
+  "./assets/backgrounds/Onweersbuien.png",
+  "./assets/backgrounds/Zwaar onweer.png",
+  "./assets/backgrounds/Hagel.png",
   "./icons/favicon-16.png",
   "./icons/favicon-32.png",
   "./icons/icon-48.png",

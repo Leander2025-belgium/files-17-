@@ -1,4 +1,4 @@
-﻿/* =========================================================================
+/* =========================================================================
    WEERSCOOP - live weer, radar en storm-chaser tool
    Databronnen: Open-Meteo (weer + geocoding), KNMI en WeatherFlow radar-worker.
    ========================================================================= */
@@ -1087,6 +1087,34 @@ function rainNowcastCard(){
 
 /* ---------------- animated background: matches current conditions ---------------- */
 let lightningTimer = null;
+function weatherBackgroundImage(code, cloudCover=0){
+  code = Number(code);
+  cloudCover = Number(cloudCover || 0);
+
+  // Open-Meteo / WMO weather codes -> custom Wheaterflow photo backgrounds.
+  if(code === 99) return 'Zwaar onweer.png';
+  if(code === 96) return 'Hagel.png';
+  if(code === 95) return 'Onweersbuien.png';
+
+  if([65,67,82].includes(code)) return 'Hevige regen.png';
+  if([63,66,81].includes(code)) return 'Regen.png';
+  if([61,80].includes(code)) return 'Lichte regen.png';
+  if([51,53,55,56,57].includes(code)) return 'Motregen.png';
+
+  if(code === 45) return 'Mist.png';
+  if(code === 48) return 'Nevel.png';
+
+  // Snow images are not part of this upload yet, so keep the existing animated snow scene.
+  if([71,73,75,77,85,86].includes(code)) return null;
+
+  if(code === 3 || cloudCover >= 90) return 'Zwaarbewolkt.png';
+  if(cloudCover >= 70) return 'Bewolkt.png';
+  if(code === 2 || cloudCover >= 45) return 'Half bewolkt.png';
+  if(code === 1 || cloudCover >= 20) return 'Overwegend zonnig.png';
+  if(cloudCover >= 8) return 'licht bewolkt.png';
+  return 'zonnig.png';
+}
+
 function applyWeatherBG(code, isDay, cloudCover=0){
   const el = $('#weatherBG');
   if(!el) return;
@@ -1097,13 +1125,23 @@ function applyWeatherBG(code, isDay, cloudCover=0){
   else if([71,73,75,77,85,86].includes(code)) scene = 'snowy';
   else if(code===45||code===48||code===1||code===2||code===3 || cloudCover >= 45) scene = 'cloudy';
   else scene = 'sunny';
+
+  const photo = $('.wbg-photo', el);
+  const bgFile = weatherBackgroundImage(code, cloudCover);
+  if(photo){
+    photo.style.backgroundImage = bgFile ? `url("./assets/backgrounds/${bgFile}")` : '';
+    photo.classList.toggle('is-active', Boolean(bgFile));
+  }
+  el.classList.toggle('photo-background', Boolean(bgFile));
+
   scenes.forEach(s=>el.classList.toggle(s, s===scene));
   el.classList.toggle('night', !isDay);
   el.classList.toggle('cloud-cover-heavy', cloudCover >= 70 || code === 3);
   el.classList.toggle('cloud-cover-light', scene === 'cloudy' && cloudCover < 70 && code !== 3);
 
   clearInterval(lightningTimer);
-  if(scene === 'stormy'){
+  // The storm photos already contain lightning. Keep flashes only for the fallback animated scene.
+  if(scene === 'stormy' && !bgFile){
     const flashEl = $('.wbg-lightning', el);
     lightningTimer = setInterval(()=>{
       if(Math.random() < 0.4){
