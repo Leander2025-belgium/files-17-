@@ -4934,3 +4934,49 @@ input{
   }
   #home .hero .updated{color:rgba(255,255,255,.80)!important;}
 }
+
+/* ========================================================================
+   FINAL PHOTO BACKGROUND OVERRIDE
+   Keep this block at the END of the stylesheet.
+   Earlier legacy rules use cloudy-sky.png / rainy-sky.png with !important.
+   The live app must always use the photo selected by applyWeatherBG().
+   ======================================================================== */
+#weatherBG.photo-weather-bg::before,
+#weatherBG.photo-weather-bg.cloudy:not(.night)::before,
+#weatherBG.photo-weather-bg.rainy:not(.night)::before,
+#weatherBG.photo-weather-bg.stormy:not(.night)::before,
+#weatherBG.photo-weather-bg.snowy:not(.night)::before,
+#weatherBG.photo-weather-bg.night::before{
+  content:"" !important;
+  position:absolute !important;
+  inset:0 !important;
+  z-index:0 !important;
+  display:block !important;
+  opacity:1 !important;
+  background-image:var(--weather-photo) !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+  filter:none !important;
+  transform:scale(1.015) !important;
+}
+
+#weatherBG.photo-weather-bg .wbg-sky,
+#weatherBG.photo-weather-bg .wbg-clouds,
+#weatherBG.photo-weather-bg .wbg-sun,
+#weatherBG.photo-weather-bg .wbg-moon,
+#weatherBG.photo-weather-bg .wbg-stars{
+  opacity:0 !important;
+  visibility:hidden !important;
+}
+
+#weatherBG.photo-weather-bg::after{
+  z-index:20 !important;
+  background:linear-gradient(
+    180deg,
+    rgba(8,19,36,.06) 0%,
+    rgba(8,19,36,.03) 42%,
+    rgba(4,12,24,.26) 100%
+  ) !important;
+}
+
