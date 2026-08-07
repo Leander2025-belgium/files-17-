@@ -621,28 +621,36 @@ function liveWeatherSnapshot(){
   return cur;
 }
 
-function precipitationSignal(){
+function precipitationSignal(cur=state.current || {}){
   const signal = {now:0, soon:0, pop:0, thunder:false};
+
+  // Gebruik zowel de actuele snapshot als de ruwe current-data. Zo kan een
+  // 15-minutenframe met 0 mm een echte actuele regenmeting niet overschrijven.
+  const snapshotPrecip = Number(cur?.precipitation) || 0;
   const currentPrecip = Number(state.current?.precipitation) || 0;
-  signal.now = Math.max(signal.now, currentPrecip);
-  signal.soon = Math.max(signal.soon, currentPrecip);
+  signal.now = Math.max(signal.now, snapshotPrecip, currentPrecip);
+  signal.soon = Math.max(signal.soon, snapshotPrecip, currentPrecip);
+
   const targetMs = Date.now();
   if(state.minutely?.time?.length){
     const idx = closestIndex(state.minutely.time, targetMs);
     const minuteAge = Math.abs(new Date(state.minutely.time[idx]).getTime() - targetMs) / 60000;
     if(minuteAge <= 35){
       const slots = state.minutely.precipitation.slice(idx, idx + 4).map(v=>Number(v) || 0);
-      signal.now = slots[0] || 0;
-      signal.soon = Math.max(0, ...slots);
+      const minuteNow = slots[0] || 0;
+      signal.now = Math.max(signal.now, minuteNow);
+      signal.soon = Math.max(signal.soon, ...slots);
       const codes = state.minutely.weather_code?.slice(idx, idx + 4) || [];
-      signal.thunder = codes.some(code=>[95,96,99].includes(Number(code)));
+      signal.thunder = codes.some(c=>[95,96,99].includes(Number(c)));
     }
   }
+
   if(state.hourly?.time?.length){
     const idx = nowIndexInHourly();
     const hourPrecip = Number(state.hourly.precipitation?.[idx]) || 0;
     const nextPrecip = Number(state.hourly.precipitation?.[idx + 1]) || 0;
-    signal.now = Math.max(signal.now, hourPrecip);
+    // Uurdata is grover: gebruik ze vooral als 'soon'-signaal, niet om droog
+    // weer nu automatisch als regen te tonen.
     signal.soon = Math.max(signal.soon, hourPrecip, nextPrecip);
     signal.pop = Number(state.hourly.precipitation_probability?.[idx]) || 0;
     signal.thunder = signal.thunder || [95,96,99].includes(Number(state.hourly.weather_code?.[idx]));
@@ -652,13 +660,30 @@ function precipitationSignal(){
 
 function effectiveCurrentWeatherCode(cur=state.current || {}){
   const code = Number(cur.weather_code);
-  const rainCodes = [51,53,55,56,57,61,63,65,66,67,80,81,82];
+  const drizzleCodes = [51,53,55,56,57];
+  const rainCodes = [61,63,65,66,67,80,81,82];
   const snowCodes = [71,73,75,77,85,86];
-  if([95,96,99].includes(code) || rainCodes.includes(code) || snowCodes.includes(code)) return code;
-  const p = precipitationSignal();
-  if(p.thunder && (p.now >= 0.1 || p.soon >= 0.2 || p.pop >= 60)) return 95;
-  if(p.now >= 2 || p.soon >= 3) return 63;
-  if(p.now >= 0.1 || p.soon >= 0.4 || (p.pop >= 75 && p.soon >= 0.1)) return 61;
+  const p = precipitationSignal(cur);
+
+  // Fenomenen die niet door een gewone regen-intensiteit mogen worden vervangen.
+  if([99,96,95].includes(code)) return code;
+  if(snowCodes.includes(code)) return code;
+  if([45,48].includes(code) && p.now < 0.1) return code;
+  if(drizzleCodes.includes(code)) return code;
+  if([66,67].includes(code)) return code; // ijzel behouden
+
+  // Actuele neerslag heeft voorrang op een achterlopende 'bewolkt'-code.
+  // De grenswaarden zijn bewust eenvoudig zodat achtergrond én label snel
+  // reageren wanneer het lokaal daadwerkelijk begint te regenen.
+  if(p.thunder && p.now >= 0.1) return 95;
+  if(p.now >= 3.0) return 65;   // hevige regen
+  if(p.now >= 1.0) return 63;   // regen
+  if(p.now >= 0.1) return 61;   // lichte regen
+
+  // Als de bron zelf een regencode meldt maar de hoeveelheid net op 0 staat,
+  // behoud die regencode; zo verdwijnt regen niet tussen twee meetframes.
+  if(rainCodes.includes(code)) return code;
+
   return Number.isFinite(code) ? code : 0;
 }
 
@@ -1087,61 +1112,74 @@ function rainNowcastCard(){
 
 /* ---------------- animated background: matches current conditions ---------------- */
 let lightningTimer = null;
-function weatherBackgroundImage(code, cloudCover=0){
-  code = Number(code);
-  cloudCover = Number(cloudCover || 0);
-
-  // Open-Meteo / WMO weather codes -> custom Wheaterflow photo backgrounds.
-  if(code === 99) return 'Zwaar onweer.png';
-  if(code === 96) return 'Hagel.png';
-  if(code === 95) return 'Onweersbuien.png';
-
-  if([65,67,82].includes(code)) return 'Hevige regen.png';
-  if([63,66,81].includes(code)) return 'Regen.png';
-  if([61,80].includes(code)) return 'Lichte regen.png';
-  if([51,53,55,56,57].includes(code)) return 'Motregen.png';
-
-  if(code === 45) return 'Mist.png';
-  if(code === 48) return 'Nevel.png';
-
-  // Snow images are not part of this upload yet, so keep the existing animated snow scene.
-  if([71,73,75,77,85,86].includes(code)) return null;
-
-  if(code === 3 || cloudCover >= 90) return 'Zwaarbewolkt.png';
-  if(cloudCover >= 70) return 'Bewolkt.png';
-  if(code === 2 || cloudCover >= 45) return 'Half bewolkt.png';
-  if(code === 1 || cloudCover >= 20) return 'Overwegend zonnig.png';
-  if(cloudCover >= 8) return 'licht bewolkt.png';
-  return 'zonnig.png';
-}
-
 function applyWeatherBG(code, isDay, cloudCover=0){
   const el = $('#weatherBG');
   if(!el) return;
-  const scenes = ['sunny','cloudy','rainy','stormy','snowy'];
+
+  const weatherBgImage = (filename)=>{
+    const safe = encodeURI(`./assets/backgrounds/${filename}`);
+    el.style.setProperty('--weather-photo', `url("${safe}")`);
+  };
+
+  const cc = Math.max(0, Math.min(100, Number(cloudCover) || 0));
+  let filename = 'zonnig.png';
   let scene = 'sunny';
-  if([95,96,99].includes(code)) scene = 'stormy';
-  else if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) scene = 'rainy';
-  else if([71,73,75,77,85,86].includes(code)) scene = 'snowy';
-  else if(code===45||code===48||code===1||code===2||code===3 || cloudCover >= 45) scene = 'cloudy';
-  else scene = 'sunny';
 
-  const photo = $('.wbg-photo', el);
-  const bgFile = weatherBackgroundImage(code, cloudCover);
-  if(photo){
-    photo.style.backgroundImage = bgFile ? `url("./assets/backgrounds/${bgFile}")` : '';
-    photo.classList.toggle('is-active', Boolean(bgFile));
+  // Neerslag / slecht weer krijgt altijd voorrang op bewolkingsgraad.
+  if(code === 99){
+    filename = 'Zwaar onweer.png';
+    scene = 'stormy';
+  }else if(code === 96){
+    filename = 'Hagel.png';
+    scene = 'stormy';
+  }else if(code === 95){
+    filename = 'Onweersbuien.png';
+    scene = 'stormy';
+  }else if([51,53,55,56,57].includes(code)){
+    filename = 'Motregen.png';
+    scene = 'rainy';
+  }else if([61,80].includes(code)){
+    filename = 'Lichte regen.png';
+    scene = 'rainy';
+  }else if([63,66,67,81].includes(code)){
+    filename = 'Regen.png';
+    scene = 'rainy';
+  }else if([65,82].includes(code)){
+    filename = 'Hevige regen.png';
+    scene = 'rainy';
+  }else if(code === 45){
+    filename = 'Mist.png';
+    scene = 'cloudy';
+  }else if(code === 48){
+    filename = 'Nevel.png';
+    scene = 'cloudy';
+  }else if([71,73,75,77,85,86].includes(code)){
+    // Er is nog geen aparte sneeuwfoto in deze set: behoud bestaande sneeuwscene.
+    filename = cc >= 66 ? 'Zwaarbewolkt.png' : 'Bewolkt.png';
+    scene = 'snowy';
+  }else{
+    // Droog weer: laat de actuele bewolkingsgraad de foto bepalen.
+    if(cc <= 15) filename = 'zonnig.png';
+    else if(cc <= 30) filename = 'licht bewolkt.png';
+    else if(cc <= 45) filename = 'Overwegend zonnig.png';
+    else if(cc <= 65) filename = 'Half bewolkt.png';
+    else if(cc <= 85) filename = 'Bewolkt.png';
+    else filename = 'Zwaarbewolkt.png';
+
+    scene = cc >= 66 ? 'cloudy' : 'sunny';
   }
-  el.classList.toggle('photo-background', Boolean(bgFile));
 
+  weatherBgImage(filename);
+
+  const scenes = ['sunny','cloudy','rainy','stormy','snowy'];
   scenes.forEach(s=>el.classList.toggle(s, s===scene));
   el.classList.toggle('night', !isDay);
-  el.classList.toggle('cloud-cover-heavy', cloudCover >= 70 || code === 3);
-  el.classList.toggle('cloud-cover-light', scene === 'cloudy' && cloudCover < 70 && code !== 3);
+  el.classList.toggle('cloud-cover-heavy', cc >= 86);
+  el.classList.toggle('cloud-cover-light', scene === 'cloudy' && cc < 66);
+  el.classList.add('photo-weather-bg');
 
   clearInterval(lightningTimer);
-  // The storm photos already contain lightning. Keep flashes only for the fallback animated scene.
-  if(scene === 'stormy' && !bgFile){
+  if(scene === 'stormy'){
     const flashEl = $('.wbg-lightning', el);
     lightningTimer = setInterval(()=>{
       if(Math.random() < 0.4){
@@ -2150,64 +2188,6 @@ function moonPhase(date){
   const daysToFull = Math.round(((0.5 - phase + 1) % 1) * synodic);
   return {phase, illumination, name, daysToFull};
 }
-
-
-/* ---------------- moving Liquid Glass tab indicator ---------------- */
-function initLiquidGlassTabbar(){
-  const tabbar = $('.tabbar');
-  const indicator = $('.tab-glass-indicator', tabbar || document);
-  if(!tabbar || !indicator) return;
-
-  let previousIndex = Math.max(0, $$('.tabbtn', tabbar).findIndex(btn=>btn.classList.contains('active')));
-  let animationTimer = null;
-
-  const updateIndicator = (animate=false)=>{
-    const buttons = $$('.tabbtn', tabbar);
-    const active = buttons.find(btn=>btn.classList.contains('active')) || buttons[0];
-    if(!active) return;
-
-    const index = buttons.indexOf(active);
-    const barRect = tabbar.getBoundingClientRect();
-    const btnRect = active.getBoundingClientRect();
-
-    const x = btnRect.left - barRect.left;
-    const y = btnRect.top - barRect.top;
-
-    tabbar.style.setProperty('--liquid-x', `${x}px`);
-    tabbar.style.setProperty('--liquid-y', `${y}px`);
-    tabbar.style.setProperty('--liquid-w', `${btnRect.width}px`);
-    tabbar.style.setProperty('--liquid-h', `${btnRect.height}px`);
-
-    if(animate && index !== previousIndex){
-      indicator.classList.remove('liquid-moving-left','liquid-moving-right');
-      // Force a reflow so repeated moves replay the organic stretch.
-      void indicator.offsetWidth;
-      indicator.classList.add(index > previousIndex ? 'liquid-moving-right' : 'liquid-moving-left');
-      clearTimeout(animationTimer);
-      animationTimer = setTimeout(()=>{
-        indicator.classList.remove('liquid-moving-left','liquid-moving-right');
-      }, 460);
-    }
-
-    previousIndex = index;
-  };
-
-  // Watch the app's existing .active state, so programmatic navigation also moves the lens.
-  $$('.tabbtn', tabbar).forEach(btn=>{
-    new MutationObserver(()=>updateIndicator(true))
-      .observe(btn, {attributes:true, attributeFilter:['class']});
-  });
-
-  // Initial position after layout/fonts are ready.
-  requestAnimationFrame(()=>requestAnimationFrame(()=>updateIndicator(false)));
-  window.addEventListener('load', ()=>updateIndicator(false), {once:true});
-  window.addEventListener('resize', ()=>updateIndicator(false));
-
-  // Expose a tiny helper for any future navigation code.
-  window.updateWheaterflowLiquidTab = updateIndicator;
-}
-
-initLiquidGlassTabbar();
 
 /* ---------------- tabs ---------------- */
 $$('.tabbtn').forEach(btn=>{
