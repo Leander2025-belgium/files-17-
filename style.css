@@ -4890,7 +4890,7 @@ input{
   content:"";
   position:absolute;
   inset:0;
-  z-index:-2;
+  z-index:0;
   background-image:var(--weather-photo);
   background-size:cover;
   background-position:center center;
