@@ -4896,3 +4896,131 @@ input{
 .weather-alert strong { display: block; margin-bottom: 4px; }
 .weather-alert p { margin: 0; font-size: 0.9rem; }
 
+/* =========================================================================
+   WHEATERFLOW — MOVING LIQUID GLASS TAB INDICATOR
+   Added 2026-08-07. Keeps the existing tab icons and navigation behavior.
+   ========================================================================= */
+.tabbar{
+  --liquid-x: 0px;
+  --liquid-y: 6px;
+  --liquid-w: 0px;
+  --liquid-h: 52px;
+}
+
+/* The single glass "lens" that slides under the active icon. */
+.tab-glass-indicator{
+  position:absolute!important;
+  left:0!important;
+  top:0!important;
+  width:var(--liquid-w)!important;
+  height:var(--liquid-h)!important;
+  transform:translate3d(var(--liquid-x), var(--liquid-y), 0)!important;
+  transform-origin:center center!important;
+  z-index:1!important;
+  pointer-events:none!important;
+  border-radius:999px!important;
+  box-sizing:border-box!important;
+
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,.30) 0%,
+      rgba(255,255,255,.15) 48%,
+      rgba(255,255,255,.12) 100%),
+    radial-gradient(circle at 30% 10%, rgba(255,255,255,.22), transparent 48%),
+    rgba(255,255,255,.12)!important;
+
+  border:1px solid rgba(255,255,255,.34)!important;
+
+  -webkit-backdrop-filter:blur(18px) saturate(190%) brightness(1.08)!important;
+  backdrop-filter:blur(18px) saturate(190%) brightness(1.08)!important;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.72),
+    inset 1.5px 2px 0 -1px rgba(255,255,255,.38),
+    inset -1px -2px 0 -1px rgba(255,255,255,.16),
+    inset 0 -8px 14px -12px rgba(0,0,0,.34),
+    0 7px 20px rgba(0,0,0,.14)!important;
+
+  transition:
+    transform 430ms cubic-bezier(.22,.88,.24,1),
+    width 430ms cubic-bezier(.22,.88,.24,1),
+    height 430ms cubic-bezier(.22,.88,.24,1),
+    background 300ms ease,
+    box-shadow 300ms ease!important;
+
+  will-change:transform,width;
+}
+
+.tab-glass-indicator::before{
+  content:"";
+  position:absolute;
+  left:8%;
+  right:8%;
+  top:3px;
+  height:43%;
+  border-radius:999px;
+  background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,.02));
+  filter:blur(.35px);
+  opacity:.9;
+}
+
+.tab-glass-indicator::after{
+  content:"";
+  position:absolute;
+  inset:2px;
+  border-radius:inherit;
+  box-shadow:
+    inset 2px 0 4px rgba(255,255,255,.11),
+    inset -2px 0 4px rgba(0,0,0,.07);
+}
+
+/* Existing buttons stay above the moving lens. */
+.tabbtn{
+  z-index:2!important;
+}
+
+/* Disable the old per-button active pill; the single moving lens replaces it. */
+.tabbtn.active::before{
+  content:none!important;
+  display:none!important;
+}
+
+/* A little extra polish on the selected icon. */
+.tabbtn.active svg{
+  transform:scale(1.07)!important;
+  filter:
+    drop-shadow(0 1px 1px rgba(255,255,255,.28))
+    drop-shadow(0 3px 8px rgba(0,0,0,.18))!important;
+}
+
+/* Organic stretch when the lens changes item. */
+.tab-glass-indicator.liquid-moving-right{
+  animation:liquidStretchRight 430ms cubic-bezier(.22,.88,.24,1);
+}
+.tab-glass-indicator.liquid-moving-left{
+  animation:liquidStretchLeft 430ms cubic-bezier(.22,.88,.24,1);
+}
+@keyframes liquidStretchRight{
+  0%{scale:1 1;}
+  45%{scale:1.14 .96;}
+  100%{scale:1 1;}
+}
+@keyframes liquidStretchLeft{
+  0%{scale:1 1;}
+  45%{scale:1.14 .96;}
+  100%{scale:1 1;}
+}
+
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .tab-glass-indicator{
+    background:rgba(105,145,190,.72)!important;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .tab-glass-indicator{
+    transition:none!important;
+    animation:none!important;
+  }
+}
+
