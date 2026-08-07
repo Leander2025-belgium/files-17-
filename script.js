@@ -8,13 +8,7 @@ const KNMI_WMS_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6Im
 const RADAR_MAX_AGE_MINUTES = 90;
 const WEATHERFLOW_RADAR_WORKER = 'https://weatherflow-radar.leanderdevriendt.workers.dev';
 const WEATHERFLOW_RADAR_OFFSETS = [-120,-110,-100,-90,-80,-70,-60,-50,-40,-30,-20,-10,0];
-const FUNCTION_BASE =
-  location.hostname.endsWith('vercel.app') ||
-  location.hostname.endsWith('pages.dev') ||
-  location.hostname === 'wheaterflow.be' ||
-  location.hostname === 'www.wheaterflow.be'
-    ? new URL('/api/', location.origin).href
-    : new URL('/.netlify/functions/', location.origin).href;
+const FUNCTION_BASE = new URL('/api/', location.origin).href;
 const PUSH_FUNCTION_BASE = FUNCTION_BASE;
 const XWEATHER_SDK_VERSION = '1.9.3';
 const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEATHER_SDK_VERSION}/dist/`;
@@ -576,7 +570,7 @@ async function loadCurrentObservation(){
   const station = nearestMetarStation();
   if(!station || station.dist > 90) return;
   try{
-    const r = await fetch(`https://aviationweather.gov/api/data/metar?ids=${station.id}&format=json`);
+    const r = await fetch(`${FUNCTION_BASE}metar?ids=${encodeURIComponent(station.id)}`, {cache:'no-store'});
     if(!r.ok) return;
     const rows = await r.json();
     const m = Array.isArray(rows) ? rows[0] : rows;
@@ -3753,12 +3747,18 @@ function initMapIfNeeded(){
     }catch(err){ showRadarInfo('Kon puntgegevens niet laden.', lat,lng); }
   });
 
-  startLegacyRadar();
-  clearInterval(state.radar.refreshTimer);
-  state.radar.refreshTimer = setInterval(()=>{
-    if(document.hidden) return;
-    loadRadarFrames(true);
-  }, 5*60*1000);
+  // XWeather is the primary radar on Cloudflare. The legacy radar is fallback only.
+  (async ()=>{
+    const xweatherOk = await initXweatherMap();
+    if(!xweatherOk){
+      startLegacyRadar();
+      clearInterval(state.radar.refreshTimer);
+      state.radar.refreshTimer = setInterval(()=>{
+        if(document.hidden) return;
+        loadRadarFrames(true);
+      }, 5*60*1000);
+    }
+  })();
 }
 
 function startLegacyRadar(){
