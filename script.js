@@ -1118,7 +1118,11 @@ function applyWeatherBG(code, isDay, cloudCover=0){
 
   const weatherBgImage = (filename)=>{
     const safe = encodeURI(`./assets/backgrounds/${filename}`);
-    el.style.setProperty('--weather-photo', `url("${safe}")`);
+    const photoValue = `url("${safe}")`;
+    el.style.setProperty('--weather-photo', photoValue);
+    document.documentElement.style.setProperty('--weather-photo', photoValue);
+    document.body?.style?.setProperty('--weather-photo', photoValue);
+    $('#tvscreen')?.style?.setProperty('--weather-photo', photoValue);
   };
 
   const cc = Math.max(0, Math.min(100, Number(cloudCover) || 0));
