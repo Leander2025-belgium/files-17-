@@ -1,15 +1,13 @@
-const CACHE_VERSION = "wheaterflow-v20260807-halfbewolkt-fix";
+const CACHE_VERSION = "wheaterflow-v20260807-clean-cloudflare-1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./offline.html",
-  "./style.css",
+  "./wheaterflow.css",
   "./script.js",
   "./manifest.webmanifest",
   "./assets/branding/weerscoop-logo-master.png",
-  "./assets/backgrounds/cloudy-sky.png",
-  "./assets/backgrounds/rainy-sky.png",
   "./assets/backgrounds/zonnig.png",
   "./assets/backgrounds/licht bewolkt.png",
   "./assets/backgrounds/Overwegend zonnig.png",
