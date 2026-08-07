@@ -5025,3 +5025,18 @@ input{
   display:none !important;
 }
 
+/* ========================================================================
+   MOBILE PHOTO FRAMING FIX
+   The weather artwork is 941x1672 (portrait). On narrow iPhones,
+   background-size: cover + center center crops both sides and can cut off
+   the sun / important cloud detail. iOS also behaves poorly with fixed
+   background attachment on fixed elements.
+   ======================================================================== */
+@media (max-width: 760px){
+  #weatherBG.photo-weather-bg{
+    background-size:cover !important;
+    background-position:right top !important;
+    background-attachment:scroll !important;
+  }
+}
+
