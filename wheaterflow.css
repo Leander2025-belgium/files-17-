@@ -4980,3 +4980,48 @@ input{
   ) !important;
 }
 
+/* ========================================================================
+   DIRECT LIVE BACKGROUND FIX
+   The normal app now paints the selected photo directly on #weatherBG.
+   This intentionally bypasses all old ::before / synthetic-sky rules.
+   ======================================================================== */
+#weatherBG.photo-weather-bg{
+  background-color:#0b172b !important;
+  background-image:var(--weather-photo) !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+  background-attachment:fixed !important;
+}
+
+/* Do not allow an older pseudo-element background to cover the direct photo. */
+#weatherBG.photo-weather-bg::before{
+  background-image:none !important;
+  opacity:0 !important;
+}
+
+/* Keep only the subtle dark readability overlay. */
+#weatherBG.photo-weather-bg::after{
+  content:"" !important;
+  position:absolute !important;
+  inset:0 !important;
+  z-index:20 !important;
+  pointer-events:none !important;
+  background:linear-gradient(
+    180deg,
+    rgba(7,17,31,.05) 0%,
+    rgba(7,17,31,.02) 42%,
+    rgba(3,10,20,.24) 100%
+  ) !important;
+}
+
+/* Synthetic artwork may never cover the photographic background. */
+#weatherBG.photo-weather-bg .wbg-sky,
+#weatherBG.photo-weather-bg .wbg-photo,
+#weatherBG.photo-weather-bg .wbg-clouds,
+#weatherBG.photo-weather-bg .wbg-sun,
+#weatherBG.photo-weather-bg .wbg-moon,
+#weatherBG.photo-weather-bg .wbg-stars{
+  display:none !important;
+}
+
