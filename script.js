@@ -1162,15 +1162,28 @@ function applyWeatherBG(code, isDay, cloudCover=0){
     filename = cc >= 66 ? 'Zwaarbewolkt.png' : 'Bewolkt.png';
     scene = 'snowy';
   }else{
-    // Droog weer: laat de actuele bewolkingsgraad de foto bepalen.
-    if(cc <= 15) filename = 'zonnig.png';
-    else if(cc <= 30) filename = 'licht bewolkt.png';
-    else if(cc <= 45) filename = 'Overwegend zonnig.png';
-    else if(cc <= 65) filename = 'Half bewolkt.png';
-    else if(cc <= 85) filename = 'Bewolkt.png';
-    else filename = 'Zwaarbewolkt.png';
+    // Droog weer: laat de actuele WMO-code eerst bepalen welke foto bij de
+    // zichtbare omschrijving hoort. Cloud cover verfijnt alleen code 0/1/3
+    // en is fallback als de code onbekend is.
+    if(code === 0){
+      filename = cc <= 15 ? 'zonnig.png' : 'licht bewolkt.png';
+    }else if(code === 1){
+      filename = cc <= 30 ? 'licht bewolkt.png' : 'Overwegend zonnig.png';
+    }else if(code === 2){
+      // WMO 2 = gedeeltelijk / half bewolkt: houd beeld en tekst gelijk.
+      filename = 'Half bewolkt.png';
+    }else if(code === 3){
+      filename = cc >= 86 ? 'Zwaarbewolkt.png' : 'Bewolkt.png';
+    }else{
+      if(cc <= 15) filename = 'zonnig.png';
+      else if(cc <= 30) filename = 'licht bewolkt.png';
+      else if(cc <= 45) filename = 'Overwegend zonnig.png';
+      else if(cc <= 65) filename = 'Half bewolkt.png';
+      else if(cc <= 85) filename = 'Bewolkt.png';
+      else filename = 'Zwaarbewolkt.png';
+    }
 
-    scene = cc >= 66 ? 'cloudy' : 'sunny';
+    scene = (code === 2 || code === 3 || cc >= 66) ? 'cloudy' : 'sunny';
   }
 
   weatherBgImage(filename);
