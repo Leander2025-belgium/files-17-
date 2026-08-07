@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260807-liquid-glass-nav";
+const CACHE_VERSION = "wheaterflow-v20260807-weather-background-fix";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -18,10 +18,10 @@ const STATIC_ASSETS = [
   "./assets/backgrounds/Zwaarbewolkt.png",
   "./assets/backgrounds/Mist.png",
   "./assets/backgrounds/Nevel.png",
+  "./assets/backgrounds/Motregen.png",
   "./assets/backgrounds/Lichte regen.png",
   "./assets/backgrounds/Regen.png",
   "./assets/backgrounds/Hevige regen.png",
-  "./assets/backgrounds/Motregen.png",
   "./assets/backgrounds/Onweersbuien.png",
   "./assets/backgrounds/Zwaar onweer.png",
   "./assets/backgrounds/Hagel.png",
