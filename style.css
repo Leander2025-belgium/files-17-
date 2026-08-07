@@ -1178,9 +1178,35 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
   padding:clamp(16px,2.2vh,30px) clamp(30px,4.4vw,68px) clamp(18px,2.6vh,34px);
   overflow:hidden;
   color:#fff;
-  background:radial-gradient(circle at 33% 5%, rgba(0,122,255,.34), transparent 34%),linear-gradient(155deg,#061329 0%,#072b66 50%,#061226 100%);
+  background:transparent;
+  isolation:isolate;
 }
 #tvscreen.active{display:grid;}
+#tvscreen::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-2;
+  background-image:var(--weather-photo);
+  background-size:cover;
+  background-position:center center;
+  background-repeat:no-repeat;
+  transform:scale(1.01);
+}
+#tvscreen::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(6,14,28,.20) 0%,rgba(6,14,28,.12) 24%,rgba(6,14,28,.28) 100%),
+    radial-gradient(circle at 12% 10%, rgba(255,255,255,.10), transparent 28%);
+}
+#tvscreen > *{
+  position:relative;
+  z-index:1;
+}
 .tv-top{
   min-width:0;
   min-height:0;
@@ -1548,33 +1574,14 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
 #weatherBG.snowy:not(.night) .wbg-sun,
 #weatherBG.night .wbg-sun{opacity:0!important;}
 
-/* Match the fullscreen TV background to the active weather scene. */
-body:has(#weatherBG.sunny:not(.night)) #tvscreen{
-  background:
-    radial-gradient(circle at 18% 8%, rgba(255,236,178,.42), transparent 30%),
-    radial-gradient(circle at 75% 18%, rgba(99,204,255,.26), transparent 34%),
-    linear-gradient(155deg,#06336e 0%,#0a58b7 48%,#061b3d 100%);
-}
-body:has(#weatherBG.cloudy:not(.night)) #tvscreen{
-  background:
-    radial-gradient(circle at 25% 8%, rgba(220,230,242,.24), transparent 31%),
-    linear-gradient(155deg,#4f6177 0%,#344960 50%,#121d2f 100%);
-}
+/* TV mode now uses the same photo background as the main app. */
+body:has(#weatherBG.sunny:not(.night)) #tvscreen,
+body:has(#weatherBG.cloudy:not(.night)) #tvscreen,
 body:has(#weatherBG.rainy:not(.night)) #tvscreen,
-body:has(#weatherBG.stormy:not(.night)) #tvscreen{
-  background:
-    radial-gradient(circle at 24% 0%, rgba(206,218,230,.18), transparent 32%),
-    linear-gradient(155deg,#465467 0%,#2d3b4f 52%,#0e1727 100%);
-}
-body:has(#weatherBG.snowy:not(.night)) #tvscreen{
-  background:
-    radial-gradient(circle at 24% 0%, rgba(238,246,255,.28), transparent 32%),
-    linear-gradient(155deg,#788da8 0%,#4f6681 52%,#162237 100%);
-}
+body:has(#weatherBG.stormy:not(.night)) #tvscreen,
+body:has(#weatherBG.snowy:not(.night)) #tvscreen,
 body:has(#weatherBG.night) #tvscreen{
-  background:
-    radial-gradient(circle at 55% 10%, rgba(126,160,225,.18), transparent 28%),
-    linear-gradient(155deg,#172849 0%,#111d36 52%,#070d18 100%);
+  background:transparent;
 }
 
 /* ---------- Premium home refresh: scoped away from TV mode ---------- */
