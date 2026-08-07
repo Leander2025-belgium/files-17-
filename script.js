@@ -4041,7 +4041,7 @@ async function refreshXweatherLayers(){
 
 function xweatherLayerOverrides(code){
   const weak = likelyWeakMapDevice();
-  const opacity = code === 'radar' ? .86 : code === 'satellite' ? .82 : code === 'wind-particles' ? .74 : .78;
+  const opacity = code === 'radar' ? .66 : code === 'satellite' ? .82 : code === 'wind-particles' ? .74 : .78;
   return {
     opacity,
     data:{ quality: weak ? 'low' : 'normal' }
