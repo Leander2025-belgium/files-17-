@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260807-photo-backgrounds-nl";
+const CACHE_VERSION = "wheaterflow-v20260807-liquid-glass-nav";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
