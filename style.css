@@ -192,29 +192,7 @@ a{color:inherit;}
 #weatherBG::after{
   content:"";position:absolute;inset:0;
   background:linear-gradient(180deg, rgba(255,255,255,.05), transparent 24%, rgba(0,0,0,.18) 100%);
-  z-index:3;
 }
-.wbg-photo{
-  position:absolute;
-  inset:0;
-  z-index:1;
-  background-position:center center;
-  background-repeat:no-repeat;
-  background-size:cover;
-  opacity:0;
-  transform:scale(1.015);
-  transition:opacity .9s ease, filter .9s ease;
-  will-change:opacity;
-}
-.wbg-photo.is-active{opacity:1;}
-#weatherBG.photo-background .wbg-sky,
-#weatherBG.photo-background .wbg-stars,
-#weatherBG.photo-background .wbg-sun,
-#weatherBG.photo-background .wbg-moon,
-#weatherBG.photo-background .wbg-clouds,
-#weatherBG.photo-background .wbg-rain,
-#weatherBG.photo-background .wbg-lightning{opacity:0 !important;}
-#weatherBG.photo-background.night .wbg-photo{filter:brightness(.48) saturate(.78) contrast(1.06);}
 #weatherBG.night .wbg-sky{background:radial-gradient(circle at 52% 14%, rgba(126,160,225,.18), transparent 24%),linear-gradient(165deg,#1c2e55 0%,#111d3a 42%,#080d17 78%);}
 #weatherBG.cloudy .wbg-sky{background:radial-gradient(circle at 22% 6%, rgba(210,225,244,.3), transparent 28%),linear-gradient(165deg,#607b9f 0%,#344b6f 44%,#0a1324 86%);}
 #weatherBG.rainy .wbg-sky{background:radial-gradient(circle at 18% 0%, rgba(157,189,225,.22), transparent 30%),linear-gradient(165deg,#415d7f 0%,#263a58 45%,#09111f 86%);}
@@ -4896,131 +4874,41 @@ input{
 .weather-alert strong { display: block; margin-bottom: 4px; }
 .weather-alert p { margin: 0; font-size: 0.9rem; }
 
-/* =========================================================================
-   WHEATERFLOW — MOVING LIQUID GLASS TAB INDICATOR
-   Added 2026-08-07. Keeps the existing tab icons and navigation behavior.
-   ========================================================================= */
-.tabbar{
-  --liquid-x: 0px;
-  --liquid-y: 6px;
-  --liquid-w: 0px;
-  --liquid-h: 52px;
+
+/* ---------- Photorealistic condition backgrounds ---------- */
+#weatherBG.photo-weather-bg{
+  background:#0b172b;
 }
-
-/* The single glass "lens" that slides under the active icon. */
-.tab-glass-indicator{
-  position:absolute!important;
-  left:0!important;
-  top:0!important;
-  width:var(--liquid-w)!important;
-  height:var(--liquid-h)!important;
-  transform:translate3d(var(--liquid-x), var(--liquid-y), 0)!important;
-  transform-origin:center center!important;
-  z-index:1!important;
-  pointer-events:none!important;
-  border-radius:999px!important;
-  box-sizing:border-box!important;
-
-  background:
-    linear-gradient(180deg,
-      rgba(255,255,255,.30) 0%,
-      rgba(255,255,255,.15) 48%,
-      rgba(255,255,255,.12) 100%),
-    radial-gradient(circle at 30% 10%, rgba(255,255,255,.22), transparent 48%),
-    rgba(255,255,255,.12)!important;
-
-  border:1px solid rgba(255,255,255,.34)!important;
-
-  -webkit-backdrop-filter:blur(18px) saturate(190%) brightness(1.08)!important;
-  backdrop-filter:blur(18px) saturate(190%) brightness(1.08)!important;
-
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.72),
-    inset 1.5px 2px 0 -1px rgba(255,255,255,.38),
-    inset -1px -2px 0 -1px rgba(255,255,255,.16),
-    inset 0 -8px 14px -12px rgba(0,0,0,.34),
-    0 7px 20px rgba(0,0,0,.14)!important;
-
-  transition:
-    transform 430ms cubic-bezier(.22,.88,.24,1),
-    width 430ms cubic-bezier(.22,.88,.24,1),
-    height 430ms cubic-bezier(.22,.88,.24,1),
-    background 300ms ease,
-    box-shadow 300ms ease!important;
-
-  will-change:transform,width;
-}
-
-.tab-glass-indicator::before{
+#weatherBG.photo-weather-bg::before{
   content:"";
   position:absolute;
-  left:8%;
-  right:8%;
-  top:3px;
-  height:43%;
-  border-radius:999px;
-  background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,.02));
-  filter:blur(.35px);
-  opacity:.9;
+  inset:0;
+  z-index:-2;
+  background-image:var(--weather-photo);
+  background-size:cover;
+  background-position:center center;
+  background-repeat:no-repeat;
+  transform:scale(1.015);
+  transition:background-image .7s ease, opacity .7s ease;
 }
-
-.tab-glass-indicator::after{
+#weatherBG.photo-weather-bg::after{
   content:"";
   position:absolute;
-  inset:2px;
-  border-radius:inherit;
-  box-shadow:
-    inset 2px 0 4px rgba(255,255,255,.11),
-    inset -2px 0 4px rgba(0,0,0,.07);
+  inset:0;
+  z-index:20;
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(8,19,36,.08) 0%,rgba(8,19,36,.04) 42%,rgba(4,12,24,.30) 100%);
 }
-
-/* Existing buttons stay above the moving lens. */
-.tabbtn{
-  z-index:2!important;
+/* The photo replaces synthetic sky/cloud artwork; precipitation/lightning stay useful. */
+#weatherBG.photo-weather-bg .wbg-sky,
+#weatherBG.photo-weather-bg .wbg-clouds,
+#weatherBG.photo-weather-bg .wbg-sun,
+#weatherBG.photo-weather-bg .wbg-moon,
+#weatherBG.photo-weather-bg .wbg-stars{
+  opacity:0 !important;
 }
-
-/* Disable the old per-button active pill; the single moving lens replaces it. */
-.tabbtn.active::before{
-  content:none!important;
-  display:none!important;
+#weatherBG.photo-weather-bg .wbg-rain,
+#weatherBG.photo-weather-bg .wbg-snow,
+#weatherBG.photo-weather-bg .wbg-lightning{
+  z-index:5;
 }
-
-/* A little extra polish on the selected icon. */
-.tabbtn.active svg{
-  transform:scale(1.07)!important;
-  filter:
-    drop-shadow(0 1px 1px rgba(255,255,255,.28))
-    drop-shadow(0 3px 8px rgba(0,0,0,.18))!important;
-}
-
-/* Organic stretch when the lens changes item. */
-.tab-glass-indicator.liquid-moving-right{
-  animation:liquidStretchRight 430ms cubic-bezier(.22,.88,.24,1);
-}
-.tab-glass-indicator.liquid-moving-left{
-  animation:liquidStretchLeft 430ms cubic-bezier(.22,.88,.24,1);
-}
-@keyframes liquidStretchRight{
-  0%{scale:1 1;}
-  45%{scale:1.14 .96;}
-  100%{scale:1 1;}
-}
-@keyframes liquidStretchLeft{
-  0%{scale:1 1;}
-  45%{scale:1.14 .96;}
-  100%{scale:1 1;}
-}
-
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  .tab-glass-indicator{
-    background:rgba(105,145,190,.72)!important;
-  }
-}
-
-@media (prefers-reduced-motion:reduce){
-  .tab-glass-indicator{
-    transition:none!important;
-    animation:none!important;
-  }
-}
-
