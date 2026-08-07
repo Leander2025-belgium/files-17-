@@ -2151,6 +2151,64 @@ function moonPhase(date){
   return {phase, illumination, name, daysToFull};
 }
 
+
+/* ---------------- moving Liquid Glass tab indicator ---------------- */
+function initLiquidGlassTabbar(){
+  const tabbar = $('.tabbar');
+  const indicator = $('.tab-glass-indicator', tabbar || document);
+  if(!tabbar || !indicator) return;
+
+  let previousIndex = Math.max(0, $$('.tabbtn', tabbar).findIndex(btn=>btn.classList.contains('active')));
+  let animationTimer = null;
+
+  const updateIndicator = (animate=false)=>{
+    const buttons = $$('.tabbtn', tabbar);
+    const active = buttons.find(btn=>btn.classList.contains('active')) || buttons[0];
+    if(!active) return;
+
+    const index = buttons.indexOf(active);
+    const barRect = tabbar.getBoundingClientRect();
+    const btnRect = active.getBoundingClientRect();
+
+    const x = btnRect.left - barRect.left;
+    const y = btnRect.top - barRect.top;
+
+    tabbar.style.setProperty('--liquid-x', `${x}px`);
+    tabbar.style.setProperty('--liquid-y', `${y}px`);
+    tabbar.style.setProperty('--liquid-w', `${btnRect.width}px`);
+    tabbar.style.setProperty('--liquid-h', `${btnRect.height}px`);
+
+    if(animate && index !== previousIndex){
+      indicator.classList.remove('liquid-moving-left','liquid-moving-right');
+      // Force a reflow so repeated moves replay the organic stretch.
+      void indicator.offsetWidth;
+      indicator.classList.add(index > previousIndex ? 'liquid-moving-right' : 'liquid-moving-left');
+      clearTimeout(animationTimer);
+      animationTimer = setTimeout(()=>{
+        indicator.classList.remove('liquid-moving-left','liquid-moving-right');
+      }, 460);
+    }
+
+    previousIndex = index;
+  };
+
+  // Watch the app's existing .active state, so programmatic navigation also moves the lens.
+  $$('.tabbtn', tabbar).forEach(btn=>{
+    new MutationObserver(()=>updateIndicator(true))
+      .observe(btn, {attributes:true, attributeFilter:['class']});
+  });
+
+  // Initial position after layout/fonts are ready.
+  requestAnimationFrame(()=>requestAnimationFrame(()=>updateIndicator(false)));
+  window.addEventListener('load', ()=>updateIndicator(false), {once:true});
+  window.addEventListener('resize', ()=>updateIndicator(false));
+
+  // Expose a tiny helper for any future navigation code.
+  window.updateWheaterflowLiquidTab = updateIndicator;
+}
+
+initLiquidGlassTabbar();
+
 /* ---------------- tabs ---------------- */
 $$('.tabbtn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
