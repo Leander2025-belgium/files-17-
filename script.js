@@ -150,7 +150,7 @@ async function apiForm(path, formData, options={}){
   return data;
 }
 
-async function initAuth(){ updateAuthMessage('Profiel laden...'); state.auth.configured=true; state.auth.supabase=null; await applyAuthSession(loadOwnServerSession()); await showPasswordResetPrompt(); state.auth.ready=true; }
+async function initAuth(){ updateAuthMessage('Profiel laden...'); state.auth.configured=true; state.auth.supabase=null; await applyAuthSession(loadOwnServerSession()); if(typeof showPasswordResetPrompt==='function') await showPasswordResetPrompt(); state.auth.ready=true; }
 async function applyAuthSession(session,event=''){ state.auth.session=session||null; state.auth.user=session?.user||null; state.auth.guest=!state.auth.user; if(state.auth.user){ state.auth.profile={...(state.auth.profile||{}),display_name:state.auth.profile?.display_name||state.auth.user?.user_metadata?.display_name||state.auth.user?.username||state.auth.user?.email?.split('@')[0]||'Wheaterflow gebruiker'}; state.climate.loaded=true; } else { state.auth.profile=null; state.climate.loaded=true; } updateAuthInterface(state.auth.session); renderClimateDashboard(); }
 
 function mapProfileToUnits(profile){
