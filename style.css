@@ -4919,3 +4919,17 @@ input{
 #weatherBG.photo-weather-bg .wbg-lightning{
   z-index:5;
 }
+#weatherBG .wbg-sky,
+#weatherBG .wbg-sun,
+#weatherBG .wbg-clouds,
+#weatherBG .wbg-moon,
+#weatherBG .wbg-stars{
+  display:none !important;
+}
+
+#weatherBG{
+  background-image:var(--weather-photo) !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+}
