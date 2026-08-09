@@ -4681,7 +4681,7 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
 async function init(){
   await loadStoredUnits();
   await loadStoredClimate();
-  wireAuthUi();
+  if (typeof wireAuthUi === 'function') wireAuthUi();
   initCommunityUi();
   initClimateUi();
   wirePushSettings();
