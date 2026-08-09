@@ -3,20 +3,14 @@
    Databronnen: Open-Meteo (weer + geocoding), KNMI en WeatherFlow radar-worker.
    ========================================================================= */
 
-const KNMI_OPEN_DATA_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6IjU0YWM2YmI3NmVmZDRhMTI4NzEwMmUxMWE2NzRlYmMwIiwiaCI6Im11cm11cjEyOCJ9';
-const KNMI_WMS_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6ImI5YmEzN2M4ZWZiYjRhZjdhMjBkYjlmNzNhN2M1NmQwIiwiaCI6Im11cm11cjEyOCJ9';
+const KNMI_OPEN_DATA_API_KEY = ''; // server-side via api.wheaterflow.be
+const KNMI_WMS_API_KEY = ''; // server-side via api.wheaterflow.be
 const RADAR_MAX_AGE_MINUTES = 90;
 const WEATHERFLOW_RADAR_WORKER = 'https://weatherflow-radar.leanderdevriendt.workers.dev';
 const WEATHERFLOW_RADAR_OFFSETS = [-120,-110,-100,-90,-80,-70,-60,-50,-40,-30,-20,-10,0];
-const FUNCTION_BASE =
-  location.hostname.endsWith('vercel.app') ||
-  location.hostname.endsWith('pages.dev') ||
-  location.hostname === 'wheaterflow.be' ||
-  location.hostname === 'www.wheaterflow.be'
-    ? new URL('/api/', location.origin).href
-    : new URL('/.netlify/functions/', location.origin).href;
-const PUSH_FUNCTION_BASE = FUNCTION_BASE;
 const WHEATERFLOW_API_BASE = 'https://api.wheaterflow.be/api';
+const FUNCTION_BASE = WHEATERFLOW_API_BASE + '/';
+const PUSH_FUNCTION_BASE = FUNCTION_BASE;
 const XWEATHER_SDK_VERSION = '1.9.3';
 const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEATHER_SDK_VERSION}/dist/`;
 
@@ -27,7 +21,7 @@ const state = {
   observation: null, marine: null, seaspark: null, air: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
-  knmiKey: KNMI_OPEN_DATA_API_KEY,
+  knmiKey: null,
   lastUpdated: null,
   favorites: [],
   auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
@@ -135,7 +129,28 @@ function makeLocalSession(token,user){ if(!token||!user)return null; return {acc
 function saveOwnServerSession(session){ try{ if(session)localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(session)); else localStorage.removeItem(AUTH_STORAGE_KEY); }catch(e){} }
 function loadOwnServerSession(){ try{ const raw=localStorage.getItem(AUTH_STORAGE_KEY); if(!raw)return null; const session=JSON.parse(raw); const payload=decodeJwtPayload(session?.access_token||''); if(!payload||(payload.exp&&payload.exp*1000<=Date.now())){localStorage.removeItem(AUTH_STORAGE_KEY);return null;} return session; }catch(e){ return null; } }
 async function apiJson(path,options={}){ const headers={'content-type':'application/json',...(options.headers||{})}; if(state.auth.session?.access_token) headers.authorization=`Bearer ${state.auth.session.access_token}`; let r; try{ r=await fetch(WHEATERFLOW_API_BASE+path,{...options,headers,cache:'no-store'}); }catch(e){ throw new Error('network'); } let data={}; try{data=await r.json();}catch(e){} if(!r.ok) throw new Error(data.error||`HTTP ${r.status}`); return data; }
-async function initAuth(){ updateAuthMessage('Profiel laden...'); state.auth.configured=true; state.auth.supabase=null; await applyAuthSession(loadOwnServerSession()); state.auth.ready=true; }
+
+async function apiForm(path, formData, options={}){
+  const headers = {...(options.headers || {})};
+  if(state.auth.session?.access_token) headers.authorization = `Bearer ${state.auth.session.access_token}`;
+  const response = await fetch(WHEATERFLOW_API_BASE + path, {
+    ...options,
+    method: options.method || 'POST',
+    headers,
+    body: formData,
+    cache:'no-store'
+  });
+  let data = {};
+  try{ data = await response.json(); }catch(e){}
+  if(!response.ok){
+    const err = new Error(data.error || `HTTP ${response.status}`);
+    err.status = response.status;
+    throw err;
+  }
+  return data;
+}
+
+async function initAuth(){ updateAuthMessage('Profiel laden...'); state.auth.configured=true; state.auth.supabase=null; await applyAuthSession(loadOwnServerSession()); await showPasswordResetPrompt(); state.auth.ready=true; }
 async function applyAuthSession(session,event=''){ state.auth.session=session||null; state.auth.user=session?.user||null; state.auth.guest=!state.auth.user; if(state.auth.user){ state.auth.profile={...(state.auth.profile||{}),display_name:state.auth.profile?.display_name||state.auth.user?.user_metadata?.display_name||state.auth.user?.username||state.auth.user?.email?.split('@')[0]||'Wheaterflow gebruiker'}; state.climate.loaded=true; } else { state.auth.profile=null; state.climate.loaded=true; } updateAuthInterface(state.auth.session); renderClimateDashboard(); }
 
 function mapProfileToUnits(profile){
@@ -166,28 +181,14 @@ function profilePayload(){
 }
 
 async function loadCloudProfileAndFavorites(){
-  const supabase = state.auth.supabase;
-  const user = state.auth.user;
-  if(!supabase || !user) return;
+  if(!state.auth.user) return;
   try{
-    let { data:profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
-    if(!profile){
-      const payload = { id:user.id, ...profilePayload() };
-      const res = await supabase.from('profiles').upsert(payload).select('*').single();
-      profile = res.data;
-    }
-    state.auth.profile = profile || null;
-    mapProfileToUnits(profile);
-    const { data:favorites } = await supabase.from('favorite_locations')
-      .select('id,name,latitude,longitude,country,sort_order')
-      .eq('user_id', user.id)
-      .order('sort_order', {ascending:true})
-      .order('created_at', {ascending:true});
-    if(Array.isArray(favorites) && favorites.length){
-      state.favorites = favorites.map(f=>({id:f.id, name:f.name, lat:+f.latitude, lon:+f.longitude, admin:f.country || ''}));
+    const data = await apiJson('/profile');
+    state.auth.profile = data.profile || null;
+    mapProfileToUnits(state.auth.profile);
+    if(Array.isArray(data.favorites)){
+      state.favorites = data.favorites.map(f=>({id:f.id, name:f.name, lat:+f.latitude, lon:+f.longitude, admin:f.country || ''}));
       await window.storage.set('weerscoop:favorites', JSON.stringify(state.favorites)).catch(()=>undefined);
-    }else if(state.favorites.length){
-      await syncFavoritesToCloud(true);
     }
   }catch(e){
     console.warn('Profielsync mislukt:', e?.message || e);
@@ -196,15 +197,11 @@ async function loadCloudProfileAndFavorites(){
 }
 
 async function syncProfileSettingsToCloud(){
-  if(state.auth.syncing || !state.auth.supabase || !state.auth.user) return;
+  if(state.auth.syncing || !state.auth.user) return;
   state.auth.syncing = true;
   try{
-    const { data, error } = await state.auth.supabase.from('profiles')
-      .upsert({id:state.auth.user.id, ...profilePayload()})
-      .select('*')
-      .single();
-    if(error) throw error;
-    state.auth.profile = data;
+    const data = await apiJson('/profile', {method:'PUT', body:JSON.stringify(profilePayload())});
+    state.auth.profile = data.profile || state.auth.profile;
     updateAuthInterface(state.auth.session);
   }catch(e){
     console.warn('Instellingen niet gesynchroniseerd:', e?.message || e);
@@ -215,21 +212,16 @@ async function syncProfileSettingsToCloud(){
 
 async function syncFavoritesToCloud(force=false){
   if(!force && state.auth.syncing) return;
-  if(!state.auth.supabase || !state.auth.user) return;
+  if(!state.auth.user) return;
   try{
-    const supabase = state.auth.supabase;
-    await supabase.from('favorite_locations').delete().eq('user_id', state.auth.user.id);
-    if(!state.favorites.length) return;
     const rows = state.favorites.map((f,i)=>({
-      user_id:state.auth.user.id,
       name:String(f.name || 'Favoriet').slice(0,80),
       latitude:+f.lat,
       longitude:+f.lon,
       country:String(f.admin || '').slice(0,120),
       sort_order:i
     }));
-    const { error } = await supabase.from('favorite_locations').insert(rows);
-    if(error) throw error;
+    await apiJson('/favorites', {method:'PUT', body:JSON.stringify({favorites:rows})});
     updateAuthInterface(state.auth.session);
   }catch(e){
     console.warn('Favorieten niet gesynchroniseerd:', e?.message || e);
@@ -640,7 +632,7 @@ function isNetherlandsLocation(){
 }
 
 function shouldUseKnmiWmsRadar(){
-  return !!KNMI_WMS_API_KEY && isNetherlandsLocation();
+  return isNetherlandsLocation();
 }
 
 function radarView(){
@@ -712,37 +704,11 @@ function buildIndicativeAlert(){
 }
 
 async function fetchKnmiWarnings(){
-  if(!state.knmiKey || !isNetherlandsLocation()) return null;
-  const base = 'https://api.dataplatform.knmi.nl/open-data/v1/datasets/waarschuwingen_nederland_48h/versions/1.0/files';
-  const headers = {Authorization: state.knmiKey};
-  const listRes = await fetch(base, {headers});
-  if(!listRes.ok) throw new Error('KNMI waarschuwingen niet beschikbaar');
-  const list = await listRes.json();
-  const files = list.files || [];
-  const file = files
-    .map(f => f.filename || f.name || f)
-    .filter(Boolean)
-    .filter(name => /\.(xml|txt)$/i.test(name))
-    .sort()
-    .pop();
-  if(!file) return null;
-  const urlRes = await fetch(`${base}/${encodeURIComponent(file)}/url`, {headers});
-  if(!urlRes.ok) throw new Error('KNMI downloadlink niet beschikbaar');
-  const urlData = await urlRes.json();
-  const downloadUrl = urlData.temporaryDownloadUrl || urlData.url || urlData.href;
-  if(!downloadUrl) return null;
-  const dataRes = await fetch(downloadUrl);
-  if(!dataRes.ok) throw new Error('KNMI waarschuwingen konden niet geladen worden');
-  const text = await dataRes.text();
-  const level = alertLevelFromText(text);
-  const cleaned = text.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-  return [{
-    level,
-    headline: ALERT_LEVELS[level].title,
-    description: cleaned.slice(0, 260) || 'Officiele KNMI-waarschuwing geladen.',
-    source:'KNMI Data Platform',
-    official:true
-  }];
+  if(!isNetherlandsLocation()) return null;
+  const r = await fetch(WHEATERFLOW_API_BASE + '/knmi/warnings', {cache:'no-store'});
+  if(!r.ok) throw new Error('KNMI waarschuwingen niet beschikbaar');
+  const data = await r.json();
+  return Array.isArray(data.alerts) ? data.alerts : null;
 }
 
 async function loadAlerts(){
@@ -2365,59 +2331,28 @@ async function signUpWithEmail(displayName,email,password,password2,privacyOk){
   updateAuthMessage('Account aanmaken...');
   try{ const base=displayName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]+/g,'').slice(0,40)||email.split('@')[0].replace(/[^a-zA-Z0-9_]/g,'').slice(0,40); const username=`${base}${Math.floor(1000+Math.random()*9000)}`.slice(0,50); await apiJson('/auth/register',{method:'POST',body:JSON.stringify({username,email,password,displayName})}); const login=await apiJson('/auth/login',{method:'POST',body:JSON.stringify({email,password})}); const session=makeLocalSession(login.token,login.user); saveOwnServerSession(session); await applyAuthSession(session); updateAuthMessage('Account aangemaakt. Je bent ingelogd.','ok'); toast('Welkom bij Wheaterflow!'); }catch(error){ updateAuthMessage(dutchAuthError(error),'error'); }
 }
-async function resetPassword(email){ if(!validateEmail(email)) return updateAuthMessage('Vul eerst je e-mailadres in.','error'); updateAuthMessage('Wachtwoordherstel via je eigen server voegen we als volgende stap toe.','error'); }
-async function showPasswordResetPrompt(){ toast('Wachtwoord wijzigen wordt als volgende serverfunctie toegevoegd.'); }
-async function updateProfileFromForm(){ if(!state.auth.user) return updateProfileMessage('Je bent niet ingelogd.','error'); const name=$('#profileDisplayName')?.value.trim(); if(!name) return updateProfileMessage('Vul een weergavenaam in.','error'); state.auth.profile={...(state.auth.profile||{}),display_name:name,home_location_name:$('#profileHomeLocation')?.value.trim()||state.loc.name}; if(state.auth.session?.user){ state.auth.session.user.user_metadata={...(state.auth.session.user.user_metadata||{}),display_name:name}; saveOwnServerSession(state.auth.session); } updateAuthInterface(state.auth.session); updateProfileMessage('Profiel lokaal opgeslagen. Server-sync voegen we hierna toe.','ok'); }
-
-async function compressAvatar(file){
-  if(!['image/png','image/jpeg','image/webp'].includes(file.type)) throw new Error('Gebruik PNG, JPEG of WebP.');
-  if(file.size > 5 * 1024 * 1024) throw new Error('De afbeelding mag maximaal 5 MB zijn.');
-  const bitmap = await createImageBitmap(file);
-  const size = Math.min(512, Math.max(bitmap.width, bitmap.height));
-  const scale = size / Math.max(bitmap.width, bitmap.height);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return await new Promise(resolve=>canvas.toBlob(resolve, 'image/webp', .86));
+async function resetPassword(email){
+  if(!validateEmail(email)) return updateAuthMessage('Vul eerst je e-mailadres in.', 'error');
+  updateAuthMessage('Resetmail versturen...');
+  try{
+    await apiJson('/auth/password-reset/request', {method:'POST', body:JSON.stringify({email})});
+    updateAuthMessage('Als het account bestaat, is een resetlink verstuurd.', 'ok');
+  }catch(e){
+    updateAuthMessage(dutchAuthError(e), 'error');
+  }
 }
-async function uploadAvatar(file){ if(!state.auth.user)return; updateProfileMessage('Profielfoto-upload naar je eigen server voegen we als volgende stap toe.','error'); }
-async function deleteAccount(){ if(!state.auth.session)return; updateProfileMessage('Account verwijderen via je eigen server voegen we als volgende stap toe.','error'); }
-
-function wireAuthUi(){
-  $('#profileBtn')?.addEventListener('click', openAuthSheet);
-  $('#authScrim')?.addEventListener('click', closeAuthSheet);
-  $('#closeAuthSheet')?.addEventListener('click', closeAuthSheet);
-  $('#profileDoneBtn')?.addEventListener('click', closeAuthSheet);
-  $('#continueGuestBtn')?.addEventListener('click', ()=>{ closeAuthSheet(); toast('Je gebruikt Wheaterflow als gast.'); });
-  $('#authLoginTab')?.addEventListener('click', ()=>setAuthMode('login'));
-  $('#authSignupTab')?.addEventListener('click', ()=>setAuthMode('signup'));
-  $('#showLoginPassword')?.addEventListener('change', e=>{ $('#loginPassword').type = e.target.checked ? 'text' : 'password'; });
-  $('#loginForm')?.addEventListener('submit', e=>{
-    e.preventDefault();
-    signInWithEmail($('#loginEmail').value.trim(), $('#loginPassword').value);
-  });
-  $('#signupForm')?.addEventListener('submit', e=>{
-    e.preventDefault();
-    signUpWithEmail($('#signupName').value, $('#signupEmail').value.trim(), $('#signupPassword').value, $('#signupPassword2').value, $('#signupPrivacy').checked);
-  });
-  $('#forgotPasswordBtn')?.addEventListener('click', ()=>resetPassword($('#loginEmail').value.trim()));
-  $('#profileForm')?.addEventListener('submit', e=>{ e.preventDefault(); updateProfileFromForm(); });
-  $('#syncLocalBtn')?.addEventListener('click', async ()=>{ await syncProfileSettingsToCloud(); await syncFavoritesToCloud(true); updateProfileMessage('Lokale gegevens gekopieerd naar je account.', 'ok'); });
-  $('#resetPasswordLoggedInBtn')?.addEventListener('click', ()=>resetPassword(state.auth.user?.email || ''));
-  $('#logoutBtn')?.addEventListener('click', async ()=>{
-    if(state.push.status === 'Ingeschakeld' && !confirm('Meldingen blijven actief op dit toestel. Wil je uitloggen?')) return;
-    saveOwnServerSession(null);
-    await applyAuthSession(null);
-    toast('Je bent uitgelogd.');
-    closeAuthSheet();
-  });
-  $('#deleteAccountBtn')?.addEventListener('click', deleteAccount);
-  $('#changeAvatarBtn')?.addEventListener('click', ()=>$('#avatarInput')?.click());
-  $('#avatarInput')?.addEventListener('change', e=>{ const file = e.target.files?.[0]; if(file) uploadAvatar(file); e.target.value=''; });
-  $('#profileFavoritesList')?.addEventListener('click', e=>{
-    if(e.target.matches('button[data-act]')) handleProfileFavoriteAction(e.target);
-  });
+async function uploadAvatar(file){
+  if(!state.auth.user) return;
+  try{
+    updateProfileMessage('Profielfoto uploaden...');
+    const blob = await compressAvatar(file);
+    const form = new FormData();
+    form.append('avatar', blob, 'avatar.webp');
+    const data = await apiForm('/profile/avatar', form);
+    state.auth.profile = data.profile || state.auth.profile;
+    updateAuthInterface(state.auth.session);
+    updateProfileMessage('Profielfoto opgeslagen.', 'ok');
+  }catch(e){ updateProfileMessage(e.message || 'Profielfoto kon niet worden opgeslagen.', 'error'); }
 }
 
 /* ---------------- Mijn Klimaat ---------------- */
@@ -2531,47 +2466,29 @@ async function captureTodayClimate(reason='auto'){
   const existingKey = climateLocalKey(row);
   state.climate.records = normalizeClimateRecords([...state.climate.records.filter(r=>climateLocalKey(r)!==existingKey), row]);
   await saveLocalClimateRecords();
-  if(state.auth.supabase && state.auth.user){
-    const payload = {...row, user_id:state.auth.user.id};
-    delete payload.capture_reason;
-    const { error } = await state.auth.supabase.from('personal_weather_days')
-      .upsert(payload, {onConflict:'user_id,date,location_name'})
-      .select('id')
-      .maybeSingle();
-    if(error){
-      console.warn('Mijn Klimaat opslaan mislukt:', error.message);
-      if(reason === 'manual') setClimateMessage('Bewaren in Supabase lukte niet. Lokaal staat de dag wel klaar.', 'error');
-    }
+  if(state.auth.user){
+    const payload = {...row}; delete payload.capture_reason;
+    try{ await apiJson('/climate', {method:'PUT', body:JSON.stringify({records:[payload]})}); }
+    catch(error){ console.warn('Mijn Klimaat opslaan mislukt:', error.message); if(reason === 'manual') setClimateMessage('Bewaren op de server lukte niet. Lokaal staat de dag wel klaar.', 'error'); }
   }
   if(reason === 'manual') setClimateMessage('Vandaag is bewaard in Mijn Klimaat.', 'ok');
   renderClimateDashboard();
 }
 
 async function migrateLocalClimateToCloud(){
-  if(!state.auth.supabase || !state.auth.user || !state.climate.records.length) return;
-  const rows = state.climate.records.map(r=>{
-    const row = {...r, user_id:state.auth.user.id};
-    delete row.capture_reason;
-    return row;
-  });
-  await state.auth.supabase.from('personal_weather_days').upsert(rows, {onConflict:'user_id,date,location_name'}).catch(()=>undefined);
+  if(!state.auth.user || !state.climate.records.length) return;
+  const records = state.climate.records.map(r=>{ const row={...r}; delete row.capture_reason; return row; });
+  await apiJson('/climate', {method:'PUT', body:JSON.stringify({records})}).catch(()=>undefined);
 }
 
 async function loadCloudClimateRecords(){
-  if(!state.auth.supabase || !state.auth.user) return;
+  if(!state.auth.user) return;
   try{
-    const { data, error } = await state.auth.supabase.from('personal_weather_days')
-      .select('*')
-      .eq('user_id', state.auth.user.id)
-      .order('date', {ascending:true});
-    if(error) throw error;
-    state.climate.records = normalizeClimateRecords(data || []);
+    const data = await apiJson('/climate');
+    state.climate.records = normalizeClimateRecords(data.records || []);
     await saveLocalClimateRecords();
-  }catch(e){
-    console.warn('Mijn Klimaat laden mislukt:', e?.message || e);
-  }finally{
-    state.climate.loaded = true;
-  }
+  }catch(e){ console.warn('Mijn Klimaat laden mislukt:', e?.message || e); }
+  finally{ state.climate.loaded = true; }
 }
 
 function updateClimateStatus(){
@@ -2819,9 +2736,7 @@ async function deleteClimateLocation(){
   if(!confirm(`Alle klimaatdata voor ${location} verwijderen?`)) return;
   state.climate.records = state.climate.records.filter(r=>r.location_name !== location);
   await saveLocalClimateRecords();
-  if(state.auth.supabase && state.auth.user){
-    await state.auth.supabase.from('personal_weather_days').delete().eq('user_id', state.auth.user.id).eq('location_name', location);
-  }
+  if(state.auth.user){ await apiJson('/climate/location', {method:'DELETE', body:JSON.stringify({location_name:location})}).catch(()=>undefined); }
   state.climate.location = 'all';
   setClimateMessage('Locatiegeschiedenis verwijderd.', 'ok');
   renderClimateDashboard();
@@ -2831,9 +2746,7 @@ async function deleteAllClimateData(){
   if(!confirm('Alle persoonlijke klimaatdata verwijderen?')) return;
   state.climate.records = [];
   await saveLocalClimateRecords();
-  if(state.auth.supabase && state.auth.user){
-    await state.auth.supabase.from('personal_weather_days').delete().eq('user_id', state.auth.user.id);
-  }
+  if(state.auth.user){ await apiJson('/climate', {method:'DELETE'}).catch(()=>undefined); }
   setClimateMessage('Alle klimaatdata verwijderd.', 'ok');
   renderClimateDashboard();
 }
@@ -2894,10 +2807,6 @@ function debounce(fn, wait){
   return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), wait); };
 }
 
-function communitySupabase(){
-  return state.auth.supabase || null;
-}
-
 function requireCommunityLogin(){
   if(state.auth.user) return true;
   toast('Log in om dit te gebruiken.');
@@ -2906,114 +2815,24 @@ function requireCommunityLogin(){
 }
 
 async function loadCommunityPosts(reset=false){
-  const supabase = communitySupabase();
-  if(!supabase || state.community.loading) {
-    if(!supabase) renderCommunityEmpty('Community wordt als volgende stap gekoppeld aan je eigen Wheaterflow-server.');
-    return;
-  }
-  if(reset){
-    state.community.page = 0;
-    state.community.posts = [];
-    state.community.hasMore = true;
-  }
+  if(state.community.loading) return;
+  if(reset){ state.community.page=0; state.community.posts=[]; state.community.hasMore=true; }
   if(!state.community.hasMore) return;
   state.community.loading = true;
   renderCommunityLoading();
   try{
-    const { data, error } = await runCommunityQuery(supabase, true);
-    if(error) throw error;
-    const posts = await attachCommunityProfiles(data || []);
+    const q = new URLSearchParams({page:String(state.community.page), pageSize:String(state.community.pageSize)});
+    if(state.community.category) q.set('category', state.community.category);
+    if(state.community.query) q.set('q', state.community.query);
+    const data = await apiJson('/community/posts?' + q.toString(), {method:'GET'});
+    const posts = data.posts || [];
     state.community.posts = reset ? posts : [...state.community.posts, ...posts];
-    state.community.hasMore = posts.length === state.community.pageSize;
+    state.community.hasMore = Boolean(data.hasMore);
     state.community.page += 1;
-    renderCommunityFeed();
-    renderCommunityLiveStats();
+    renderCommunityFeed(); renderCommunityLiveStats();
     if(state.community.view === 'map') renderCommunityMapMarkers();
-  }catch(e){
-    console.error('Community feed load failed', {
-      error:e,
-      message:e?.message,
-      code:e?.code,
-      details:e?.details,
-      hint:e?.hint,
-      supabaseConfigured:state.auth.configured,
-      hasUser:Boolean(state.auth.user),
-      category:state.community.category,
-      query:state.community.query
-    });
-    renderCommunityEmpty(communityLoadErrorMessage(e));
-  }finally{
-    state.community.loading = false;
-  }
-}
-
-async function runCommunityQuery(supabase, withRelations){
-  const from = state.community.page * state.community.pageSize;
-  const to = (state.community.page + 1) * state.community.pageSize - 1;
-  const select = withRelations
-    ? '*, community_likes(id,user_id), community_favorites(id,user_id), community_comments(id, body, created_at, user_id)'
-    : '*';
-  let q = supabase.from('community_posts')
-    .select(select)
-    .eq('moderation_status','approved')
-    .eq('visibility','public')
-    .order('created_at', {ascending:false})
-    .range(from, to);
-  if(state.community.category) q = q.eq('category', state.community.category);
-  if(state.community.query){
-    const cleanQuery = state.community.query.replace(/[%_,{}()]/g,' ').trim();
-    const term = `%${cleanQuery}%`;
-    const tag = cleanQuery.replace(/^#/,'').toLowerCase().replace(/[^a-z0-9_]/g,'');
-    const filters = [`caption.ilike.${term}`, `location_name.ilike.${term}`];
-    if(tag) filters.push(`hashtags.cs.{${tag}}`);
-    q = q.or(filters.join(','));
-  }
-  const result = await q;
-  if(result.error && withRelations && isCommunityRelationError(result.error)){
-    console.error('Community relational query failed; retrying base feed query', result.error);
-    return runCommunityQuery(supabase, false);
-  }
-  return result;
-}
-
-function isCommunityRelationError(error){
-  const msg = String(error?.message || error?.details || '').toLowerCase();
-  return error?.code === 'PGRST200' || msg.includes('relationship') || msg.includes('schema cache') || msg.includes('community_likes') || msg.includes('community_comments') || msg.includes('community_favorites');
-}
-
-function communityLoadErrorMessage(error){
-  const msg = String(error?.message || error?.details || '').toLowerCase();
-  if(error?.code === '42501' || msg.includes('permission') || msg.includes('row-level security') || msg.includes('rls')){
-    return 'Community kan niet worden gelezen door de huidige beveiligingsregels. Controleer Supabase RLS voor publieke posts.';
-  }
-  if(msg.includes('failed to fetch') || msg.includes('network') || msg.includes('cors')){
-    return 'Community kon geen verbinding maken. Controleer netwerk of CORS-instellingen.';
-  }
-  if(msg.includes('does not exist') || msg.includes('community_posts')){
-    return 'Communitytabel ontbreekt of is anders genoemd in Supabase.';
-  }
-  return 'Community kon niet worden geladen. Open de browserconsole voor de exacte fout.';
-}
-
-async function attachCommunityProfiles(posts){
-  const supabase = communitySupabase();
-  const ids = new Set();
-  posts.forEach(post=>{
-    if(post.user_id) ids.add(post.user_id);
-    (post.community_comments || []).forEach(c=>{ if(c.user_id) ids.add(c.user_id); });
-  });
-  if(!ids.size) return posts;
-  const { data, error } = await supabase.from('community_public_profiles').select('id,display_name,avatar_url').in('id', [...ids]);
-  if(error){
-    console.error('Community profile enrichment failed', error);
-    return posts;
-  }
-  const profiles = new Map((data || []).map(p=>[p.id,p]));
-  return posts.map(post=>({
-    ...post,
-    profiles: profiles.get(post.user_id) || null,
-    community_comments: (post.community_comments || []).map(c=>({...c, profiles: profiles.get(c.user_id) || null}))
-  }));
+  }catch(e){ console.error('Community feed load failed', e); renderCommunityEmpty('Community kon niet worden geladen.'); }
+  finally{ state.community.loading=false; }
 }
 
 function renderCommunityLoading(){
@@ -3122,36 +2941,25 @@ async function handleCommunityAction(e){
 }
 
 async function toggleCommunityRelation(table, postId){
-  const supabase = communitySupabase();
-  const userId = state.auth.user?.id;
-  const { data:existing } = await supabase.from(table).select('id').eq('post_id', postId).eq('user_id', userId).maybeSingle();
-  if(existing?.id){
-    await supabase.from(table).delete().eq('id', existing.id);
-  }else{
-    await supabase.from(table).insert({post_id:postId, user_id:userId});
-  }
-  await loadCommunityPosts(true);
+  const kind = table === 'community_likes' ? 'like' : 'save';
+  try{ await apiJson(`/community/posts/${encodeURIComponent(postId)}/${kind}`, {method:'POST'}); await loadCommunityPosts(true); }
+  catch(e){ toast('Actie kon niet worden uitgevoerd.'); }
 }
 
 async function handleCommunityCommentSubmit(e){
   const form = e.target.closest('.community-comment-row');
-  if(!form) return;
-  e.preventDefault();
+  if(!form) return; e.preventDefault();
   if(!requireCommunityLogin()) return;
   const postId = form.closest('.community-post')?.dataset.postId;
-  const body = form.body.value.trim();
-  if(!postId || !body) return;
-  const { error } = await communitySupabase().from('community_comments').insert({post_id:postId, user_id:state.auth.user.id, body});
-  if(error) return toast('Reactie kon niet worden geplaatst.');
-  form.reset();
-  await loadCommunityPosts(true);
+  const body = form.body.value.trim(); if(!postId || !body) return;
+  try{ await apiJson(`/community/posts/${encodeURIComponent(postId)}/comments`, {method:'POST', body:JSON.stringify({body})}); form.reset(); await loadCommunityPosts(true); }
+  catch(e){ toast('Reactie kon niet worden geplaatst.'); }
 }
 
 async function reportCommunityPost(postId){
-  const reason = prompt('Waarom wil je deze post rapporteren?');
-  if(!reason) return;
-  const { error } = await communitySupabase().from('community_reports').insert({post_id:postId, reporter_id:state.auth.user.id, reason:reason.slice(0,300)});
-  toast(error ? 'Rapport kon niet worden verzonden.' : 'Bedankt, we bekijken deze melding.');
+  const reason = prompt('Waarom wil je deze post rapporteren?'); if(!reason) return;
+  try{ await apiJson(`/community/posts/${encodeURIComponent(postId)}/report`, {method:'POST', body:JSON.stringify({reason:reason.slice(0,300)})}); toast('Bedankt, we bekijken deze melding.'); }
+  catch(e){ toast('Rapport kon niet worden verzonden.'); }
 }
 
 function shareCommunityPost(postId){
@@ -3202,53 +3010,32 @@ async function createCommunityPost(){
   if(!file) return setCommunityComposerMessage('Kies eerst een foto.', 'error');
   try{
     setCommunityComposerMessage('Foto voorbereiden...');
-    const blob = await compressAvatar(file); // canvas-export verwijdert EXIF metadata en GPS
-    const id = safeRandomId();
-    const path = `${state.auth.user.id}/${new Date().getFullYear()}/${id}.webp`;
-    const supabase = communitySupabase();
-    const upload = await supabase.storage.from('community-photos').upload(path, blob, {contentType:'image/webp', upsert:false});
-    if(upload.error) throw upload.error;
-    const { data:publicUrl } = supabase.storage.from('community-photos').getPublicUrl(path);
+    const blob = await compressAvatar(file);
     const gps = $('#communityUseGps')?.checked ? await getBrowserLocation() : null;
     const privacy = $('#communityLocationPrivacy')?.value || 'municipality';
     const loc = gps ? {lat:gps.lat, lon:gps.lon, ...(await reverseGeocode(gps.lat,gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
     const cur = liveWeatherSnapshot();
     const caption = $('#communityCaption')?.value.trim() || '';
-    const hashtags = Array.from(new Set((caption.match(/#[a-zA-Z0-9_]+/g) || []).map(t=>t.slice(1).toLowerCase())));
-    const row = {
-      user_id:state.auth.user.id,
-      photo_url:publicUrl.publicUrl,
-      photo_path:path,
-      caption,
-      category:$('#communityCategorySelect')?.value || 'other',
-      hashtags,
-      location_privacy:privacy,
-      location_name:privacy === 'none' ? null : (loc.name || state.loc.name),
-      latitude:privacy === 'exact' ? loc.lat : null,
-      longitude:privacy === 'exact' ? loc.lon : null,
-      temperature:cur?.temperature_2m ?? null,
-      apparent_temperature:cur?.apparent_temperature ?? null,
-      wind_speed:cur?.wind_speed_10m ?? null,
-      precipitation:cur?.precipitation ?? null,
-      humidity:cur?.relative_humidity_2m ?? null,
-      uv_index:state.hourly?.uv_index?.[nowIndexInHourly()] ?? null,
-      pressure:cur?.pressure_msl ?? null,
-      weather_source:state.observation ? state.observation.source : 'KNMI HARMONIE'
-    };
-    const { error } = await supabase.from('community_posts').insert(row);
-    if(error) throw error;
+    const form = new FormData();
+    form.append('photo', blob, 'weather.webp');
+    form.append('caption', caption);
+    form.append('category', $('#communityCategorySelect')?.value || 'other');
+    form.append('location_privacy', privacy);
+    form.append('location_name', privacy === 'none' ? '' : (loc.name || state.loc.name));
+    if(privacy === 'exact'){ form.append('latitude', String(loc.lat)); form.append('longitude', String(loc.lon)); }
+    form.append('temperature', cur?.temperature_2m ?? '');
+    form.append('apparent_temperature', cur?.apparent_temperature ?? '');
+    form.append('wind_speed', cur?.wind_speed_10m ?? '');
+    form.append('precipitation', cur?.precipitation ?? '');
+    form.append('humidity', cur?.relative_humidity_2m ?? '');
+    form.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
+    form.append('pressure', cur?.pressure_msl ?? '');
+    form.append('weather_source', state.observation ? state.observation.source : 'KNMI HARMONIE');
+    await apiForm('/community/posts', form);
     setCommunityComposerMessage('Geplaatst.', 'ok');
-    $('#communityCaption').value = '';
-    $('#communityPhotoInput').value = '';
-    $('#communityPhotoPreview')?.classList.add('hidden');
-    state.community.selectedFile = null;
-    closeCommunityComposer();
-    await loadCommunityPosts(true);
-    toast('Weerfoto gedeeld.');
-  }catch(e){
-    console.warn('Community upload mislukt:', e?.message || e);
-    setCommunityComposerMessage('Uploaden lukte niet. Controleer je verbinding en Supabase Storage.', 'error');
-  }
+    $('#communityCaption').value=''; $('#communityPhotoInput').value=''; $('#communityPhotoPreview')?.classList.add('hidden');
+    state.community.selectedFile=null; closeCommunityComposer(); await loadCommunityPosts(true); toast('Weerfoto gedeeld.');
+  }catch(e){ console.warn('Community upload mislukt:', e?.message || e); setCommunityComposerMessage('Uploaden lukte niet. Controleer je verbinding.', 'error'); }
 }
 
 function setCommunityComposerMessage(msg, type=''){
@@ -3310,13 +3097,10 @@ function renderCommunityLeaderboard(){
 }
 
 function subscribeCommunityRealtime(){
-  const supabase = communitySupabase();
-  if(!supabase || state.community.realtimeChannel) return;
-  state.community.realtimeChannel = supabase.channel('community-public-feed')
-    .on('postgres_changes', {event:'*', schema:'public', table:'community_posts'}, ()=>loadCommunityPosts(true))
-    .on('postgres_changes', {event:'*', schema:'public', table:'community_comments'}, ()=>loadCommunityPosts(true))
-    .on('postgres_changes', {event:'*', schema:'public', table:'community_likes'}, ()=>loadCommunityPosts(true))
-    .subscribe();
+  if(state.community.realtimeChannel) return;
+  state.community.realtimeChannel = setInterval(()=>{
+    if(!document.hidden && state.activeTab === 'community') loadCommunityPosts(true);
+  }, 20000);
 }
 
 function wireSeg(id, key){
@@ -3418,7 +3202,7 @@ async function enablePushNotifications(){
   const config = await getPushConfig();
   if(!config.configured || !config.vapidPublicKey){
     updatePushUi('Tijdelijk offline');
-    return toast('Meldingen zijn nog niet volledig ingesteld in Netlify.');
+    return toast('Meldingen zijn nog niet volledig ingesteld op de Wheaterflow-server.');
   }
   const registration = await registerAppServiceWorker();
   const permission = await Notification.requestPermission();
@@ -3442,7 +3226,7 @@ async function enablePushNotifications(){
     },
     body:JSON.stringify(collectPushPayload(subscription))
   });
-  if(!r.ok) throw new Error(await pushErrorText(r, 'Meldingen konden niet worden ingesteld. Controleer Supabase en Netlify.'));
+  if(!r.ok) throw new Error(await pushErrorText(r, 'Meldingen konden niet worden ingesteld. Controleer de Wheaterflow-server.'));
   updatePushUi('Ingeschakeld');
   syncProfileSettingsToCloud();
   toast('Meldingen ingeschakeld');
@@ -4199,9 +3983,7 @@ function createKnmiWmsGridLayer(){
         FORMAT:'image/png',
         TRANSPARENT:'TRUE'
       });
-      fetch('https://api.dataplatform.knmi.nl/wms/adaguc-server?' + params.toString(), {
-        headers:{Authorization:KNMI_WMS_API_KEY}
-      }).then(r=>{
+      fetch(WHEATERFLOW_API_BASE + '/knmi/wms?' + params.toString()).then(r=>{
         if(!r.ok) throw new Error('KNMI WMS '+r.status);
         return r.blob();
       }).then(blob=>{
