@@ -8,8 +8,15 @@ const KNMI_WMS_API_KEY = 'eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6Im
 const RADAR_MAX_AGE_MINUTES = 90;
 const WEATHERFLOW_RADAR_WORKER = 'https://weatherflow-radar.leanderdevriendt.workers.dev';
 const WEATHERFLOW_RADAR_OFFSETS = [-120,-110,-100,-90,-80,-70,-60,-50,-40,-30,-20,-10,0];
-const FUNCTION_BASE = new URL('/api/', location.origin).href;
+const FUNCTION_BASE =
+  location.hostname.endsWith('vercel.app') ||
+  location.hostname.endsWith('pages.dev') ||
+  location.hostname === 'wheaterflow.be' ||
+  location.hostname === 'www.wheaterflow.be'
+    ? new URL('/api/', location.origin).href
+    : new URL('/.netlify/functions/', location.origin).href;
 const PUSH_FUNCTION_BASE = FUNCTION_BASE;
+const WHEATERFLOW_API_BASE = 'https://api.wheaterflow.be/api';
 const XWEATHER_SDK_VERSION = '1.9.3';
 const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEATHER_SDK_VERSION}/dist/`;
 
@@ -119,71 +126,17 @@ async function saveLocalClimateRecords(){
   try{ await window.storage.set('weerscoop:climateRecords', JSON.stringify(state.climate.records)); }catch(e){}
 }
 
-/* ---------------- Supabase auth + profile sync ---------------- */
-function authRedirectUrl(){
-  return new URL('./', location.href).href;
-}
+/* ---------------- Wheaterflow own-server auth ---------------- */
+const AUTH_STORAGE_KEY = 'wheaterflow:auth';
 
-async function loadSupabaseConfig(){
-  try{
-    const r = await fetch(PUSH_FUNCTION_BASE + 'supabase-config', {cache:'no-store'});
-    if(r.ok){
-      const data = await r.json();
-      if(data.configured) return data;
-    }
-  }catch(e){}
-  const local = window.WEERSCOOP_SUPABASE_CONFIG || {};
-  return {
-    configured:Boolean(local.supabaseUrl && local.supabaseAnonKey),
-    supabaseUrl:local.supabaseUrl,
-    supabaseAnonKey:local.supabaseAnonKey
-  };
-}
-
-async function initAuth(){
-  updateAuthMessage('Profiel laden...');
-  try{
-    const config = await loadSupabaseConfig();
-    state.auth.configured = Boolean(config.configured);
-    if(!state.auth.configured){
-      state.auth.ready = true;
-      updateAuthInterface(null);
-      return;
-    }
-    const mod = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-    state.auth.supabase = mod.createClient(config.supabaseUrl, config.supabaseAnonKey, {
-      auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
-    });
-    const { data:{ session } } = await state.auth.supabase.auth.getSession();
-    await applyAuthSession(session);
-    state.auth.supabase.auth.onAuthStateChange(async (event, session)=>{
-      await applyAuthSession(session, event);
-    });
-  }catch(e){
-    console.warn('Supabase auth niet beschikbaar:', e?.message || e);
-    state.auth.configured = false;
-    updateAuthInterface(null);
-  }finally{
-    state.auth.ready = true;
-  }
-}
-
-async function applyAuthSession(session, event=''){
-  state.auth.session = session || null;
-  state.auth.user = session?.user || null;
-  state.auth.guest = !state.auth.user;
-  if(event === 'PASSWORD_RECOVERY') showPasswordResetPrompt();
-  if(state.auth.user){
-    await loadCloudProfileAndFavorites();
-    await migrateLocalClimateToCloud();
-    await loadCloudClimateRecords();
-  }else{
-    state.auth.profile = null;
-    state.climate.loaded = true;
-  }
-  updateAuthInterface(state.auth.session);
-  renderClimateDashboard();
-}
+function authRedirectUrl(){ return new URL('./', location.href).href; }
+function decodeJwtPayload(token){ try{ const p=token.split('.')[1]; const n=p.replace(/-/g,'+').replace(/_/g,'/'); return JSON.parse(decodeURIComponent(atob(n).split('').map(c=>'%' + ('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''))); }catch(e){ return null; } }
+function makeLocalSession(token,user){ if(!token||!user)return null; return {access_token:token,user:{id:user.id,email:user.email,username:user.username,user_metadata:{display_name:user.displayName||user.display_name||user.username||user.email?.split('@')[0]}}}; }
+function saveOwnServerSession(session){ try{ if(session)localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(session)); else localStorage.removeItem(AUTH_STORAGE_KEY); }catch(e){} }
+function loadOwnServerSession(){ try{ const raw=localStorage.getItem(AUTH_STORAGE_KEY); if(!raw)return null; const session=JSON.parse(raw); const payload=decodeJwtPayload(session?.access_token||''); if(!payload||(payload.exp&&payload.exp*1000<=Date.now())){localStorage.removeItem(AUTH_STORAGE_KEY);return null;} return session; }catch(e){ return null; } }
+async function apiJson(path,options={}){ const headers={'content-type':'application/json',...(options.headers||{})}; if(state.auth.session?.access_token) headers.authorization=`Bearer ${state.auth.session.access_token}`; let r; try{ r=await fetch(WHEATERFLOW_API_BASE+path,{...options,headers,cache:'no-store'}); }catch(e){ throw new Error('network'); } let data={}; try{data=await r.json();}catch(e){} if(!r.ok) throw new Error(data.error||`HTTP ${r.status}`); return data; }
+async function initAuth(){ updateAuthMessage('Profiel laden...'); state.auth.configured=true; state.auth.supabase=null; await applyAuthSession(loadOwnServerSession()); state.auth.ready=true; }
+async function applyAuthSession(session,event=''){ state.auth.session=session||null; state.auth.user=session?.user||null; state.auth.guest=!state.auth.user; if(state.auth.user){ state.auth.profile={...(state.auth.profile||{}),display_name:state.auth.profile?.display_name||state.auth.user?.user_metadata?.display_name||state.auth.user?.username||state.auth.user?.email?.split('@')[0]||'Wheaterflow gebruiker'}; state.climate.loaded=true; } else { state.auth.profile=null; state.climate.loaded=true; } updateAuthInterface(state.auth.session); renderClimateDashboard(); }
 
 function mapProfileToUnits(profile){
   if(!profile) return;
@@ -570,7 +523,7 @@ async function loadCurrentObservation(){
   const station = nearestMetarStation();
   if(!station || station.dist > 90) return;
   try{
-    const r = await fetch(`${FUNCTION_BASE}metar?ids=${encodeURIComponent(station.id)}`, {cache:'no-store'});
+    const r = await fetch(`https://aviationweather.gov/api/data/metar?ids=${station.id}&format=json`);
     if(!r.ok) return;
     const rows = await r.json();
     const m = Array.isArray(rows) ? rows[0] : rows;
@@ -2317,8 +2270,8 @@ function updateProfileMessage(msg, type=''){
 }
 function dutchAuthError(error){
   const msg = String(error?.message || error || '').toLowerCase();
-  if(msg.includes('invalid login') || msg.includes('invalid credentials')) return 'E-mailadres of wachtwoord is onjuist.';
-  if(msg.includes('already registered') || msg.includes('already been registered')) return 'Dit e-mailadres is al in gebruik.';
+  if(msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('ongeldige login')) return 'E-mailadres of wachtwoord is onjuist.';
+  if(msg.includes('already registered') || msg.includes('already been registered') || msg.includes('bestaat al') || msg.includes('in gebruik')) return 'Dit e-mailadres of deze gebruikersnaam is al in gebruik.';
   if(msg.includes('password')) return 'Controleer je wachtwoord. Het moet minstens 8 tekens bevatten.';
   if(msg.includes('email')) return 'Vul een geldig e-mailadres in.';
   if(msg.includes('network') || msg.includes('fetch')) return 'Er kon geen verbinding worden gemaakt. Probeer het later opnieuw.';
@@ -2351,7 +2304,7 @@ function updateAuthInterface(session){
   if($('#profileAvatarInitials')) $('#profileAvatarInitials').textContent = initials;
   $('#profileAvatarImage')?.classList.toggle('hidden', !avatarUrl);
   if($('#profileAvatarImage') && avatarUrl) $('#profileAvatarImage').src = avatarUrl;
-  if(!state.auth.configured && $('#authSubtitle')) $('#authSubtitle').textContent = 'Accountsync is nog niet gekoppeld. Vul eerst Supabase in Netlify in.';
+  if($('#authSubtitle')) $('#authSubtitle').textContent = loggedIn ? 'Verbonden met je eigen Wheaterflow-server.' : 'Log in via je eigen Wheaterflow-server.';
 }
 function renderProfileFavorites(){
   const list = $('#profileFavoritesList');
@@ -2396,61 +2349,26 @@ async function handleProfileFavoriteAction(target){
 function validateEmail(email){
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
-async function signInWithEmail(email, password){
-  if(!state.auth.supabase) return updateAuthMessage('Accountsync is nog niet ingesteld.', 'error');
-  if(!validateEmail(email)) return updateAuthMessage('Vul een geldig e-mailadres in.', 'error');
+async function signInWithEmail(email,password){
+  if(!validateEmail(email)) return updateAuthMessage('Vul een geldig e-mailadres in.','error');
+  if(!password) return updateAuthMessage('Vul je wachtwoord in.','error');
   updateAuthMessage('Inloggen...');
-  const { error } = await state.auth.supabase.auth.signInWithPassword({email, password});
-  if(error) return updateAuthMessage(dutchAuthError(error), 'error');
-  updateAuthMessage('Je bent ingelogd.', 'ok');
-  toast('Je bent ingelogd.');
+  try{ const data=await apiJson('/auth/login',{method:'POST',body:JSON.stringify({email,password})}); const session=makeLocalSession(data.token,data.user); saveOwnServerSession(session); await applyAuthSession(session); updateAuthMessage('Je bent ingelogd.','ok'); toast('Je bent ingelogd.'); }catch(error){ updateAuthMessage(dutchAuthError(error),'error'); }
 }
-async function signUpWithEmail(displayName, email, password, password2, privacyOk){
-  if(!state.auth.supabase) return updateAuthMessage('Accountsync is nog niet ingesteld.', 'error');
-  if(!displayName.trim()) return updateAuthMessage('Vul een weergavenaam in.', 'error');
-  if(!validateEmail(email)) return updateAuthMessage('Vul een geldig e-mailadres in.', 'error');
-  if(password.length < 8) return updateAuthMessage('Het wachtwoord moet minstens 8 tekens bevatten.', 'error');
-  if(password !== password2) return updateAuthMessage('De wachtwoorden komen niet overeen.', 'error');
-  if(!privacyOk) return updateAuthMessage('Ga akkoord met de privacyvoorwaarden om verder te gaan.', 'error');
+async function signUpWithEmail(displayName,email,password,password2,privacyOk){
+  displayName=String(displayName||'').trim();
+  if(!displayName) return updateAuthMessage('Vul een weergavenaam in.','error');
+  if(!validateEmail(email)) return updateAuthMessage('Vul een geldig e-mailadres in.','error');
+  if(password.length<8) return updateAuthMessage('Het wachtwoord moet minstens 8 tekens bevatten.','error');
+  if(password!==password2) return updateAuthMessage('De wachtwoorden komen niet overeen.','error');
+  if(!privacyOk) return updateAuthMessage('Ga akkoord met de privacyvoorwaarden om verder te gaan.','error');
   updateAuthMessage('Account aanmaken...');
-  const { error } = await state.auth.supabase.auth.signUp({
-    email,
-    password,
-    options:{data:{display_name:displayName.trim()}, emailRedirectTo:authRedirectUrl()}
-  });
-  if(error) return updateAuthMessage(dutchAuthError(error), 'error');
-  updateAuthMessage('Controleer je mailbox om je account te bevestigen.', 'ok');
+  try{ const base=displayName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]+/g,'').slice(0,40)||email.split('@')[0].replace(/[^a-zA-Z0-9_]/g,'').slice(0,40); const username=`${base}${Math.floor(1000+Math.random()*9000)}`.slice(0,50); await apiJson('/auth/register',{method:'POST',body:JSON.stringify({username,email,password,displayName})}); const login=await apiJson('/auth/login',{method:'POST',body:JSON.stringify({email,password})}); const session=makeLocalSession(login.token,login.user); saveOwnServerSession(session); await applyAuthSession(session); updateAuthMessage('Account aangemaakt. Je bent ingelogd.','ok'); toast('Welkom bij Wheaterflow!'); }catch(error){ updateAuthMessage(dutchAuthError(error),'error'); }
 }
-async function resetPassword(email){
-  if(!state.auth.supabase) return updateAuthMessage('Accountsync is nog niet ingesteld.', 'error');
-  if(!validateEmail(email)) return updateAuthMessage('Vul eerst je e-mailadres in.', 'error');
-  updateAuthMessage('Resetmail versturen...');
-  const { error } = await state.auth.supabase.auth.resetPasswordForEmail(email, {redirectTo:authRedirectUrl()});
-  if(error) return updateAuthMessage(dutchAuthError(error), 'error');
-  updateAuthMessage('Controleer je mailbox om je wachtwoord opnieuw in te stellen.', 'ok');
-}
-async function showPasswordResetPrompt(){
-  const pw = prompt('Kies een nieuw wachtwoord van minstens 8 tekens.');
-  if(!pw) return;
-  if(pw.length < 8) return toast('Het wachtwoord moet minstens 8 tekens bevatten.');
-  const { error } = await state.auth.supabase.auth.updateUser({password:pw});
-  toast(error ? 'Wachtwoord kon niet worden gewijzigd.' : 'Wachtwoord gewijzigd.');
-}
-async function updateProfileFromForm(){
-  if(!state.auth.supabase || !state.auth.user) return updateProfileMessage('Je bent niet ingelogd.', 'error');
-  const name = $('#profileDisplayName')?.value.trim();
-  if(!name) return updateProfileMessage('Vul een weergavenaam in.', 'error');
-  updateProfileMessage('Opslaan...');
-  const payload = {...profilePayload(), display_name:name, home_location_name:$('#profileHomeLocation')?.value.trim() || state.loc.name};
-  const { data, error } = await state.auth.supabase.from('profiles')
-    .upsert({id:state.auth.user.id, ...payload})
-    .select('*')
-    .single();
-  if(error) return updateProfileMessage('Profiel kon niet worden opgeslagen.', 'error');
-  state.auth.profile = data;
-  updateAuthInterface(state.auth.session);
-  updateProfileMessage('Profiel opgeslagen.', 'ok');
-}
+async function resetPassword(email){ if(!validateEmail(email)) return updateAuthMessage('Vul eerst je e-mailadres in.','error'); updateAuthMessage('Wachtwoordherstel via je eigen server voegen we als volgende stap toe.','error'); }
+async function showPasswordResetPrompt(){ toast('Wachtwoord wijzigen wordt als volgende serverfunctie toegevoegd.'); }
+async function updateProfileFromForm(){ if(!state.auth.user) return updateProfileMessage('Je bent niet ingelogd.','error'); const name=$('#profileDisplayName')?.value.trim(); if(!name) return updateProfileMessage('Vul een weergavenaam in.','error'); state.auth.profile={...(state.auth.profile||{}),display_name:name,home_location_name:$('#profileHomeLocation')?.value.trim()||state.loc.name}; if(state.auth.session?.user){ state.auth.session.user.user_metadata={...(state.auth.session.user.user_metadata||{}),display_name:name}; saveOwnServerSession(state.auth.session); } updateAuthInterface(state.auth.session); updateProfileMessage('Profiel lokaal opgeslagen. Server-sync voegen we hierna toe.','ok'); }
+
 async function compressAvatar(file){
   if(!['image/png','image/jpeg','image/webp'].includes(file.type)) throw new Error('Gebruik PNG, JPEG of WebP.');
   if(file.size > 5 * 1024 * 1024) throw new Error('De afbeelding mag maximaal 5 MB zijn.');
@@ -2463,40 +2381,9 @@ async function compressAvatar(file){
   canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   return await new Promise(resolve=>canvas.toBlob(resolve, 'image/webp', .86));
 }
-async function uploadAvatar(file){
-  if(!state.auth.supabase || !state.auth.user) return;
-  try{
-    updateProfileMessage('Profielfoto uploaden...');
-    const blob = await compressAvatar(file);
-    const path = `${state.auth.user.id}/avatar.webp`;
-    const { error } = await state.auth.supabase.storage.from('avatars').upload(path, blob, {contentType:'image/webp', upsert:true});
-    if(error) throw error;
-    const { data } = state.auth.supabase.storage.from('avatars').getPublicUrl(path);
-    const avatarUrl = `${data.publicUrl}?v=${Date.now()}`;
-    const res = await state.auth.supabase.from('profiles').upsert({id:state.auth.user.id, ...profilePayload(), avatar_url:avatarUrl}).select('*').single();
-    if(res.error) throw res.error;
-    state.auth.profile = res.data;
-    updateAuthInterface(state.auth.session);
-    updateProfileMessage('Profielfoto opgeslagen.', 'ok');
-  }catch(e){
-    updateProfileMessage(e.message || 'Profielfoto kon niet worden opgeslagen.', 'error');
-  }
-}
-async function deleteAccount(){
-  if(!state.auth.session) return;
-  const confirmation = prompt('Typ VERWIJDEREN om je account definitief te verwijderen.');
-  if(confirmation !== 'VERWIJDEREN') return;
-  updateProfileMessage('Account verwijderen...');
-  const r = await fetch(PUSH_FUNCTION_BASE + 'delete-account', {
-    method:'POST',
-    headers:{'content-type':'application/json', authorization:`Bearer ${state.auth.session.access_token}`},
-    body:JSON.stringify({confirmation})
-  });
-  if(!r.ok) return updateProfileMessage('Account kon niet worden verwijderd. Probeer het later opnieuw.', 'error');
-  await state.auth.supabase.auth.signOut().catch(()=>undefined);
-  closeAuthSheet();
-  toast('Account verwijderd.');
-}
+async function uploadAvatar(file){ if(!state.auth.user)return; updateProfileMessage('Profielfoto-upload naar je eigen server voegen we als volgende stap toe.','error'); }
+async function deleteAccount(){ if(!state.auth.session)return; updateProfileMessage('Account verwijderen via je eigen server voegen we als volgende stap toe.','error'); }
+
 function wireAuthUi(){
   $('#profileBtn')?.addEventListener('click', openAuthSheet);
   $('#authScrim')?.addEventListener('click', closeAuthSheet);
@@ -2520,7 +2407,8 @@ function wireAuthUi(){
   $('#resetPasswordLoggedInBtn')?.addEventListener('click', ()=>resetPassword(state.auth.user?.email || ''));
   $('#logoutBtn')?.addEventListener('click', async ()=>{
     if(state.push.status === 'Ingeschakeld' && !confirm('Meldingen blijven actief op dit toestel. Wil je uitloggen?')) return;
-    await state.auth.supabase?.auth.signOut();
+    saveOwnServerSession(null);
+    await applyAuthSession(null);
     toast('Je bent uitgelogd.');
     closeAuthSheet();
   });
@@ -3020,7 +2908,7 @@ function requireCommunityLogin(){
 async function loadCommunityPosts(reset=false){
   const supabase = communitySupabase();
   if(!supabase || state.community.loading) {
-    if(!supabase) renderCommunityEmpty('Community wordt actief zodra Supabase is ingesteld.');
+    if(!supabase) renderCommunityEmpty('Community wordt als volgende stap gekoppeld aan je eigen Wheaterflow-server.');
     return;
   }
   if(reset){
@@ -3747,18 +3635,12 @@ function initMapIfNeeded(){
     }catch(err){ showRadarInfo('Kon puntgegevens niet laden.', lat,lng); }
   });
 
-  // XWeather is the primary radar on Cloudflare. The legacy radar is fallback only.
-  (async ()=>{
-    const xweatherOk = await initXweatherMap();
-    if(!xweatherOk){
-      startLegacyRadar();
-      clearInterval(state.radar.refreshTimer);
-      state.radar.refreshTimer = setInterval(()=>{
-        if(document.hidden) return;
-        loadRadarFrames(true);
-      }, 5*60*1000);
-    }
-  })();
+  startLegacyRadar();
+  clearInterval(state.radar.refreshTimer);
+  state.radar.refreshTimer = setInterval(()=>{
+    if(document.hidden) return;
+    loadRadarFrames(true);
+  }, 5*60*1000);
 }
 
 function startLegacyRadar(){
@@ -4041,7 +3923,7 @@ async function refreshXweatherLayers(){
 
 function xweatherLayerOverrides(code){
   const weak = likelyWeakMapDevice();
-  const opacity = code === 'radar' ? .66 : code === 'satellite' ? .82 : code === 'wind-particles' ? .74 : .78;
+  const opacity = code === 'radar' ? .86 : code === 'satellite' ? .82 : code === 'wind-particles' ? .74 : .78;
   return {
     opacity,
     data:{ quality: weak ? 'low' : 'normal' }
