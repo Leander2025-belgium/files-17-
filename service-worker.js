@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260809-full-selfhost";
+const CACHE_VERSION = "wheaterflow-v20260809-fix-2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
