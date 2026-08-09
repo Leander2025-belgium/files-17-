@@ -1,6 +1,12 @@
 export async function handler(){
-  const clientId = process.env.XWEATHER_CLIENT_ID || '';
-  const clientSecret = process.env.XWEATHER_CLIENT_SECRET || '';
+  let clientId = process.env.XWEATHER_CLIENT_ID || '';
+  let clientSecret = process.env.XWEATHER_CLIENT_SECRET || '';
+  const combined = process.env.XWEATHER_API_KEY || process.env.XWEATHER_KEY || '';
+  if((!clientId || !clientSecret) && combined.includes('_')){
+    const parts = combined.split('_');
+    clientId = clientId || parts[0] || '';
+    clientSecret = clientSecret || parts.slice(1).join('_') || '';
+  }
 
   return {
     statusCode: 200,

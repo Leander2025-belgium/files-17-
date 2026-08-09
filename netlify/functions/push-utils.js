@@ -21,7 +21,10 @@ function json(statusCode, body) {
     statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store"
+      "cache-control": "no-store",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+      "access-control-allow-headers": "Content-Type, Authorization"
     },
     body: JSON.stringify(body)
   };

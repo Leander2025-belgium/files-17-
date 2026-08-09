@@ -13,6 +13,9 @@ const FUNCTION_BASE = WHEATERFLOW_API_BASE + '/';
 const PUSH_FUNCTION_BASE = FUNCTION_BASE;
 const XWEATHER_SDK_VERSION = '1.9.3';
 const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEATHER_SDK_VERSION}/dist/`;
+const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+  ? new URL('/api/', location.origin).href
+  : 'https://api.wheaterflow.be/api/';
 
 const state = {
   loc: { lat: 51.2405, lon: 2.9309, name: "Oostende", admin: "West-Vlaanderen, Belgie" },
@@ -515,7 +518,11 @@ async function loadCurrentObservation(){
   const station = nearestMetarStation();
   if(!station || station.dist > 90) return;
   try{
-    const r = await fetch(`https://aviationweather.gov/api/data/metar?ids=${station.id}&format=json`);
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 5500);
+    const endpoint = new URL('weather/metar', API_BASE);
+    endpoint.searchParams.set('ids', station.id);
+    const r = await fetch(endpoint.href, {cache:'no-store', signal:controller.signal}).finally(()=>clearTimeout(timeout));
     if(!r.ok) return;
     const rows = await r.json();
     const m = Array.isArray(rows) ? rows[0] : rows;
@@ -534,7 +541,9 @@ async function loadCurrentObservation(){
       pressure_msl:m.altim != null ? +m.altim : null,
       weather_code:metarWeatherCode(m)
     };
-  }catch(e){}
+  }catch(e){
+    console.warn('METAR niet beschikbaar, Open-Meteo blijft actief:', e?.message || e);
+  }
 }
 
 function liveWeatherSnapshot(){
@@ -919,7 +928,7 @@ async function loadWeather(){
   $('#homeLoader')?.classList.remove('hide');
   try{
     let requestedModel = preferredWeatherModel();
-    let r = await fetch(buildForecastUrl(requestedModel));
+    let r = await fetch(buildForecastUrl(requestedModel), {cache:'no-store'});
     let d;
     if(r.ok){
       d = await r.json();
@@ -928,17 +937,30 @@ async function loadWeather(){
     state.current = d.current; state.hourly = d.hourly; state.daily = d.daily; state.minutely = d.minutely_15;
     state.tz = d.timezone; state.utcOffsetSec = d.utc_offset_seconds;
     state.lastUpdated = Date.now();
-    await loadCurrentObservation();
-    await loadMarine();
-    await loadAirQuality();
-    await loadAlerts();
-    renderHome();
-    await captureTodayClimate('auto');
-    updateLastUpdatedText();
-    if(tv.active) renderTV();
-    if($('#stormscreen').classList.contains('active')) updateStormTab();
-    if($('#radarscreen').classList.contains('active') && state.radar.duration>1) renderHourlyChart();
+    const optionalResults = await Promise.allSettled([
+      loadCurrentObservation(),
+      loadMarine(),
+      loadAirQuality(),
+      loadAlerts()
+    ]);
+    optionalResults.forEach((result, index)=>{
+      if(result.status === 'rejected'){
+        console.warn(['METAR','Marine','Luchtkwaliteit','Meldingen'][index] + ' laden faalde:', result.reason);
+      }
+    });
+    try{
+      renderHome();
+    }catch(renderError){
+      console.error('Home render faalde:', renderError);
+      throw renderError;
+    }
+    captureTodayClimate('auto').catch(error=>console.warn('Mijn Klimaat opslaan faalde:', error));
+    try{ updateLastUpdatedText(); }catch(error){ console.warn('Laatste update tekst faalde:', error); }
+    try{ if(tv.active) renderTV(); }catch(error){ console.warn('TV render faalde:', error); }
+    try{ if($('#stormscreen')?.classList.contains('active')) updateStormTab(); }catch(error){ console.warn('Storm tab update faalde:', error); }
+    try{ if($('#radarscreen')?.classList.contains('active') && state.radar.duration>1) renderHourlyChart(); }catch(error){ console.warn('Radar grafiek update faalde:', error); }
   }catch(e){
+    console.error('Weather load failed:', e);
     $('#homeInner').innerHTML = `<div class="empty-state">${icon('cloud',true,38)}<div>Kon het weer niet laden.<br>Controleer je internetverbinding en probeer opnieuw.</div></div>`;
   }finally{
     $('#homeLoader')?.classList.add('hide');
@@ -1364,7 +1386,10 @@ async function setHomeMapLayer(layerId){
   setHomeMapStatus('Kaartlaag laden...');
   clearHomeMapOverlay();
   try{
-    if(layerId === 'radar' || layerId === 'satellite'){
+    if(layerId === 'radar'){
+      const ok = await setHomeXweatherLayer('radar');
+      if(!ok) throw new Error('Xweather radar niet geconfigureerd');
+    }else if(layerId === 'satellite'){
       await setHomeLegacyLayer(layerId);
     }else{
       const ok = await setHomeXweatherLayer(layerId);
@@ -3105,6 +3130,7 @@ function subscribeCommunityRealtime(){
 
 function wireSeg(id, key){
   const seg = $(id);
+  if(!seg) return;
   $$('button', seg).forEach(b=>{
     b.addEventListener('click', ()=>{
       $$('button', seg).forEach(x=>x.classList.remove('active'));
@@ -3125,7 +3151,7 @@ function wireSeg(id, key){
   });
 }
 wireSeg('#segTemp','temp'); wireSeg('#segWind','wind'); wireSeg('#segPrecip','precip'); wireSeg('#segPress','press'); wireSeg('#segDays','days'); wireSeg('#segModel','model');
-$("#manualRefresh").addEventListener('click', ()=>{ loadWeather(); toast('Wordt ververst...'); });
+$("#manualRefresh")?.addEventListener('click', ()=>{ loadWeather(); toast('Wordt ververst...'); });
 
 function isStandaloneApp(){
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -3419,11 +3445,23 @@ function initMapIfNeeded(){
     }catch(err){ showRadarInfo('Kon puntgegevens niet laden.', lat,lng); }
   });
 
-  startLegacyRadar();
+  initXweatherMap().then(ok=>{
+    if(ok) return;
+    startLegacyRadar();
+  });
   clearInterval(state.radar.refreshTimer);
   state.radar.refreshTimer = setInterval(()=>{
     if(document.hidden) return;
-    loadRadarFrames(true);
+    if(state.xweather.ready && state.xweather.controller){
+      try{
+        state.xweather.controller.setRefreshInterval?.(5, true);
+        state.xweather.controller.refresh?.();
+        updateXweatherTimelineUi();
+      }catch(error){
+        console.warn('Xweather radar verversen faalde:', error);
+      }
+      return;
+    }
   }, 5*60*1000);
 }
 
@@ -3433,7 +3471,13 @@ function startLegacyRadar(){
   $('#xweatherLayerBar')?.classList.add('hide');
   $('#liveRadarPanel')?.classList.remove('hide');
   removeKnmiWmsRadarLayer();
-  loadRadarFrames();
+  if(state.radar.animator){ state.radar.animator.destroy(); state.radar.animator = null; }
+  state.radar.frames = [];
+  $('#timeline').innerHTML = '';
+  $('#timeLabel').textContent = 'Geen radar';
+  $('#radarNowBadge')?.classList.remove('show');
+  const note = $('.radar-note');
+  if(note) note.textContent = 'Xweather radar is niet geconfigureerd of tijdelijk niet beschikbaar. De basiskaart blijft werken.';
 }
 
 async function initXweatherMap(force=false){
@@ -4191,9 +4235,11 @@ $('#opacitySlider').addEventListener('input', (e)=>{
   if(state.radar.animator) state.radar.animator.setOpacity(state.radar.opacity);
 });
 $('#chipPrecip').addEventListener('click', ()=>{
+  if(state.xweather.ready){ setXweatherLayer('radar'); return; }
   switchLayer('precip');
 });
 $('#chipSat').addEventListener('click', ()=>{
+  if(state.xweather.ready){ setXweatherLayer('satellite'); return; }
   switchLayer('satellite');
 });
 function switchLayer(l){
@@ -4206,7 +4252,8 @@ function switchLayer(l){
   $('#chipPrecip').classList.toggle('active', l==='precip');
   $('#chipSat').classList.toggle('active', l==='satellite');
   if(state.radar.animator){ state.radar.animator.destroy(); state.radar.animator = null; }
-  loadRadarFrames();
+  if(l === 'precip') startLegacyRadar();
+  else loadRadarFrames();
 }
 const SCHEMES = [
   {v:4, l:'Helder'}, {v:2, l:'Universeel'}, {v:8, l:'Intens'}, {v:3, l:'Origineel'}, {v:6, l:'Zwart-wit'}
@@ -4411,10 +4458,10 @@ window.addEventListener('popstate', ()=>{
   if(document.body.classList.contains('auth-open')) closeAuthSheet({fromPopState:true});
 });
 document.addEventListener('visibilitychange', ()=>{
-  if(!document.hidden && tv.active) refreshTvRadarFrame();
+  if(!document.hidden && tv.active) refreshTvXweatherRadar();
 });
 window.addEventListener('focus', ()=>{
-  if(tv.active) refreshTvRadarFrame();
+  if(tv.active) refreshTvXweatherRadar();
 });
 window.addEventListener('resize', ()=>{
   if(state.map) setTimeout(()=>state.map.invalidateSize(), 120);
@@ -4542,14 +4589,14 @@ async function initTvMap(){
     tv.map.setView(rv.center, rv.zoom);
   }
   setTimeout(()=>tv.map.invalidateSize(), 200);
-  disposeTvXweatherRadar();
-  if(tv.knmiLayer){
-    tv.map.removeLayer(tv.knmiLayer);
-    tv.knmiLayer = null;
-  }
-  refreshTvRadarFrame();
+  const xweatherOk = await initTvXweatherRadar();
   clearInterval(tv.loopTimer);
-  tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
+  if(xweatherOk){
+    tv.loopTimer = setInterval(refreshTvXweatherRadar, TV_RADAR_REFRESH_MS);
+  }else{
+    clearTvRadarLayer();
+    updateTvRadarLabel(null, 'Radar niet beschikbaar');
+  }
 }
 
 async function initTvXweatherRadar(){
@@ -4678,33 +4725,51 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
 /* =========================================================================
    INIT
    ========================================================================= */
-async function init(){
-  await loadStoredUnits();
-  await loadStoredClimate();
-  if (typeof wireAuthUi === 'function') wireAuthUi();
-  initCommunityUi();
-  initClimateUi();
-  wirePushSettings();
-  await loadStoredFavorites();
-  await initAuth();
-  subscribeCommunityRealtime();
-  $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
-  $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));
-  $$('#segPrecip button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.precip));
-  $$('#segPress button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.press));
-  $$('#segDays button').forEach(b=>b.classList.toggle('active', +b.dataset.v===state.units.days));
-  $$('#segModel button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.model));
-
-  const p = await getBrowserLocation();
-  if(p){
-    const g = await reverseGeocode(p.lat, p.lon);
-    state.loc = {lat:p.lat, lon:p.lon, name:g.name, admin:g.admin, country:g.country};
+async function safeInitStep(label, task){
+  try{
+    if(typeof task === 'function') return await task();
+  }catch(error){
+    console.warn(`${label} faalde, app start verder:`, error);
   }
-  await loadWeather();await laadWeerMeldingen();
-setInterval(laadWeerMeldingen, 5 * 60 * 1000);
-  startAutoRefresh();
+  return undefined;
 }
-init();
+
+async function init(){
+  await safeInitStep('Eenheden laden', loadStoredUnits);
+  await safeInitStep('Klimaatdata laden', loadStoredClimate);
+  await safeInitStep('Auth UI koppelen', wireAuthUi);
+  await safeInitStep('Community UI koppelen', initCommunityUi);
+  await safeInitStep('Klimaat UI koppelen', initClimateUi);
+  await safeInitStep('Push instellingen koppelen', wirePushSettings);
+  await safeInitStep('Favorieten laden', loadStoredFavorites);
+  await safeInitStep('Auth starten', initAuth);
+  await safeInitStep('Community realtime starten', subscribeCommunityRealtime);
+  await safeInitStep('Instellingenknoppen herstellen', ()=>{
+    $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
+    $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));
+    $$('#segPrecip button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.precip));
+    $$('#segPress button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.press));
+    $$('#segDays button').forEach(b=>b.classList.toggle('active', +b.dataset.v===state.units.days));
+    $$('#segModel button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.model));
+  });
+
+  await safeInitStep('Locatie ophalen', async ()=>{
+    const p = await getBrowserLocation();
+    if(p){
+      const g = await reverseGeocode(p.lat, p.lon);
+      state.loc = {lat:p.lat, lon:p.lon, name:g.name, admin:g.admin, country:g.country};
+    }
+  });
+  await loadWeather();
+  safeInitStep('Eigen weermeldingen laden', laadWeerMeldingen);
+  setInterval(()=>safeInitStep('Eigen weermeldingen verversen', laadWeerMeldingen), 5 * 60 * 1000);
+  await safeInitStep('Auto refresh starten', startAutoRefresh);
+}
+init().catch(error=>{
+  console.error('Fatale init-fout:', error);
+  $('#homeLoader')?.classList.add('hide');
+  hideAppSplash();
+});
 // Toevoegen aan script.js van wheaterflow.be
 // Toont actieve meldingen bovenaan als banner(s)
 

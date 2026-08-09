@@ -4850,8 +4850,8 @@ input{
   #home .hero .bignum,
   #home .hero .cond,
   #home .hero .hilo{
-    color:rgba(7,29,54,.92)!important;
-    text-shadow:0 1px 18px rgba(255,255,255,.18)!important;
+    color:rgba(255,255,255,.96)!important;
+    text-shadow:0 5px 28px rgba(0,0,0,.42)!important;
   }
   #weatherBG.rainy ~ #app #home .hero .locname,
   #weatherBG.rainy ~ #app #home .hero .bignum,
@@ -4884,19 +4884,15 @@ input{
 
 /* ---------- Photorealistic condition backgrounds ---------- */
 #weatherBG.photo-weather-bg{
-  background:#0b172b;
+  background-color:#0b172b!important;
+  background-image:var(--weather-photo)!important;
+  background-size:cover!important;
+  background-position:center center!important;
+  background-repeat:no-repeat!important;
 }
 #weatherBG.photo-weather-bg::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  z-index:0;
-  background-image:var(--weather-photo);
-  background-size:cover;
-  background-position:center center;
-  background-repeat:no-repeat;
-  transform:scale(1.015);
-  transition:background-image .7s ease, opacity .7s ease;
+  content:none!important;
+  display:none!important;
 }
 #weatherBG.photo-weather-bg::after{
   content:"";
@@ -4912,12 +4908,12 @@ input{
 #weatherBG.photo-weather-bg .wbg-sun,
 #weatherBG.photo-weather-bg .wbg-moon,
 #weatherBG.photo-weather-bg .wbg-stars{
-  opacity:0 !important;
+  display:none!important;
 }
 #weatherBG.photo-weather-bg .wbg-rain,
 #weatherBG.photo-weather-bg .wbg-snow,
 #weatherBG.photo-weather-bg .wbg-lightning{
-  z-index:5;
+  z-index:8!important;
 }
 #weatherBG .wbg-sky,
 #weatherBG .wbg-sun,
