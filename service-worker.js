@@ -1,13 +1,15 @@
-const CACHE_VERSION = "wheaterflow-v20260807-clean-cloudflare-1";
+const CACHE_VERSION = "wheaterflow-v20260809-own-server-auth";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./offline.html",
-  "./wheaterflow.css",
+  "./style.css",
   "./script.js",
   "./manifest.webmanifest",
   "./assets/branding/weerscoop-logo-master.png",
+  "./assets/backgrounds/cloudy-sky.png",
+  "./assets/backgrounds/rainy-sky.png",
   "./assets/backgrounds/zonnig.png",
   "./assets/backgrounds/licht bewolkt.png",
   "./assets/backgrounds/Overwegend zonnig.png",
@@ -71,7 +73,8 @@ function isLiveDataRequest(url) {
     "weatherflow-radar.leanderdevriendt.workers.dev",
     "api.dataplatform.knmi.nl",
     "aviationweather.gov",
-    "supabase.co"
+    "supabase.co",
+    "api.wheaterflow.be"
   ].some(host => url.hostname.includes(host));
 }
 
