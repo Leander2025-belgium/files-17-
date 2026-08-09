@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260809-own-server-auth";
+const CACHE_VERSION = "wheaterflow-v20260809-full-selfhost";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -73,7 +73,6 @@ function isLiveDataRequest(url) {
     "weatherflow-radar.leanderdevriendt.workers.dev",
     "api.dataplatform.knmi.nl",
     "aviationweather.gov",
-    "supabase.co",
     "api.wheaterflow.be"
   ].some(host => url.hostname.includes(host));
 }
