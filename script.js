@@ -2407,6 +2407,74 @@ async function uploadAvatar(file){
   }catch(e){ updateProfileMessage(e.message || 'Profielfoto kon niet worden opgeslagen.', 'error'); }
 }
 
+function wireAuthUi(){
+  $('#profileBtn')?.addEventListener('click', openAuthSheet);
+  $('#closeAuthSheet')?.addEventListener('click', ()=>closeAuthSheet());
+  $('#authScrim')?.addEventListener('click', ()=>closeAuthSheet());
+  $('#authLoginTab')?.addEventListener('click', ()=>setAuthMode('login'));
+  $('#authSignupTab')?.addEventListener('click', ()=>setAuthMode('signup'));
+  $('#loginForm')?.addEventListener('submit', e=>{
+    e.preventDefault();
+    signInWithEmail($('#loginEmail')?.value.trim() || '', $('#loginPassword')?.value || '');
+  });
+  $('#signupForm')?.addEventListener('submit', e=>{
+    e.preventDefault();
+    signUpWithEmail(
+      $('#signupName')?.value || '',
+      $('#signupEmail')?.value.trim() || '',
+      $('#signupPassword')?.value || '',
+      $('#signupPassword2')?.value || '',
+      Boolean($('#signupPrivacy')?.checked)
+    );
+  });
+  $('#forgotPasswordBtn')?.addEventListener('click', ()=>{
+    const email = $('#loginEmail')?.value?.trim() || $('#signupEmail')?.value?.trim() || '';
+    resetPassword(email);
+  });
+  $('#continueGuestBtn')?.addEventListener('click', ()=>closeAuthSheet());
+  $('#showLoginPassword')?.addEventListener('change', e=>{
+    const input = $('#loginPassword');
+    if(input) input.type = e.target.checked ? 'text' : 'password';
+  });
+  $('#changeAvatarBtn')?.addEventListener('click', ()=>$('#avatarInput')?.click());
+  $('#profileForm')?.addEventListener('submit', async e=>{
+    e.preventDefault();
+    if(!state.auth.user) return;
+    updateProfileMessage('Profiel opslaan...');
+    state.auth.profile = {
+      ...(state.auth.profile || {}),
+      display_name: $('#profileDisplayName')?.value.trim() || state.auth.profile?.display_name,
+      home_location_name: $('#profileHomeLocation')?.value.trim() || ''
+    };
+    await syncProfileSettingsToCloud(true);
+    updateAuthInterface(state.auth.session);
+    updateProfileMessage('Profiel opgeslagen.', 'ok');
+  });
+  $('#avatarInput')?.addEventListener('change', e=>{
+    const file = e.target.files?.[0];
+    if(file) uploadAvatar(file);
+  });
+  $('#profileFavoritesList')?.addEventListener('click', e=>{
+    const button = e.target.closest('button[data-act]');
+    if(button) handleProfileFavoriteAction(button);
+  });
+  $('#syncLocalBtn')?.addEventListener('click', ()=>{
+    if(typeof syncEverythingToCloud === 'function') syncEverythingToCloud(true);
+    else toast('Synchronisatie is nog niet beschikbaar.');
+  });
+  $('#resetPasswordLoggedInBtn')?.addEventListener('click', ()=>{
+    const email = state.auth.user?.email || $('#loginEmail')?.value?.trim() || '';
+    resetPassword(email);
+  });
+  $('#logoutBtn')?.addEventListener('click', async ()=>{
+    clearOwnServerSession();
+    await applyAuthSession(null);
+    updateAuthMessage('Je bent uitgelogd.', 'ok');
+    toast('Uitgelogd');
+  });
+  updateAuthInterface(state.auth.session);
+}
+
 /* ---------------- Mijn Klimaat ---------------- */
 function initClimateUi(){
   $('#climateBtn')?.addEventListener('click', openClimateScreen);
