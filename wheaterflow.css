@@ -4728,7 +4728,7 @@ input{
 }
 #weatherBG.cloudy:not(.night)::before{
   opacity:1!important;
-  background-image:url('./assets/backgrounds/cloudy-sky.png')!important;
+  background-image:none!important;
   filter:saturate(.82) contrast(1.07) brightness(1.04)!important;
 }
 #weatherBG.cloudy:not(.night) .wbg-sky{
@@ -4753,7 +4753,7 @@ input{
 #weatherBG.rainy:not(.night)::before,
 #weatherBG.stormy:not(.night)::before{
   opacity:1!important;
-  background-image:url('./assets/backgrounds/rainy-sky.png')!important;
+  background-image:none!important;
   filter:saturate(.78) contrast(1.10) brightness(.88)!important;
 }
 #weatherBG.rainy:not(.night) .wbg-sky,
@@ -4938,7 +4938,7 @@ input{
 /* ========================================================================
    FINAL PHOTO BACKGROUND OVERRIDE
    Keep this block at the END of the stylesheet.
-   Earlier legacy rules use cloudy-sky.png / rainy-sky.png with !important.
+   Earlier legacy rules used extra generated sky images with !important.
    The live app must always use the photo selected by applyWeatherBG().
    ======================================================================== */
 #weatherBG.photo-weather-bg::before,

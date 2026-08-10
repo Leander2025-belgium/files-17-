@@ -4728,7 +4728,7 @@ input{
 }
 #weatherBG.cloudy:not(.night)::before{
   opacity:1!important;
-  background-image:url('./assets/backgrounds/cloudy-sky.png')!important;
+  background-image:none!important;
   filter:saturate(.82) contrast(1.07) brightness(1.04)!important;
 }
 #weatherBG.cloudy:not(.night) .wbg-sky{
@@ -4753,7 +4753,7 @@ input{
 #weatherBG.rainy:not(.night)::before,
 #weatherBG.stormy:not(.night)::before{
   opacity:1!important;
-  background-image:url('./assets/backgrounds/rainy-sky.png')!important;
+  background-image:none!important;
   filter:saturate(.78) contrast(1.10) brightness(.88)!important;
 }
 #weatherBG.rainy:not(.night) .wbg-sky,
@@ -4882,50 +4882,42 @@ input{
 .weather-alert p { margin: 0; font-size: 0.9rem; }
 
 
-/* ---------- Photorealistic condition backgrounds ---------- */
+/* ---------- Real condition photo backgrounds only ---------- */
+#weatherBG,
 #weatherBG.photo-weather-bg{
   background-color:#0b172b!important;
-  background-image:var(--weather-photo)!important;
+  background-image:var(--weather-photo, url("./assets/backgrounds/Bewolkt.png"))!important;
   background-size:cover!important;
   background-position:center center!important;
   background-repeat:no-repeat!important;
 }
+
+#weatherBG::before,
 #weatherBG.photo-weather-bg::before{
   content:none!important;
   display:none!important;
 }
+
+#weatherBG::after,
 #weatherBG.photo-weather-bg::after{
   content:"";
   position:absolute;
   inset:0;
   z-index:20;
   pointer-events:none;
-  background:linear-gradient(180deg,rgba(8,19,36,.08) 0%,rgba(8,19,36,.04) 42%,rgba(4,12,24,.30) 100%);
-}
-/* The photo replaces synthetic sky/cloud artwork; precipitation/lightning stay useful. */
-#weatherBG.photo-weather-bg .wbg-sky,
-#weatherBG.photo-weather-bg .wbg-clouds,
-#weatherBG.photo-weather-bg .wbg-sun,
-#weatherBG.photo-weather-bg .wbg-moon,
-#weatherBG.photo-weather-bg .wbg-stars{
-  display:none!important;
-}
-#weatherBG.photo-weather-bg .wbg-rain,
-#weatherBG.photo-weather-bg .wbg-snow,
-#weatherBG.photo-weather-bg .wbg-lightning{
-  z-index:8!important;
-}
-#weatherBG .wbg-sky,
-#weatherBG .wbg-sun,
-#weatherBG .wbg-clouds,
-#weatherBG .wbg-moon,
-#weatherBG .wbg-stars{
-  display:none !important;
+  background:linear-gradient(180deg,rgba(8,19,36,.04) 0%,rgba(8,19,36,.03) 45%,rgba(4,12,24,.24) 100%);
 }
 
-#weatherBG{
-  background-image:var(--weather-photo) !important;
-  background-size:cover !important;
-  background-position:center center !important;
-  background-repeat:no-repeat !important;
+/* Synthetic sky, sun, moon, cloud, rain, snow and lightning layers are disabled permanently. */
+#weatherBG > *,
+#weatherBG .wbg-sky,
+#weatherBG .wbg-photo,
+#weatherBG .wbg-clouds,
+#weatherBG .wbg-rain,
+#weatherBG .wbg-snow,
+#weatherBG .wbg-lightning,
+#weatherBG .wbg-sun,
+#weatherBG .wbg-moon,
+#weatherBG .wbg-stars{
+  display:none!important;
 }

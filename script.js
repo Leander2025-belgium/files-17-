@@ -16,6 +16,24 @@ const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEAT
 const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
   ? new URL('/api/', location.origin).href
   : 'https://api.wheaterflow.be/api/';
+const DEFAULT_WEATHER_PHOTO = 'Bewolkt.png';
+const WEATHER_PHOTO_FILES = new Set([
+  'zonnig.png',
+  'licht bewolkt.png',
+  'Overwegend zonnig.png',
+  'Half bewolkt.png',
+  'Bewolkt.png',
+  'Zwaarbewolkt.png',
+  'Mist.png',
+  'Nevel.png',
+  'Motregen.png',
+  'Lichte regen.png',
+  'Regen.png',
+  'Hevige regen.png',
+  'Onweersbuien.png',
+  'Zwaar onweer.png',
+  'Hagel.png'
+]);
 
 const state = {
   loc: { lat: 51.2405, lon: 2.9309, name: "Oostende", admin: "West-Vlaanderen, Belgie" },
@@ -924,16 +942,38 @@ function buildForecastUrl(model){
     (model && model !== 'best_match' ? `&models=${model}` : '');
 }
 
+async function fetchForecast(model){
+  const response = await fetch(buildForecastUrl(model), {cache:'no-store'});
+  let data = null;
+  try{
+    data = await response.json();
+  }catch(error){
+    throw new Error(`Weerdata kon niet worden gelezen (${response.status})`);
+  }
+  if(!response.ok || data?.error || !data?.current || !data?.hourly || !data?.daily){
+    const reason = data?.reason || data?.error || `HTTP ${response.status}`;
+    throw new Error(reason);
+  }
+  return data;
+}
+
+async function fetchForecastWithFallback(model){
+  try{
+    return await fetchForecast(model);
+  }catch(error){
+    if(model && model !== 'best_match'){
+      console.warn(`${model} faalde, standaard weermodel wordt geprobeerd:`, error);
+      return fetchForecast('best_match');
+    }
+    throw error;
+  }
+}
+
 async function loadWeather(){
   $('#homeLoader')?.classList.remove('hide');
   try{
     let requestedModel = preferredWeatherModel();
-    let r = await fetch(buildForecastUrl(requestedModel), {cache:'no-store'});
-    let d;
-    if(r.ok){
-      d = await r.json();
-    }
-    if(!r.ok || d.error) throw new Error('KNMI HARMONIE niet beschikbaar');
+    let d = await fetchForecastWithFallback(requestedModel);
     state.current = d.current; state.hourly = d.hourly; state.daily = d.daily; state.minutely = d.minutely_15;
     state.tz = d.timezone; state.utcOffsetSec = d.utc_offset_seconds;
     state.lastUpdated = Date.now();
@@ -1045,23 +1085,17 @@ function rainNowcastCard(){
   </div>`;
 }
 
-/* ---------------- animated background: matches current conditions ---------------- */
+/* ---------------- real photo background: matches current conditions ---------------- */
 let lightningTimer = null;
 function applyWeatherBG(code, isDay, cloudCover=0){
   const el = $('#weatherBG');
   if(!el) return;
 
-  const weatherBgImage = (filename)=>{
-    const safe = encodeURI(`./assets/backgrounds/${filename}`);
-    const photoValue = `url("${safe}")`;
-    el.style.setProperty('--weather-photo', photoValue);
-    document.documentElement.style.setProperty('--weather-photo', photoValue);
-    document.body?.style?.setProperty('--weather-photo', photoValue);
-    $('#tvscreen')?.style?.setProperty('--weather-photo', photoValue);
-  };
+  clearInterval(lightningTimer);
+  lightningTimer = null;
 
   const cc = Math.max(0, Math.min(100, Number(cloudCover) || 0));
-  let filename = 'zonnig.png';
+  let filename = DEFAULT_WEATHER_PHOTO;
   let scene = 'sunny';
 
   // Neerslag / slecht weer krijgt altijd voorrang op bewolkingsgraad.
@@ -1093,7 +1127,7 @@ function applyWeatherBG(code, isDay, cloudCover=0){
     filename = 'Nevel.png';
     scene = 'cloudy';
   }else if([71,73,75,77,85,86].includes(code)){
-    // Er is nog geen aparte sneeuwfoto in deze set: behoud bestaande sneeuwscene.
+    // Er is nog geen aparte sneeuwfoto in deze set: gebruik de dichtste echte wolkenfoto.
     filename = cc >= 66 ? 'Zwaarbewolkt.png' : 'Bewolkt.png';
     scene = 'snowy';
   }else{
@@ -1121,7 +1155,15 @@ function applyWeatherBG(code, isDay, cloudCover=0){
     scene = (code === 2 || code === 3 || cc >= 66) ? 'cloudy' : 'sunny';
   }
 
-  weatherBgImage(filename);
+  if(!WEATHER_PHOTO_FILES.has(filename)) filename = DEFAULT_WEATHER_PHOTO;
+
+  const safe = encodeURI(`./assets/backgrounds/${filename}`);
+  const photoValue = `url("${safe}")`;
+  el.style.backgroundImage = photoValue;
+  el.style.setProperty('--weather-photo', photoValue);
+  document.documentElement.style.setProperty('--weather-photo', photoValue);
+  document.body?.style?.setProperty('--weather-photo', photoValue);
+  $('#tvscreen')?.style?.setProperty('--weather-photo', photoValue);
 
   const scenes = ['sunny','cloudy','rainy','stormy','snowy'];
   scenes.forEach(s=>el.classList.toggle(s, s===scene));
@@ -1129,21 +1171,6 @@ function applyWeatherBG(code, isDay, cloudCover=0){
   el.classList.toggle('cloud-cover-heavy', cc >= 86);
   el.classList.toggle('cloud-cover-light', scene === 'cloudy' && cc < 66);
   el.classList.add('photo-weather-bg');
-
-  clearInterval(lightningTimer);
-  if(scene === 'stormy'){
-    const flashEl = $('.wbg-lightning', el);
-    lightningTimer = setInterval(()=>{
-      if(Math.random() < 0.4){
-        flashEl.classList.add('flash');
-        setTimeout(()=>flashEl.classList.remove('flash'), 120);
-        if(Math.random() < 0.3) setTimeout(()=>{
-          flashEl.classList.add('flash');
-          setTimeout(()=>flashEl.classList.remove('flash'), 90);
-        }, 220);
-      }
-    }, 2500);
-  }
 }
 
 function renderHome(){
