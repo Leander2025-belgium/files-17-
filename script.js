@@ -1415,7 +1415,7 @@ async function setHomeMapLayer(layerId){
   try{
     if(layerId === 'radar'){
       const ok = await setHomeXweatherLayer('radar');
-      if(!ok) throw new Error('Xweather radar niet geconfigureerd');
+      if(!ok) await setHomeLegacyLayer('radar');
     }else if(layerId === 'satellite'){
       await setHomeLegacyLayer(layerId);
     }else{
@@ -1448,7 +1448,11 @@ function clearHomeMapOverlay(){
 async function setHomeLegacyLayer(layerId){
   const map = state.homeMap.map;
   if(layerId === 'radar'){
-    state.homeMap.overlay = L.tileLayer(weatherflowRadarTileUrl(0), {
+    const frame = await fetchLatestRainviewerRadarFrame();
+    const url = frame
+      ? rainviewerTileUrl(frame, 'home')
+      : weatherflowRadarTileUrl(0);
+    state.homeMap.overlay = L.tileLayer(url, {
       opacity:.86,
       maxZoom:10,
       maxNativeZoom:10,
@@ -3569,10 +3573,11 @@ function startLegacyRadar(){
   if(state.radar.animator){ state.radar.animator.destroy(); state.radar.animator = null; }
   state.radar.frames = [];
   $('#timeline').innerHTML = '';
-  $('#timeLabel').textContent = 'Geen radar';
+  $('#timeLabel').textContent = 'Radar laden...';
   $('#radarNowBadge')?.classList.remove('show');
   const note = $('.radar-note');
-  if(note) note.textContent = 'Xweather radar is niet geconfigureerd of tijdelijk niet beschikbaar. De basiskaart blijft werken.';
+  if(note) note.textContent = 'Live buienradar wordt geladen via RainViewer. Xweather wordt opnieuw gebruikt zodra de configuratie bereikbaar is.';
+  loadRadarFrames();
 }
 
 async function initXweatherMap(force=false){
@@ -3652,9 +3657,20 @@ async function initXweatherMap(force=false){
 }
 
 async function fetchXweatherConfig(){
-  const r = await fetch(FUNCTION_BASE + 'xweather-config', {cache:'no-store'});
-  if(!r.ok) return {configured:false};
-  return r.json();
+  const urls = [
+    new URL('/api/xweather-config', location.origin).href,
+    FUNCTION_BASE + 'xweather-config'
+  ];
+  for(const url of urls){
+    try{
+      const r = await fetch(url, {cache:'no-store'});
+      if(r.ok) return await r.json();
+      console.warn('Xweather config endpoint faalde', {url, status:r.status});
+    }catch(error){
+      console.warn('Xweather config endpoint onbereikbaar', {url, error});
+    }
+  }
+  return {configured:false};
 }
 
 async function ensureXweatherSdk(){
@@ -4186,6 +4202,34 @@ function weatherflowRadarFrames(){
     source:'weatherflow-worker'
   }));
 }
+async function fetchRainviewerMeta(){
+  const r = await fetch('https://api.rainviewer.com/public/weather-maps.json?ts=' + Date.now(), {cache:'no-store'});
+  if(!r.ok) throw new Error('RainViewer '+r.status);
+  return r.json();
+}
+function rainviewerRadarFrames(meta){
+  const past = (meta?.radar && meta.radar.past) || [];
+  const nowcast = (meta?.radar && meta.radar.nowcast) || [];
+  const cutoff = (Date.now()/1000) - 2 * 60 * 60;
+  const recentPast = past.filter(f=>f.time >= cutoff);
+  const all = recentPast.concat(nowcast.map(f=>({...f, isNowcast:true})));
+  const latestObservedTime = recentPast.length ? recentPast[recentPast.length - 1].time : null;
+  return all.map(f=>({
+    ...f,
+    source:'rainviewer',
+    isNow:latestObservedTime != null && f.time === latestObservedTime && !f.isNowcast
+  }));
+}
+async function fetchLatestRainviewerRadarFrame(){
+  const meta = await fetchRainviewerMeta();
+  rainviewerMeta = meta;
+  const frames = rainviewerRadarFrames(meta).filter(f=>!f.isNowcast);
+  return frames[frames.length - 1] || null;
+}
+function rainviewerTileUrl(frame, salt='radar'){
+  if(!rainviewerMeta?.host || !frame?.path) return '';
+  return `${rainviewerMeta.host}${frame.path}/256/{z}/{x}/{y}/4/1_1.png?${salt}=${frame.time}-${Date.now()}`;
+}
 function updateRadarLocationUi(){
   const place = $('#radarPlaceLabel');
   if(place) place.textContent = state.loc?.name ? `Radar rond ${state.loc.name}` : 'Radar rond Belgie';
@@ -4193,14 +4237,18 @@ function updateRadarLocationUi(){
 async function loadRadarFrames(keepFrame=false){
   updateRadarLocationUi();
   if(state.radar.layer === 'precip'){
-    rainviewerMeta = null;
-    buildFrameList(keepFrame);
+    try{
+      rainviewerMeta = await fetchRainviewerMeta();
+      buildFrameList(keepFrame);
+    }catch(e){
+      console.error('RainViewer radarframes konden niet laden, worker-fallback wordt geprobeerd', e);
+      rainviewerMeta = null;
+      buildFrameList(keepFrame);
+    }
     return;
   }
   try{
-    const r = await fetch('https://api.rainviewer.com/public/weather-maps.json?ts=' + Date.now(), {cache:'no-store'});
-    if(!r.ok) throw new Error('RainViewer '+r.status);
-    rainviewerMeta = await r.json();
+    rainviewerMeta = await fetchRainviewerMeta();
     buildFrameList(keepFrame);
   }catch(e){
     console.error('Satellietframes konden niet laden', e);
@@ -4218,7 +4266,7 @@ function isFreshRadarFrame(frame){
   return ageMinutes >= -10 && ageMinutes <= RADAR_MAX_AGE_MINUTES;
 }
 function currentFrameSet(){
-  if(state.radar.layer === 'precip') return weatherflowRadarFrames();
+  if(state.radar.layer === 'precip') return rainviewerMeta ? rainviewerRadarFrames(rainviewerMeta) : weatherflowRadarFrames();
   if(!rainviewerMeta) return [];
   if(state.radar.layer === 'satellite'){
     return (rainviewerMeta.satellite && rainviewerMeta.satellite.infrared) || [];
@@ -4270,7 +4318,7 @@ function renderTimeline(){
     b.className = 'tframe' + (f.isNowcast ? ' nowcast':'') + (f.isNow ? ' now':'') + (i===state.radar.index?' active':'');
     const d = new Date(f.time*1000);
     b.title = state.radar.layer === 'precip'
-      ? (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`)
+      ? (f.source === 'rainviewer' ? d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`))
       : d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast ? ' verwacht' : ' gemeten');
     b.addEventListener('click', ()=>{ stopPlaying(); setFrame(i); });
     tl.appendChild(b);
@@ -4282,7 +4330,7 @@ function setFrame(i){
   const f = state.radar.frames[i];
   let url = '';
   if(state.radar.layer === 'precip'){
-    url = weatherflowRadarTileUrl(f.offset);
+    url = f.source === 'rainviewer' ? rainviewerTileUrl(f) : weatherflowRadarTileUrl(f.offset);
   }else{
     if(!rainviewerMeta) return;
     const host = rainviewerMeta.host;
@@ -4292,7 +4340,7 @@ function setFrame(i){
   state.radar.animator.showFrame(url, state.radar.opacity);
   const d = new Date(f.time*1000);
   const label = state.radar.layer === 'precip'
-    ? (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`)
+    ? (f.source === 'rainviewer' ? d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`))
     : d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast?' verwacht':'');
   $('#timeLabel').textContent = label;
   $('#radarNowBadge')?.classList.toggle('show', state.radar.layer === 'precip' && f.isNow);
@@ -4689,8 +4737,8 @@ async function initTvMap(){
   if(xweatherOk){
     tv.loopTimer = setInterval(refreshTvXweatherRadar, TV_RADAR_REFRESH_MS);
   }else{
-    clearTvRadarLayer();
-    updateTvRadarLabel(null, 'Radar niet beschikbaar');
+    await refreshTvRadarFrame();
+    tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
   }
 }
 
@@ -4775,8 +4823,34 @@ function disposeTvXweatherRadar(){
 }
 async function refreshTvRadarFrame(){
   if(!tv.map) return;
-  setTvFrame(WEATHERFLOW_RADAR_OFFSETS.length - 1);
-  tv.map.invalidateSize();
+  try{
+    const frame = await fetchLatestRainviewerRadarFrame();
+    if(frame){
+      setTvRainviewerFrame(frame);
+    }else{
+      setTvFrame(WEATHERFLOW_RADAR_OFFSETS.length - 1);
+    }
+    tv.map.invalidateSize();
+  }catch(error){
+    console.warn('TV radar fallback kon niet verversen', error);
+    setTvFrame(WEATHERFLOW_RADAR_OFFSETS.length - 1);
+  }
+}
+function setTvRainviewerFrame(frame){
+  if(!tv.map || !frame) return;
+  clearTvRadarLayer();
+  tv.radarLayer = L.tileLayer(rainviewerTileUrl(frame, 'tv'), {
+    opacity:0.9,
+    maxZoom:10,
+    maxNativeZoom:10,
+    pane:'radarPane',
+    className:'radar-tile-layer tv-radar-live-layer',
+    crossOrigin:true,
+    keepBuffer:1,
+    updateWhenIdle:false,
+    updateWhenZooming:false
+  }).addTo(tv.map);
+  updateTvRadarLabel(frame.time, 'Live buienradar - Nu');
 }
 function setTvFrame(i){
   if(!tv.map) return;
