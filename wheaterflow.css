@@ -2954,7 +2954,7 @@ body{
 
 /* ---------- Wheaterflow Community ---------- */
 #communityscreen .screen-inner{
-  padding-top:calc(10px + env(safe-area-inset-top));
+  padding-top:max(54px, calc(14px + env(safe-area-inset-top)));
 }
 .community-inner{
   display:grid;
