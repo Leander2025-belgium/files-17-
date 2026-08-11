@@ -249,8 +249,8 @@ using (
 create table if not exists public.community_posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  photo_url text not null,
-  photo_path text not null,
+  photo_url text,
+  photo_path text,
   caption text,
   category text not null default 'other',
   hashtags text[] default '{}',
@@ -274,6 +274,16 @@ create table if not exists public.community_posts (
   report_count integer not null default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
+);
+
+alter table public.community_posts alter column photo_url drop not null;
+alter table public.community_posts alter column photo_path drop not null;
+alter table public.community_posts drop constraint if exists community_posts_content_check;
+alter table public.community_posts
+add constraint community_posts_content_check
+check (
+  photo_url is not null
+  or nullif(btrim(coalesce(caption, '')), '') is not null
 );
 
 create table if not exists public.community_comments (

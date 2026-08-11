@@ -3119,6 +3119,48 @@ body{
   object-fit:cover;
   background:#0b172b;
 }
+.community-text-card{
+  position:relative;
+  display:grid;
+  gap:10px;
+  min-height:190px;
+  padding:24px;
+  align-content:end;
+  overflow:hidden;
+  border-top:1px solid rgba(255,255,255,.10);
+  border-bottom:1px solid rgba(255,255,255,.10);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(103,245,213,.24), transparent 34%),
+    linear-gradient(140deg, rgba(255,255,255,.14), rgba(255,255,255,.045)),
+    rgba(8,18,38,.72);
+}
+.community-text-card::before{
+  content:"";
+  position:absolute;
+  inset:12px;
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.14);
+  pointer-events:none;
+}
+.community-text-card svg{
+  width:32px;
+  height:32px;
+  color:var(--community-accent, #8fe7ff);
+}
+.community-text-card b{
+  position:relative;
+  font-size:22px;
+  color:#fff;
+}
+.community-text-card p{
+  position:relative;
+  margin:0;
+  max-width:58ch;
+  color:rgba(233,238,251,.90);
+  font-size:18px;
+  line-height:1.38;
+  overflow-wrap:anywhere;
+}
 .community-body{
   display:grid;
   gap:9px;
@@ -3313,6 +3355,9 @@ body{
   overflow:hidden;
   text-align:center;
 }
+.community-photo-picker span{
+  color:rgba(233,238,251,.82);
+}
 .community-photo-picker input{
   display:none;
 }
@@ -3329,6 +3374,15 @@ body{
   color:rgba(233,238,251,.72);
   font-size:12px;
   line-height:1.4;
+}
+.climate-memory-icon{
+  width:42px;
+  height:42px;
+  border-radius:14px;
+  display:grid;
+  place-items:center;
+  background:rgba(143,231,255,.16);
+  color:#8fe7ff;
 }
 
 /* ---------- Mijn Klimaat ---------- */

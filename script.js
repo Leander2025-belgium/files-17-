@@ -2836,7 +2836,10 @@ function renderClimateMemories(){
     memories.push(`<div class="climate-row">${icon(wcInfo(r.weather_code).ic,true,24)}<div><b>Een jaar geleden in ${esc(r.location_name || 'jouw locatie')}</b><span>${esc(wcInfo(r.weather_code).l)} - ${fmtTemp(r.min_temperature)} / ${fmtTemp(r.max_temperature)}</span></div></div>`);
   });
   state.community.posts.filter(p=>String(p.created_at || '').slice(0,10) === lastYearKey && p.user_id === state.auth.user?.id).forEach(p=>{
-    memories.push(`<div class="climate-row"><img class="climate-memory-photo" src="${esc(p.photo_url)}" alt=""><div><b>Een jaar geleden deelde je deze weerfoto</b><span>${esc(p.location_name || '')} - ${esc(communityCategory(p.category).label)}</span></div></div>`);
+    const memoryMedia = p.photo_url
+      ? `<img class="climate-memory-photo" src="${esc(p.photo_url)}" alt="">`
+      : `<span class="climate-memory-icon">${icon('cloud', true, 24)}</span>`;
+    memories.push(`<div class="climate-row">${memoryMedia}<div><b>Een jaar geleden deelde je deze ${p.photo_url ? 'weerfoto' : 'waarneming'}</b><span>${esc(p.location_name || '')} - ${esc(communityCategory(p.category).label)}</span></div></div>`);
   });
   el.innerHTML = memories.length ? memories.join('') : '<div class="climate-empty">Nog geen weerherinneringen voor vandaag.</div>';
 }
@@ -2884,6 +2887,7 @@ const COMMUNITY_CATEGORIES = [
   {id:'fog', label:'Mist', color:'#b8c2d4'},
   {id:'snow', label:'Sneeuw', color:'#f3fbff'},
   {id:'coast', label:'Kustweer', color:'#45d6ff'},
+  {id:'seaspark', label:'Zeevonk', color:'#67f5d5'},
   {id:'sunset', label:'Zonsondergang', color:'#ff9a45'},
   {id:'sunrise', label:'Zonsopkomst', color:'#ffd36b'},
   {id:'clouds', label:'Bijzondere wolken', color:'#9fb5d4'},
@@ -2896,7 +2900,8 @@ const safeRandomId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.n
 
 function initCommunityUi(){
   const catOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
-  if($('#communityCategorySelect')) $('#communityCategorySelect').innerHTML = catOptions;
+  const composerCatOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}" ${c.id === 'other' ? 'selected' : ''}>${c.label}</option>`).join('');
+  if($('#communityCategorySelect')) $('#communityCategorySelect').innerHTML = composerCatOptions;
   if($('#communityCategoryFilter')) $('#communityCategoryFilter').innerHTML = '<option value="">Alle categorieen</option>' + catOptions;
   $('#communityUploadOpen')?.addEventListener('click', openCommunityComposer);
   $('#communityComposerClose')?.addEventListener('click', closeCommunityComposer);
@@ -2986,7 +2991,7 @@ function renderCommunityFeed(){
   const feed = $('#communityFeed');
   if(!feed) return;
   if(!state.community.posts.length){
-    feed.innerHTML = '<div class="community-empty">Nog geen communityposts. Deel de eerste weerfoto vanuit jouw buurt.</div>';
+    feed.innerHTML = '<div class="community-empty">Nog geen communityposts. Deel de eerste waarneming vanuit jouw buurt.</div>';
   }else{
     feed.innerHTML = state.community.posts.map(communityPostHtml).join('');
   }
@@ -3001,6 +3006,10 @@ function communityPostHtml(post){
   const liked = post.community_likes?.some(l=>l.user_id === state.auth.user?.id);
   const saved = post.community_favorites?.some(f=>f.user_id === state.auth.user?.id);
   const comments = (post.community_comments || []).slice(0,3);
+  const hasPhoto = Boolean(post.photo_url);
+  const media = hasPhoto
+    ? `<img class="community-photo" src="${esc(post.photo_url)}" alt="${esc(post.caption || cat.label)}" loading="lazy">`
+    : `<div class="community-text-card" style="--community-accent:${cat.color};">${icon('cloud', true, 30)}<b>${esc(cat.label)}</b>${post.caption ? `<p>${linkHashtags(esc(post.caption))}</p>` : ''}</div>`;
   return `<article class="community-post" data-post-id="${post.id}">
     <div class="community-post-head">
       <div class="community-avatar">${avatar}</div>
@@ -3010,9 +3019,9 @@ function communityPostHtml(post){
       </div>
       <div class="community-category" style="box-shadow:inset 0 -2px 0 ${cat.color};">${esc(cat.label)}</div>
     </div>
-    <img class="community-photo" src="${esc(post.photo_url)}" alt="${esc(post.caption || cat.label)}" loading="lazy">
+    ${media}
     <div class="community-body">
-      ${post.caption ? `<p class="community-caption">${linkHashtags(esc(post.caption))}</p>` : ''}
+      ${hasPhoto && post.caption ? `<p class="community-caption">${linkHashtags(esc(post.caption))}</p>` : ''}
       <div class="community-weather-line">
         <span>${fmtTemp(post.temperature)}</span>
         <span>Voelt ${fmtTemp(post.apparent_temperature)}</span>
@@ -3119,6 +3128,9 @@ function handleCommunityPhotoSelect(e){
   if(file && preview){
     preview.src = URL.createObjectURL(file);
     preview.classList.remove('hidden');
+  }else if(preview){
+    preview.removeAttribute('src');
+    preview.classList.add('hidden');
   }
 }
 
@@ -3131,19 +3143,21 @@ function updateCommunityCapturedWeather(){
 async function createCommunityPost(){
   if(!requireCommunityLogin()) return;
   const file = state.community.selectedFile;
-  if(!file) return setCommunityComposerMessage('Kies eerst een foto.', 'error');
+  const caption = $('#communityCaption')?.value.trim() || '';
+  if(!file && caption.length < 3) return setCommunityComposerMessage('Schrijf een kort bericht of voeg een foto toe.', 'error');
   try{
-    setCommunityComposerMessage('Foto voorbereiden...');
-    const blob = await compressAvatar(file);
+    setCommunityComposerMessage(file ? 'Foto voorbereiden...' : 'Bericht voorbereiden...');
+    const blob = file ? await compressAvatar(file) : null;
     const gps = $('#communityUseGps')?.checked ? await getBrowserLocation() : null;
     const privacy = $('#communityLocationPrivacy')?.value || 'municipality';
     const loc = gps ? {lat:gps.lat, lon:gps.lon, ...(await reverseGeocode(gps.lat,gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
     const cur = liveWeatherSnapshot();
-    const caption = $('#communityCaption')?.value.trim() || '';
+    let category = $('#communityCategorySelect')?.value || 'other';
+    if(category === 'other' && /(^|\s|#)(zeevonk|seaspark|bioluminescentie|bioluminescence)(\s|$|[.,!?])/i.test(caption)) category = 'seaspark';
     const form = new FormData();
-    form.append('photo', blob, 'weather.webp');
+    if(blob) form.append('photo', blob, 'weather.webp');
     form.append('caption', caption);
-    form.append('category', $('#communityCategorySelect')?.value || 'other');
+    form.append('category', category);
     form.append('location_privacy', privacy);
     form.append('location_name', privacy === 'none' ? '' : (loc.name || state.loc.name));
     if(privacy === 'exact'){ form.append('latitude', String(loc.lat)); form.append('longitude', String(loc.lon)); }
@@ -3158,7 +3172,7 @@ async function createCommunityPost(){
     await apiForm('/community/posts', form);
     setCommunityComposerMessage('Geplaatst.', 'ok');
     $('#communityCaption').value=''; $('#communityPhotoInput').value=''; $('#communityPhotoPreview')?.classList.add('hidden');
-    state.community.selectedFile=null; closeCommunityComposer(); await loadCommunityPosts(true); toast('Weerfoto gedeeld.');
+    state.community.selectedFile=null; closeCommunityComposer(); await loadCommunityPosts(true); toast(file ? 'Weerfoto gedeeld.' : 'Weerbericht gedeeld.');
   }catch(e){ console.warn('Community upload mislukt:', e?.message || e); setCommunityComposerMessage('Uploaden lukte niet. Controleer je verbinding.', 'error'); }
 }
 
@@ -3189,7 +3203,10 @@ function renderCommunityMapMarkers(){
   state.community.posts.filter(p=>p.latitude != null && p.longitude != null).forEach(post=>{
     const cat = communityCategory(post.category);
     const marker = L.circleMarker([+post.latitude, +post.longitude], {radius:9, color:'#fff', weight:2, fillColor:cat.color, fillOpacity:.95});
-    marker.bindPopup(`<b>${esc(cat.label)}</b><br>${esc(post.location_name || '')}<br>${post.photo_url ? `<img src="${esc(post.photo_url)}" style="width:150px;border-radius:10px;margin-top:6px;">` : ''}`);
+    const popupMedia = post.photo_url
+      ? `<img src="${esc(post.photo_url)}" style="width:150px;border-radius:10px;margin-top:6px;">`
+      : (post.caption ? `<p style="max-width:170px;margin:6px 0 0;">${esc(post.caption)}</p>` : '');
+    marker.bindPopup(`<b>${esc(cat.label)}</b><br>${esc(post.location_name || '')}<br>${popupMedia}`);
     marker.addTo(state.community.markers);
   });
 }
