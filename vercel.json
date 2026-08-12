@@ -32,6 +32,12 @@
       ]
     },
     {
+      "source": "/tvPairingService.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    },
+    {
       "source": "/style.css",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache" }
@@ -42,6 +48,12 @@
     {
       "path": "/api/weather-alert-scheduler",
       "schedule": "*/30 * * * *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/tv",
+      "destination": "/index.html"
     }
   ]
 }

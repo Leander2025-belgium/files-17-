@@ -31,6 +31,16 @@
     Cache-Control = "no-cache"
 
 [[headers]]
+  for = "/tvPairingService.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
   for = "/style.css"
   [headers.values]
     Cache-Control = "no-cache"
+
+[[redirects]]
+  from = "/tv"
+  to = "/index.html"
+  status = 200

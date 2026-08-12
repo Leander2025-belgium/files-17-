@@ -52,6 +52,7 @@
       <button class="smallbtn" id="openSheetBtn" style="margin-top:8px;">Instellingen</button>
       <button class="smallbtn" id="tvBtn" style="margin-top:8px;margin-left:6px;">Tv-modus</button>
       <button class="smallbtn castbtn" id="castBtn" type="button" hidden aria-live="polite" style="margin-top:8px;margin-left:6px;">Cast naar tv</button>
+      <button class="smallbtn tvpairbtn" id="pairTvBtn" type="button" aria-live="polite" style="margin-top:8px;margin-left:6px;">TV koppelen</button>
       <button class="smallbtn" id="climateBtn" style="margin-top:8px;margin-left:6px;">Mijn Klimaat</button>
       <button class="profile-trigger" id="profileBtn" type="button" aria-label="Profiel openen" title="Profiel" style="margin-top:8px;margin-left:6px;">
         <span id="profileAvatarMini" class="profile-mini">?</span>
@@ -530,8 +531,37 @@
   </div>
 </div>
 
+<div class="tv-pair-scrim" id="tvPairScrim"></div>
+<div class="tv-pair-sheet" id="tvPairSheet" role="dialog" aria-modal="true" aria-labelledby="tvPairTitle">
+  <div class="tv-pair-head">
+    <div>
+      <h3 id="tvPairTitle">TV koppelen</h3>
+      <p>Open <b>wheaterflow.be/tv</b> op je TV en vul hier de 6 cijfers in.</p>
+    </div>
+    <button class="tv-pair-close" id="tvPairClose" type="button" aria-label="Sluiten">&times;</button>
+  </div>
+  <label class="tv-pair-label" for="tvPairCodeInput">Koppelcode</label>
+  <input id="tvPairCodeInput" class="tv-pair-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+  <div class="tv-pair-actions">
+    <button class="smallbtn primary" id="tvPairSubmit" type="button">Koppelen</button>
+    <button class="smallbtn" id="tvPairRefresh" type="button" hidden>TV verversen</button>
+    <button class="smallbtn danger" id="tvPairDisconnect" type="button" hidden>Ontkoppelen</button>
+  </div>
+  <div class="tv-pair-message" id="tvPairMessage">Nog niet gekoppeld.</div>
+</div>
+
 <!-- ============ TV MODE ============ -->
 <div id="tvscreen">
+  <div class="tv-pair-overlay" id="tvPairOverlay" hidden>
+    <div class="tv-pair-card">
+      <img src="./icons/icon-192.png" alt="Wheaterflow">
+      <span>Wheaterflow TV</span>
+      <h1 id="tvPairCodeDisplay">------</h1>
+      <p id="tvPairCountdown">Koppelcode wordt opgehaald...</p>
+      <small>Open de app op je telefoon, tik op <b>TV koppelen</b> en voer deze code in.</small>
+      <div id="tvPairOverlayMessage" class="tv-pair-overlay-message"></div>
+    </div>
+  </div>
   <div class="tv-top">
     <div class="tv-loc">
       <div class="tv-locname" id="tvLocName">-</div>
@@ -578,7 +608,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
 <script src="castService.js?v=20260812-cast-1"></script>
-<script src="script.js?v=20260812-cast-1"></script>
+<script src="tvPairingService.js?v=20260812-tvpair-1"></script>
+<script src="script.js?v=20260812-tvpair-1"></script>
 </body>
 </html>
 

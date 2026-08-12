@@ -17,6 +17,11 @@ const CAST_CONFIG_URLS = [
   new URL('/api/cast-config', location.origin).href,
   FUNCTION_BASE + 'cast-config'
 ];
+const TV_PAIRING_API_URLS = [
+  ...(window.WHEATERFLOW_TV_PAIRING_API_URL ? [window.WHEATERFLOW_TV_PAIRING_API_URL] : []),
+  new URL('/api/tv-pairing', location.origin).href,
+  FUNCTION_BASE + 'tv-pairing'
+];
 const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
   ? new URL('/api/', location.origin).href
   : 'https://api.wheaterflow.be/api/';
@@ -55,6 +60,7 @@ const state = {
   xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   cast: { service:null, status:'idle', available:false, configured:false, connected:false, deviceName:'', receiver:false },
+  tvPairing: { service:null, receiver:false, connected:false, code:'', expiresAt:0, status:'idle' },
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null },
   map: null, marker: null, homeMap: { map:null, base:null, overlay:null, xweatherController:null, activeLayer:'radar' },
   activeTab: 'home',
@@ -933,6 +939,7 @@ async function setLocation(lat, lon, name, admin){
   refreshRadarSource();
   updateStormTab();
   notifyCastLocationChanged();
+  notifyTvPairingLocationChanged();
   toast(`${name} geladen`);
 }
 
@@ -1068,6 +1075,186 @@ $('#castBtn')?.addEventListener('click', async ()=>{
   const ok = await state.cast.service.requestSession();
   if(ok) toast('TV-modus wordt geopend op je tv');
 });
+
+function tvPairingMessage(text, type=''){
+  const el = $('#tvPairMessage');
+  if(!el) return;
+  el.textContent = text;
+  el.className = `tv-pair-message ${type}`.trim();
+}
+
+function openTvPairSheet(code=''){
+  document.body.classList.add('tv-pair-open');
+  const input = $('#tvPairCodeInput');
+  if(input){
+    if(code) input.value = code;
+    setTimeout(()=>input.focus(), 80);
+  }
+  updateTvPairingUi();
+}
+
+function closeTvPairSheet(){
+  document.body.classList.remove('tv-pair-open');
+}
+
+function updateTvPairingUi(status=state.tvPairing.status, detail={}){
+  state.tvPairing.status = status;
+  if(status === 'connected'){
+    state.tvPairing.connected = true;
+  }else if(['disconnected','error','idle'].includes(status)){
+    state.tvPairing.connected = false;
+  }
+  const btn = $('#pairTvBtn');
+  if(btn){
+    btn.classList.toggle('connected', state.tvPairing.connected);
+    btn.classList.toggle('error', status === 'error');
+    btn.textContent = state.tvPairing.connected ? 'TV gekoppeld' : 'TV koppelen';
+    btn.title = state.tvPairing.connected ? 'Locatie wordt automatisch naar je TV gestuurd' : 'Koppel een TV met wheaterflow.be/tv';
+  }
+  const disconnect = $('#tvPairDisconnect');
+  const refresh = $('#tvPairRefresh');
+  if(disconnect) disconnect.hidden = !state.tvPairing.connected;
+  if(refresh) refresh.hidden = !state.tvPairing.connected;
+  if(detail.message) tvPairingMessage(detail.message, status === 'error' ? 'error' : 'ok');
+}
+
+function updateTvPairOverlay(data={}){
+  const overlay = $('#tvPairOverlay');
+  const codeEl = $('#tvPairCodeDisplay');
+  const countEl = $('#tvPairCountdown');
+  if(!overlay || !codeEl || !countEl) return;
+  overlay.hidden = Boolean(data.paired);
+  if(data.code){
+    state.tvPairing.code = data.code;
+    state.tvPairing.expiresAt = data.expiresAt || 0;
+    codeEl.textContent = data.code;
+  }
+  if(data.paired){
+    countEl.textContent = 'Telefoon gekoppeld.';
+    $('#tvPairOverlayMessage').textContent = 'Je locatie verschijnt zo op de TV.';
+  }else if(data.expiresIn != null){
+    countEl.textContent = `Code vervalt over ${Math.max(0, data.expiresIn)} sec.`;
+  }else{
+    countEl.textContent = 'Koppelcode wordt opgehaald...';
+  }
+}
+
+async function applyTvPairingReceiverLocation(location){
+  const loc = window.WheaterflowTvPairingService?.normalizeLocation(location);
+  if(!loc) return;
+  await applyCastReceiverLocation(loc);
+  $('#tvPairOverlay')?.setAttribute('hidden', '');
+  const status = $('#tvCastStatus');
+  if(status) status.textContent = `TV gekoppeld - ${loc.name}`;
+}
+
+async function initTvPairing(){
+  if(!window.WheaterflowTvPairingService?.create) return;
+  state.tvPairing.receiver = window.WheaterflowTvPairingService.isTvRoute();
+  state.tvPairing.service = window.WheaterflowTvPairingService.create({
+    apiUrls:TV_PAIRING_API_URLS,
+    getLocation:currentCastLocation,
+    onTvCode:updateTvPairOverlay,
+    onTvPaired:(data)=>{
+      updateTvPairOverlay(data);
+      const status = $('#tvCastStatus');
+      if(status) status.textContent = 'Telefoon gekoppeld - wacht op locatie';
+    },
+    onTvLocation:applyTvPairingReceiverLocation,
+    onTvRefresh:async()=>loadWeather(),
+    onTvDisconnected:()=>{
+      const overlay = $('#tvPairOverlay');
+      if(overlay) overlay.hidden = false;
+      const status = $('#tvCastStatus');
+      if(status) status.textContent = 'Telefoon ontkoppeld';
+    },
+    onControllerPaired:()=>{
+      updateTvPairingUi('connected', {message:'TV gekoppeld. Je locatie wordt nu doorgestuurd.'});
+    },
+    onControllerStatus:(data)=>{
+      updateTvPairingUi(data.tvConnected ? 'connected' : 'connected');
+      if(!data.tvConnected) tvPairingMessage('TV is even niet bereikbaar. Laat de TV-pagina openstaan.', 'error');
+    },
+    onControllerDisconnected:(error)=>{
+      updateTvPairingUi('disconnected', {message:error?.message || 'TV-koppeling is gestopt.'});
+    },
+    onError:(error)=>{
+      console.warn('TV-koppeling:', error);
+      const msg = $('#tvPairOverlayMessage');
+      if(msg) msg.textContent = 'Koppeling probeert opnieuw te verbinden...';
+    }
+  });
+
+  wireTvPairingUi();
+
+  if(state.tvPairing.receiver){
+    await startTvPairingReceiverMode();
+    return;
+  }
+
+  if(state.tvPairing.service.restoreController()){
+    updateTvPairingUi('connected', {message:'Vorige TV-koppeling hersteld.'});
+  }
+
+  const code = window.WheaterflowTvPairingService.pairCodeFromUrl();
+  if(code) openTvPairSheet(code);
+}
+
+function wireTvPairingUi(){
+  $('#pairTvBtn')?.addEventListener('click', ()=>openTvPairSheet());
+  $('#tvPairClose')?.addEventListener('click', closeTvPairSheet);
+  $('#tvPairScrim')?.addEventListener('click', closeTvPairSheet);
+  $('#tvPairCodeInput')?.addEventListener('input', (event)=>{
+    event.target.value = window.WheaterflowTvPairingService.cleanCode(event.target.value);
+  });
+  $('#tvPairCodeInput')?.addEventListener('keydown', (event)=>{
+    if(event.key === 'Enter') $('#tvPairSubmit')?.click();
+  });
+  $('#tvPairSubmit')?.addEventListener('click', async ()=>{
+    try{
+      tvPairingMessage('Koppelen...', '');
+      const code = $('#tvPairCodeInput')?.value;
+      await state.tvPairing.service?.pair(code);
+      closeTvPairSheet();
+      toast('TV gekoppeld');
+    }catch(error){
+      console.error('TV koppelen mislukt:', error);
+      updateTvPairingUi('error', {message:error.message || 'TV kon niet gekoppeld worden.'});
+    }
+  });
+  $('#tvPairRefresh')?.addEventListener('click', async ()=>{
+    try{
+      await state.tvPairing.service?.refreshTv();
+      await notifyTvPairingLocationChanged();
+      tvPairingMessage('TV wordt ververst.', 'ok');
+    }catch(error){
+      updateTvPairingUi('error', {message:error.message || 'Verversen is mislukt.'});
+    }
+  });
+  $('#tvPairDisconnect')?.addEventListener('click', async ()=>{
+    await state.tvPairing.service?.disconnect();
+    updateTvPairingUi('disconnected', {message:'TV ontkoppeld.'});
+  });
+}
+
+async function startTvPairingReceiverMode(){
+  document.body.classList.add('tv-pairing-receiver');
+  $('#app')?.setAttribute('aria-hidden', 'true');
+  await enterTV({fromPairing:true});
+  $('#tvPairOverlay')?.removeAttribute('hidden');
+  const status = $('#tvCastStatus');
+  if(status) status.textContent = 'Wachten op telefoon';
+  await state.tvPairing.service?.startTvSession();
+}
+
+async function notifyTvPairingLocationChanged(){
+  if(!state.tvPairing.service || state.tvPairing.receiver || !state.tvPairing.connected) return;
+  try{
+    await state.tvPairing.service.notifyLocationChanged(currentCastLocation());
+  }catch(error){
+    console.warn('TV-locatie kon niet verzonden worden:', error);
+  }
+}
 
 /* ---------------- weather fetch ---------------- */
 function buildForecastUrl(model){
@@ -4724,8 +4911,10 @@ const tv = {
 async function enterTV(options={}){
   tv.active = true;
   document.getElementById('tvscreen').classList.add('active');
+  const externalReceiver = Boolean(options.fromCast || options.fromPairing);
   document.body.classList.toggle('tv-cast-receiver', Boolean(options.fromCast));
-  if(!options.fromCast){
+  document.body.classList.toggle('tv-pairing-receiver', Boolean(options.fromPairing));
+  if(!externalReceiver){
     try{
       if(document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
       else if(document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen();
@@ -4741,10 +4930,11 @@ async function enterTV(options={}){
   initTvMap();
 }
 function exitTV(){
-  if(state.cast.receiver) return;
+  if(state.cast.receiver || state.tvPairing.receiver) return;
   tv.active = false;
   document.getElementById('tvscreen').classList.remove('active');
   document.body.classList.remove('tv-cast-receiver');
+  document.body.classList.remove('tv-pairing-receiver');
   clearInterval(tv.clockTimer); clearInterval(tv.refreshTimer); clearInterval(tv.loopTimer);
   disposeTvXweatherRadar();
   if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
@@ -4757,6 +4947,7 @@ document.addEventListener('fullscreenchange', ()=>{
 document.addEventListener('keydown', (e)=>{
   if(e.key === 'Escape' && document.body.classList.contains('auth-open')) closeAuthSheet();
   if(e.key === 'Escape' && document.body.classList.contains('day-detail-open')) closeDayDetail();
+  if(e.key === 'Escape' && document.body.classList.contains('tv-pair-open')) closeTvPairSheet();
   if(e.key === 'Escape' && tv.active) exitTV();
 });
 window.addEventListener('popstate', ()=>{
@@ -5076,6 +5267,7 @@ async function init(){
   await safeInitStep('Auth starten', initAuth);
   await safeInitStep('Community realtime starten', subscribeCommunityRealtime);
   await safeInitStep('Google Cast starten', initCast);
+  await safeInitStep('TV koppeling starten', initTvPairing);
   await safeInitStep('Instellingenknoppen herstellen', ()=>{
     $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
     $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));
@@ -5086,7 +5278,7 @@ async function init(){
   });
 
   await safeInitStep('Locatie ophalen', async ()=>{
-    if(state.cast.receiver) return;
+    if(state.cast.receiver || state.tvPairing.receiver) return;
     const p = await getBrowserLocation();
     if(p){
       const g = await reverseGeocode(p.lat, p.lon);
@@ -5095,6 +5287,7 @@ async function init(){
   });
   await loadWeather();
   await safeInitStep('Cast locatie synchroniseren', notifyCastLocationChanged);
+  await safeInitStep('TV koppeling synchroniseren', notifyTvPairingLocationChanged);
   safeInitStep('Eigen weermeldingen laden', laadWeerMeldingen);
   setInterval(()=>safeInitStep('Eigen weermeldingen verversen', laadWeerMeldingen), 5 * 60 * 1000);
   await safeInitStep('Auto refresh starten', startAutoRefresh);
