@@ -1521,6 +1521,7 @@ function renderHome(){
 
   html += alertsCard();
   html += rainNowcastCard();
+  html += eclipseInfoCard();
   html += compactAirQualityCard();
 
   // hourly
@@ -1584,6 +1585,37 @@ function renderHome(){
   wireDailyDetails();
   renderPremiumCharts();
   positionSunPaths();
+}
+
+function eclipseInfoCard(){
+  const now = Date.now();
+  const visibleFrom = new Date('2026-08-12T00:00:00+02:00').getTime();
+  const visibleUntil = new Date('2026-08-13T04:00:00+02:00').getTime();
+  if(now < visibleFrom || now > visibleUntil) return '';
+
+  const events = [
+    {time:'19:17', label:'Begin', text:'De maan schuift voor de zon.'},
+    {time:'20:13', label:'Piek', text:'Maximum in Belgie.'},
+    {time:'21:05', label:'Einde', text:'De verduistering loopt af.'}
+  ];
+  return `<div class="card eclipse-card">
+    <div class="card-title">${icon('sunrise', true, 13)} Eclipse vandaag</div>
+    <div class="eclipse-hero">
+      <div class="eclipse-orbit" aria-hidden="true"><span></span></div>
+      <div>
+        <strong>Zonsverduistering in Belgie</strong>
+        <p>De piek is rond <b>20:13</b>. Kijk nooit rechtstreeks naar de zon zonder echte eclipsbril.</p>
+      </div>
+    </div>
+    <div class="eclipse-timeline">
+      ${events.map(event=>`<div class="eclipse-time ${event.label === 'Piek' ? 'peak' : ''}">
+        <span>${event.time}</span>
+        <b>${event.label}</b>
+        <small>${event.text}</small>
+      </div>`).join('')}
+    </div>
+    <div class="eclipse-note">Tip: laag aan de westelijke horizon kijken, maar alleen veilig met gecertificeerde bescherming.</div>
+  </div>`;
 }
 
 function defaultPushPreferences(){
