@@ -7,11 +7,13 @@
   "scripts": {
     "build": "npm run test",
     "test": "node --check script.js && node --check service-worker.js && node --check tvPairingService.js && node --check netlify/functions/tv-pairing.js && node --check api/tv-pairing.js",
-    "generate-vapid": "web-push generate-vapid-keys"
+    "generate-vapid": "web-push generate-vapid-keys",
+    "tv-pairing-server": "node server/tv-pairing-server.js"
   },
   "dependencies": {
     "@netlify/blobs": "^8.2.0",
     "@supabase/supabase-js": "^2.110.8",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "ws": "^8.18.3"
   }
 }

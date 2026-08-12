@@ -2,10 +2,6 @@
   const STORAGE_KEY = "wheaterflow:tvPairingController";
   const TV_STORAGE_KEY = "wheaterflow:tvPairingTv";
 
-  function sleep(ms){
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
   function cleanCode(value){
     return String(value || "").replace(/\D/g, "").slice(0, 6);
   }
@@ -34,16 +30,135 @@
     return cleanCode(params.get("pair") || params.get("tvCode"));
   }
 
+  function defaultWsUrls(){
+    const custom = window.WHEATERFLOW_TV_PAIRING_WS_URL;
+    if(custom) return [custom];
+    if(location.hostname === "localhost" || location.hostname === "127.0.0.1"){
+      return ["ws://127.0.0.1:8787/tv-pairing"];
+    }
+    return ["wss://api.wheaterflow.be/tv-pairing"];
+  }
+
   function create(options={}){
     const apiUrls = (options.apiUrls || []).filter(Boolean);
+    const wsUrls = (options.wsUrls || defaultWsUrls()).filter(Boolean);
     let apiUrl = apiUrls[0] || "/api/tv-pairing";
+    let activeWsUrl = "";
+    let socket = null;
+    let socketReady = false;
+    let socketFailed = false;
     let tvToken = "";
     let controllerToken = "";
     let tvPollTimer = null;
     let controllerPollTimer = null;
     let stopped = false;
+    let requestId = 0;
+    const pending = new Map();
 
-    async function request(action, payload={}){
+    function clearTimers(){
+      clearTimeout(tvPollTimer);
+      clearTimeout(controllerPollTimer);
+    }
+
+    function emitSocketMessage(data){
+      if(data.type === "TV_CODE") options.onTvCode?.(data);
+      if(data.type === "PAIRED") options.onTvPaired?.(data);
+      if(data.type === "SET_LOCATION") options.onTvLocation?.(normalizeLocation(data.location));
+      if(data.type === "REFRESH_WEATHER") options.onTvRefresh?.();
+      if(data.type === "CONTROLLER_DISCONNECTED") options.onTvDisconnected?.();
+      if(data.type === "CONTROLLER_STATUS") options.onControllerStatus?.(data);
+    }
+
+    function closeSocket(){
+      socketReady = false;
+      if(socket){
+        try{ socket.close(); }catch{}
+      }
+      socket = null;
+      for(const {reject, timer} of pending.values()){
+        clearTimeout(timer);
+        reject(new Error("Live TV-koppeling is verbroken"));
+      }
+      pending.clear();
+    }
+
+    async function connectSocket(){
+      if(socketReady && socket) return true;
+      if(socketFailed || !("WebSocket" in window) || !wsUrls.length) return false;
+
+      for(const url of wsUrls){
+        try{
+          const ok = await new Promise(resolve=>{
+            const ws = new WebSocket(url);
+            let settled = false;
+            const timer = setTimeout(()=>{
+              if(settled) return;
+              settled = true;
+              try{ ws.close(); }catch{}
+              resolve(false);
+            }, 1600);
+            ws.addEventListener("open", ()=>{
+              if(settled) return;
+              settled = true;
+              clearTimeout(timer);
+              socket = ws;
+              socketReady = true;
+              activeWsUrl = url;
+              resolve(true);
+            }, {once:true});
+            ws.addEventListener("error", ()=>{
+              if(settled) return;
+              settled = true;
+              clearTimeout(timer);
+              resolve(false);
+            }, {once:true});
+          });
+          if(ok){
+            socket.addEventListener("message", event=>{
+              let data = null;
+              try{ data = JSON.parse(event.data); }catch{return;}
+              if(data.replyTo && pending.has(data.replyTo)){
+                const job = pending.get(data.replyTo);
+                clearTimeout(job.timer);
+                pending.delete(data.replyTo);
+                if(data.ok === false) job.reject(new Error(data.error || "TV-koppeling gaf een fout"));
+                else job.resolve(data);
+                return;
+              }
+              emitSocketMessage(data);
+            });
+            socket.addEventListener("close", ()=>{
+              if(stopped) return;
+              closeSocket();
+              socketFailed = true;
+              options.onError?.(new Error("Live TV-koppeling is verbroken; reserveverbinding wordt gebruikt."));
+            });
+            return true;
+          }
+        }catch{
+          closeSocket();
+        }
+      }
+      socketFailed = true;
+      activeWsUrl = "";
+      return false;
+    }
+
+    async function socketRequest(action, payload={}){
+      const connected = await connectSocket();
+      if(!connected || !socketReady || !socket) throw new Error("WebSocket niet beschikbaar");
+      const id = String(++requestId);
+      return new Promise((resolve, reject)=>{
+        const timer = setTimeout(()=>{
+          pending.delete(id);
+          reject(new Error("Live TV-koppeling reageert niet"));
+        }, 5000);
+        pending.set(id, {resolve, reject, timer});
+        socket.send(JSON.stringify({id, action, ...payload}));
+      });
+    }
+
+    async function apiRequest(action, payload={}){
       let lastError = null;
       for(const url of apiUrls.length ? apiUrls : [apiUrl]){
         try{
@@ -66,9 +181,17 @@
       throw lastError || new Error("TV-koppeling is niet bereikbaar");
     }
 
-    function clearTimers(){
-      clearTimeout(tvPollTimer);
-      clearTimeout(controllerPollTimer);
+    async function request(action, payload={}){
+      if(!socketFailed){
+        try{
+          return await socketRequest(action, payload);
+        }catch(error){
+          options.onError?.(error);
+          socketFailed = true;
+          closeSocket();
+        }
+      }
+      return apiRequest(action, payload);
     }
 
     async function startTvSession(){
@@ -89,29 +212,24 @@
         tvToken = data.tvToken;
         localStorage.setItem(TV_STORAGE_KEY, JSON.stringify({tvToken, createdAt:Date.now()}));
       }
-      options.onTvCode?.(data);
-      scheduleTvPoll(data.pollAfterMs || 1800);
+      options.onTvCode?.({...data, transport:socketReady ? "websocket" : "polling"});
+      if(!socketReady) scheduleTvPoll(data.pollAfterMs || 1800);
       return data;
     }
 
     function scheduleTvPoll(delay=1800){
       clearTimeout(tvPollTimer);
-      if(stopped || !tvToken) return;
+      if(stopped || !tvToken || socketReady) return;
       tvPollTimer = setTimeout(pollTv, delay);
     }
 
     async function pollTv(){
-      if(stopped || !tvToken) return;
+      if(stopped || !tvToken || socketReady) return;
       try{
-        const data = await request("tv-poll", {tvToken});
+        const data = await apiRequest("tv-poll", {tvToken});
         options.onTvCode?.(data);
         if(data.paired) options.onTvPaired?.(data);
-        for(const message of data.messages || []){
-          if(message.type === "PAIRED") options.onTvPaired?.(data);
-          if(message.type === "SET_LOCATION") options.onTvLocation?.(normalizeLocation(message.location));
-          if(message.type === "REFRESH_WEATHER") options.onTvRefresh?.();
-          if(message.type === "CONTROLLER_DISCONNECTED") options.onTvDisconnected?.();
-        }
+        for(const message of data.messages || []) emitSocketMessage(message);
         scheduleTvPoll(data.pollAfterMs || 1800);
       }catch(error){
         options.onError?.(error);
@@ -125,8 +243,8 @@
       const data = await request("pair-controller", {code:cleaned});
       controllerToken = data.controllerToken;
       localStorage.setItem(STORAGE_KEY, JSON.stringify({controllerToken, pairedAt:Date.now()}));
-      options.onControllerPaired?.(data);
-      scheduleControllerPoll(1200);
+      options.onControllerPaired?.({...data, transport:socketReady ? "websocket" : "polling"});
+      if(!socketReady) scheduleControllerPoll(1200);
       const loc = normalizeLocation(options.getLocation?.());
       if(loc) await sendLocation(loc);
       return data;
@@ -137,7 +255,7 @@
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
         if(!saved.controllerToken) return false;
         controllerToken = saved.controllerToken;
-        scheduleControllerPoll(1200);
+        if(!socketReady) scheduleControllerPoll(1200);
         return true;
       }catch{
         return false;
@@ -146,14 +264,14 @@
 
     function scheduleControllerPoll(delay=3500){
       clearTimeout(controllerPollTimer);
-      if(stopped || !controllerToken) return;
+      if(stopped || !controllerToken || socketReady) return;
       controllerPollTimer = setTimeout(pollController, delay);
     }
 
     async function pollController(){
-      if(stopped || !controllerToken) return;
+      if(stopped || !controllerToken || socketReady) return;
       try{
-        const data = await request("controller-poll", {controllerToken});
+        const data = await apiRequest("controller-poll", {controllerToken});
         options.onControllerStatus?.(data);
         scheduleControllerPoll(data.tvConnected ? 3500 : 6000);
       }catch(error){
@@ -188,6 +306,7 @@
     function stop(){
       stopped = true;
       clearTimers();
+      closeSocket();
     }
 
     return {
@@ -199,7 +318,9 @@
       refreshTv,
       disconnect,
       stop,
-      hasController:()=>Boolean(controllerToken)
+      hasController:()=>Boolean(controllerToken),
+      transport:()=>socketReady ? "websocket" : "polling",
+      wsUrl:()=>activeWsUrl
     };
   }
 
