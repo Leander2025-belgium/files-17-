@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260810-radar-fallback-1";
+const CACHE_VERSION = "wheaterflow-v20260812-cast-1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -6,6 +6,7 @@ const STATIC_ASSETS = [
   "./offline.html",
   "./style.css",
   "./script.js",
+  "./castService.js",
   "./manifest.webmanifest",
   "./assets/branding/weerscoop-logo-master.png",
   "./assets/backgrounds/zonnig.png",

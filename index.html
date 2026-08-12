@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260810-radar-fallback-1">
+<link rel="stylesheet" href="style.css?v=20260812-cast-1">
 </head>
 <body><div id="alerts-container"></div>
 
@@ -51,6 +51,7 @@
       </div>
       <button class="smallbtn" id="openSheetBtn" style="margin-top:8px;">Instellingen</button>
       <button class="smallbtn" id="tvBtn" style="margin-top:8px;margin-left:6px;">Tv-modus</button>
+      <button class="smallbtn castbtn" id="castBtn" type="button" hidden aria-live="polite" style="margin-top:8px;margin-left:6px;">Cast naar tv</button>
       <button class="smallbtn" id="climateBtn" style="margin-top:8px;margin-left:6px;">Mijn Klimaat</button>
       <button class="profile-trigger" id="profileBtn" type="button" aria-label="Profiel openen" title="Profiel" style="margin-top:8px;margin-left:6px;">
         <span id="profileAvatarMini" class="profile-mini">?</span>
@@ -535,6 +536,7 @@
     <div class="tv-loc">
       <div class="tv-locname" id="tvLocName">-</div>
       <div class="tv-admin" id="tvAdmin"></div>
+      <div class="tv-cast-status" id="tvCastStatus">Wheaterflow TV</div>
     </div>
     <div class="tv-clockwrap">
       <div class="tv-date" id="tvDate"></div>
@@ -575,7 +577,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
-<script src="script.js?v=20260810-radar-fallback-1"></script>
+<script src="castService.js?v=20260812-cast-1"></script>
+<script src="script.js?v=20260812-cast-1"></script>
 </body>
 </html>
 

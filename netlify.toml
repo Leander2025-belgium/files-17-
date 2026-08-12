@@ -26,6 +26,11 @@
     Cache-Control = "no-cache"
 
 [[headers]]
+  for = "/castService.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
   for = "/style.css"
   [headers.values]
     Cache-Control = "no-cache"

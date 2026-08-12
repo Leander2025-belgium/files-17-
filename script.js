@@ -13,6 +13,10 @@ const FUNCTION_BASE = WHEATERFLOW_API_BASE + '/';
 const PUSH_FUNCTION_BASE = FUNCTION_BASE;
 const XWEATHER_SDK_VERSION = '1.9.3';
 const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEATHER_SDK_VERSION}/dist/`;
+const CAST_CONFIG_URLS = [
+  new URL('/api/cast-config', location.origin).href,
+  FUNCTION_BASE + 'cast-config'
+];
 const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
   ? new URL('/api/', location.origin).href
   : 'https://api.wheaterflow.be/api/';
@@ -50,6 +54,7 @@ const state = {
   climate: { records: [], settings: {mode:'off'}, period:'month', location:'all', chart:null, loaded:false },
   xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
+  cast: { service:null, status:'idle', available:false, configured:false, connected:false, deviceName:'', receiver:false },
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null },
   map: null, marker: null, homeMap: { map:null, base:null, overlay:null, xweatherController:null, activeLayer:'radar' },
   activeTab: 'home',
@@ -927,8 +932,142 @@ async function setLocation(lat, lon, name, admin){
   if(state.map){ const rv = radarView(); state.map.setView(rv.center, rv.zoom); placeMarker(lat,lon,name); }
   refreshRadarSource();
   updateStormTab();
+  notifyCastLocationChanged();
   toast(`${name} geladen`);
 }
+
+function currentCastLocation(){
+  const lat = Number(state.loc?.lat);
+  const lon = Number(state.loc?.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return {
+    name: state.loc.name || 'Geselecteerde locatie',
+    admin: state.loc.admin || '',
+    country: state.loc.country || '',
+    latitude: lat,
+    longitude: lon
+  };
+}
+
+function castStatusText(status, detail={}){
+  switch(status){
+    case 'loading': return 'Cast laden...';
+    case 'ready': return 'Cast naar tv';
+    case 'connecting': return 'Verbinden...';
+    case 'connected': return `Verbonden met ${detail.deviceName || state.cast.deviceName || 'tv'}`;
+    case 'disconnected': return 'Cast naar tv';
+    case 'unconfigured': return 'Cast niet ingesteld';
+    case 'unavailable': return 'Cast niet beschikbaar';
+    case 'error': return detail.message || 'Kan geen verbinding maken';
+    default: return 'Cast naar tv';
+  }
+}
+
+function updateCastUi(status=state.cast.status, detail={}){
+  state.cast.status = status;
+  if(status === 'connected'){
+    state.cast.connected = true;
+    state.cast.deviceName = detail.deviceName || state.cast.deviceName || 'tv';
+  }else if(['ready','disconnected','unavailable','unconfigured','error'].includes(status)){
+    state.cast.connected = false;
+    if(status !== 'error') state.cast.deviceName = '';
+  }
+  const btn = $('#castBtn');
+  if(!btn) return;
+  const visible = state.cast.available || ['loading','ready','connecting','connected','error'].includes(status);
+  btn.hidden = !visible;
+  btn.disabled = ['loading','connecting','unconfigured','unavailable'].includes(status);
+  btn.classList.toggle('connected', status === 'connected');
+  btn.classList.toggle('error', status === 'error');
+  btn.textContent = castStatusText(status, detail);
+  btn.title = status === 'unconfigured'
+    ? 'Vul GOOGLE_CAST_APP_ID in nadat je de receiver in Google Cast Console hebt geregistreerd.'
+    : btn.textContent;
+}
+
+async function initCast(){
+  if(!window.WheaterflowCastService?.create) return;
+  state.cast.receiver = window.WheaterflowCastService.isReceiverMode();
+  state.cast.service = window.WheaterflowCastService.create({
+    configUrls:CAST_CONFIG_URLS,
+    getLocation:currentCastLocation,
+    onStatus:(status, detail={})=>{
+      if(status.startsWith('receiver')){
+        const el = $('#tvCastStatus');
+        if(el){
+          if(status === 'receiver-loading') el.textContent = 'Verbinden...';
+          if(status === 'receiver-ready') el.textContent = 'Wachten op locatie van je telefoon';
+          if(status === 'receiver-dev') el.textContent = 'TV testmodus';
+          if(status === 'receiver-location') el.textContent = `Cast actief - ${detail.location?.name || ''}`;
+        }
+        return;
+      }
+      if(status === 'ready') state.cast.available = true;
+      if(status === 'unconfigured') state.cast.configured = false;
+      updateCastUi(status, detail);
+    },
+    applyReceiverLocation:applyCastReceiverLocation,
+    refreshReceiverWeather:async()=>loadWeather()
+  });
+
+  if(state.cast.receiver){
+    await startCastReceiverMode();
+    return;
+  }
+
+  const config = await state.cast.service.fetchConfig();
+  state.cast.configured = Boolean(config.configured);
+  if(!state.cast.configured){
+    updateCastUi('unconfigured');
+    return;
+  }
+  updateCastUi('loading');
+  const ok = await state.cast.service.initSender();
+  if(!ok) updateCastUi('unavailable');
+}
+
+async function startCastReceiverMode(){
+  document.body.classList.add('cast-receiver-mode');
+  $('#app')?.setAttribute('aria-hidden', 'true');
+  await enterTV({fromCast:true});
+  const urlLoc = window.WheaterflowCastService.locationFromUrl();
+  if(urlLoc) await applyCastReceiverLocation(urlLoc);
+  await state.cast.service?.initReceiver();
+}
+
+async function applyCastReceiverLocation(location){
+  const loc = window.WheaterflowCastService?.normalizeLocation(location);
+  if(!loc) return;
+  state.loc = {
+    lat:loc.latitude,
+    lon:loc.longitude,
+    name:loc.name,
+    admin:loc.admin || [loc.country].filter(Boolean).join(', '),
+    country:loc.country || ''
+  };
+  await loadWeather();
+  if(tv.map){
+    const rv = tvRadarView();
+    tv.map.setView(rv.center, rv.zoom);
+    await initTvMap();
+  }
+  const status = $('#tvCastStatus');
+  if(status) status.textContent = `Cast actief - ${loc.name}`;
+}
+
+async function notifyCastLocationChanged(){
+  if(!state.cast.service || state.cast.receiver) return;
+  if(state.cast.connected || state.cast.status === 'connected'){
+    await state.cast.service.notifyLocationChanged();
+  }
+}
+
+$('#castBtn')?.addEventListener('click', async ()=>{
+  if(!state.cast.service) await initCast();
+  if(!state.cast.service) return toast('Cast is niet beschikbaar op dit apparaat');
+  const ok = await state.cast.service.requestSession();
+  if(ok) toast('TV-modus wordt geopend op je tv');
+});
 
 /* ---------------- weather fetch ---------------- */
 function buildForecastUrl(model){
@@ -4582,24 +4721,30 @@ const tv = {
   refreshTimer:null
 };
 
-async function enterTV(){
+async function enterTV(options={}){
   tv.active = true;
   document.getElementById('tvscreen').classList.add('active');
-  try{
-    if(document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
-    else if(document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen();
-  }catch(e){ /* fullscreen kan geweigerd zijn - dashboard blijft gewoon zichtbaar */ }
+  document.body.classList.toggle('tv-cast-receiver', Boolean(options.fromCast));
+  if(!options.fromCast){
+    try{
+      if(document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+      else if(document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen();
+    }catch(e){ /* fullscreen kan geweigerd zijn - dashboard blijft gewoon zichtbaar */ }
+  }
 
   if(state.current) renderTV();
   tickClock();
+  clearInterval(tv.clockTimer); clearInterval(tv.refreshTimer);
   tv.clockTimer = setInterval(tickClock, 1000);
   tv.refreshTimer = setInterval(()=>{ loadWeather(); }, 5*60*1000);
 
   initTvMap();
 }
 function exitTV(){
+  if(state.cast.receiver) return;
   tv.active = false;
   document.getElementById('tvscreen').classList.remove('active');
+  document.body.classList.remove('tv-cast-receiver');
   clearInterval(tv.clockTimer); clearInterval(tv.refreshTimer); clearInterval(tv.loopTimer);
   disposeTvXweatherRadar();
   if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
@@ -4930,6 +5075,7 @@ async function init(){
   await safeInitStep('Favorieten laden', loadStoredFavorites);
   await safeInitStep('Auth starten', initAuth);
   await safeInitStep('Community realtime starten', subscribeCommunityRealtime);
+  await safeInitStep('Google Cast starten', initCast);
   await safeInitStep('Instellingenknoppen herstellen', ()=>{
     $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
     $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));
@@ -4940,6 +5086,7 @@ async function init(){
   });
 
   await safeInitStep('Locatie ophalen', async ()=>{
+    if(state.cast.receiver) return;
     const p = await getBrowserLocation();
     if(p){
       const g = await reverseGeocode(p.lat, p.lon);
@@ -4947,6 +5094,7 @@ async function init(){
     }
   });
   await loadWeather();
+  await safeInitStep('Cast locatie synchroniseren', notifyCastLocationChanged);
   safeInitStep('Eigen weermeldingen laden', laadWeerMeldingen);
   setInterval(()=>safeInitStep('Eigen weermeldingen verversen', laadWeerMeldingen), 5 * 60 * 1000);
   await safeInitStep('Auto refresh starten', startAutoRefresh);

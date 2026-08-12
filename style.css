@@ -1117,6 +1117,39 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
 .subtle{color:var(--dim);font-size:13px;line-height:1.5;}
 .headerbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
 .smallbtn{background:rgba(20,30,50,.35);border:1px solid rgba(255,255,255,.16);color:rgba(233,238,251,.85);border-radius:9px;padding:6px 10px;font-size:11.5px;font-weight:600;cursor:pointer;}
+.castbtn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:30px;
+  color:#eaf6ff;
+}
+.castbtn::before{
+  content:"";
+  width:15px;
+  height:15px;
+  display:inline-block;
+  background:currentColor;
+  -webkit-mask:
+    radial-gradient(circle at 20% 82%, #000 0 12%, transparent 13%),
+    radial-gradient(circle at 20% 82%, transparent 0 24%, #000 25% 31%, transparent 32%),
+    radial-gradient(circle at 20% 82%, transparent 0 43%, #000 44% 51%, transparent 52%),
+    linear-gradient(#000 0 0) 0 0/100% 66% no-repeat;
+  mask:
+    radial-gradient(circle at 20% 82%, #000 0 12%, transparent 13%),
+    radial-gradient(circle at 20% 82%, transparent 0 24%, #000 25% 31%, transparent 32%),
+    radial-gradient(circle at 20% 82%, transparent 0 43%, #000 44% 51%, transparent 52%),
+    linear-gradient(#000 0 0) 0 0/100% 66% no-repeat;
+}
+.castbtn.connected{
+  border-color:rgba(126,231,255,.42);
+  background:rgba(126,231,255,.18);
+  color:#bff5ff;
+}
+.castbtn.error{
+  border-color:rgba(255,118,118,.42);
+  color:#ffd0d0;
+}
 
 /* ---------- Final repair override: keep main app stable and fast ---------- */
 #weatherBG .wbg-clouds,
@@ -1236,6 +1269,21 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
   letter-spacing:.07em;
   text-transform:uppercase;
   white-space:nowrap;
+}
+.tv-cast-status{
+  margin-top:8px;
+  font-size:clamp(11px,.9vw,16px);
+  color:rgba(235,244,255,.66);
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+body.tv-cast-receiver #app,
+body.tv-cast-receiver .tabbar,
+body.tv-cast-receiver .toast{
+  display:none!important;
+}
+body.tv-cast-receiver #tvExitBtn{
+  display:none!important;
 }
 .tv-clockwrap{
   display:flex;
