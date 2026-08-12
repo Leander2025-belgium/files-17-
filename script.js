@@ -13,6 +13,7 @@ const FUNCTION_BASE = WHEATERFLOW_API_BASE + '/';
 const PUSH_FUNCTION_BASE = FUNCTION_BASE;
 const XWEATHER_SDK_VERSION = '1.9.3';
 const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEATHER_SDK_VERSION}/dist/`;
+const ASTRO_EVENTS_URL = 'assets/data/astro-events.json';
 const CAST_CONFIG_URLS = [
   new URL('/api/cast-config', location.origin).href,
   FUNCTION_BASE + 'cast-config'
@@ -51,6 +52,7 @@ const state = {
   observation: null, marine: null, seaspark: null, air: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
+  astroEvents: { loaded:false, events:[], sources:[], error:null },
   knmiKey: null,
   lastUpdated: null,
   favorites: [],
@@ -768,6 +770,25 @@ async function loadAlerts(){
   };
 }
 
+async function loadAstroEvents(){
+  if(state.astroEvents.loaded) return;
+  try{
+    const r = await fetch(`${ASTRO_EVENTS_URL}?v=20260812-astro-events`, {cache:'no-store'});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    state.astroEvents.events = Array.isArray(data.events) ? data.events : [];
+    state.astroEvents.sources = Array.isArray(data.sources) ? data.sources : [];
+    state.astroEvents.error = null;
+  }catch(error){
+    console.warn('Astro-events konden niet geladen worden:', error);
+    state.astroEvents.events = [];
+    state.astroEvents.sources = [];
+    state.astroEvents.error = error;
+  }finally{
+    state.astroEvents.loaded = true;
+  }
+}
+
 /* ---------------- weather code -> label / icon / severity ---------------- */
 const WCODE = {
   0:{l:'Helder', ic:'sun'}, 1:{l:'Overwegend helder', ic:'sun-cloud'}, 2:{l:'Half bewolkt', ic:'sun-cloud'},
@@ -1307,11 +1328,12 @@ async function loadWeather(){
       loadCurrentObservation(),
       loadMarine(),
       loadAirQuality(),
-      loadAlerts()
+      loadAlerts(),
+      loadAstroEvents()
     ]);
     optionalResults.forEach((result, index)=>{
       if(result.status === 'rejected'){
-        console.warn(['METAR','Marine','Luchtkwaliteit','Meldingen'][index] + ' laden faalde:', result.reason);
+        console.warn(['METAR','Marine','Luchtkwaliteit','Meldingen','Astro-events'][index] + ' laden faalde:', result.reason);
       }
     });
     try{
@@ -1521,7 +1543,7 @@ function renderHome(){
 
   html += alertsCard();
   html += rainNowcastCard();
-  html += eclipseInfoCard();
+  html += astroEventCards();
   html += compactAirQualityCard();
 
   // hourly
@@ -1587,35 +1609,130 @@ function renderHome(){
   positionSunPaths();
 }
 
-function eclipseInfoCard(){
-  const now = Date.now();
-  const visibleFrom = new Date('2026-08-12T00:00:00+02:00').getTime();
-  const visibleUntil = new Date('2026-08-12T21:05:00+02:00').getTime();
-  if(now < visibleFrom || now > visibleUntil) return '';
+function astroEventCards(){
+  const events = activeAstroEvents();
+  if(!events.length) return '';
+  return events.map(astroEventCard).join('');
+}
 
-  const events = [
-    {time:'19:17', label:'Begin', text:'De maan schuift voor de zon.'},
-    {time:'20:13', label:'Piek', text:'Maximum in Belgie.'},
-    {time:'21:05', label:'Einde', text:'De verduistering loopt af.'}
+function activeAstroEvents(now = Date.now()){
+  return (state.astroEvents.events || [])
+    .filter(event => event.auto_show !== false)
+    .filter(event => {
+      const from = Date.parse(event.visible_from || event.active_from || event.date);
+      const until = Date.parse(event.visible_until || event.active_until || event.date);
+      return Number.isFinite(from) && Number.isFinite(until) && now >= from && now <= until;
+    })
+    .sort((a,b)=>(Number(b.card_priority)||0) - (Number(a.card_priority)||0))
+    .slice(0, 2);
+}
+
+function astroEventCard(event){
+  if(event.type === 'meteor_shower') return meteorShowerCard(event);
+  if(event.type === 'solar_eclipse') return solarEclipseCard(event);
+  return genericAstroCard(event);
+}
+
+function solarEclipseCard(event){
+  const timeline = [
+    {time:formatEventTime(event.starts_at), label:'Begin', text:'De maan schuift voor de zon.'},
+    {time:formatEventTime(event.peaks_at), label:'Piek', text:'Maximum in Belgie.'},
+    {time:formatEventTime(event.ends_at), label:'Einde', text:'De verduistering loopt af.'}
   ];
-  return `<div class="card eclipse-card">
-    <div class="card-title">${icon('sunrise', true, 13)} Eclipse vandaag</div>
+  return `<div class="card eclipse-card astro-card astro-eclipse-card">
+    <div class="card-title">${icon('sunrise',true,13)} ${esc(event.short_title || event.title)}</div>
     <div class="eclipse-hero">
       <div class="eclipse-orbit" aria-hidden="true"><span></span></div>
       <div>
-        <strong>Zonsverduistering in Belgie</strong>
-        <p>De piek is rond <b>20:13</b>. Kijk nooit rechtstreeks naar de zon zonder echte eclipsbril.</p>
+        <strong>${esc(event.title)}</strong>
+        <p>${esc(event.summary || '')}</p>
       </div>
     </div>
     <div class="eclipse-timeline">
-      ${events.map(event=>`<div class="eclipse-time ${event.label === 'Piek' ? 'peak' : ''}">
-        <span>${event.time}</span>
-        <b>${event.label}</b>
-        <small>${event.text}</small>
+      ${timeline.map(item=>`<div class="eclipse-time ${item.label === 'Piek' ? 'peak' : ''}">
+        <span>${esc(item.time)}</span><b>${esc(item.label)}</b><small>${esc(item.text)}</small>
       </div>`).join('')}
     </div>
-    <div class="eclipse-note">Tip: laag aan de westelijke horizon kijken, maar alleen veilig met gecertificeerde bescherming.</div>
+    <div class="eclipse-note">${esc(event.safety_message || 'Kijk alleen met veilige bescherming.')}</div>
   </div>`;
+}
+
+function meteorShowerCard(event){
+  const estimate = meteorVisibilityEstimate(event);
+  const source = (event.source_names || []).slice(0,2).join(' + ');
+  return `<div class="card eclipse-card astro-card meteor-card">
+    <div class="card-title">${icon('sunrise',true,13)} ${esc(event.short_title || event.title)}</div>
+    <div class="meteor-hero">
+      <div class="meteor-icon" aria-hidden="true"><span></span><i></i></div>
+      <div>
+        <strong>${esc(event.title)}</strong>
+        <p>${esc(event.summary || '')}</p>
+      </div>
+    </div>
+    <div class="meteor-stats">
+      <div><span>Beste moment</span><b>${esc(formatEventTime(event.best_from))}-${esc(formatEventTime(event.best_until))}</b></div>
+      <div><span>Ideaal</span><b>${Math.round(Number(event.ideal_zhr) || 0)}/u</b></div>
+      <div><span>Lokaal geschat</span><b>${estimate.range}/u</b></div>
+      <div><span>Per minuut</span><b>${estimate.perMinute}</b></div>
+    </div>
+    <div class="meteor-meter"><i style="width:${estimate.score}%"></i></div>
+    <div class="eclipse-note">${esc(estimate.message)}${source ? ` Bron: ${esc(source)}.` : ''}</div>
+  </div>`;
+}
+
+function genericAstroCard(event){
+  return `<div class="card eclipse-card astro-card">
+    <div class="card-title">${icon('sunrise',true,13)} ${esc(event.short_title || event.title || 'Sterrenhemel')}</div>
+    <div class="meteor-hero">
+      <div class="meteor-icon" aria-hidden="true"><span></span><i></i></div>
+      <div><strong>${esc(event.title || 'Astro-event')}</strong><p>${esc(event.summary || '')}</p></div>
+    </div>
+  </div>`;
+}
+
+function formatEventTime(value){
+  if(!value) return '-';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return String(value).slice(11,16) || '-';
+  return date.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit'});
+}
+
+function meteorVisibilityEstimate(event){
+  const ideal = Math.max(0, Number(event.ideal_zhr) || 0);
+  const cur = liveWeatherSnapshot();
+  const cloud = Math.max(0, Math.min(100, Number(cur.cloud_cover ?? 50)));
+  const precip = Math.max(0, Number(cur.precipitation ?? 0));
+  const moon = moonPhase(new Date(event.peaks_at || Date.now()));
+  const cloudFactor = cloud <= 15 ? 1 : cloud <= 40 ? .72 : cloud <= 70 ? .38 : .12;
+  const rainFactor = precip >= 1 ? .16 : precip >= .1 ? .45 : 1;
+  const moonFactor = moon.illumination <= .18 ? 1 : moon.illumination <= .55 ? .76 : .52;
+  const darkFactor = isNightNow() ? 1 : .18;
+  const local = ideal * cloudFactor * rainFactor * moonFactor * darkFactor * .72;
+  const low = Math.max(0, Math.floor(local * .72));
+  const high = Math.max(low, Math.ceil(local * 1.18));
+  const score = Math.round(Math.max(5, Math.min(100, (local / Math.max(ideal * .72, 1)) * 100)));
+  const perMinuteHigh = high / 60;
+  let perMinute = perMinuteHigh >= 1 ? `${perMinuteHigh.toFixed(1)}/min` : `1 per ${Math.max(1, Math.round(60 / Math.max(high, 1)))} min`;
+  if(high <= 0) perMinute = 'weinig';
+  const message = cloud > 70
+    ? 'Door bewolking is de zichtbaarheid waarschijnlijk beperkt.'
+    : precip >= .1
+      ? 'Regen maakt kijken moeilijk; wacht op droge momenten.'
+      : moon.illumination > .55
+        ? 'Maanlicht kan zwakkere meteoren overstralen.'
+        : 'Goede kans bij een donkere plek weg van straatlicht.';
+  return {range:`${low}-${high}`, perMinute, score, message};
+}
+
+function isNightNow(){
+  try{
+    const now = Date.now();
+    const sr = state.daily?.sunrise?.[0] ? new Date(state.daily.sunrise[0]).getTime() : 0;
+    const ss = state.daily?.sunset?.[0] ? new Date(state.daily.sunset[0]).getTime() : 0;
+    return sr && ss ? now < sr || now > ss : false;
+  }catch(e){
+    return false;
+  }
 }
 
 function defaultPushPreferences(){

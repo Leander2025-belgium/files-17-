@@ -635,6 +635,104 @@ a{color:inherit;}
   font-size:12.5px;
   color:rgba(255,238,180,.86);
 }
+.astro-card{
+  position:relative;
+  overflow:hidden;
+}
+.meteor-card{
+  border-color:rgba(124,208,255,.26)!important;
+}
+.meteor-card .card-title{
+  color:#c9f1ff;
+}
+.meteor-hero{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin-top:4px;
+}
+.meteor-hero strong{
+  display:block;
+  color:#fff;
+  font-size:19px;
+}
+.meteor-hero p{
+  margin:4px 0 0;
+  color:rgba(238,247,255,.78);
+  font-size:13.5px;
+  line-height:1.45;
+}
+.meteor-icon{
+  position:relative;
+  flex:0 0 66px;
+  width:66px;
+  height:66px;
+  border-radius:22px;
+  background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.42),rgba(87,164,255,.18) 46%,rgba(18,33,64,.35));
+  border:1px solid rgba(255,255,255,.16);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.20), 0 18px 32px rgba(0,0,0,.18);
+}
+.meteor-icon span{
+  position:absolute;
+  width:36px;
+  height:3px;
+  left:13px;
+  top:26px;
+  border-radius:999px;
+  background:linear-gradient(90deg,rgba(125,226,255,0),#c9fbff,#fff2a6);
+  transform:rotate(-32deg);
+  box-shadow:0 0 14px rgba(128,228,255,.48);
+}
+.meteor-icon i{
+  position:absolute;
+  width:7px;
+  height:7px;
+  left:42px;
+  top:16px;
+  border-radius:50%;
+  background:#fff4b8;
+  box-shadow:0 0 16px rgba(255,237,150,.8);
+}
+.meteor-stats{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  margin-top:14px;
+}
+.meteor-stats div{
+  padding:10px;
+  border-radius:16px;
+  background:rgba(255,255,255,.075);
+  border:1px solid rgba(255,255,255,.12);
+}
+.meteor-stats span{
+  display:block;
+  color:rgba(238,247,255,.62);
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.meteor-stats b{
+  display:block;
+  margin-top:5px;
+  color:#fff;
+  font-size:16px;
+}
+.meteor-meter{
+  height:7px;
+  overflow:hidden;
+  margin-top:12px;
+  border-radius:999px;
+  background:rgba(255,255,255,.10);
+}
+.meteor-meter i{
+  display:block;
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#35d0c4,#74d6ff,#ffe08a);
+  box-shadow:0 0 14px rgba(116,214,255,.28);
+}
 @media (max-width:430px){
   .eclipse-hero{align-items:flex-start;}
   .eclipse-orbit{width:58px;height:58px;flex-basis:58px;}
@@ -642,6 +740,9 @@ a{color:inherit;}
   .eclipse-timeline{gap:6px;}
   .eclipse-time{padding:8px;}
   .eclipse-time span{font-size:16px;}
+  .meteor-hero{align-items:flex-start;}
+  .meteor-icon{width:58px;height:58px;flex-basis:58px;border-radius:19px;}
+  .meteor-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
 
 
