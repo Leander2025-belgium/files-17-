@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260812-moon-photos";
+const CACHE_VERSION = "wheaterflow-v20260812-astro-events";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -33,6 +33,7 @@ const STATIC_ASSETS = [
   "./assets/moon/waning-moon.jpg",
   "./assets/moon/last-quarter.jpg",
   "./assets/moon/earthshine-moon.jpg",
+  "./assets/data/astro-events.json",
   "./icons/favicon-16.png",
   "./icons/favicon-32.png",
   "./icons/icon-48.png",

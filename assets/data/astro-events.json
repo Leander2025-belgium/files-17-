@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-08-12T21:05:00+02:00",
+  "timezone": "Europe/Brussels",
+  "app_note": "Persoonlijke sterrenhemel-kaarten voor Wheaterflow. Dit bestand bevat vooraf ingestelde astro-events en mag gecombineerd worden met lokale weerdata, maanstand en lichtvervuiling voor een zichtbaarheidsschatting.",
+  "sources": [
+    {
+      "name": "American Meteor Society",
+      "url": "https://www.amsmeteors.org/meteor-showers/meteor-shower-calendar/",
+      "used_for": "Perseiden activiteit, pieknacht, ZHR en snelheid."
+    },
+    {
+      "name": "NASA Science - Perseids",
+      "url": "https://science.nasa.gov/solar-system/meteors-meteorites/perseids/",
+      "used_for": "Algemene Perseiden-informatie en typische zichtbare meteoren per uur."
+    },
+    {
+      "name": "National Solar Observatory - 2026 Eclipse Map",
+      "url": "https://nso.edu/for-public/eclipse-map-2026/",
+      "used_for": "Pad van de zonsverduistering van 12 augustus 2026."
+    }
+  ],
+  "estimation_rules": {
+    "meteor_showers": {
+      "base": "Gebruik ideal_zhr als theoretisch maximum onder perfecte donkere hemel.",
+      "local_rate": "Laat de app ideal_zhr verlagen op basis van bewolking, neerslag, maanlicht, radiant-hoogte en stedelijk licht.",
+      "per_minute": "meteors_per_minute = local_meteors_per_hour / 60",
+      "wording": "Toon altijd 'geschat' of 'bij heldere donkere hemel', nooit alsof dit live getelde meteoren zijn."
+    },
+    "eclipses": {
+      "base": "Gebruik lokale start-, piek- en eindtijden waar beschikbaar.",
+      "safety": "Toon altijd een veiligheidswaarschuwing bij zonsverduisteringen."
+    }
+  },
+  "events": [
+    {
+      "id": "solar-eclipse-2026-08-12-belgium",
+      "type": "solar_eclipse",
+      "title": "Gedeeltelijke zonsverduistering",
+      "short_title": "Eclipse vandaag",
+      "location_scope": "Belgium",
+      "date": "2026-08-12",
+      "visible_from": "2026-08-12T00:00:00+02:00",
+      "visible_until": "2026-08-12T21:05:00+02:00",
+      "starts_at": "2026-08-12T19:18:46+02:00",
+      "peaks_at": "2026-08-12T20:13:35+02:00",
+      "ends_at": "2026-08-12T21:05:36+02:00",
+      "coverage_percent_brussels": 89.55,
+      "card_priority": 95,
+      "auto_show": true,
+      "tone": "special",
+      "icon": "eclipse",
+      "summary": "De maan schuift voor de zon. In België is dit een diepe gedeeltelijke zonsverduistering laag aan de westelijke horizon.",
+      "details": [
+        "Begin rond 19:19",
+        "Piek rond 20:13",
+        "Einde rond 21:05",
+        "Kijk alleen met gecertificeerde eclipsbril of veilige projectie."
+      ],
+      "safety_message": "Kijk nooit rechtstreeks naar de zon zonder gecertificeerde bescherming.",
+      "source_names": [
+        "National Solar Observatory",
+        "NASA"
+      ],
+      "data_quality": "manual_verified"
+    },
+    {
+      "id": "perseids-2026",
+      "type": "meteor_shower",
+      "title": "Perseïden",
+      "short_title": "Vallende sterren vannacht",
+      "location_scope": "Northern Hemisphere",
+      "active_from": "2026-07-17",
+      "active_until": "2026-08-24",
+      "visible_from": "2026-08-12T21:30:00+02:00",
+      "visible_until": "2026-08-13T05:45:00+02:00",
+      "peaks_at": "2026-08-13T03:00:00+02:00",
+      "best_from": "2026-08-13T00:00:00+02:00",
+      "best_until": "2026-08-13T05:30:00+02:00",
+      "radiant": {
+        "constellation": "Perseus",
+        "right_ascension_degrees": 48,
+        "declination_degrees": 58.1
+      },
+      "parent_object": "109P/Swift-Tuttle",
+      "ideal_zhr": 100,
+      "velocity_km_s": 59,
+      "moon_illumination_peak_percent": 0,
+      "card_priority": 90,
+      "auto_show": true,
+      "tone": "night",
+      "icon": "meteor",
+      "summary": "De Perseïden pieken vannacht. Bij heldere, donkere hemel zijn veel snelle meteoren en soms vuurballen mogelijk.",
+      "details": [
+        "Beste moment: na middernacht tot de ochtendschemering.",
+        "Kijk met het blote oog, niet met telescoop of verrekijker.",
+        "Ga weg van straatlicht en laat je ogen 20 tot 30 minuten wennen.",
+        "De app mag het lokale aantal per uur en per minuut schatten met bewolking, neerslag en maanlicht."
+      ],
+      "source_names": [
+        "American Meteor Society",
+        "NASA Science"
+      ],
+      "data_quality": "source_based_estimate"
+    }
+  ]
+}
