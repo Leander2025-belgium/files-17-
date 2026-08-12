@@ -543,6 +543,13 @@ a{color:inherit;}
   width:56px;height:56px;border-radius:50%;flex-shrink:0;position:relative;overflow:hidden;
   background:radial-gradient(circle at 35% 35%, #eef2fb 0%, #c9d3ea 60%, #96a4c4 100%);
 }
+.moonvisual.moon-photo{
+  display:block;
+  object-fit:cover;
+  object-position:center;
+  background:#000;
+  box-shadow:0 0 22px rgba(218,230,255,.20), inset 0 0 16px rgba(255,255,255,.08);
+}
 .moonshadow{position:absolute;inset:0;background:rgba(8,13,23,.82);border-radius:50%;}
 .moonline{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;}
 .moonline span{color:rgba(233,238,251,.7);}
@@ -3018,6 +3025,17 @@ body{
   background:radial-gradient(circle at 34% 30%,#fff 0%,#d8e1f2 45%,#9aa9c8 100%);
   box-shadow:0 0 28px rgba(210,225,255,.20), inset -10px -12px 18px rgba(39,54,86,.28);
   animation:moonFade .55s ease both;
+}
+.premium-moon.moon-photo{
+  display:block;
+  object-fit:cover;
+  object-position:center;
+  background:#000;
+  filter:drop-shadow(0 0 20px rgba(219,231,255,.18));
+}
+.premium-moon.moon-photo::after,
+.premium-moon.moon-photo span{
+  display:none!important;
 }
 .premium-moon::after{
   content:"";

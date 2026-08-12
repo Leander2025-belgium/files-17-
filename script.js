@@ -2452,8 +2452,19 @@ function compactAirQualityCard(){
 }
 
 function moonVisual(moon){
-  const offset = Math.round((1 - moon.illumination * 2) * 42);
-  return `<div class="premium-moon" style="--moon-shadow:${offset}px"><span></span></div>`;
+  return `<img class="premium-moon moon-photo" src="${moonImageForPhase(moon)}" alt="${esc(moon.name)}">`;
+}
+
+function moonImageForPhase(moon){
+  const p = Number(moon?.phase || 0);
+  if(p < 0.03 || p > 0.97) return 'assets/moon/new-moon.jpg';
+  if(p < 0.14) return 'assets/moon/young-crescent.jpg';
+  if(p < 0.28) return 'assets/moon/first-quarter.jpg';
+  if(p < 0.47) return 'assets/moon/waxing-moon.jpg';
+  if(p < 0.53) return 'assets/moon/full-moon.jpg';
+  if(p < 0.72) return 'assets/moon/waning-moon.jpg';
+  if(p < 0.84) return 'assets/moon/last-quarter.jpg';
+  return 'assets/moon/earthshine-moon.jpg';
 }
 
 function moonTimesForToday(){
@@ -2504,7 +2515,7 @@ function moonCard(moon){
   return `<div class="detail-card wide">
     <div class="dt-title">${icon('cloud',true,12)} Asgrauwe maan</div>
     <div class="moon-row">
-      <div class="moonvisual"><div class="moonshadow" style="transform:translateX(${(1-moon.illumination*2)*50}%);"></div></div>
+      <img class="moonvisual moon-photo" src="${moonImageForPhase(moon)}" alt="${esc(moon.name)}">
       <div style="flex:1;">
         <div class="moonline"><span>Verlichting</span><b>${illumPct}%</b></div>
         <div class="moonline"><span>Fase</span><b>${moon.name}</b></div>

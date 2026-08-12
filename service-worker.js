@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260812-eclipse-2";
+const CACHE_VERSION = "wheaterflow-v20260812-moon-photos";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -25,6 +25,14 @@ const STATIC_ASSETS = [
   "./assets/backgrounds/Onweersbuien.png",
   "./assets/backgrounds/Zwaar onweer.png",
   "./assets/backgrounds/Hagel.png",
+  "./assets/moon/new-moon.jpg",
+  "./assets/moon/young-crescent.jpg",
+  "./assets/moon/first-quarter.jpg",
+  "./assets/moon/waxing-moon.jpg",
+  "./assets/moon/full-moon.jpg",
+  "./assets/moon/waning-moon.jpg",
+  "./assets/moon/last-quarter.jpg",
+  "./assets/moon/earthshine-moon.jpg",
   "./icons/favicon-16.png",
   "./icons/favicon-32.png",
   "./icons/icon-48.png",
