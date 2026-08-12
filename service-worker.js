@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260812-eclipse-1";
+const CACHE_VERSION = "wheaterflow-v20260812-eclipse-2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

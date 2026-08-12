@@ -1590,7 +1590,7 @@ function renderHome(){
 function eclipseInfoCard(){
   const now = Date.now();
   const visibleFrom = new Date('2026-08-12T00:00:00+02:00').getTime();
-  const visibleUntil = new Date('2026-08-13T04:00:00+02:00').getTime();
+  const visibleUntil = new Date('2026-08-12T21:05:00+02:00').getTime();
   if(now < visibleFrom || now > visibleUntil) return '';
 
   const events = [
