@@ -5733,6 +5733,7 @@ function tickClock(){
 function renderTV(){
   if(!state.current) return;
   const cur = liveWeatherSnapshot(), hourly = state.hourly, daily = state.daily;
+  const intel = weatherIntelligence();
   const wc = wcInfo(cur.weather_code);
   const isDay = cur.is_day === 1;
   const nowIdx = nowIndexInHourly();
