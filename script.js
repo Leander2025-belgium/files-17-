@@ -1628,6 +1628,100 @@ function scoreLabel(score){
   return score >= 82 ? 'Uitstekend' : score >= 68 ? 'Goed' : score >= 48 ? 'Matig' : score >= 28 ? 'Slecht' : 'Afgeraden';
 }
 
+function skyEngine(){
+  const cur = liveWeatherSnapshot();
+  const nowIdx = nowIndexInHourly();
+  const h = state.hourly || {};
+  const moon = moonPhase(new Date());
+  const cloud = Number(cur.cloud_cover ?? h.cloud_cover?.[nowIdx] ?? 60);
+  const visibility = Number(h.visibility?.[nowIdx]) || null;
+  const humidity = Number(cur.relative_humidity_2m ?? h.relative_humidity_2m?.[nowIdx]) || null;
+  const rain = nowcastEngine();
+  let stargazing = 100;
+  const factors = [];
+  if(cloud > 80){ stargazing -= 55; factors.push('veel bewolking'); }
+  else if(cloud > 50){ stargazing -= 30; factors.push('gedeeltelijk bewolkt'); }
+  else factors.push('weinig bewolking');
+  if(visibility && visibility < 5000){ stargazing -= 18; factors.push('beperkt zicht'); }
+  if(humidity && humidity > 90){ stargazing -= 14; factors.push('vochtig/mistgevoelig'); }
+  if(moon.illumination > .75){ stargazing -= 14; factors.push('veel maanlicht'); }
+  if(rain.status === 'raining'){ stargazing -= 20; factors.push('regen'); }
+  stargazing = clamp(Math.round(stargazing));
+  return {
+    stargazing,
+    stargazingLabel:scoreLabel(stargazing),
+    cloud,
+    visibility,
+    humidity,
+    moon,
+    auroraChance:'Niet beschikbaar',
+    milkyWayChance:isNightNow() && stargazing >= 70 && moon.illumination < .45 ? 'Goed' : 'Beperkt',
+    factors,
+    source:'Open-Meteo forecast + SunCalc + Wheaterflow intelligence'
+  };
+}
+
+function photoWeatherEngine(){
+  const h = state.hourly || {};
+  const nowIdx = nowIndexInHourly();
+  const sr = state.daily?.sunrise?.[0], ss = state.daily?.sunset?.[0];
+  const goldenMorning = `${formatDayTime(sr)}-${addMinutesText(sr,45)}`;
+  const goldenEvening = `${addMinutesText(ss,-47)}-${formatDayTime(ss)}`;
+  const candidates = [];
+  for(let i=nowIdx; i<Math.min(nowIdx+24, h.time?.length || 0); i++){
+    const t = new Date(h.time[i]);
+    const cloud = Number(h.cloud_cover?.[i] ?? 60);
+    const visibility = Number(h.visibility?.[i] || 0);
+    const humidity = Number(h.relative_humidity_2m?.[i] ?? 70);
+    const pop = Number(h.precipitation_probability?.[i] ?? 0);
+    const hour = t.getHours();
+    const goldenBoost = (hour >= 5 && hour <= 8) || (hour >= 19 && hour <= 22) ? 26 : 0;
+    const cloudScore = cloud >= 25 && cloud <= 70 ? 28 : cloud < 25 ? 16 : 8;
+    const visibilityScore = visibility >= 8000 ? 18 : visibility >= 4000 ? 10 : 2;
+    const dryScore = pop <= 25 ? 16 : pop <= 55 ? 8 : 0;
+    const mistBonus = humidity >= 88 && hour <= 9 ? 12 : 0;
+    const score = clamp(Math.round(goldenBoost + cloudScore + visibilityScore + dryScore + mistBonus + 20));
+    candidates.push({time:t, score, cloud, visibility, humidity, pop});
+  }
+  const best = candidates.sort((a,b)=>b.score-a.score)[0] || null;
+  const sunsetScore = photoMomentScore(ss, h);
+  const sunriseScore = photoMomentScore(sr, h);
+  return {
+    best,
+    goldenMorning,
+    goldenEvening,
+    sunriseScore,
+    sunsetScore,
+    mistChance:mistChanceNextMorning(),
+    highCloud:'Niet beschikbaar',
+    source:'Open-Meteo forecast + Wheaterflow intelligence'
+  };
+}
+
+function photoMomentScore(timeValue, hourly=state.hourly || {}){
+  if(!timeValue || !hourly.time?.length) return 0;
+  const idx = closestIndex(hourly.time, new Date(timeValue).getTime());
+  const cloud = Number(hourly.cloud_cover?.[idx] ?? 60);
+  const pop = Number(hourly.precipitation_probability?.[idx] ?? 0);
+  const visibility = Number(hourly.visibility?.[idx] || 0);
+  return clamp(Math.round(42 + (cloud >= 25 && cloud <= 75 ? 28 : 10) + (pop <= 30 ? 18 : 4) + (visibility >= 7000 ? 12 : 4)));
+}
+
+function mistChanceNextMorning(){
+  const h = state.hourly || {};
+  const nowIdx = nowIndexInHourly();
+  let chance = 0;
+  for(let i=nowIdx; i<Math.min(nowIdx+24, h.time?.length || 0); i++){
+    const t = new Date(h.time[i]);
+    if(t.getHours() <= 9){
+      const humidity = Number(h.relative_humidity_2m?.[i] ?? 0);
+      const visibility = Number(h.visibility?.[i] ?? 99999);
+      if(humidity >= 92 || visibility < 5000) chance = Math.max(chance, humidity >= 96 || visibility < 2500 ? 72 : 48);
+    }
+  }
+  return chance;
+}
+
 function nowcastText(){
   const rain = nowcastEngine();
   return rain.status === 'unavailable' ? null : rain.summary;
@@ -2560,6 +2654,8 @@ function alertsForDay(dayIndex){
 
 function sunMoonSection(){
   const moon = moonPhase(new Date());
+  const sky = skyEngine();
+  const photo = photoWeatherEngine();
   const sr = state.daily.sunrise[0], ss = state.daily.sunset[0];
   const srTime = formatDayTime(sr), ssTime = formatDayTime(ss);
   const daylight = formatDuration(state.daily.daylight_duration?.[0]);
@@ -2591,11 +2687,46 @@ function sunMoonSection(){
         </div>
       </div>
     </div>
-  </div>`;
+  </div>
+  ${skySectionCard(sky)}
+  ${photoWeatherCard(photo)}`;
 }
 
 function astroMetric(label, value){
   return `<div class="sun-metric"><span class="metric-label">${label}</span><strong class="metric-value">${value || '-'}</strong></div>`;
+}
+
+function skySectionCard(sky){
+  return `<div class="card sky-card">
+    <div class="card-title">${icon('eye',true,13)} Wheaterflow Sky</div>
+    <div class="sky-score" style="--score:${sky.stargazing}"><b>${sky.stargazing}</b><span>Sterrenkijk-score</span><small>${esc(sky.stargazingLabel)}</small></div>
+    <div class="sky-grid">
+      <div><span>Bewolking</span><b>${Math.round(sky.cloud)}%</b></div>
+      <div><span>Zicht</span><b>${sky.visibility ? (sky.visibility/1000).toFixed(1)+' km' : '-'}</b></div>
+      <div><span>Maan</span><b>${Math.round(sky.moon.illumination*100)}%</b></div>
+      <div><span>Melkweg</span><b>${esc(sky.milkyWayChance)}</b></div>
+      <div><span>Aurora</span><b>${esc(sky.auroraChance)}</b></div>
+      <div><span>Bron</span><b>Afgeleid</b></div>
+    </div>
+    <p>${esc(sky.factors.join(', ') || 'Gebaseerd op beschikbare hemeldata')}.</p>
+  </div>`;
+}
+
+function photoWeatherCard(photo){
+  const best = photo.best;
+  return `<div class="card photo-weather-card">
+    <div class="card-title">${icon('sunrise',true,13)} Fotoweer</div>
+    <div class="photo-hero">
+      <div><span>Beste moment</span><b>${best ? best.time.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : '-'}</b><small>${best ? best.score+'% fotografie-index' : 'Niet beschikbaar'}</small></div>
+      <div><span>Golden hour</span><b>${esc(photo.goldenEvening)}</b><small>avond</small></div>
+    </div>
+    <div class="sky-grid">
+      <div><span>Zonsopgang</span><b>${photo.sunriseScore}%</b></div>
+      <div><span>Zonsondergang</span><b>${photo.sunsetScore}%</b></div>
+      <div><span>Mistkans</span><b>${photo.mistChance}%</b></div>
+      <div><span>Hoge bewolking</span><b>${esc(photo.highCloud)}</b></div>
+    </div>
+  </div>`;
 }
 
 function airQualitySection(){
