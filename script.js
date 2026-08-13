@@ -3768,7 +3768,22 @@ const COMMUNITY_CATEGORIES = [
   {id:'hail', label:'Hagel', color:'#dbe7ff'},
   {id:'other', label:'Overig', color:'#8fe7ff'}
 ];
+const COMMUNITY_OBSERVATION_TYPES = [
+  {id:'rain', label:'Regen', short:'Regen', category:'rain', icon:'☔', ttlMinutes:60},
+  {id:'heavy_rain', label:'Zware regen', short:'Zware regen', category:'rain', icon:'🌧', ttlMinutes:60},
+  {id:'hail', label:'Hagel', short:'Hagel', category:'hail', icon:'◌', ttlMinutes:45},
+  {id:'seaspark', label:'Zeevonk', short:'Zeevonk', category:'seaspark', icon:'✦', ttlMinutes:240},
+  {id:'snow', label:'Sneeuw', short:'Sneeuw', category:'snow', icon:'❄', ttlMinutes:120},
+  {id:'fog', label:'Mist', short:'Mist', category:'fog', icon:'≋', ttlMinutes:180},
+  {id:'thunder', label:'Onweer', short:'Onweer', category:'thunder', icon:'⚡', ttlMinutes:45},
+  {id:'lightning', label:'Bliksem gezien', short:'Bliksem', category:'thunder', icon:'↯', ttlMinutes:30},
+  {id:'strong_wind', label:'Harde wind', short:'Harde wind', category:'storm', icon:'〰', ttlMinutes:90},
+  {id:'flooding', label:'Wateroverlast', short:'Wateroverlast', category:'rain', icon:'≋', ttlMinutes:240},
+  {id:'ice', label:'Gladheid', short:'Gladheid', category:'other', icon:'◇', ttlMinutes:360},
+  {id:'clearing', label:'Zon of opklaring', short:'Opklaring', category:'sunset', icon:'☀', ttlMinutes:90}
+];
 const communityCategory = id => COMMUNITY_CATEGORIES.find(c=>c.id===id) || COMMUNITY_CATEGORIES[COMMUNITY_CATEGORIES.length - 1];
+const communityObservationType = id => COMMUNITY_OBSERVATION_TYPES.find(t=>t.id===id) || null;
 const safeRandomId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
 function initCommunityUi(){
@@ -3776,6 +3791,8 @@ function initCommunityUi(){
   const composerCatOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}" ${c.id === 'other' ? 'selected' : ''}>${c.label}</option>`).join('');
   if($('#communityCategorySelect')) $('#communityCategorySelect').innerHTML = composerCatOptions;
   if($('#communityCategoryFilter')) $('#communityCategoryFilter').innerHTML = '<option value="">Alle categorieen</option>' + catOptions;
+  renderCommunityQuickObservations();
+  $('#communityQuickObservations')?.addEventListener('click', handleQuickObservationClick);
   $('#communityUploadOpen')?.addEventListener('click', openCommunityComposer);
   $('#communityComposerClose')?.addEventListener('click', closeCommunityComposer);
   $('#communityScrim')?.addEventListener('click', closeCommunityComposer);
@@ -3804,6 +3821,17 @@ function initCommunityUi(){
   $('#communityFeed')?.addEventListener('submit', handleCommunityCommentSubmit);
 }
 
+function renderCommunityQuickObservations(){
+  const wrap = $('#communityQuickObservations');
+  if(!wrap) return;
+  wrap.innerHTML = COMMUNITY_OBSERVATION_TYPES.map(type=>`
+    <button type="button" data-observation-type="${esc(type.id)}" aria-label="${esc(type.label)} melden">
+      <span>${esc(type.icon)}</span>
+      <b>${esc(type.short)}</b>
+    </button>
+  `).join('');
+}
+
 function debounce(fn, wait){
   let t;
   return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), wait); };
@@ -3827,14 +3855,50 @@ async function loadCommunityPosts(reset=false){
     if(state.community.category) q.set('category', state.community.category);
     if(state.community.query) q.set('q', state.community.query);
     const data = await apiJson('/community/posts?' + q.toString(), {method:'GET'});
-    const posts = data.posts || [];
+    const posts = normalizeCommunityPosts(data.posts || []);
     state.community.posts = reset ? posts : [...state.community.posts, ...posts];
     state.community.hasMore = Boolean(data.hasMore);
     state.community.page += 1;
     renderCommunityFeed(); renderCommunityLiveStats();
     if(state.community.view === 'map') renderCommunityMapMarkers();
-  }catch(e){ console.error('Community feed load failed', e); renderCommunityEmpty('Community kon niet worden geladen.'); }
+  }catch(e){ console.error('Community feed load failed', e); renderCommunityEmpty('Community kon niet worden geladen. Controleer je verbinding of probeer later opnieuw.'); }
   finally{ state.community.loading=false; }
+}
+
+function normalizeCommunityPosts(posts){
+  return posts
+    .map(post=>normalizeCommunityObservationPost(post))
+    .filter(isCommunityPostActive);
+}
+
+function normalizeCommunityObservationPost(post){
+  const caption = String(post.caption || '');
+  let typeId = post.observation_type || post.observationType || '';
+  if(!typeId){
+    if(/#?zeevonk|bioluminescentie|bioluminescence/i.test(caption)) typeId = 'seaspark';
+    else if(/bliksem/i.test(caption)) typeId = 'lightning';
+    else if(/onweer|donder/i.test(caption)) typeId = 'thunder';
+    else if(/hagel/i.test(caption)) typeId = 'hail';
+    else if(/sneeuw/i.test(caption)) typeId = 'snow';
+    else if(/mist|nevel/i.test(caption)) typeId = 'fog';
+    else if(/wateroverlast|overstrom/i.test(caption)) typeId = 'flooding';
+    else if(/glad|ijzel|ijs/i.test(caption)) typeId = 'ice';
+    else if(/zware regen|stortregen|hevige regen/i.test(caption)) typeId = 'heavy_rain';
+    else if(/regen|bui|motregen/i.test(caption)) typeId = 'rain';
+  }
+  const type = communityObservationType(typeId);
+  const createdMs = new Date(post.created_at || Date.now()).getTime();
+  return {
+    ...post,
+    observation_type: type?.id || typeId || '',
+    observation_ttl_minutes: post.observation_ttl_minutes || type?.ttlMinutes || null,
+    expires_at: post.expires_at || (type ? new Date(createdMs + type.ttlMinutes * 60000).toISOString() : null)
+  };
+}
+
+function isCommunityPostActive(post){
+  if(!post.expires_at) return true;
+  return new Date(post.expires_at).getTime() > Date.now();
 }
 
 function renderCommunityLoading(){
@@ -3871,8 +3935,26 @@ function renderCommunityFeed(){
   $('#communityLoadMore')?.classList.toggle('hidden', !state.community.hasMore);
 }
 
+function communityObservationMeta(post){
+  const type = communityObservationType(post.observation_type);
+  if(!type) return null;
+  const expiresMs = post.expires_at ? new Date(post.expires_at).getTime() : null;
+  const minutesLeft = expiresMs ? Math.max(0, Math.ceil((expiresMs - Date.now()) / 60000)) : null;
+  const same = state.community.posts.filter(other=>{
+    if(other.id === post.id) return false;
+    if((other.observation_type || other.category) !== (post.observation_type || post.category)) return false;
+    const sameLocation = post.location_name && other.location_name && post.location_name === other.location_name;
+    const sameRoundedLat = post.latitude != null && other.latitude != null && Math.abs(+post.latitude - +other.latitude) <= 0.03;
+    const sameRoundedLon = post.longitude != null && other.longitude != null && Math.abs(+post.longitude - +other.longitude) <= 0.03;
+    return sameLocation || (sameRoundedLat && sameRoundedLon);
+  }).length;
+  const reliability = same >= 2 ? 'Sterk bevestigd' : same === 1 ? 'Bevestigd door buurt' : 'Nieuwe melding';
+  return {type, minutesLeft, reliability};
+}
+
 function communityPostHtml(post){
   const cat = communityCategory(post.category);
+  const obs = communityObservationMeta(post);
   const profile = post.profiles || {};
   const name = profile.display_name || 'Wheaterflow gebruiker';
   const avatar = profile.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : esc(userInitials(name));
@@ -3892,6 +3974,7 @@ function communityPostHtml(post){
       </div>
       <div class="community-category" style="box-shadow:inset 0 -2px 0 ${cat.color};">${esc(cat.label)}</div>
     </div>
+    ${obs ? `<div class="community-observation-badge"><span>${esc(obs.type.icon)}</span><b>${esc(obs.type.label)}</b><small>${esc(obs.reliability)}${obs.minutesLeft != null ? ` - nog ${obs.minutesLeft} min actueel` : ''}</small></div>` : ''}
     ${media}
     <div class="community-body">
       ${hasPhoto && post.caption ? `<p class="community-caption">${linkHashtags(esc(post.caption))}</p>` : ''}
@@ -3922,6 +4005,113 @@ function communityPostHtml(post){
 
 function linkHashtags(text){
   return text.replace(/(^|\s)(#[a-zA-Z0-9_]+)/g, (m, space, tag)=>`${space}<button class="linkbtn community-hashtag" data-tag="${esc(tag.slice(1).toLowerCase())}" type="button">${esc(tag)}</button>`);
+}
+
+async function handleQuickObservationClick(e){
+  const btn = e.target.closest('button[data-observation-type]');
+  if(!btn) return;
+  await submitQuickObservation(btn.dataset.observationType, btn);
+}
+
+function communityPrivacyLocation(loc, privacy='municipality'){
+  if(privacy === 'none') return {location_name:'', latitude:'', longitude:''};
+  const name = loc.name || state.loc.name || 'Huidige locatie';
+  if(privacy === 'exact') return {location_name:name, latitude:loc.lat, longitude:loc.lon};
+  return {
+    location_name:name,
+    latitude:Number.isFinite(+loc.lat) ? Math.round(+loc.lat * 100) / 100 : '',
+    longitude:Number.isFinite(+loc.lon) ? Math.round(+loc.lon * 100) / 100 : ''
+  };
+}
+
+async function submitQuickObservation(typeId, button=null){
+  if(!requireCommunityLogin()) return;
+  const type = communityObservationType(typeId);
+  if(!type) return;
+  if(button){ button.disabled = true; button.classList.add('sending'); }
+  try{
+    const gps = await getBrowserLocation();
+    const baseLoc = gps ? {lat:gps.lat, lon:gps.lon, ...(await reverseGeocode(gps.lat, gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
+    const safeLoc = communityPrivacyLocation(baseLoc, 'municipality');
+    const cur = liveWeatherSnapshot();
+    const expiresAt = new Date(Date.now() + type.ttlMinutes * 60000).toISOString();
+    const caption = `${type.label} gemeld in ${safeLoc.location_name || 'de buurt'}.`;
+    const form = new FormData();
+    form.append('caption', caption);
+    form.append('category', type.category);
+    form.append('location_privacy', 'municipality');
+    form.append('location_name', safeLoc.location_name);
+    if(safeLoc.latitude !== '') form.append('latitude', String(safeLoc.latitude));
+    if(safeLoc.longitude !== '') form.append('longitude', String(safeLoc.longitude));
+    form.append('observation_type', type.id);
+    form.append('observation_ttl_minutes', String(type.ttlMinutes));
+    form.append('expires_at', expiresAt);
+    form.append('data_quality', 'community-waarneming');
+    form.append('temperature', cur?.temperature_2m ?? '');
+    form.append('apparent_temperature', cur?.apparent_temperature ?? '');
+    form.append('wind_speed', cur?.wind_speed_10m ?? '');
+    form.append('precipitation', cur?.precipitation ?? '');
+    form.append('humidity', cur?.relative_humidity_2m ?? '');
+    form.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
+    form.append('pressure', cur?.pressure_msl ?? '');
+    form.append('weather_source', 'Community, niet officieel');
+    let saved;
+    try{
+      saved = await apiForm('/community/posts', form);
+    }catch(error){
+      const fallback = new FormData();
+      fallback.append('caption', `${caption} #${type.id} #communitywaarneming`);
+      fallback.append('category', type.category);
+      fallback.append('location_privacy', 'municipality');
+      fallback.append('location_name', safeLoc.location_name);
+      if(safeLoc.latitude !== '') fallback.append('latitude', String(safeLoc.latitude));
+      if(safeLoc.longitude !== '') fallback.append('longitude', String(safeLoc.longitude));
+      fallback.append('temperature', cur?.temperature_2m ?? '');
+      fallback.append('apparent_temperature', cur?.apparent_temperature ?? '');
+      fallback.append('wind_speed', cur?.wind_speed_10m ?? '');
+      fallback.append('precipitation', cur?.precipitation ?? '');
+      fallback.append('humidity', cur?.relative_humidity_2m ?? '');
+      fallback.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
+      fallback.append('pressure', cur?.pressure_msl ?? '');
+      fallback.append('weather_source', 'Community, niet officieel');
+      saved = await apiForm('/community/posts', fallback);
+    }
+    const optimisticPost = normalizeCommunityObservationPost({
+      id:saved.post?.id || saved.id || safeRandomId(),
+      user_id:state.auth.user?.id,
+      profiles:{display_name:state.auth.profile?.display_name || state.auth.user?.email?.split('@')[0] || 'Wheaterflow gebruiker', avatar_url:state.auth.profile?.avatar_url},
+      caption,
+      category:type.category,
+      observation_type:type.id,
+      observation_ttl_minutes:type.ttlMinutes,
+      expires_at:expiresAt,
+      location_name:safeLoc.location_name,
+      latitude:safeLoc.latitude,
+      longitude:safeLoc.longitude,
+      temperature:cur?.temperature_2m,
+      apparent_temperature:cur?.apparent_temperature,
+      wind_speed:cur?.wind_speed_10m,
+      precipitation:cur?.precipitation,
+      humidity:cur?.relative_humidity_2m,
+      created_at:new Date().toISOString(),
+      like_count:0,
+      comment_count:0,
+      community_likes:[],
+      community_favorites:[],
+      community_comments:[]
+    });
+    state.community.posts = [optimisticPost, ...state.community.posts.filter(p=>p.id !== optimisticPost.id)];
+    renderCommunityFeed();
+    renderCommunityLiveStats();
+    if(state.community.view === 'map') renderCommunityMapMarkers();
+    toast(`${type.label} gemeld.`);
+    setTimeout(()=>loadCommunityPosts(true), 900);
+  }catch(e){
+    console.warn('Snelle communitywaarneming mislukt:', e?.message || e);
+    toast(e?.status === 401 ? 'Log opnieuw in om te melden.' : 'Waarneming kon niet worden geplaatst.');
+  }finally{
+    if(button){ button.disabled = false; button.classList.remove('sending'); }
+  }
 }
 
 async function handleCommunityAction(e){
@@ -4042,6 +4232,7 @@ async function createCommunityPost(){
     form.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
     form.append('pressure', cur?.pressure_msl ?? '');
     form.append('weather_source', state.observation ? state.observation.source : 'KNMI HARMONIE');
+    form.append('data_quality', 'community-waarneming');
     await apiForm('/community/posts', form);
     setCommunityComposerMessage('Geplaatst.', 'ok');
     $('#communityCaption').value=''; $('#communityPhotoInput').value=''; $('#communityPhotoPreview')?.classList.add('hidden');
