@@ -1392,7 +1392,8 @@ function nowIndexInHourly(){
 function weatherIntelligence(){
   return {
     rain: nowcastEngine(),
-    storm: stormEngine()
+    storm: stormEngine(),
+    sea: seaEngine()
   };
 }
 
@@ -1539,6 +1540,92 @@ function stormEngine(){
     intensity:maxCape >= 1500 || maxGust >= 85 ? 'sterk' : relevant ? 'mogelijk' : 'laag',
     limitation:'Geen live bliksemdetectie gekoppeld; afstand wordt niet verzonnen.'
   };
+}
+
+function seaEngine(){
+  if(!state.marine){
+    return {
+      available:false,
+      reason:isCoastalLocation() ? 'Marine data tijdelijk niet beschikbaar.' : 'Deze locatie ligt niet dicht genoeg bij de kust.',
+      source:'Open-Meteo Marine + Wheaterflow intelligence'
+    };
+  }
+  const cur = liveWeatherSnapshot();
+  const m = state.marine;
+  const rain = nowcastEngine();
+  const wave = Number(m.waveHeight);
+  const period = Number(m.wavePeriod);
+  const seaTemp = Number(m.seaSurfaceTemperature);
+  const wind = Number(cur.wind_speed_10m);
+  const gust = Number(cur.wind_gusts_10m);
+  const uv = Number(state.daily?.uv_index_max?.[0]) || 0;
+  const visibility = Number(state.hourly?.visibility?.[nowIndexInHourly()]) || null;
+  const alertPenalty = (state.alerts || []).some(a=>a.level && a.level !== 'green') ? 10 : 0;
+
+  const swimParts = [];
+  let swimScore = 100;
+  if(Number.isFinite(seaTemp)){
+    if(seaTemp < 16){ swimScore -= 24; swimParts.push('koud zeewater'); }
+    else if(seaTemp < 18){ swimScore -= 12; swimParts.push('fris zeewater'); }
+    else swimParts.push('aangename zeetemperatuur');
+  }else swimScore -= 8;
+  if(Number.isFinite(wave)){
+    if(wave > 1.2){ swimScore -= 30; swimParts.push('hoge golven'); }
+    else if(wave > .8){ swimScore -= 16; swimParts.push('matige golven'); }
+    else swimParts.push('rustige golven');
+  }else swimScore -= 8;
+  if(Number.isFinite(wind)){
+    if(wind > 35){ swimScore -= 22; swimParts.push('veel wind'); }
+    else if(wind > 24){ swimScore -= 10; swimParts.push('merkbare wind'); }
+  }
+  if(rain.status === 'raining') { swimScore -= 14; swimParts.push('regen nu'); }
+  if(uv >= 7){ swimScore -= 5; swimParts.push('hoge UV'); }
+  swimScore -= alertPenalty;
+  swimScore = clamp(Math.round(swimScore));
+
+  let beachScore = 100;
+  const beachParts = [];
+  if(Number.isFinite(wind)){
+    if(wind > 40){ beachScore -= 24; beachParts.push('te veel wind'); }
+    else if(wind > 28){ beachScore -= 12; beachParts.push('wind aan zee'); }
+    else beachParts.push('wind ok');
+  }
+  if(Number.isFinite(wave) && wave > 1.1){ beachScore -= 12; beachParts.push('ruwere zee'); }
+  if(rain.status === 'raining'){ beachScore -= 24; beachParts.push('regen'); }
+  else if(rain.status === 'rain_soon'){ beachScore -= 12; beachParts.push('regen later'); }
+  if(Number(cur.temperature_2m) < 18){ beachScore -= 10; beachParts.push('fris'); }
+  if(uv >= 8){ beachScore -= 6; beachParts.push('zeer hoge UV'); }
+  if(visibility && visibility < 4000){ beachScore -= 8; beachParts.push('matig zicht'); }
+  beachScore -= alertPenalty;
+  beachScore = clamp(Math.round(beachScore));
+
+  return {
+    available:true,
+    place:m.place,
+    seaTemperature:Number.isFinite(seaTemp) ? seaTemp : null,
+    waveHeight:Number.isFinite(wave) ? wave : null,
+    wavePeriod:Number.isFinite(period) ? period : null,
+    waveDirection:m.waveDirection ?? null,
+    wind:Number.isFinite(wind) ? wind : null,
+    gust:Number.isFinite(gust) ? gust : null,
+    uv,
+    feelsLike:cur.apparent_temperature ?? null,
+    visibility,
+    rainStatus:rain.status,
+    tide:m.tide,
+    seaspark:state.seaspark,
+    swimScore,
+    swimComfort:scoreLabel(swimScore),
+    swimFactors:swimParts,
+    beachScore,
+    beachLabel:scoreLabel(beachScore),
+    beachFactors:beachParts,
+    source:'Open-Meteo Marine + Open-Meteo forecast + Wheaterflow intelligence'
+  };
+}
+
+function scoreLabel(score){
+  return score >= 82 ? 'Uitstekend' : score >= 68 ? 'Goed' : score >= 48 ? 'Matig' : score >= 28 ? 'Slecht' : 'Afgeraden';
 }
 
 function nowcastText(){
@@ -2540,14 +2627,28 @@ function airSummary(aqi, pollen){
 }
 
 function coastSection(){
-  if(!state.marine) return `<div class="card"><div class="card-title">${icon('drop',true,13)} Kustmodus</div><div class="subtle">Geen kustdata voor deze locatie.</div></div>`;
-  const m = state.marine, tide = m.tide;
-  return `<div class="card"><div class="card-title">${icon('drop',true,13)} Kustmodus ${esc(m.place)}</div>
+  const sea = seaEngine();
+  if(!sea.available) return `<div class="card"><div class="card-title">${icon('drop',true,13)} Kustmodus</div><div class="subtle">${esc(sea.reason)}</div></div>`;
+  const tide = sea.tide;
+  return `<div class="card sea-mode-card"><div class="card-title">${icon('drop',true,13)} Sea Mode ${esc(sea.place)}</div>
+    <div class="sea-score-row">
+      <div class="sea-score"><b>${sea.beachScore}</b><span>Strandscore</span><small>${esc(sea.beachLabel)}</small></div>
+      <div class="sea-score"><b>${sea.swimScore}</b><span>Zwemcomfort</span><small>${esc(sea.swimComfort)}</small></div>
+    </div>
     <div class="coast-grid premium-coast-grid">
-      <div><b>${m.waveHeight?.toFixed(1) ?? '-'} m</b><span>Golfhoogte</span></div><div><b>${m.wavePeriod?.toFixed(1) ?? '-'} s</b><span>Golfperiode</span></div>
-      <div><b>${Math.round(m.waveDirection ?? 0)}&deg;</b><span>Golfrichting</span></div><div><b>${tide.state}</b><span>Getij</span></div>
-      <div><b>${tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</b><span>Volgende ${tide.nextType}</span></div><div><b>${m.seaSurfaceTemperature?.toFixed(1) ?? '-'} &deg;C</b><span>Zeewater</span></div>
-    </div><div class="tide-line"><span></span></div>
+      <div><b>${sea.seaTemperature == null ? '-' : sea.seaTemperature.toFixed(1)} &deg;C</b><span>Zeewater</span></div>
+      <div><b>${sea.waveHeight == null ? '-' : sea.waveHeight.toFixed(1)} m</b><span>Golfhoogte</span></div>
+      <div><b>${sea.wavePeriod == null ? '-' : sea.wavePeriod.toFixed(1)} s</b><span>Golfperiode</span></div>
+      <div><b>${fmtWind(sea.wind)}</b><span>Wind</span></div>
+      <div><b>${tide.state}</b><span>Getij</span></div>
+      <div><b>${tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</b><span>Volgende ${tide.nextType}</span></div>
+      <div><b>${Math.round(sea.uv)}</b><span>UV-index</span></div>
+      <div><b>${sea.visibility ? (sea.visibility/1000).toFixed(1)+' km' : '-'}</b><span>Zicht</span></div>
+    </div>
+    <div class="sea-explain">
+      <p><b>Strandscore</b> op basis van ${esc(sea.beachFactors.join(', ') || 'beschikbare kustdata')}.</p>
+      <p><b>Zwemcomfort</b> op basis van ${esc(sea.swimFactors.join(', ') || 'beschikbare zeedata')}.</p>
+    </div>
     ${seaSparkCoastPanel()}
   </div>`;
 }
