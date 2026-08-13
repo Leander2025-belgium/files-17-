@@ -1388,46 +1388,177 @@ function nowIndexInHourly(){
   return closestIndex(state.hourly.time, Date.now());
 }
 
-function nowcastText(){
-  if(!state.minutely || !state.minutely.time || !state.minutely.time.length) return null;
-  let idx = closestIndex(state.minutely.time, Date.now());
-  const slots = state.minutely.precipitation.slice(idx, idx+8); // komende ~2 uur, per 15 min
-  const rainingNow = (slots[0]||0) >= 0.1;
-  const firstRainIdx = slots.findIndex(v=>v>=0.1);
-  const firstDryIdx = slots.findIndex(v=>v<0.1);
-  if(rainingNow){
-    if(firstDryIdx > 0){
-      const t = new Date(state.minutely.time[idx+firstDryIdx]+':00');
-      return `Neerslag stopt rond ${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')}`;
-    }
-    return 'Neerslag houdt aan de komende 2 uur';
-  } else if(firstRainIdx > 0){
-    const t = new Date(state.minutely.time[idx+firstRainIdx]+':00');
-    return `Neerslag verwacht rond ${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')}`;
+/* ---------------- Wheaterflow intelligence layer ---------------- */
+function weatherIntelligence(){
+  return {
+    rain: nowcastEngine(),
+    storm: stormEngine()
+  };
+}
+
+function nowcastEngine(){
+  const output = {
+    status:'unavailable',
+    title:'Nowcast tijdelijk niet beschikbaar',
+    summary:'Er is nu geen bruikbare korte-termijn neerslagdata.',
+    startsInMinutes:null,
+    startTime:null,
+    endTime:null,
+    endsInMinutes:null,
+    intensity:'unknown',
+    intensityLabel:'Onbekend',
+    dryWindowMinutes:null,
+    confidence:0,
+    heavyShower:false,
+    thunderPossible:false,
+    source:'Geen actuele nowcast',
+    slots:[],
+    generatedAt:new Date().toISOString()
+  };
+  const minutely = state.minutely;
+  if(!minutely?.time?.length || !Array.isArray(minutely.precipitation)){
+    return output;
   }
-  return 'Geen neerslag verwacht de komende 2 uur';
+
+  const now = Date.now();
+  const idx = closestIndex(minutely.time, now);
+  const frameMs = Date.parse(minutely.time[idx] + ':00');
+  if(!Number.isFinite(frameMs) || Math.abs(frameMs - now) > 45 * 60000){
+    output.summary = 'De korte-termijn neerslagdata is te oud of ontbreekt.';
+    output.source = 'Nowcast verouderd';
+    return output;
+  }
+
+  const slots = [];
+  const maxSlots = Math.min(minutely.time.length, idx + 12);
+  for(let i=idx; i<maxSlots; i++){
+    const time = new Date(minutely.time[i] + ':00');
+    const mm = Math.max(0, Number(minutely.precipitation[i]) || 0);
+    const code = Number(minutely.weather_code?.[i]);
+    slots.push({
+      index:i,
+      time,
+      minutes:Math.max(0, Math.round((time.getTime() - now) / 60000)),
+      precipitation:mm,
+      weatherCode:Number.isFinite(code) ? code : null,
+      wet:mm >= 0.1 || [51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].includes(code)
+    });
+  }
+  if(!slots.length){
+    return output;
+  }
+
+  const wetSlots = slots.filter(s=>s.wet);
+  const rainingNow = slots[0].wet;
+  const firstWet = slots.find(s=>s.wet);
+  const firstDryAfterNow = slots.find((s,i)=>i > 0 && !s.wet);
+  const wetFromNow = slots.findIndex(s=>s.wet);
+  const firstWetIndex = wetFromNow >= 0 ? wetFromNow : -1;
+  const dryAfterWetIndex = firstWetIndex >= 0 ? slots.findIndex((s,i)=>i > firstWetIndex && !s.wet) : -1;
+  const maxRain = Math.max(0, ...slots.map(s=>s.precipitation));
+  const thunderPossible = slots.some(s=>[95,96,99].includes(Number(s.weatherCode))) || stormEngine().relevant;
+  const heavyShower = maxRain >= 3 || slots.some(s=>[65,82,95,96,99].includes(Number(s.weatherCode)));
+  const intensity = rainIntensity(maxRain);
+  const confidence = nowcastConfidence(slots, maxRain);
+
+  output.status = rainingNow ? 'raining' : firstWet ? 'rain_soon' : 'dry';
+  output.startTime = firstWet ? firstWet.time.toISOString() : null;
+  output.startsInMinutes = firstWet ? firstWet.minutes : null;
+  output.endTime = dryAfterWetIndex >= 0 ? slots[dryAfterWetIndex].time.toISOString() : null;
+  output.endsInMinutes = firstDryAfterNow ? firstDryAfterNow.minutes : null;
+  output.intensity = intensity.id;
+  output.intensityLabel = intensity.label;
+  output.dryWindowMinutes = rainingNow ? 0 : (firstWet ? firstWet.minutes : 120);
+  output.confidence = confidence;
+  output.heavyShower = heavyShower;
+  output.thunderPossible = thunderPossible;
+  output.source = 'Open-Meteo minutely_15 + Wheaterflow intelligence';
+  output.slots = slots.map(s=>({time:s.time.toISOString(), minutes:s.minutes, precipitation:s.precipitation, wet:s.wet, weatherCode:s.weatherCode}));
+
+  if(output.status === 'raining'){
+    const endText = output.endTime ? `droger rond ${formatShortTime(output.endTime)}` : 'geen betrouwbaar droog venster';
+    output.title = heavyShower ? 'Zware bui nu' : `${intensity.label} nu`;
+    output.summary = `Regen nu - waarschijnlijk ${endText}.`;
+  }else if(output.status === 'rain_soon'){
+    const range = minuteRange(output.startsInMinutes, confidence);
+    output.title = heavyShower ? `Zware bui over ${range}` : `Regen over ${range}`;
+    output.summary = `${intensity.label}. Verwacht ${formatShortTime(output.startTime)}${output.endTime ? '-' + formatShortTime(output.endTime) : ' en daarna onzeker'}.`;
+  }else{
+    output.title = 'Droog';
+    output.summary = `Minstens ${output.dryWindowMinutes} minuten geen regen verwacht.`;
+  }
+  if(thunderPossible) output.summary += ' Onweer mogelijk.';
+  return output;
+}
+
+function rainIntensity(mm){
+  if(mm >= 3) return {id:'heavy', label:'Zware regen'};
+  if(mm >= 1) return {id:'moderate', label:'Regen'};
+  if(mm >= .1) return {id:'light', label:'Lichte regen'};
+  return {id:'none', label:'Droog'};
+}
+
+function nowcastConfidence(slots, maxRain){
+  const coverage = Math.min(1, slots.length / 8);
+  const variability = slots.reduce((sum,s,i)=>i ? sum + Math.abs(s.precipitation - slots[i-1].precipitation) : 0, 0);
+  const variabilityPenalty = Math.min(.22, variability / 18);
+  const weakSignalPenalty = maxRain > 0 && maxRain < .18 ? .12 : 0;
+  return Math.max(.35, Math.min(.92, .58 + coverage * .26 - variabilityPenalty - weakSignalPenalty));
+}
+
+function minuteRange(minutes, confidence){
+  if(minutes == null) return 'onbekend';
+  if(confidence >= .78) return `±${Math.max(1, Math.round(minutes))} min`;
+  const low = Math.max(0, Math.round(minutes - 10));
+  const high = Math.round(minutes + 10);
+  return `${low}-${high} min`;
+}
+
+function formatShortTime(value){
+  if(!value) return '--:--';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return '--:--';
+  return date.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
+}
+
+function stormEngine(){
+  const h = state.hourly || {};
+  const nowIdx = nowIndexInHourly();
+  const indexes = [];
+  for(let i=nowIdx; i<Math.min(nowIdx+6, h.time?.length || 0); i++) indexes.push(i);
+  const thunderIdx = indexes.find(i=>[95,96,99].includes(Number(h.weather_code?.[i])));
+  const maxCape = Math.max(0, ...indexes.map(i=>Number(h.cape?.[i]) || 0));
+  const minLi = Math.min(99, ...indexes.map(i=>Number(h.lifted_index?.[i]) || 99));
+  const maxGust = Math.max(0, ...indexes.map(i=>Number(h.wind_gusts_10m?.[i]) || 0));
+  const relevant = thunderIdx != null || (maxCape >= 800 && minLi <= 0) || maxGust >= 70 || (state.alerts || []).some(a=>/onweer|storm|bliksem/i.test(`${a.headline || ''} ${a.description || ''}`));
+  return {
+    relevant,
+    lightningDistanceKm:null,
+    movement:null,
+    etaMinutes:thunderIdx != null ? Math.max(0, Math.round((new Date(h.time[thunderIdx]).getTime() - Date.now()) / 60000)) : null,
+    intensity:maxCape >= 1500 || maxGust >= 85 ? 'sterk' : relevant ? 'mogelijk' : 'laag',
+    limitation:'Geen live bliksemdetectie gekoppeld; afstand wordt niet verzonnen.'
+  };
+}
+
+function nowcastText(){
+  const rain = nowcastEngine();
+  return rain.status === 'unavailable' ? null : rain.summary;
 }
 
 function rainNowcastCard(){
-  if(!state.minutely?.time?.length) return '';
-  const idx = closestIndex(state.minutely.time, Date.now());
-  const slots = state.minutely.precipitation.slice(idx, idx + 12).map(v=>Number(v) || 0);
-  const rainingNow = (slots[0] || 0) >= 0.1;
-  const firstDryIdx = slots.findIndex(v=>v < 0.1);
-  const firstRainIdx = slots.findIndex(v=>v >= 0.1);
-  const title = rainingNow ? 'Het stopt met regenen' : firstRainIdx > 0 ? 'Regen op komst' : 'Geen regen verwacht';
-  const body = rainingNow && firstDryIdx > 0
-    ? `Lichte regen houdt naar verwachting over ${firstDryIdx * 15} min. op.`
-    : rainingNow
-      ? 'Neerslag houdt waarschijnlijk nog minstens 2 uur aan.'
-      : firstRainIdx > 0
-        ? `Neerslag wordt verwacht over ${firstRainIdx * 15} min.`
-        : 'De komende 2 uur blijft het waarschijnlijk droog.';
-  const maxRain = Math.max(.4, ...slots);
-  const bars = slots.map((v,i)=>`<i class="${i===0?'now':''}" style="height:${Math.max(4, Math.round((v / maxRain) * 34))}px"></i>`).join('');
-  return `<div class="card rain-now-card">
-    <h3>${title}</h3>
-    <p>${body}</p>
+  const rain = nowcastEngine();
+  if(rain.status === 'unavailable') return `<div class="card rain-now-card unavailable">
+    <h3>${esc(rain.title)}</h3>
+    <p>${esc(rain.summary)}</p>
+  </div>`;
+  const maxRain = Math.max(.4, ...rain.slots.map(s=>s.precipitation));
+  const bars = rain.slots.map((slot,i)=>`<i class="${i===0?'now':''} ${slot.wet?'wet':'dry'}" title="${slot.minutes} min: ${slot.precipitation.toFixed(1)} mm" style="height:${Math.max(4, Math.round((slot.precipitation / maxRain) * 38))}px"></i>`).join('');
+  const confidence = Math.round(rain.confidence * 100);
+  return `<div class="card rain-now-card ${rain.status} ${rain.heavyShower?'heavy':''}">
+    <div class="rain-now-top"><span>${rain.status === 'dry' ? 'Droog venster' : 'Rain ETA'}</span><b>${confidence}% zeker</b></div>
+    <h3>${esc(rain.title)}</h3>
+    <p>${esc(rain.summary)}</p>
     <div class="rain-now-chart">${bars}</div>
     <div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 u</span></div>
   </div>`;
@@ -1526,6 +1657,7 @@ function renderHome(){
   const wc = wcInfo(cur.weather_code);
   const isDay = cur.is_day === 1;
   const nowIdx = nowIndexInHourly();
+  const intel = weatherIntelligence();
   const todayMax = daily.temperature_2m_max[0], todayMin = daily.temperature_2m_min[0];
   const currentSource = state.observation ? `${state.observation.source} - ${Math.round(state.observation.distanceKm)} km` : 'KNMI HARMONIE';
 
@@ -5156,7 +5288,7 @@ function renderTV(){
 
   $('#tvDetails').innerHTML = [
     tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(cur.wind_gusts_10m)),
-    tvMetricCard('drop','Neerslag', fmtPrecip(cur.precipitation), 'Kans '+(hourly.precipitation_probability[nowIdx]??0)+'%'),
+    tvMetricCard('drop','Rain ETA', tvRainValue(intel.rain), tvRainSubtitle(intel.rain)),
     tvMetricCard('gauge','Vochtigheid', cur.relative_humidity_2m+'%', 'Dauwpunt '+fmtTemp(hourly.dew_point_2m[nowIdx])),
     tvMetricCard('thermo','Druk', fmtPress(cur.pressure_msl), cur.pressure_msl>1013?'Hoge druk':'Lage druk'),
     tvMarineCard(),
@@ -5253,6 +5385,20 @@ async function initTvMap(){
     await refreshTvRadarFrame();
     tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
   }
+}
+
+function tvRainValue(rain){
+  if(!rain || rain.status === 'unavailable') return 'N.b.';
+  if(rain.status === 'dry') return 'Droog';
+  if(rain.status === 'raining') return rain.intensityLabel;
+  return `Over ${minuteRange(rain.startsInMinutes, rain.confidence)}`;
+}
+
+function tvRainSubtitle(rain){
+  if(!rain || rain.status === 'unavailable') return 'Nowcast tijdelijk niet beschikbaar';
+  if(rain.status === 'dry') return `Minstens ${rain.dryWindowMinutes} min droog`;
+  if(rain.status === 'raining') return rain.endTime ? `Droger rond ${formatShortTime(rain.endTime)}` : 'Geen droog venster';
+  return rain.endTime ? `${formatShortTime(rain.startTime)}-${formatShortTime(rain.endTime)}` : `${Math.round(rain.confidence * 100)}% zeker`;
 }
 
 async function initTvXweatherRadar(){

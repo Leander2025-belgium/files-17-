@@ -5093,6 +5093,24 @@ input{
     line-height:1.1!important;
     letter-spacing:-.02em!important;
   }
+  #home .rain-now-top{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:12px!important;
+    margin-bottom:10px!important;
+    color:rgba(199,240,255,.86)!important;
+    font-size:12px!important;
+    font-weight:900!important;
+    text-transform:uppercase!important;
+    letter-spacing:.12em!important;
+  }
+  #home .rain-now-top b{
+    color:rgba(255,255,255,.76)!important;
+    font-size:12px!important;
+    letter-spacing:0!important;
+    text-transform:none!important;
+  }
   #home .rain-now-card p,
   #home .compact-aq-card p{
     margin:0!important;
@@ -5116,6 +5134,12 @@ input{
     border-radius:999px!important;
     background:rgba(159,226,255,.88)!important;
     box-shadow:0 0 10px rgba(125,210,255,.34)!important;
+  }
+  #home .rain-now-chart i.dry{
+    opacity:.38!important;
+  }
+  #home .rain-now-chart i.wet{
+    opacity:1!important;
   }
   #home .rain-now-chart i.now{
     background:#fff!important;
