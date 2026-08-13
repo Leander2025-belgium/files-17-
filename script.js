@@ -5737,6 +5737,10 @@ function renderTV(){
   const wc = wcInfo(cur.weather_code);
   const isDay = cur.is_day === 1;
   const nowIdx = nowIndexInHourly();
+  const dewPoint = hourly?.dew_point_2m?.[nowIdx];
+  const humidity = cur.relative_humidity_2m ?? hourly?.relative_humidity_2m?.[nowIdx];
+  const pressure = cur.pressure_msl ?? hourly?.pressure_msl?.[nowIdx];
+  const gust = cur.wind_gusts_10m ?? hourly?.wind_gusts_10m?.[nowIdx];
 
   $('#tvLocName').textContent = state.loc.name;
   $('#tvAdmin').textContent = state.loc.admin || '';
@@ -5747,14 +5751,26 @@ function renderTV(){
   const sunset = formatTvSunTime(daily.sunset?.[0]);
   $('#tvHiLo').innerHTML = `H: <b>${fmtTemp(daily.temperature_2m_max[0])}</b> &nbsp; L: <b>${fmtTemp(daily.temperature_2m_min[0])}</b> &nbsp; Voelt als ${fmtTemp(cur.apparent_temperature)}<div class="tv-sunline">${icon('sunrise',true,18)} Zon op ${sunrise} &nbsp; Zon onder ${sunset}</div>`;
 
-  $('#tvDetails').innerHTML = [
-    tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(cur.wind_gusts_10m)),
-    tvMetricCard('drop','Rain ETA', tvRainValue(intel.rain), tvRainSubtitle(intel.rain)),
-    tvMetricCard('gauge','Vochtigheid', cur.relative_humidity_2m+'%', 'Dauwpunt '+fmtTemp(hourly.dew_point_2m[nowIdx])),
-    tvMetricCard('thermo','Druk', fmtPress(cur.pressure_msl), cur.pressure_msl>1013?'Hoge druk':'Lage druk'),
-    tvMarineCard(),
-    tvAlertCard()
-  ].filter(Boolean).join('');
+  try{
+    $('#tvDetails').innerHTML = [
+      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust)),
+      tvMetricCard('drop','Rain ETA', tvRainValue(intel.rain), tvRainSubtitle(intel.rain)),
+      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint)),
+      tvMetricCard('thermo','Druk', fmtPress(pressure), pressure != null ? (pressure>1013?'Hoge druk':'Lage druk') : 'Niet beschikbaar'),
+      tvMarineCard(),
+      tvAlertCard()
+    ].filter(Boolean).join('');
+  }catch(error){
+    console.warn('TV details render faalde:', error);
+    $('#tvDetails').innerHTML = [
+      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust)),
+      tvMetricCard('drop','Rain ETA','N.b.','Nowcast tijdelijk niet beschikbaar'),
+      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint)),
+      tvMetricCard('thermo','Druk', fmtPress(pressure), 'Niet beschikbaar'),
+      tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar'),
+      tvMetricCard('gauge','Weermelding','Code groen','')
+    ].join('');
+  }
 
   let hh = '';
   for(let i=nowIdx; i<Math.min(nowIdx+8, hourly.time.length); i++){
@@ -5799,13 +5815,15 @@ function tvAlertCard(){
 }
 
 function tvMarineCard(){
-  if(!state.marine) return '';
+  if(!state.marine || !state.marine.tide) return tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar');
   const tide = state.marine.tide;
   const nextLabel = tide.nextType === 'hoogwater' ? 'vloed' : 'eb';
-  const nextTime = tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
+  const nextTime = tide.nextTime instanceof Date && !Number.isNaN(tide.nextTime.getTime())
+    ? tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})
+    : '--:--';
   const wave = state.marine.waveHeight != null ? `${state.marine.waveHeight.toFixed(1)} m` : 'n.b.';
   const spark = state.seaspark ? ` - zeevonk ${state.seaspark.score}%` : '';
-  return `<div class="dcard tv-marine">${icon('drop',true,18)}<div><div class="dt-title">Kust</div><div class="dt-val">${tide.state}</div><div class="dt-sub">Volgende ${nextLabel} ${nextTime} - golfhoogte ${wave}${spark}</div></div></div>`;
+  return `<div class="dcard tv-marine">${icon('drop',true,18)}<div><div class="dt-title">Kust</div><div class="dt-val">${esc(tide.state || 'Kust')}</div><div class="dt-sub">Volgende ${nextLabel} ${nextTime} - golfhoogte ${wave}${spark}</div></div></div>`;
 }
 
 async function initTvMap(){
