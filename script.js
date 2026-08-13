@@ -1564,6 +1564,28 @@ function rainNowcastCard(){
   </div>`;
 }
 
+function stormModeCard(){
+  const storm = stormEngine();
+  if(!storm.relevant) return '';
+  const eta = storm.etaMinutes != null ? `±${storm.etaMinutes} min` : 'Onzeker';
+  return `<div class="card storm-mode-card">
+    <div class="storm-mode-head">
+      <div>
+        <span>Live onweersmodus</span>
+        <h3>Onweer relevant</h3>
+      </div>
+      ${icon('storm',true,34)}
+    </div>
+    <div class="storm-mode-grid">
+      <div><span>Dichtstbijzijnde bliksem</span><b>${storm.lightningDistanceKm == null ? 'Niet gekoppeld' : storm.lightningDistanceKm.toFixed(1)+' km'}</b></div>
+      <div><span>Verwachte passage</span><b>${eta}</b></div>
+      <div><span>Intensiteit</span><b>${esc(storm.intensity)}</b></div>
+      <div><span>Trekrichting</span><b>${storm.movement || 'Niet beschikbaar'}</b></div>
+    </div>
+    <p>${esc(storm.limitation)}</p>
+  </div>`;
+}
+
 /* ---------------- real photo background: matches current conditions ---------------- */
 let lightningTimer = null;
 function applyWeatherBG(code, isDay, cloudCover=0){
@@ -1675,6 +1697,7 @@ function renderHome(){
 
   html += alertsCard();
   html += rainNowcastCard();
+  html += stormModeCard();
   html += astroEventCards();
   html += compactAirQualityCard();
 
@@ -5103,7 +5126,8 @@ function updateStormTab(){
   if(!state.hourly) return;
   const nowIdx = nowIndexInHourly();
   const cape = state.hourly.cape[nowIdx], li = state.hourly.lifted_index[nowIdx], gust = state.hourly.wind_gusts_10m[nowIdx];
-  const score = riskScore(cape, li, gust);
+  const storm = stormEngine();
+  const score = Math.max(riskScore(cape, li, gust), storm.relevant ? 35 : 0);
   $('#riskLocName').textContent = state.loc.name;
   $('#riskNum').textContent = score;
   $('#capeNow').textContent = Math.round(cape ?? 0);
@@ -5114,6 +5138,19 @@ function updateStormTab(){
   const offset = circumference - (score/100)*circumference;
   $('#riskArc').style.strokeDashoffset = offset;
   $('#riskArc').style.stroke = score>65 ? '#ef4b5f' : score>35 ? '#f5a524' : '#4ade80';
+
+  const riskCard = $('#riskLocName')?.closest('.card');
+  if(riskCard){
+    let note = riskCard.querySelector('.storm-engine-note');
+    if(!note){
+      note = document.createElement('div');
+      note.className = 'storm-engine-note';
+      riskCard.appendChild(note);
+    }
+    note.innerHTML = storm.relevant
+      ? `<b>Live onweersmodus actief</b><span>Passage: ${storm.etaMinutes != null ? '±'+storm.etaMinutes+' min' : 'onzeker'} - bliksemafstand: ${storm.lightningDistanceKm == null ? 'niet beschikbaar' : storm.lightningDistanceKm.toFixed(1)+' km'}. ${esc(storm.limitation)}</span>`
+      : `<b>Geen duidelijke onweersmodus</b><span>Er is geen echte bliksemdetectie gekoppeld; Wheaterflow gebruikt radar, CAPE, lifted index, windstoten en meldingen als indicatie.</span>`;
+  }
 
   renderFavChips();
   renderHourTable();

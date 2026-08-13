@@ -5153,6 +5153,62 @@ input{
     color:rgba(255,255,255,.56)!important;
     font-weight:700!important;
   }
+  #home .storm-mode-card{
+    border-color:rgba(255,210,77,.26)!important;
+  }
+  #home .storm-mode-head{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:16px!important;
+  }
+  #home .storm-mode-head span{
+    display:block!important;
+    color:#ffe08a!important;
+    font-size:12px!important;
+    font-weight:900!important;
+    text-transform:uppercase!important;
+    letter-spacing:.12em!important;
+    margin-bottom:6px!important;
+  }
+  #home .storm-mode-head h3{
+    margin:0!important;
+    color:#fff!important;
+    font-size:26px!important;
+    line-height:1.05!important;
+  }
+  #home .storm-mode-grid{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    margin-top:16px!important;
+  }
+  #home .storm-mode-grid div{
+    padding:10px!important;
+    border-radius:16px!important;
+    background:rgba(255,255,255,.075)!important;
+    border:1px solid rgba(255,255,255,.12)!important;
+  }
+  #home .storm-mode-grid span{
+    display:block!important;
+    color:rgba(255,255,255,.62)!important;
+    font-size:11px!important;
+    font-weight:800!important;
+    text-transform:uppercase!important;
+    letter-spacing:.06em!important;
+  }
+  #home .storm-mode-grid b{
+    display:block!important;
+    color:#fff!important;
+    font-size:17px!important;
+    margin-top:5px!important;
+  }
+  #home .storm-mode-card p{
+    margin:12px 0 0!important;
+    color:rgba(255,255,255,.78)!important;
+    font-size:13px!important;
+    line-height:1.4!important;
+  }
   #home .aq-strip{
     position:relative!important;
     height:7px!important;
@@ -5743,5 +5799,26 @@ body.day-detail-open .tabbar{
     --wf-tabbar-height:58px;
     --wf-tabbar-gap:8px;
   }
+}
+
+/* Storm intelligence note */
+.storm-engine-note{
+  margin-top:14px;
+  padding:11px 12px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.07);
+}
+.storm-engine-note b{
+  display:block;
+  color:#fff;
+  font-size:14px;
+}
+.storm-engine-note span{
+  display:block;
+  margin-top:4px;
+  color:rgba(235,244,255,.72);
+  font-size:12.5px;
+  line-height:1.35;
 }
 
