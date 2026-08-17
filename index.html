@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260817-radar-reliable-1">
+<link rel="stylesheet" href="style.css?v=20260817-home-profile-1">
 </head>
 <body><div id="alerts-container"></div>
 
@@ -49,14 +49,17 @@
         </div>
         <div class="suggestions" id="suggestions"></div>
       </div>
-      <button class="smallbtn" id="openSheetBtn" style="margin-top:8px;">Instellingen</button>
-      <button class="smallbtn" id="tvBtn" style="margin-top:8px;margin-left:6px;">Tv-modus</button>
-      <button class="smallbtn castbtn" id="castBtn" type="button" hidden aria-live="polite" style="margin-top:8px;margin-left:6px;">Cast naar tv</button>
-      <button class="smallbtn tvpairbtn" id="pairTvBtn" type="button" aria-live="polite" style="margin-top:8px;margin-left:6px;">TV koppelen</button>
-      <button class="smallbtn" id="climateBtn" style="margin-top:8px;margin-left:6px;">Mijn Klimaat</button>
-      <button class="profile-trigger" id="profileBtn" type="button" aria-label="Profiel openen" title="Profiel" style="margin-top:8px;margin-left:6px;">
-        <span id="profileAvatarMini" class="profile-mini">?</span>
-      </button>
+      <div class="home-actionbar">
+        <button class="smallbtn" id="openSheetBtn" type="button">Instellingen</button>
+        <div class="home-tv-actions" aria-label="TV en profiel">
+          <button class="smallbtn" id="tvBtn" type="button">Tv-modus</button>
+          <button class="smallbtn castbtn" id="castBtn" type="button" hidden aria-live="polite">Cast naar tv</button>
+          <button class="smallbtn tvpairbtn" id="pairTvBtn" type="button" aria-live="polite">TV koppelen</button>
+          <button class="profile-trigger" id="profileBtn" type="button" aria-label="Profiel openen" title="Profiel">
+            <span id="profileAvatarMini" class="profile-mini">?</span>
+          </button>
+        </div>
+      </div>
     </div>
     <div class="screen-inner" id="homeInner">
       <div class="loader" id="homeLoader"><div class="spinner"></div><span>Weer laden...</span></div>
@@ -428,6 +431,7 @@
           <span><b id="profileNotificationsStatus">Uit</b>Meldingen</span>
           <span><b id="profileSyncStatus">Gast</b>Status</span>
         </div>
+        <button class="smallbtn profile-climate-button" id="profileClimateBtn" type="button">Mijn Klimaat openen</button>
         <button class="smallbtn primary-auth" type="submit">Profiel opslaan</button>
       </form>
       <div class="profile-favorites">
@@ -611,7 +615,7 @@
 <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
 <script src="castService.js?v=20260812-cast-1"></script>
 <script src="tvPairingService.js?v=20260812-tvpair-ws-1"></script>
-<script src="script.js?v=20260817-radar-reliable-1"></script>
+<script src="script.js?v=20260817-home-profile-1"></script>
 </body>
 </html>
 

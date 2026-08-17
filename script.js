@@ -3359,7 +3359,12 @@ function wireAuthUi(){
 
 /* ---------------- Mijn Klimaat ---------------- */
 function initClimateUi(){
-  $('#climateBtn')?.addEventListener('click', openClimateScreen);
+  ['climateBtn','profileClimateBtn'].forEach(id=>{
+    $('#'+id)?.addEventListener('click', ()=>{
+      closeAuthSheet();
+      openClimateScreen();
+    });
+  });
   $('#climateBackBtn')?.addEventListener('click', ()=>showAppScreen('home'));
   $('#climateMode')?.addEventListener('change', async e=>{
     state.climate.settings.mode = e.target.value;

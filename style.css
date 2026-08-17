@@ -5923,3 +5923,93 @@ body.day-detail-open .tabbar{
     --wf-bottom-scroll-padding:calc(var(--wf-tabbar-height) + env(safe-area-inset-bottom) + 46px);
   }
 }
+
+
+/* ---------- Home controls cleanup: profile top-right, climate in profile ---------- */
+#home .topbar{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:10px!important;
+  align-items:start!important;
+}
+.home-actionbar{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  width:100%!important;
+}
+.home-tv-actions{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+  min-width:0!important;
+}
+.home-actionbar .smallbtn,
+.home-tv-actions .smallbtn,
+#home .profile-trigger{
+  margin:0!important;
+  flex:0 0 auto!important;
+}
+.home-tv-actions .castbtn,
+.home-tv-actions .tvpairbtn{
+  max-width:170px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+.profile-climate-button{
+  width:100%!important;
+  margin-top:10px!important;
+  background:linear-gradient(180deg,rgba(101,217,255,.94),rgba(52,180,228,.88))!important;
+  color:#052033!important;
+  border-color:rgba(255,255,255,.36)!important;
+}
+@media (max-width:760px){
+  #home .topbar{
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+  .home-actionbar{
+    align-items:flex-start!important;
+  }
+  .home-tv-actions{
+    flex-wrap:wrap!important;
+    gap:8px!important;
+  }
+  .home-tv-actions .smallbtn{
+    min-height:40px!important;
+    padding:9px 12px!important;
+    font-size:13px!important;
+  }
+  #home .profile-trigger{
+    width:58px!important;
+    height:58px!important;
+    order:20!important;
+    margin-left:2px!important;
+  }
+  #home .profile-mini{
+    width:48px!important;
+    height:48px!important;
+    font-size:16px!important;
+  }
+  #home .screen-inner{
+    padding-top:0!important;
+  }
+  #home .hero{
+    min-height:31vh!important;
+    padding:0 0 16px!important;
+    transform:translateY(-20px)!important;
+  }
+}
+@media (max-width:420px){
+  .home-tv-actions .castbtn,
+  .home-tv-actions .tvpairbtn{
+    max-width:145px!important;
+  }
+  #home .hero{
+    min-height:29vh!important;
+    transform:translateY(-26px)!important;
+  }
+}
