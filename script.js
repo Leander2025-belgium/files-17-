@@ -20,8 +20,8 @@ const CAST_CONFIG_URLS = [
 ];
 const TV_PAIRING_API_URLS = [
   ...(window.WHEATERFLOW_TV_PAIRING_API_URL ? [window.WHEATERFLOW_TV_PAIRING_API_URL] : []),
-  new URL('/api/tv-pairing', location.origin).href,
-  FUNCTION_BASE + 'tv-pairing'
+  FUNCTION_BASE + 'tv-pairing',
+  new URL('/api/tv-pairing', location.origin).href
 ];
 const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
   ? new URL('/api/', location.origin).href

@@ -96,7 +96,7 @@
               settled = true;
               try{ ws.close(); }catch{}
               resolve(false);
-            }, 1600);
+            }, 8000);
             ws.addEventListener("open", ()=>{
               if(settled) return;
               settled = true;
@@ -127,14 +127,24 @@
               }
               emitSocketMessage(data);
             });
-            socket.addEventListener("close", ()=>{
-              if(stopped) return;
-              closeSocket();
-              socketFailed = true;
-              options.onError?.(new Error("Live TV-koppeling is verbroken; reserveverbinding wordt gebruikt."));
-            });
-            return true;
-          }
+socket.addEventListener("close", ()=>{
+  if(stopped) return;
+
+  closeSocket();
+  socketFailed = false;
+
+  options.onError?.(
+    new Error("Live TV-koppeling is verbroken; opnieuw verbinden...")
+  );
+
+  setTimeout(()=>{
+    if(!stopped){
+      connectSocket().catch(()=>{});
+    }
+  }, 3000);
+});
+
+return true;          }
         }catch{
           closeSocket();
         }
