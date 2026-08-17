@@ -6144,3 +6144,36 @@ body.day-detail-open .tabbar{
     transform:translateY(-46px)!important;
   }
 }
+
+
+/* ---------- Mobile search refinement: keep it clear of the location title ---------- */
+@media (max-width:760px){
+  #home .searchwrap{
+    width:min(86vw, 500px)!important;
+    margin:2px auto 0!important;
+  }
+  #home .searchbox{
+    min-height:56px!important;
+    border-radius:28px!important;
+    padding:0 18px!important;
+  }
+  #home .searchbox input{
+    font-size:18px!important;
+  }
+  #home .hero{
+    min-height:29vh!important;
+    transform:translateY(-24px)!important;
+  }
+}
+@media (max-width:420px){
+  #home .searchwrap{
+    width:min(84vw, 360px)!important;
+  }
+  #home .searchbox{
+    min-height:54px!important;
+  }
+  #home .hero{
+    min-height:30vh!important;
+    transform:translateY(-18px)!important;
+  }
+}
