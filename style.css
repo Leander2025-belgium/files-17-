@@ -6013,3 +6013,75 @@ body.day-detail-open .tabbar{
     transform:translateY(-26px)!important;
   }
 }
+
+
+/* ---------- Home TV controls cleanup: TV fab + cast settings ---------- */
+#home .topbar{
+  position:sticky!important;
+  top:0!important;
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:9px!important;
+}
+.home-top-actions{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  width:100%!important;
+  min-height:52px!important;
+}
+.tv-mode-fab{
+  width:46px!important;
+  height:46px!important;
+  border-radius:50%!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+  background:rgba(255,255,255,.13)!important;
+  color:#fff!important;
+  display:inline-grid!important;
+  place-items:center!important;
+  padding:0!important;
+  font-size:12px!important;
+  font-weight:900!important;
+  letter-spacing:.02em!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.26),0 12px 30px rgba(0,0,0,.20)!important;
+  backdrop-filter:blur(24px) saturate(180%)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(180%)!important;
+  cursor:pointer!important;
+}
+.home-actionbar{
+  justify-content:flex-start!important;
+}
+.home-tv-actions,
+#home .home-actionbar .castbtn,
+#home .home-actionbar .tvpairbtn{
+  display:none!important;
+}
+.tv-settings-actions .smallbtn{
+  width:100%!important;
+  padding:11px 12px!important;
+  border-radius:14px!important;
+}
+@media (max-width:760px){
+  #home .topbar{
+    padding-top:calc(8px + env(safe-area-inset-top))!important;
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+  #home .profile-trigger{
+    width:52px!important;
+    height:52px!important;
+    margin:0!important;
+  }
+  #home .profile-mini{
+    width:44px!important;
+    height:44px!important;
+  }
+  .tv-mode-fab{
+    width:44px!important;
+    height:44px!important;
+  }
+  #home .hero{
+    min-height:28vh!important;
+    transform:translateY(-34px)!important;
+  }
+}

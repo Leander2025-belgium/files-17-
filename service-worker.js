@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260817-home-profile-1";
+const CACHE_VERSION = "wheaterflow-v20260817-tv-settings-1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
