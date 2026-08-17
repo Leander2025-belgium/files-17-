@@ -2259,7 +2259,13 @@ function clearHomeMapOverlay(){
 async function setHomeLegacyLayer(layerId){
   const map = state.homeMap.map;
   if(layerId === 'radar'){
-    const frame = await fetchLatestRainviewerRadarFrame();
+    let frame = null;
+    try{
+      frame = await fetchLatestRainviewerRadarFrame();
+    }catch(err){
+      console.warn('Home radar RainViewer faalde, WeatherFlow fallback wordt gebruikt', err);
+      rainviewerMeta = null;
+    }
     const url = frame
       ? rainviewerTileUrl(frame, 'home')
       : weatherflowRadarTileUrl(0);
@@ -4719,7 +4725,8 @@ async function initXweatherMap(force=false){
     const saved = localStorage.getItem('weerscoop:xweatherLayer');
     const first = findAvailableXweatherLayer(saved) || findAvailableXweatherLayer('radar') || availableXweatherLayers()[0];
     if(!first) throw new Error('Geen Xweather-lagen beschikbaar voor dit abonnement');
-    await setXweatherLayer(first.id);
+    const layerOk = await setXweatherLayer(first.id);
+    if(!layerOk) return false;
     updateXweatherTimelineUi();
     clearInterval(state.xweather.timelineUiTimer);
     state.xweather.timelineUiTimer = setInterval(updateXweatherTimelineUi, 1000);
@@ -4731,6 +4738,7 @@ async function initXweatherMap(force=false){
     setXweatherStatus('De weerkaart kon niet worden geladen. De bestaande radar blijft actief.');
     toast('De weerkaart kon niet worden geladen.');
     teardownXweather(false);
+    startLegacyRadar();
     return false;
   }finally{
     state.xweather.loading = false;
@@ -4807,7 +4815,10 @@ function xweatherLayerCodeCandidates(def){
 
 function setupXweatherUi(){
   renderXweatherLayerSelector();
-  $('#xweatherRetry')?.addEventListener('click', ()=>initXweatherMap(true));
+  $('#xweatherRetry')?.addEventListener('click', async ()=>{
+    const ok = await initXweatherMap(true);
+    if(!ok) startLegacyRadar();
+  });
   $('#xweatherPlay')?.addEventListener('click', toggleXweatherPlayback);
   $('#xweatherNow')?.addEventListener('click', ()=>goXweatherNow());
   $('#xweatherPrev')?.addEventListener('click', ()=>stepXweatherTimeline(-1));
@@ -4865,27 +4876,28 @@ async function setXweatherLayer(id){
   if(!def){
     toast('Deze weerlaag is momenteel niet beschikbaar.');
     setXweatherStatus(`Laag "${id}" is niet beschikbaar met deze Xweather-configuratie.`);
-    return;
+    if(id === 'radar') startLegacyRadar();
+    return false;
   }
   const previousLayer = state.xweather.activeLayer;
   state.xweather.activeLayer = def;
   localStorage.setItem('weerscoop:xweatherLayer', def.id);
   const ok = await refreshXweatherLayers();
   if(!ok){
-    setXweatherStatus(`${def.label} is niet beschikbaar met deze Xweather-sleutel of dit abonnement. Kies een andere kaartlaag.`);
-    if(def.id !== 'radar'){
-      const fallback = findAvailableXweatherLayer('radar');
-      if(fallback){
-        state.xweather.activeLayer = fallback;
-        localStorage.setItem('weerscoop:xweatherLayer', fallback.id);
-        await refreshXweatherLayers();
-      }else{
-        state.xweather.activeLayer = previousLayer || null;
-      }
+    console.warn('Xweather laag faalde, fallback wordt gebruikt', {requested:id, layer:def});
+    if(def.id === 'radar'){
+      setXweatherStatus('Xweather-radar is niet bereikbaar. De bestaande radar wordt geladen.');
+      startLegacyRadar();
+      return false;
     }
-    renderXweatherLayerSelector();
-    updateXweatherLegend();
-    return;
+    const fallback = findAvailableXweatherLayer('radar');
+    if(fallback){
+      return await setXweatherLayer(fallback.id);
+    }
+    state.xweather.activeLayer = previousLayer || null;
+    setXweatherStatus(`${def.label} is niet beschikbaar. De bestaande radar wordt geladen.`);
+    startLegacyRadar();
+    return false;
   }
   $$('.xweather-layer-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.xweatherLayer === def.id));
   $('#chipPrecip')?.classList.toggle('active', def.id === 'radar');
@@ -4894,6 +4906,7 @@ async function setXweatherLayer(id){
   if($('#xweatherWindSettings')) $('#xweatherWindSettings').open = def.id === 'wind-particles';
   updateXweatherLegend();
   updateXweatherTimelineUi();
+  return true;
 }
 
 async function refreshXweatherLayers(){

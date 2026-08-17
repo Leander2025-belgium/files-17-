@@ -5876,3 +5876,50 @@ body.day-detail-open .tabbar{
   color:rgba(144,227,255,.82);
   font-weight:800;
 }
+
+
+/* ---------- Final fix: stable mobile nav + extra scroll clearance ---------- */
+:root{
+  --wf-tabbar-height:76px;
+  --wf-tabbar-gap:16px;
+  --wf-bottom-scroll-padding:calc(var(--wf-tabbar-height) + var(--wf-tabbar-gap) + env(safe-area-inset-bottom) + 76px);
+}
+.screen-inner,
+#home .screen-inner,
+#radarscreen .screen-inner,
+#stormscreen .screen-inner,
+#communityscreen .screen-inner,
+#profile .screen-inner{
+  padding-bottom:var(--wf-bottom-scroll-padding)!important;
+  scroll-padding-bottom:var(--wf-bottom-scroll-padding)!important;
+}
+.tabbar{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:max(14px, calc(env(safe-area-inset-bottom) + 14px))!important;
+  transform:translate3d(-50%,0,0)!important;
+  z-index:2200!important;
+  margin:0!important;
+  width:min(620px, calc(100vw - max(24px, env(safe-area-inset-left)) - max(24px, env(safe-area-inset-right))))!important;
+  min-height:var(--wf-tabbar-height)!important;
+  will-change:auto!important;
+  contain:layout style!important;
+}
+@media (max-width:560px){
+  :root{
+    --wf-tabbar-height:72px;
+    --wf-tabbar-gap:14px;
+  }
+  .tabbar{
+    width:calc(100vw - max(20px, env(safe-area-inset-left)) - max(20px, env(safe-area-inset-right)))!important;
+  }
+}
+@media (orientation:landscape) and (max-height:520px){
+  :root{
+    --wf-tabbar-height:58px;
+    --wf-tabbar-gap:8px;
+    --wf-bottom-scroll-padding:calc(var(--wf-tabbar-height) + env(safe-area-inset-bottom) + 46px);
+  }
+}
