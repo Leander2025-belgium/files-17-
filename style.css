@@ -6177,3 +6177,21 @@ body.day-detail-open .tabbar{
     transform:translateY(-18px)!important;
   }
 }
+
+
+/* ---------- Mobile hero cleanup: no label peeking under search ---------- */
+@media (max-width:760px){
+  #home .hero .hero-kicker{
+    display:none!important;
+  }
+  #home .hero{
+    padding-top:18px!important;
+    transform:translateY(-8px)!important;
+  }
+}
+@media (max-width:420px){
+  #home .hero{
+    padding-top:20px!important;
+    transform:translateY(-4px)!important;
+  }
+}
