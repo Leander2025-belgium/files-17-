@@ -5727,10 +5727,16 @@ window.addEventListener('popstate', ()=>{
   if(document.body.classList.contains('auth-open')) closeAuthSheet({fromPopState:true});
 });
 document.addEventListener('visibilitychange', ()=>{
-  if(!document.hidden && tv.active) refreshTvRadarFrame();
+  if(!document.hidden && tv.active){
+    if(tv.xweatherReady) refreshTvXweatherRadar();
+    else refreshTvRadarFrame();
+  }
 });
 window.addEventListener('focus', ()=>{
-  if(tv.active) refreshTvRadarFrame();
+  if(tv.active){
+    if(tv.xweatherReady) refreshTvXweatherRadar();
+    else refreshTvRadarFrame();
+  }
 });
 window.addEventListener('resize', ()=>{
   if(state.map) setTimeout(()=>state.map.invalidateSize(), 120);
@@ -5877,13 +5883,19 @@ async function initTvMap(){
     tv.map.setView(rv.center, rv.zoom);
   }
   setTimeout(()=>tv.map.invalidateSize(), 200);
-  // TV gebruikt exact dezelfde actuele radarbron als de gewone app:
-  // nieuwste RainViewer-observatie, met Wheaterflow radar-worker als fallback.
-  // Geen animatie of historische tijdlijn: uitsluitend het huidige frame.
-  disposeTvXweatherRadar();
+  // TV gebruikt dezelfde live radarlaag als de gewone Wheaterflow-radarkaart.
+  // Xweather 'radar' wordt op de huidige tijd gezet en direct gepauzeerd:
+  // dus uitsluitend NU, zonder animatie of historische tijdlijn.
   clearInterval(tv.loopTimer);
-  await refreshTvRadarFrame();
-  tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
+  const liveRadarOk = await initTvXweatherRadar();
+  if(liveRadarOk){
+    tv.loopTimer = setInterval(refreshTvXweatherRadar, TV_RADAR_REFRESH_MS);
+  }else{
+    // Alleen als de live kaartlaag niet beschikbaar is, gebruik de bestaande
+    // actuele RainViewer/WeatherFlow fallback.
+    await refreshTvRadarFrame();
+    tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
+  }
 }
 
 function tvRainValue(rain){
@@ -5960,8 +5972,7 @@ async function refreshTvXweatherRadar(){
     if(controller.setRefreshInterval) controller.setRefreshInterval(5, true);
     if(controller.refresh) await controller.refresh();
     if(controller.resize) controller.resize();
-    const currentDate = timeline?.info?.currentDate || new Date();
-    updateTvRadarLabel(Math.round(currentDate.getTime() / 1000), 'Live buienradar - Xweather');
+    updateTvRadarLabel(null, 'Live buienradar · NU');
     return true;
   }catch(err){
     console.warn('Xweather tv-radar kon niet verversen', err);
