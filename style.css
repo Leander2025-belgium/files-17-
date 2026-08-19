@@ -4961,3 +4961,61 @@ input{
   #tvscreen.active .tv-hilo{font-size:clamp(14px,1.2vw,20px);margin-top:6px}
   #tvscreen.active .tv-sunline{font-size:clamp(13px,1.1vw,18px);margin-top:5px}
 }
+
+
+/* ==========================================================================
+   FIX — weather photo backgrounds visible again
+   Overrides older #weatherBG::before rules that forced opacity:0 and hid
+   the real condition image behind the solid background.
+   ========================================================================== */
+#weatherBG.photo-weather-bg{
+  position:fixed;
+  background-color:#0b172b !important;
+  background-image:var(--weather-photo) !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+}
+
+#weatherBG.photo-weather-bg::before{
+  content:"" !important;
+  position:absolute !important;
+  inset:0 !important;
+  z-index:0 !important;
+  opacity:1 !important;
+  pointer-events:none !important;
+  background-image:var(--weather-photo) !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+  transform:scale(1.015) !important;
+  filter:none !important;
+}
+
+#weatherBG.photo-weather-bg::after{
+  z-index:20 !important;
+}
+
+/* Keep all app content above the photo layer. */
+#weatherBG.photo-weather-bg .wbg-sky,
+#weatherBG.photo-weather-bg .wbg-clouds,
+#weatherBG.photo-weather-bg .wbg-sun,
+#weatherBG.photo-weather-bg .wbg-moon,
+#weatherBG.photo-weather-bg .wbg-stars{
+  opacity:0 !important;
+}
+
+#weatherBG.photo-weather-bg .wbg-rain,
+#weatherBG.photo-weather-bg .wbg-snow,
+#weatherBG.photo-weather-bg .wbg-lightning{
+  position:absolute;
+  z-index:5 !important;
+}
+
+/* TV uses the same condition photo as the main app. */
+#tvscreen.active{
+  background-image:var(--weather-photo) !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+}
