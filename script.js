@@ -5727,10 +5727,10 @@ window.addEventListener('popstate', ()=>{
   if(document.body.classList.contains('auth-open')) closeAuthSheet({fromPopState:true});
 });
 document.addEventListener('visibilitychange', ()=>{
-  if(!document.hidden && tv.active) refreshTvXweatherRadar();
+  if(!document.hidden && tv.active) refreshTvRadarFrame();
 });
 window.addEventListener('focus', ()=>{
-  if(tv.active) refreshTvXweatherRadar();
+  if(tv.active) refreshTvRadarFrame();
 });
 window.addEventListener('resize', ()=>{
   if(state.map) setTimeout(()=>state.map.invalidateSize(), 120);
@@ -5877,14 +5877,13 @@ async function initTvMap(){
     tv.map.setView(rv.center, rv.zoom);
   }
   setTimeout(()=>tv.map.invalidateSize(), 200);
-  const xweatherOk = await initTvXweatherRadar();
+  // TV gebruikt exact dezelfde actuele radarbron als de gewone app:
+  // nieuwste RainViewer-observatie, met Wheaterflow radar-worker als fallback.
+  // Geen animatie of historische tijdlijn: uitsluitend het huidige frame.
+  disposeTvXweatherRadar();
   clearInterval(tv.loopTimer);
-  if(xweatherOk){
-    tv.loopTimer = setInterval(refreshTvXweatherRadar, TV_RADAR_REFRESH_MS);
-  }else{
-    await refreshTvRadarFrame();
-    tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
-  }
+  await refreshTvRadarFrame();
+  tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
 }
 
 function tvRainValue(rain){
@@ -6009,7 +6008,7 @@ function setTvRainviewerFrame(frame){
     updateWhenIdle:false,
     updateWhenZooming:false
   }).addTo(tv.map);
-  updateTvRadarLabel(frame.time, 'Live buienradar - Nu');
+  updateTvRadarLabel(null, 'Live buienradar · NU');
 }
 function setTvFrame(i){
   if(!tv.map) return;
@@ -6028,7 +6027,7 @@ function setTvFrame(i){
     updateWhenIdle:false,
     updateWhenZooming:false
   }).addTo(tv.map);
-  updateTvRadarLabel(Math.round(Date.now()/1000), 'Live buienradar - Nu');
+  updateTvRadarLabel(null, 'Live buienradar · NU');
 }
 
 function clearTvRadarLayer(){
