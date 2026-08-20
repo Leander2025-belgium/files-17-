@@ -5046,23 +5046,23 @@ input{
 /* ---------- TV mode radar and hourly fit polish ---------- */
 @media (min-width:701px){
   .tv-left{
-    grid-template-rows:minmax(0,1fr) clamp(74px,10.5vh,104px) clamp(136px,22vh,190px)!important;
+    grid-template-rows:minmax(0,1fr) clamp(104px,13.5vh,132px) clamp(136px,22vh,190px)!important;
   }
   .tv-current{
     align-items:center!important;
-    padding:0 clamp(28px,3.8vw,58px)!important;
+    padding:0 clamp(30px,3.9vw,62px)!important;
   }
   .tv-current>div:last-child{
     align-self:center!important;
-    padding-bottom:clamp(8px,1.2vh,16px);
+    padding-bottom:clamp(2px,.45vh,8px);
   }
   .tv-current .tv-icon{
     align-self:center!important;
-    transform:translateY(-4px);
+    transform:translateY(-2px);
   }
   .tv-current .tv-icon svg{
-    width:clamp(120px,11.5vw,205px)!important;
-    height:clamp(120px,11.5vw,205px)!important;
+    width:clamp(220px,21vw,390px)!important;
+    height:clamp(220px,21vw,390px)!important;
   }
   .tv-hourly{
     height:100%!important;
@@ -5070,22 +5070,22 @@ input{
     border-radius:clamp(12px,1vw,16px)!important;
   }
   .tv-hourly .hitem{
-    padding:clamp(4px,.55vh,7px) 3px!important;
-    gap:clamp(1px,.28vh,4px)!important;
+    padding:clamp(6px,.82vh,10px) 4px!important;
+    gap:clamp(2px,.42vh,6px)!important;
   }
   .tv-hourly .hitem .t{
-    font-size:clamp(9px,.78vw,13px)!important;
+    font-size:clamp(10px,.86vw,15px)!important;
   }
   .tv-hourly .hitem svg{
-    width:clamp(16px,1.45vw,24px)!important;
-    height:clamp(16px,1.45vw,24px)!important;
+    width:clamp(20px,1.75vw,30px)!important;
+    height:clamp(20px,1.75vw,30px)!important;
   }
   .tv-hourly .hitem .p{
-    height:clamp(8px,.85vh,11px)!important;
-    font-size:clamp(8px,.66vw,11px)!important;
+    height:clamp(9px,.95vh,13px)!important;
+    font-size:clamp(9px,.72vw,12px)!important;
   }
   .tv-hourly .hitem .v{
-    font-size:clamp(12px,1.08vw,18px)!important;
+    font-size:clamp(14px,1.22vw,20px)!important;
   }
   #tvmap .leaflet-tile-pane{
     filter:saturate(1.05) contrast(1.02);
@@ -5093,12 +5093,12 @@ input{
 }
 @media (max-width:1450px) and (min-width:701px){
   .tv-left{
-    grid-template-rows:minmax(0,1fr) 84px 140px!important;
+    grid-template-rows:minmax(0,1fr) 110px 140px!important;
   }
   .tv-current .tv-icon svg{
-    width:clamp(108px,10.5vw,160px)!important;
-    height:clamp(108px,10.5vw,160px)!important;
+    width:clamp(205px,19vw,300px)!important;
+    height:clamp(205px,19vw,300px)!important;
   }
-  .tv-hourly .hitem .t{font-size:11px!important;}
-  .tv-hourly .hitem .v{font-size:15px!important;}
+  .tv-hourly .hitem .t{font-size:12px!important;}
+  .tv-hourly .hitem .v{font-size:17px!important;}
 }
