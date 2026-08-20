@@ -683,10 +683,8 @@ function radarView(){
 }
 
 function tvRadarView(){
-  const lat = Number(state.loc?.lat);
-  const lon = Number(state.loc?.lon);
-  if(Number.isFinite(lat) && Number.isFinite(lon)) return {center:[lat, lon], zoom:7};
-  return {center:[50.85, 4.55], zoom:7};
+  // TV mode is watched from a distance: keep Belgium centred and stable.
+  return {center:[50.86, 4.05], zoom:7};
 }
 
 const ALERT_LEVELS = {
@@ -5805,7 +5803,7 @@ function renderTV(){
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
     const hwc = wcInfo(hourly.weather_code[i]);
     const hIsDay = isDayForTime(hourly.time[i]);
-    hh += `<div class="hitem ${i===nowIdx?'now':''}"><div class="t">${label}</div>${icon(hwc.ic,hIsDay,34)}<div class="p">${hourly.precipitation_probability[i]>10?hourly.precipitation_probability[i]+'%':''}</div><div class="v">${fmtTemp(hourly.temperature_2m[i])}</div></div>`;
+    hh += `<div class="hitem ${i===nowIdx?'now':''}"><div class="t">${label}</div>${icon(hwc.ic,hIsDay,24)}<div class="p">${hourly.precipitation_probability[i]>10?hourly.precipitation_probability[i]+'%':''}</div><div class="v">${fmtTemp(hourly.temperature_2m[i])}</div></div>`;
   }
   $('#tvHourly').innerHTML = hh;
 
@@ -5883,19 +5881,10 @@ async function initTvMap(){
     tv.map.setView(rv.center, rv.zoom);
   }
   setTimeout(()=>tv.map.invalidateSize(), 200);
-  // TV gebruikt dezelfde live radarlaag als de gewone Wheaterflow-radarkaart.
-  // Xweather 'radar' wordt op de huidige tijd gezet en direct gepauzeerd:
-  // dus uitsluitend NU, zonder animatie of historische tijdlijn.
+  disposeTvXweatherRadar();
   clearInterval(tv.loopTimer);
-  const liveRadarOk = await initTvXweatherRadar();
-  if(liveRadarOk){
-    tv.loopTimer = setInterval(refreshTvXweatherRadar, TV_RADAR_REFRESH_MS);
-  }else{
-    // Alleen als de live kaartlaag niet beschikbaar is, gebruik de bestaande
-    // actuele RainViewer/WeatherFlow fallback.
-    await refreshTvRadarFrame();
-    tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
-  }
+  await refreshTvRadarFrame();
+  tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
 }
 
 function tvRainValue(rain){
@@ -6019,7 +6008,7 @@ function setTvRainviewerFrame(frame){
     updateWhenIdle:false,
     updateWhenZooming:false
   }).addTo(tv.map);
-  updateTvRadarLabel(null, 'Live buienradar · NU');
+  updateTvRadarLabel(frame.time, 'Open-Meteo radar');
 }
 function setTvFrame(i){
   if(!tv.map) return;
@@ -6038,7 +6027,7 @@ function setTvFrame(i){
     updateWhenIdle:false,
     updateWhenZooming:false
   }).addTo(tv.map);
-  updateTvRadarLabel(null, 'Live buienradar · NU');
+  updateTvRadarLabel(Math.round(Date.now()/1000), 'Open-Meteo radar');
 }
 
 function clearTvRadarLayer(){
@@ -6057,7 +6046,8 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
   }
   const d = new Date(epochSeconds * 1000);
   const time = d.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
-  el.textContent = `Live buienradar - ${time}`;
+  const title = fallback && fallback !== 'Live buienradar' ? fallback : 'Live buienradar';
+  el.textContent = `${title} - ${time}`;
 }
 
 /* =========================================================================
