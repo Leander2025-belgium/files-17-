@@ -5019,3 +5019,25 @@ input{
   background-position:center center !important;
   background-repeat:no-repeat !important;
 }
+/* =========================================================
+   WHEATERFLOW — GEEN NEP-WEERANIMATIES
+   Gebruik uitsluitend de echte foto-achtergronden
+   ========================================================= */
+
+#weatherBG .wbg-rain,
+#weatherBG .wbg-snow,
+#weatherBG .wbg-lightning,
+#weatherBG .wbg-clouds,
+#weatherBG .wbg-sun,
+#weatherBG .wbg-moon,
+#weatherBG .wbg-stars {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* De echte Wheaterflow achtergrondfoto blijft zichtbaar */
+#weatherBG.photo-weather-bg::before {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
