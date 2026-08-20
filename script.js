@@ -2205,7 +2205,7 @@ function initHomeWeatherMap(){
     tap:true,
     zoomSnap:.25,
     minZoom:5,
-    maxZoom:10
+    maxZoom:14
   }).setView(rv.center, Math.min(8, rv.zoom));
   state.homeMap.map = map;
   state.homeMap.base = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -2270,8 +2270,8 @@ async function setHomeLegacyLayer(layerId){
       : weatherflowRadarTileUrl(0);
     state.homeMap.overlay = L.tileLayer(url, {
       opacity:.86,
-      maxZoom:10,
-      maxNativeZoom:10,
+      maxZoom:14,
+      maxNativeZoom:7,
       crossOrigin:true,
       updateWhenIdle:false,
       updateWhenZooming:false
@@ -4579,7 +4579,7 @@ function initMapIfNeeded(){
     zoomDelta:.5,
     wheelPxPerZoomLevel:90,
     minZoom:6,
-    maxZoom:10
+    maxZoom:14
   });
   const rv = radarView();
   let savedView = null;
@@ -5162,8 +5162,8 @@ function createRadarAnimator(map){
     if(!layers[idx]){
       layers[idx] = L.tileLayer(url, {
         opacity:0,
-        maxZoom:10,
-        maxNativeZoom:10,
+        maxZoom:14,
+        maxNativeZoom:7,
         pane:'radarPane',
         className:'radar-tile-layer',
         crossOrigin:true,
