@@ -5207,3 +5207,113 @@ html.tv-route #tvExitBtn{
     color:#fff!important;
   }
 }
+
+
+/* ===== Home top controls: compact icon buttons like the original layout ===== */
+@media (max-width:1400px){
+  #home .topbar{
+    display:grid!important;
+    grid-template-columns:auto auto minmax(0,1fr) auto!important;
+    grid-template-rows:auto auto!important;
+    align-items:center!important;
+    column-gap:10px!important;
+    row-gap:10px!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:calc(10px + env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) 8px max(24px,env(safe-area-inset-left))!important;
+    background:transparent!important;
+    border:0!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    position:relative!important;
+    top:auto!important;
+    z-index:30!important;
+  }
+  #home .topbar .searchwrap{
+    grid-column:1 / -1!important;
+    grid-row:2!important;
+    width:100%!important;
+    max-width:100%!important;
+    order:initial!important;
+  }
+  #home .topbar .searchbox{
+    width:100%!important;
+    min-height:46px!important;
+    padding:0 18px!important;
+    border-radius:16px!important;
+    background:rgba(42,117,214,.30)!important;
+    border:1px solid rgba(255,255,255,.20)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 12px 26px rgba(2,8,23,.14)!important;
+    backdrop-filter:blur(20px) saturate(155%)!important;
+    -webkit-backdrop-filter:blur(20px) saturate(155%)!important;
+  }
+  #home .topbar .searchbox input{
+    font-size:15px!important;
+    color:rgba(255,255,255,.82)!important;
+  }
+  #home .topbar .searchbox input::placeholder{
+    color:rgba(226,236,250,.42)!important;
+  }
+  #home .topbar #tvBtn,
+  #home .topbar #openSheetBtn{
+    grid-row:1!important;
+    display:inline-grid!important;
+    place-items:center!important;
+    width:40px!important;
+    height:40px!important;
+    min-width:40px!important;
+    margin:0!important;
+    padding:0!important;
+    border-radius:50%!important;
+    background:rgba(26,42,68,.48)!important;
+    border:1px solid rgba(255,255,255,.20)!important;
+    color:rgba(255,255,255,.90)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 10px 24px rgba(0,0,0,.18)!important;
+    backdrop-filter:blur(18px) saturate(150%)!important;
+    -webkit-backdrop-filter:blur(18px) saturate(150%)!important;
+    line-height:1!important;
+    order:initial!important;
+  }
+  #home .topbar #tvBtn{
+    grid-column:1!important;
+    font-size:12px!important;
+    font-weight:800!important;
+    letter-spacing:.02em!important;
+  }
+  #home .topbar #openSheetBtn{
+    grid-column:2!important;
+    font-size:0!important;
+  }
+  #home .topbar #openSheetBtn::before{
+    content:"⚙";
+    font-size:20px!important;
+    line-height:1!important;
+  }
+  #home .topbar #climateBtn{
+    display:none!important;
+  }
+  #home .topbar #profileBtn{
+    grid-column:4!important;
+    grid-row:1!important;
+    justify-self:end!important;
+    display:inline-grid!important;
+    place-items:center!important;
+    width:38px!important;
+    height:38px!important;
+    min-width:38px!important;
+    margin:0!important;
+    padding:0!important;
+    border-radius:50%!important;
+    background:linear-gradient(145deg,rgba(128,194,255,.98),rgba(32,124,255,.95))!important;
+    border:2px solid rgba(255,255,255,.34)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.38), 0 8px 20px rgba(0,0,0,.20)!important;
+    order:initial!important;
+  }
+  #home .topbar #profileAvatarMini{
+    font-size:12px!important;
+    font-weight:800!important;
+    color:#fff!important;
+  }
+}
