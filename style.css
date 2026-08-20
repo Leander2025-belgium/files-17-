@@ -6195,3 +6195,64 @@ body.day-detail-open .tabbar{
     transform:translateY(-4px)!important;
   }
 }
+
+
+/* ---------- TV mode radar and hourly fit polish ---------- */
+@media (min-width:701px){
+  .tv-left{
+    grid-template-rows:minmax(0,1fr) clamp(74px,10.5vh,104px) clamp(136px,22vh,190px)!important;
+  }
+  .tv-current{
+    align-items:center!important;
+    padding:0 clamp(28px,3.8vw,58px)!important;
+  }
+  .tv-current>div:last-child{
+    align-self:center!important;
+    padding-bottom:clamp(8px,1.2vh,16px);
+  }
+  .tv-current .tv-icon{
+    align-self:center!important;
+    transform:translateY(-4px);
+  }
+  .tv-current .tv-icon svg{
+    width:clamp(120px,11.5vw,205px)!important;
+    height:clamp(120px,11.5vw,205px)!important;
+  }
+  .tv-hourly{
+    height:100%!important;
+    align-self:end!important;
+    border-radius:clamp(12px,1vw,16px)!important;
+  }
+  .tv-hourly .hitem{
+    padding:clamp(4px,.55vh,7px) 3px!important;
+    gap:clamp(1px,.28vh,4px)!important;
+  }
+  .tv-hourly .hitem .t{
+    font-size:clamp(9px,.78vw,13px)!important;
+  }
+  .tv-hourly .hitem svg{
+    width:clamp(16px,1.45vw,24px)!important;
+    height:clamp(16px,1.45vw,24px)!important;
+  }
+  .tv-hourly .hitem .p{
+    height:clamp(8px,.85vh,11px)!important;
+    font-size:clamp(8px,.66vw,11px)!important;
+  }
+  .tv-hourly .hitem .v{
+    font-size:clamp(12px,1.08vw,18px)!important;
+  }
+  #tvmap .leaflet-tile-pane{
+    filter:saturate(1.05) contrast(1.02);
+  }
+}
+@media (max-width:1450px) and (min-width:701px){
+  .tv-left{
+    grid-template-rows:minmax(0,1fr) 84px 140px!important;
+  }
+  .tv-current .tv-icon svg{
+    width:clamp(108px,10.5vw,160px)!important;
+    height:clamp(108px,10.5vw,160px)!important;
+  }
+  .tv-hourly .hitem .t{font-size:11px!important;}
+  .tv-hourly .hitem .v{font-size:15px!important;}
+}
