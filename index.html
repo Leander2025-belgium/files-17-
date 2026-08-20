@@ -19,6 +19,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script>
+(function(){
+  try{
+    var params = new URLSearchParams(location.search);
+    var path = location.pathname.replace(/\/+$/, '');
+    if(!params.has('castReceiver') && (path.endsWith('/tv') || params.has('tv'))){
+      document.documentElement.classList.add('tv-route');
+    }
+  }catch(error){}
+})();
+</script>
 </head>
 <body><div id="alerts-container"></div></body>
 
@@ -593,7 +604,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
-<script src="script.js"></script>
+<script src="castService.js?v=20260820-tv-route-1"></script>
+<script src="tvPairingService.js?v=20260820-tv-route-1"></script>
+<script src="script.js?v=20260820-tv-route-1"></script>
 </body>
 </html>
 

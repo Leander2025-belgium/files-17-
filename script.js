@@ -1095,6 +1095,18 @@ $('#castBtn')?.addEventListener('click', async ()=>{
   if(ok) toast('TV-modus wordt geopend op je tv');
 });
 
+
+function isTvPairingRoute(){
+  try{
+    if(window.WheaterflowTvPairingService?.isTvRoute) return window.WheaterflowTvPairingService.isTvRoute();
+    const params = new URLSearchParams(location.search);
+    const path = location.pathname.replace(/\/+$/, '');
+    return !params.has('castReceiver') && (path.endsWith('/tv') || params.has('tv'));
+  }catch(error){
+    return false;
+  }
+}
+
 function tvPairingMessage(text, type=''){
   const el = $('#tvPairMessage');
   if(!el) return;
@@ -1168,8 +1180,21 @@ async function applyTvPairingReceiverLocation(location){
 }
 
 async function initTvPairing(){
-  if(!window.WheaterflowTvPairingService?.create) return;
-  state.tvPairing.receiver = window.WheaterflowTvPairingService.isTvRoute();
+  state.tvPairing.receiver = isTvPairingRoute();
+  if(state.tvPairing.receiver){
+    document.documentElement.classList.add('tv-route');
+    document.body.classList.add('tv-pairing-receiver');
+    $('#app')?.setAttribute('aria-hidden', 'true');
+  }
+  if(!window.WheaterflowTvPairingService?.create){
+    if(state.tvPairing.receiver){
+      document.getElementById('tvscreen')?.classList.add('active');
+      $('#tvPairOverlay')?.removeAttribute('hidden');
+      const msg = $('#tvPairOverlayMessage');
+      if(msg) msg.textContent = 'TV-koppeling wordt geladen...';
+    }
+    return;
+  }
   state.tvPairing.service = window.WheaterflowTvPairingService.create({
     apiUrls:TV_PAIRING_API_URLS,
     getLocation:currentCastLocation,
