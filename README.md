@@ -64,3 +64,7 @@ Wanneer Xweather niet geconfigureerd is of een laag niet beschikbaar is binnen j
 ```bash
 npm run build
 ```
+
+## Native iOS companion
+
+De geïsoleerde SwiftUI/WidgetKit/ActivityKit companion staat in `ios/`. Open op macOS `ios/Wheaterflow.xcodeproj` en volg `ios/README.md` voor signing, App Group, widget-, Live Activity- en API-deploymentstappen.

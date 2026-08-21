@@ -6,3 +6,7 @@ node_modules/
 !.env.example
 .DS_Store
 Thumbs.db
+ios/DerivedData/
+ios/build/
+ios/**/*.xcuserstate
+ios/**/xcuserdata/

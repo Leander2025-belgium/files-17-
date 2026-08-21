@@ -1,0 +1,60 @@
+name: Wheaterflow
+options:
+  bundleIdPrefix: be.wheaterflow
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    TARGETED_DEVICE_FAMILY: "1"
+    SUPPORTS_MACCATALYST: NO
+targets:
+  Wheaterflow:
+    type: application
+    platform: iOS
+    sources:
+      - path: Wheaterflow
+        excludes:
+          - Info.plist
+          - Wheaterflow.entitlements
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: be.wheaterflow.ios
+        INFOPLIST_FILE: Wheaterflow/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Wheaterflow/Wheaterflow.entitlements
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+    dependencies:
+      - target: WheaterflowWidgets
+        embed: true
+  WheaterflowWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: WheaterflowWidgets
+        excludes:
+          - Info.plist
+          - WheaterflowWidgets.entitlements
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: be.wheaterflow.ios.widgets
+        INFOPLIST_FILE: WheaterflowWidgets/Info.plist
+        CODE_SIGN_ENTITLEMENTS: WheaterflowWidgets/WheaterflowWidgets.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+schemes:
+  Wheaterflow:
+    build:
+      targets:
+        Wheaterflow: all
+        WheaterflowWidgets: all
+    run:
+      config: Debug
+    archive:
+      config: Release
