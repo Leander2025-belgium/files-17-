@@ -703,15 +703,20 @@ function radarView(){
   return {center:[50.85, 4.55], zoom:7};
 }
 
+const TV_RADAR_OOSTENDE_VIEW = Object.freeze({
+  marker:[51.225, 2.919],
+  center:[51.46, 2.90],
+  bounds:[[50.68, 1.05], [52.24, 4.75]],
+  padding:[26, 26],
+  zoom:8
+});
+
 function tvRadarView(){
-  const lat = Number(state.loc?.lat);
-  const lon = Number(state.loc?.lon);
-  if(Number.isFinite(lat) && Number.isFinite(lon)) return {center:[lat, lon], zoom:7};
-  return {center:[51.225, 2.925], zoom:7};
+  return TV_RADAR_OOSTENDE_VIEW;
 }
 
 const RADAR_PROVIDER_ZOOMS = {
-  rainviewer:{min:3, max:8, nativeMax:8},
+  rainviewer:{min:3, max:7, nativeMax:7},
   weatherflow:{min:5, max:7, nativeMax:7},
   openmeteo:{min:5, max:8, nativeMax:8}
 };
@@ -724,9 +729,24 @@ function clampRadarZoom(provider, requestedZoom){
 
 function setTvRadarViewForProvider(provider){
   const rv = tvRadarView();
+  const range = RADAR_PROVIDER_ZOOMS[provider] || RADAR_PROVIDER_ZOOMS.rainviewer;
   const zoom = clampRadarZoom(provider, rv.zoom);
-  tv.map?.setView(rv.center, zoom, {animate:false});
-  tv.locationMarker?.setLatLng(rv.center);
+  if(tv.map){
+    tv.map.stop();
+    tv.map.setMinZoom(range.min);
+    tv.map.setMaxZoom(range.max);
+    if(window.L && Array.isArray(rv.bounds)){
+      tv.map.fitBounds(L.latLngBounds(rv.bounds), {
+        animate:false,
+        paddingTopLeft:rv.padding,
+        paddingBottomRight:rv.padding,
+        maxZoom:zoom
+      });
+    }else{
+      tv.map.setView(rv.center, zoom, {animate:false});
+    }
+  }
+  tv.locationMarker?.setLatLng(rv.marker);
   return {center:rv.center, zoom};
 }
 
@@ -5710,14 +5730,16 @@ function weatherflowRadarFrames(){
 }
 function tvOpenMeteoRadarPoints(){
   const rv = tvRadarView();
-  const centerLat = Number(rv.center?.[0]) || 51.225;
-  const centerLon = Number(rv.center?.[1]) || 2.925;
+  const south = Number(rv.bounds?.[0]?.[0]) || 50.68;
+  const west = Number(rv.bounds?.[0]?.[1]) || 1.05;
+  const north = Number(rv.bounds?.[1]?.[0]) || 52.24;
+  const east = Number(rv.bounds?.[1]?.[1]) || 4.75;
   const points = [];
-  for(let dLat = -1.25; dLat <= 1.25; dLat += 0.25){
-    for(let dLon = -1.70; dLon <= 1.70; dLon += 0.25){
+  for(let lat = south; lat <= north + 0.001; lat += 0.26){
+    for(let lon = west; lon <= east + 0.001; lon += 0.28){
       points.push({
-        lat:Number((centerLat + dLat).toFixed(2)),
-        lon:Number((centerLon + dLon).toFixed(2))
+        lat:Number(lat.toFixed(2)),
+        lon:Number(lon.toFixed(2))
       });
     }
   }
@@ -6343,7 +6365,9 @@ function renderTV(){
     const dwc = wcInfo(daily.weather_code[i]);
     const d = new Date(daily.time[i]);
     const dn = i===0?'Vandaag':d.toLocaleDateString('nl-BE',{weekday:'short'});
-    dd += `<div class="ditem"><div class="dn">${dn}</div>${icon(dwc.ic,true,22)}<div class="dv">${fmtTemp(daily.temperature_2m_max[i])} <span class="lo">${fmtTemp(daily.temperature_2m_min[i])}</span></div></div>`;
+    const high = fmtTemp(daily.temperature_2m_max[i]);
+    const low = fmtTemp(daily.temperature_2m_min[i]);
+    dd += `<div class="ditem${i===0?' today':''}"><div class="dn">${dn}</div><div class="dicon">${icon(dwc.ic,true,30)}</div><div class="dv" aria-label="Maximum ${high}, minimum ${low}"><span class="hi"><small>max</small><b>${high}</b></span><span class="lo"><small>min</small><b>${low}</b></span></div></div>`;
   }
   $('#tvDaily').innerHTML = dd;
 }
@@ -6387,6 +6411,7 @@ function tvMarineCard(){
 async function initTvMap(){
   if(!tv.map){
     const rv = tvRadarView();
+    const range = RADAR_PROVIDER_ZOOMS.rainviewer;
     tv.map = L.map('tvmap', {
       zoomControl:false,
       attributionControl:false,
@@ -6398,9 +6423,9 @@ async function initTvMap(){
       touchZoom:false,
       tap:false,
       zoomSnap:.25,
-      minZoom:rv.zoom,
-      maxZoom:rv.zoom
-    }).setView(rv.center, rv.zoom);
+      minZoom:range.min,
+      maxZoom:range.max
+    }).setView(rv.center, clampRadarZoom('rainviewer', rv.zoom));
     tv.map.createPane('radarPane');
     tv.map.getPane('radarPane').style.zIndex = 420;
     tv.map.createPane('labelPane');
@@ -6409,13 +6434,27 @@ async function initTvMap(){
     const base = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(tv.map);
     base.on('load', ()=>{ tv.baseMapLoaded = true; });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, pane:'labelPane'}).addTo(tv.map);
-    tv.locationMarker = L.circleMarker(rv.center, {radius:7, color:'#fff', weight:3, fillColor:'#1677ff', fillOpacity:.95}).addTo(tv.map);
+    tv.locationMarker = L.circleMarker(rv.marker, {
+      radius:5,
+      color:'#fff',
+      weight:2,
+      fillColor:'#1677ff',
+      fillOpacity:1,
+      pane:'labelPane',
+      className:'tv-oostende-marker'
+    }).addTo(tv.map).bindTooltip('Oostende', {
+      permanent:true,
+      direction:'right',
+      offset:[7, 0],
+      className:'tv-oostende-label'
+    });
   } else {
-    const rv = tvRadarView();
-    tv.map.setView(rv.center, rv.zoom);
-    tv.locationMarker?.setLatLng(rv.center);
+    tv.locationMarker?.setLatLng(tvRadarView().marker);
   }
-  setTimeout(()=>tv.map.invalidateSize(), 200);
+  setTimeout(()=>{
+    tv.map.invalidateSize();
+    setTvRadarViewForProvider('rainviewer');
+  }, 200);
   disposeTvXweatherRadar();
   clearInterval(tv.loopTimer);
   await refreshTvRadarFrame();
