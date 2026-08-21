@@ -2445,7 +2445,7 @@ function renderMoreWeatherSections(tab='charts'){
     skycoast: `${airQualitySection()}${coastSection()}`,
     travel: travelWeatherSection()
   };
-  return `<section class="app-section more-weather-pane">${sections[tab] || sections.charts}</section>`;
+  return sections[tab] || sections.charts;
 }
 
 function wireMoreWeatherSections(){
@@ -2706,7 +2706,7 @@ function chartsSection(){
     const min = Math.min(...clean), max = Math.max(...clean);
     return `<span>${label}<b>${Math.round(min)}-${Math.round(max)}${unit}</b></span>`;
   };
-  return `<div class="card premium-chart-card"><div class="card-title">${icon('gauge',true,13)} Grafieken komende 24 uur</div>
+  return `<div class="more-weather-section-title">${icon('gauge',true,13)} Grafieken komende 24 uur</div>
     <div class="premium-chart-summary">
       ${stat('Temperatuur', points.map(i=>state.hourly.temperature_2m[i]), '°')}
       ${stat('Neerslagkans', points.map(i=>state.hourly.precipitation_probability[i]), '%')}
@@ -2717,12 +2717,11 @@ function chartsSection(){
       ${premiumChartShell('rain','Neerslag','Kans en hoeveelheid per uur','% / mm')}
       ${premiumChartShell('uv','UV-index','Sterkte van de zon doorheen de dag','UV')}
       ${premiumChartShell('wind','Wind','Windsnelheid en windstoten','km/u')}
-    </div>
-  </div>`;
+    </div>`;
 }
 
 function premiumChartShell(id, title, sub, unit){
-  return `<div class="mini-chart apple-chart-card" data-chart="${id}">
+  return `<div class="card mini-chart apple-chart-card" data-chart="${id}">
     <div class="mini-chart-head"><b>${title}</b><span>${unit}</span></div>
     <div class="chart-caption">${sub}</div>
     <div class="apple-chart-wrap"><canvas id="chart-${id}" height="190"></canvas></div>

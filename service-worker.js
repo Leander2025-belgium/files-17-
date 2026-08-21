@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260821-tv-condition-backgrounds";
+const CACHE_VERSION = "wheaterflow-v20260821-more-weather-cards";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

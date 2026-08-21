@@ -1709,9 +1709,6 @@ body:has(#weatherBG.night) #tvscreen{
   grid-template-columns:1fr;
   gap:14px;
 }
-#home .premium-chart-card{
-  overflow:hidden;
-}
 #home .premium-chart-summary{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -5466,11 +5463,8 @@ html.tv-route #tvExitBtn{
 }
 
 .more-weather-sections{
-  border-radius:var(--wf-card-radius);
-  border:1px solid var(--wf-card-border);
-  background:rgba(18,35,58,.48);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 16px 36px rgba(2,8,23,.20);
-  overflow:hidden;
+  display:grid;
+  gap:12px;
 }
 
 .more-weather-sections summary{
@@ -5529,15 +5523,7 @@ html.tv-route #tvExitBtn{
 .more-weather-content{
   display:grid;
   gap:14px;
-  padding:0 14px 14px;
-}
-
-.more-weather-content .app-section{
-  margin:0;
-}
-
-.more-weather-content .app-section:first-child{
-  padding-top:0;
+  padding:0;
 }
 
 .radar-top .chip-row{
@@ -6077,11 +6063,6 @@ body.tv-pair-open .tabbar{
   box-shadow:0 10px 26px rgba(51,171,255,.24);
 }
 
-.more-weather-pane{
-  display:grid;
-  gap:14px;
-}
-
 .metric-list-card{
   display:grid;
   gap:8px;
@@ -6506,25 +6487,35 @@ body.tv-pair-open .tabbar{
   max-width:none;
   margin-inline:0;
 }
-#home .more-weather-content,
-#home .more-weather-pane{
-  width:100%;
-}
-#home .more-weather-pane{
-  background:linear-gradient(180deg,rgba(255,255,255,.105),rgba(255,255,255,.052));
-  border:1px solid rgba(255,255,255,.14);
-  border-radius:24px;
-  padding:14px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 18px 44px rgba(0,0,0,.18);
-}
-#home .more-weather-pane > .app-section{
+#home .more-weather-content{
   width:100%;
   max-width:none;
   margin:0;
   padding:0;
-  border:none;
-  background:transparent;
-  box-shadow:none;
+  display:grid;
+  gap:14px;
+}
+#home .more-weather-content > .card,
+#home .premium-charts > .card{
+  width:100%;
+  margin:0!important;
+}
+#home .more-weather-section-title{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#fff;
+  font-size:14px;
+  font-weight:850;
+  letter-spacing:.01em;
+}
+#home .more-weather-section-title svg{
+  width:15px!important;
+  height:15px!important;
+  opacity:.9;
+}
+#home .premium-chart-summary{
+  margin:0;
 }
 #home .rain-now-chart i.light{background:#74e7ff!important;}
 #home .rain-now-chart i.moderate{background:#4de4bf!important;}
