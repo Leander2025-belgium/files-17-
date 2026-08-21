@@ -1185,6 +1185,23 @@ function updateTvPairingUi(status=state.tvPairing.status, detail={}){
     btn.textContent = state.tvPairing.connected ? 'TV gekoppeld' : 'TV koppelen';
     btn.title = state.tvPairing.connected ? 'Locatie wordt automatisch naar je TV gestuurd' : 'Koppel een TV met wheaterflow.be/tv';
   }
+  const quickBtn = $('#tvBtn');
+  if(quickBtn){
+    quickBtn.classList.toggle('connected', state.tvPairing.connected);
+    quickBtn.classList.toggle('error', status === 'error');
+    quickBtn.title = state.tvPairing.connected ? 'TV gekoppeld' : 'TV koppelen';
+    quickBtn.setAttribute('aria-label', state.tvPairing.connected ? 'TV gekoppeld openen' : 'TV koppelen');
+  }
+  const settingsStatus = $('#tvSettingsStatus');
+  if(settingsStatus){
+    settingsStatus.textContent = state.tvPairing.connected ? 'Gekoppeld' : (status === 'error' ? 'Controleer code' : 'Niet gekoppeld');
+  }
+  const settingsSubtitle = $('#tvSettingsSubtitle');
+  if(settingsSubtitle){
+    settingsSubtitle.textContent = state.tvPairing.connected
+      ? 'Je actieve locatie wordt naar je TV gestuurd.'
+      : 'Open wheaterflow.be/tv op je TV en koppel met de code.';
+  }
   const disconnect = $('#tvPairDisconnect');
   const refresh = $('#tvPairRefresh');
   if(disconnect) disconnect.hidden = !state.tvPairing.connected;
@@ -1289,6 +1306,7 @@ async function initTvPairing(){
 
 function wireTvPairingUi(){
   $('#pairTvBtn')?.addEventListener('click', ()=>openTvPairSheet());
+  $('#tvBtn')?.addEventListener('click', ()=>openTvPairSheet());
   $('#tvPairClose')?.addEventListener('click', closeTvPairSheet);
   $('#tvPairScrim')?.addEventListener('click', closeTvPairSheet);
   $('#tvPairCodeInput')?.addEventListener('input', (event)=>{
@@ -6094,7 +6112,6 @@ function exitTV(){
   disposeTvXweatherRadar();
   if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
 }
-$('#tvBtn').addEventListener('click', enterTV);
 $('#tvExitBtn').addEventListener('click', exitTV);
 document.addEventListener('fullscreenchange', ()=>{
   if(!document.fullscreenElement && tv.active) exitTV();
