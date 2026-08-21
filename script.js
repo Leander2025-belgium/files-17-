@@ -704,8 +704,10 @@ function radarView(){
 }
 
 function tvRadarView(){
-  // TV mode is watched from a distance: keep Belgium centred and stable.
-  return {center:[50.85, 4.35], zoom:7};
+  const lat = Number(state.loc?.lat);
+  const lon = Number(state.loc?.lon);
+  if(Number.isFinite(lat) && Number.isFinite(lon)) return {center:[lat, lon], zoom:7.75};
+  return {center:[51.225, 2.925], zoom:7.75};
 }
 
 const ALERT_LEVELS = {
@@ -5631,10 +5633,16 @@ function weatherflowRadarFrames(){
   }));
 }
 function tvOpenMeteoRadarPoints(){
+  const rv = tvRadarView();
+  const centerLat = Number(rv.center?.[0]) || 51.225;
+  const centerLon = Number(rv.center?.[1]) || 2.925;
   const points = [];
-  for(let lat = 49.55; lat <= 51.65; lat += 0.30){
-    for(let lon = 2.45; lon <= 6.55; lon += 0.30){
-      points.push({lat:Number(lat.toFixed(2)), lon:Number(lon.toFixed(2))});
+  for(let dLat = -1.25; dLat <= 1.25; dLat += 0.25){
+    for(let dLon = -1.70; dLon <= 1.70; dLon += 0.25){
+      points.push({
+        lat:Number((centerLat + dLat).toFixed(2)),
+        lon:Number((centerLon + dLon).toFixed(2))
+      });
     }
   }
   return points;
@@ -6426,7 +6434,10 @@ async function refreshTvRadarFrame(){
     console.warn('Open-Meteo tv-radar kon niet verversen, actuele radarframe wordt geprobeerd', error);
     const frame = await fetchLatestRainviewerRadarFrame().catch(()=>null);
     if(frame) setTvRainviewerFrame(frame);
-    else updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
+    else{
+      updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
+      setTvRadarFallback('Radar tijdelijk niet beschikbaar · Probeer later opnieuw');
+    }
   }
 }
 async function setTvOpenMeteoRadarLayer(){
@@ -6437,10 +6448,12 @@ async function setTvOpenMeteoRadarLayer(){
   clearTvRadarLayer();
   const layer = L.layerGroup();
   let newestTime = null;
+  let wetCells = 0;
   points.forEach(point=>{
     const mm = Number(point.precipitation) || 0;
     if(point.time) newestTime = point.time;
     if(mm < 0.03) return;
+    wetCells += 1;
     const color = tvOpenMeteoRadarColor(mm);
     L.circle([point.lat, point.lon], {
       radius:tvOpenMeteoRadarRadius(mm),
@@ -6455,7 +6468,16 @@ async function setTvOpenMeteoRadarLayer(){
   });
   tv.radarLayer = layer.addTo(tv.map);
   const epoch = newestTime ? Math.round(new Date(newestTime).getTime()/1000) : Math.round(Date.now()/1000);
-  updateTvRadarLabel(epoch, 'Open-Meteo radar');
+  updateTvRadarLabel(epoch, 'Radar bijgewerkt');
+  if(wetCells){
+    setTvRadarFallback('');
+  }else{
+    const rain = nowcastEngine();
+    const text = rain?.status === 'rain_soon' || rain?.status === 'raining'
+      ? 'Neerslaglaag geladen, maar rond deze zoom zijn tijdelijk geen buiencellen zichtbaar'
+      : 'Radar bijgewerkt · geen buien in beeld';
+    setTvRadarFallback(text);
+  }
 }
 function setTvRainviewerFrame(frame){
   if(!tv.map || !frame) return;
@@ -6472,7 +6494,8 @@ function setTvRainviewerFrame(frame){
     updateWhenIdle:false,
     updateWhenZooming:false
   }).addTo(tv.map);
-  updateTvRadarLabel(frame.time, 'Open-Meteo radar');
+  setTvRadarFallback('');
+  updateTvRadarLabel(frame.time, 'Radar bijgewerkt');
 }
 function setTvFrame(i){
   if(!tv.map) return;
@@ -6491,7 +6514,8 @@ function setTvFrame(i){
     updateWhenIdle:false,
     updateWhenZooming:false
   }).addTo(tv.map);
-  updateTvRadarLabel(Math.round(Date.now()/1000), 'Open-Meteo radar');
+  setTvRadarFallback('');
+  updateTvRadarLabel(Math.round(Date.now()/1000), 'Radar bijgewerkt');
 }
 
 function clearTvRadarLayer(){
@@ -6510,8 +6534,22 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
   }
   const d = new Date(epochSeconds * 1000);
   const time = d.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
-  const title = fallback && fallback !== 'Live buienradar' ? fallback : 'Live buienradar';
-  el.textContent = `${title} - ${time}`;
+  const title = fallback && fallback !== 'Live buienradar' ? fallback : 'Radar bijgewerkt';
+  el.textContent = `${title} ${time}`;
+}
+
+function setTvRadarFallback(text=''){
+  const card = document.querySelector('.tv-radar-card');
+  if(!card) return;
+  let el = document.getElementById('tvRadarFallback');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'tvRadarFallback';
+    el.className = 'tv-radar-fallback hidden';
+    card.appendChild(el);
+  }
+  el.textContent = text;
+  el.classList.toggle('hidden', !text);
 }
 
 /* =========================================================================

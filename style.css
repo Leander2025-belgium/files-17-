@@ -5122,6 +5122,105 @@ input{
   .tv-hourly .hitem .v{font-size:17px!important;}
 }
 
+/* ---------- TV mode targeted radar + hourly balance ---------- */
+@media (min-width:701px){
+  #tvscreen.active .tv-left{
+    grid-template-rows:minmax(210px,1fr) clamp(132px,17.5vh,170px) clamp(124px,19.5vh,168px)!important;
+    gap:clamp(10px,1.15vh,16px)!important;
+  }
+
+  #tvscreen.active .tv-current{
+    min-height:0!important;
+    padding:0 clamp(28px,3.4vw,56px)!important;
+  }
+
+  #tvscreen.active .tv-current .tv-icon svg{
+    width:clamp(245px,23vw,420px)!important;
+    height:clamp(245px,23vw,420px)!important;
+  }
+
+  #tvscreen.active .tv-hourly{
+    min-height:clamp(126px,16.8vh,164px)!important;
+    height:100%!important;
+    border-radius:clamp(14px,1.2vw,20px)!important;
+    align-self:stretch!important;
+  }
+
+  #tvscreen.active .tv-hourly .hitem{
+    padding:clamp(10px,1.25vh,17px) clamp(5px,.72vw,10px)!important;
+    justify-content:space-between!important;
+    gap:clamp(4px,.65vh,8px)!important;
+  }
+
+  #tvscreen.active .tv-hourly .hitem .t{
+    font-size:clamp(12px,.95vw,16px)!important;
+    line-height:1.1!important;
+  }
+
+  #tvscreen.active .tv-hourly .hitem svg{
+    width:clamp(28px,2.25vw,42px)!important;
+    height:clamp(28px,2.25vw,42px)!important;
+  }
+
+  #tvscreen.active .tv-hourly .hitem .p{
+    min-height:clamp(14px,1.35vh,18px)!important;
+    height:auto!important;
+    font-size:clamp(10px,.82vw,13px)!important;
+  }
+
+  #tvscreen.active .tv-hourly .hitem .v{
+    font-size:clamp(17px,1.45vw,24px)!important;
+    line-height:1.05!important;
+  }
+
+  #tvscreen.active .tv-radar-card{
+    position:relative;
+  }
+
+  #tvscreen.active .tv-radar-fallback{
+    position:absolute;
+    left:clamp(18px,1.4vw,24px);
+    right:clamp(18px,1.4vw,24px);
+    bottom:clamp(18px,1.4vw,24px);
+    z-index:700;
+    padding:clamp(10px,1vw,14px) clamp(12px,1.2vw,18px);
+    border-radius:clamp(14px,1vw,18px);
+    border:1px solid rgba(255,255,255,.22);
+    background:rgba(10,27,48,.76);
+    color:#fff;
+    font-weight:800;
+    font-size:clamp(13px,1vw,18px);
+    line-height:1.25;
+    box-shadow:0 16px 42px rgba(0,0,0,.28);
+    backdrop-filter:blur(18px) saturate(145%);
+    -webkit-backdrop-filter:blur(18px) saturate(145%);
+  }
+
+  #tvscreen.active .tv-radar-fallback.hidden{
+    display:none!important;
+  }
+}
+
+@media (min-width:701px) and (max-height:820px){
+  #tvscreen.active .tv-left{
+    grid-template-rows:minmax(190px,1fr) 132px 118px!important;
+    gap:10px!important;
+  }
+
+  #tvscreen.active .tv-current .tv-icon svg{
+    width:clamp(220px,20vw,330px)!important;
+    height:clamp(220px,20vw,330px)!important;
+  }
+
+  #tvscreen.active .tv-hourly{
+    min-height:126px!important;
+  }
+
+  #tvscreen.active .tv-hourly .hitem{
+    padding:9px 5px!important;
+  }
+}
+
 
 /* ===== Wheaterflow: /tv opens pairing receiver, not the normal app ===== */
 html.tv-route #app,
