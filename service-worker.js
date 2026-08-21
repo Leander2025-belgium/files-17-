@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260821-home-tv-restore";
+const CACHE_VERSION = "wheaterflow-v20260821-polish-bugfix";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

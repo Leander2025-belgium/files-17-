@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260821-home-tv-restore">
+<link rel="stylesheet" href="style.css?v=20260821-polish-bugfix">
 <script>
 (function(){
   try{
@@ -502,7 +502,7 @@
     <h3 style="margin:0 0 10px;">Instellingen</h3>
     <section class="settings-group">
       <div class="settings-section-head"><span>Eenheden</span><strong>Weergave</strong></div>
-      <div class="sheet-row"><span>Temperatuur</span><div class="seg" id="segTemp"><button data-v="C" class="active">&deg;C</button><button data-v="F">&deg;F</button></div></div>
+      <div class="sheet-row"><span>Temperatuur</span><div class="seg" id="segTemp"><button data-v="C" class="active">°C</button><button data-v="F">°F</button></div></div>
       <div class="sheet-row"><span>Windsnelheid</span><div class="seg" id="segWind"><button data-v="kmh" class="active">km/u</button><button data-v="ms">m/s</button><button data-v="kn">kn</button><button data-v="mph">mph</button></div></div>
       <div class="sheet-row"><span>Neerslag</span><div class="seg" id="segPrecip"><button data-v="mm" class="active">mm</button><button data-v="in">inch</button></div></div>
       <div class="sheet-row"><span>Luchtdruk</span><div class="seg" id="segPress"><button data-v="hpa" class="active">hPa</button><button data-v="inhg">inHg</button></div></div>
@@ -577,17 +577,18 @@
         <label><input type="checkbox" data-pref="wind" checked> Extreme windstoten</label>
         <label><input type="checkbox" data-pref="heat" checked> Hitte</label>
         <label><input type="checkbox" data-pref="frost" checked> Vorst</label>
+        <div class="notify-group-title">UV & gezondheid</div>
         <label><input type="checkbox" data-pref="uv" checked> Sterke UV</label>
         <div class="notify-group-title">Dagelijks en lokaal</div>
         <label><input type="checkbox" data-pref="rainSoon" checked> Regen binnen 30 minuten</label>
         <label><input type="checkbox" data-pref="dailyMorning"> Dagelijkse ochtendverwachting</label>
-        <label><input type="checkbox" data-pref="coast" checked> Kustwaarschuwingen Oostende</label>
+        <label><input type="checkbox" data-pref="coast" checked> <span id="pushCoastLabel">Kustwaarschuwingen · Oostende</span></label>
       </div>
       <div class="threshold-grid">
         <label>Neerslag vanaf <input id="pushRainThreshold" type="number" min="0" max="100" value="70">%</label>
         <label>Windstoten vanaf <input id="pushWindThreshold" type="number" min="0" max="160" value="70"> km/u</label>
-        <label>Hitte vanaf <input id="pushHeatThreshold" type="number" min="20" max="50" value="30">&deg;C</label>
-        <label>Vorst onder <input id="pushFrostThreshold" type="number" min="-30" max="10" value="0">&deg;C</label>
+        <label>Hitte vanaf <input id="pushHeatThreshold" type="number" min="20" max="50" value="30">°C</label>
+        <label>Vorst onder <input id="pushFrostThreshold" type="number" min="-30" max="10" value="0">°C</label>
       </div>
       <span class="subtle" id="pushHelpText" style="font-size:11.5px;">Vraag toestemming alleen via deze knop. Op iPhone werkt dit na installatie op je beginscherm.</span>
     </section>
@@ -648,7 +649,7 @@
       <div class="tv-current">
         <div class="tv-icon" id="tvIcon"></div>
         <div>
-          <div class="tv-temp display" id="tvTemp">-&deg;</div>
+          <div class="tv-temp display" id="tvTemp">-°</div>
           <div class="tv-cond" id="tvCond">-</div>
           <div class="tv-hilo" id="tvHiLo">H: - &nbsp; L: -</div>
         </div>
@@ -674,7 +675,7 @@
 <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260821-home-tv-restore"></script>
+<script src="script.js?v=20260821-polish-bugfix"></script>
 </body>
 </html>
 

@@ -281,7 +281,13 @@ async function syncFavoritesToCloud(force=false){
 function fmtTemp(c){
   if(c==null||isNaN(c)) return '-';
   const v = state.units.temp==='F' ? c*9/5+32 : c;
-  return Math.round(v) + '&deg;';
+  return Math.round(v) + '°';
+}
+
+function formatConfidence(value, fallback=.6){
+  const raw = Number.isFinite(Number(value)) ? Number(value) : fallback;
+  const pct = raw <= 1 ? raw * 100 : raw;
+  return `${Math.max(0, Math.min(100, Math.round(pct)))}%`;
 }
 function fmtWind(kmh){
   if(kmh==null||isNaN(kmh)) return '-';
@@ -1783,7 +1789,7 @@ function skyEngine(){
     visibility,
     humidity,
     moon,
-    auroraChance:'Niet beschikbaar',
+    auroraChance:'Nog geen data',
     milkyWayChance:isNightNow() && stargazing >= 70 && moon.illumination < .45 ? 'Goed' : 'Beperkt',
     factors,
     source:'Open-Meteo forecast + SunCalc + Wheaterflow intelligence'
@@ -1899,7 +1905,7 @@ function radarEtaText(rain=nowcastEngine()){
     return `Het regent nu bij ${place}${rain.endTime ? ` · waarschijnlijk droger rond ${formatShortTime(rain.endTime)}` : ''}.`;
   }
   if(rain.status === 'rain_soon'){
-    return `Regen bereikt ${place} waarschijnlijk rond ${formatShortTime(rain.startTime)} · ${rain.confidence || 60}% zeker.`;
+    return `Regen bereikt ${place} waarschijnlijk rond ${formatShortTime(rain.startTime)} · ${formatConfidence(rain.confidence)} betrouwbaarheid.`;
   }
   if(rain.status === 'dry'){
     return `Geen regen verwacht rond ${place} in de komende ${Math.round((rain.dryWindowMinutes || 120) / 60)} uur.`;
@@ -1964,7 +1970,7 @@ function stormModeCard(){
       <div><span>Dichtstbijzijnde bliksem</span><b>${storm.lightningDistanceKm == null ? 'Niet gekoppeld' : storm.lightningDistanceKm.toFixed(1)+' km'}</b></div>
       <div><span>Verwachte passage</span><b>${eta}</b></div>
       <div><span>Intensiteit</span><b>${esc(storm.intensity)}</b></div>
-      <div><span>Trekrichting</span><b>${storm.movement || 'Niet beschikbaar'}</b></div>
+      <div><span>Trekrichting</span><b>${storm.movement || 'Nog geen data'}</b></div>
     </div>
     <p>${esc(storm.limitation)}</p>
   </div>`;
@@ -2308,42 +2314,49 @@ function appSections(){
       ${['Kaarten','Meer weerdata'].map((n,i)=>`<a href="#sec${i+1}">${n}</a>`).join('')}
     </nav>
     <section id="sec1" class="app-section">${mapLayerSection()}</section>
-    <details id="sec2" class="app-section more-weather-sections">
-      <summary>
+    <section id="sec2" class="app-section more-weather-sections">
+      <div class="more-weather-head">
         <span>${icon('gauge',true,14)} Meer weerdata</span>
-        <small>Grafieken, 14 dagen, zon & maan, kust en reisweer</small>
-      </summary>
+        <small>Kies een detail zonder eindeloze scroll</small>
+      </div>
+      <div class="more-weather-tabs" id="moreWeatherTabs" role="tablist" aria-label="Meer weerdata">
+        <button class="active" type="button" data-more-tab="charts">Grafieken</button>
+        <button type="button" data-more-tab="fourteen">14 dagen</button>
+        <button type="button" data-more-tab="sunmoon">Zon & maan</button>
+        <button type="button" data-more-tab="skycoast">Sky & kust</button>
+        <button type="button" data-more-tab="travel">Reisweer</button>
+      </div>
       <div class="more-weather-content" id="moreWeatherContent"></div>
-    </details>
+    </section>
   `;
 }
 
-function renderMoreWeatherSections(){
-  return `
-    <section class="app-section">${chartsSection()}</section>
-    <section class="app-section">${fourteenDaySection()}</section>
-    <section class="app-section">${sunMoonSection()}</section>
-    <section class="app-section">${airQualitySection()}</section>
-    <section class="app-section">${coastSection()}</section>
-    <section class="app-section">${travelWeatherSection()}</section>
-  `;
+function renderMoreWeatherSections(tab='charts'){
+  const sections = {
+    charts: chartsSection(),
+    fourteen: fourteenDaySection(),
+    sunmoon: sunMoonSection(),
+    skycoast: `${airQualitySection()}${coastSection()}`,
+    travel: travelWeatherSection()
+  };
+  return `<section class="app-section more-weather-pane">${sections[tab] || sections.charts}</section>`;
 }
 
 function wireMoreWeatherSections(){
-  const details = $('#sec2');
   const content = $('#moreWeatherContent');
-  if(!details || !content) return;
-  const load = () => {
-    if(content.dataset.loaded === '1') return;
-    content.innerHTML = renderMoreWeatherSections();
-    content.dataset.loaded = '1';
+  const tabs = $$('#moreWeatherTabs [data-more-tab]');
+  if(!content || !tabs.length) return;
+  const load = (tab='charts') => {
+    content.innerHTML = renderMoreWeatherSections(tab);
+    tabs.forEach(btn=>btn.classList.toggle('active', btn.dataset.moreTab === tab));
     wireDailyDetails();
     renderPremiumCharts();
     positionSunPaths();
   };
-  details.addEventListener('toggle', ()=>{
-    if(details.open) setTimeout(load, 20);
+  tabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>load(btn.dataset.moreTab));
   });
+  load('charts');
 }
 
 function wireSectionNav(){
@@ -2401,6 +2414,7 @@ function mapLayerSection(){
     <div class="map-preview">
       <div id="homeWeatherMap" class="home-weather-map" aria-label="Interactieve weerkaart"></div>
       <div class="map-preview-status" id="homeMapStatus">Kaart laden...</div>
+      <button class="map-retry-btn hidden" id="homeMapRetry" type="button">Opnieuw proberen</button>
     </div>
     <div class="legend-row"><span>Legenda</span><i></i><span id="mapLayerTime">Actuele modeltijd</span></div>
   </div>`;
@@ -2416,6 +2430,7 @@ function wireHomeMapLayers(){
       setHomeMapLayer(btn.dataset.homeLayer);
     });
   });
+  $('#homeMapRetry')?.addEventListener('click', ()=>setHomeMapLayer(state.homeMap.activeLayer || 'radar'));
   setTimeout(()=>{
     initHomeWeatherMap();
     setHomeMapLayer(state.homeMap.activeLayer || 'radar');
@@ -2562,9 +2577,11 @@ async function setHomeXweatherLayer(layerId){
 
 function setHomeMapStatus(text){
   const el = $('#homeMapStatus');
+  const retry = $('#homeMapRetry');
   if(!el) return;
   el.textContent = text || '';
   el.classList.toggle('hidden', !text);
+  retry?.classList.toggle('hidden', !text || /laden/i.test(text));
 }
 
 function homeMapLayerError(layerId){
@@ -2585,12 +2602,12 @@ function chartsSection(){
   };
   return `<div class="card premium-chart-card"><div class="card-title">${icon('gauge',true,13)} Grafieken komende 24 uur</div>
     <div class="premium-chart-summary">
-      ${stat('Temperatuur', points.map(i=>state.hourly.temperature_2m[i]), '&deg;')}
+      ${stat('Temperatuur', points.map(i=>state.hourly.temperature_2m[i]), '°')}
       ${stat('Neerslagkans', points.map(i=>state.hourly.precipitation_probability[i]), '%')}
       ${stat('Wind', points.map(i=>state.hourly.wind_speed_10m[i]), ' km/u')}
     </div>
     <div class="chart-grid premium-charts">
-      ${premiumChartShell('temp','Temperatuur','Gevoelstemperatuur en luchttemperatuur','&deg;C')}
+      ${premiumChartShell('temp','Temperatuur','Gevoelstemperatuur en luchttemperatuur','°C')}
       ${premiumChartShell('rain','Neerslag','Kans en hoeveelheid per uur','% / mm')}
       ${premiumChartShell('uv','UV-index','Sterkte van de zon doorheen de dag','UV')}
       ${premiumChartShell('wind','Wind','Windsnelheid en windstoten','km/u')}
@@ -2907,7 +2924,7 @@ function sunMoonSection(){
           ${astroMetric('Zonsopkomst', srTime)}
           ${astroMetric('Zonsondergang', ssTime)}
           ${astroMetric('Daglengte', daylight)}
-          ${astroMetric('Gouden uur', `${morningGold} &middot; ${eveningGold}`)}
+          ${astroMetric('Gouden uur', `${morningGold} · ${eveningGold}`)}
           ${astroMetric('Burgerlijke schemering', twilight)}
         </div>
       </div>
@@ -2932,18 +2949,28 @@ function astroMetric(label, value){
   return `<div class="sun-metric"><span class="metric-label">${label}</span><strong class="metric-value">${value || '-'}</strong></div>`;
 }
 
+function metricListCard(rows, extraClass=''){
+  return `<div class="metric-list-card ${extraClass}">
+    ${rows.map(row=>`<div class="metric-row">
+      <span>${esc(row.label)}</span>
+      <b>${row.html ? row.value : esc(String(row.value ?? '-'))}</b>
+      ${row.sub ? `<small>${esc(row.sub)}</small>` : ''}
+    </div>`).join('')}
+  </div>`;
+}
+
 function skySectionCard(sky){
   return `<div class="card sky-card">
     <div class="card-title">${icon('eye',true,13)} Wheaterflow Sky</div>
-    <div class="sky-score" style="--score:${sky.stargazing}"><b>${sky.stargazing}</b><span>Sterrenkijk-score</span><small>${esc(sky.stargazingLabel)}</small></div>
-    <div class="sky-grid">
-      <div><span>Bewolking</span><b>${Math.round(sky.cloud)}%</b></div>
-      <div><span>Zicht</span><b>${sky.visibility ? (sky.visibility/1000).toFixed(1)+' km' : '-'}</b></div>
-      <div><span>Maan</span><b>${Math.round(sky.moon.illumination*100)}%</b></div>
-      <div><span>Melkweg</span><b>${esc(sky.milkyWayChance)}</b></div>
-      <div><span>Aurora</span><b>${esc(sky.auroraChance)}</b></div>
-      <div><span>Bron</span><b>Afgeleid</b></div>
-    </div>
+    ${metricListCard([
+      {label:'Sterrenkijk-score', value:`${sky.stargazing} · ${sky.stargazingLabel}`},
+      {label:'Bewolking', value:`${Math.round(sky.cloud)}%`},
+      {label:'Zicht', value:sky.visibility ? (sky.visibility/1000).toFixed(1)+' km' : '-'},
+      {label:'Maan', value:`${Math.round(sky.moon.illumination*100)}%`},
+      {label:'Melkweg', value:sky.milkyWayChance},
+      {label:'Aurora', value:sky.auroraChance},
+      {label:'Bron', value:'Afgeleid'}
+    ])}
     <p>${esc(sky.factors.join(', ') || 'Gebaseerd op beschikbare hemeldata')}.</p>
   </div>`;
 }
@@ -2952,16 +2979,15 @@ function photoWeatherCard(photo){
   const best = photo.best;
   return `<div class="card photo-weather-card">
     <div class="card-title">${icon('sunrise',true,13)} Fotoweer</div>
-    <div class="photo-hero">
-      <div><span>Beste moment</span><b>${best ? best.time.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : '-'}</b><small>${best ? best.score+'% fotografie-index' : 'Niet beschikbaar'}</small></div>
-      <div><span>Golden hour</span><b>${esc(photo.goldenEvening)}</b><small>avond</small></div>
-    </div>
-    <div class="sky-grid">
-      <div><span>Zonsopgang</span><b>${photo.sunriseScore}%</b></div>
-      <div><span>Zonsondergang</span><b>${photo.sunsetScore}%</b></div>
-      <div><span>Mistkans</span><b>${photo.mistChance}%</b></div>
-      <div><span>Hoge bewolking</span><b>${esc(photo.highCloud)}</b></div>
-    </div>
+    ${metricListCard([
+      {label:'Beste moment', value:best ? best.time.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : '-'},
+      {label:'Fotografie-index', value:best ? `${best.score}%` : 'Nog geen data'},
+      {label:'Golden hour', value:photo.goldenEvening || '-'},
+      {label:'Zonsopgang', value:`${photo.sunriseScore}%`},
+      {label:'Zonsondergang', value:`${photo.sunsetScore}%`},
+      {label:'Mistkans', value:`${photo.mistChance}%`},
+      {label:'Hoge bewolking', value:photo.highCloud || 'Nog geen data'}
+    ])}
   </div>`;
 }
 
@@ -2978,7 +3004,8 @@ function airQualitySection(){
   const pollen = Math.max(a?.alder_pollen??0,a?.birch_pollen??0,a?.grass_pollen??0,a?.mugwort_pollen??0,a?.olive_pollen??0,a?.ragweed_pollen??0);
   const aqi = a?.european_aqi;
   const aqStatus = airQualityStatus(aqi);
-  return `<div class="card"><div class="card-title">${icon('cloud',true,13)} Luchtkwaliteit</div>
+  const aqTitle = aqi == null ? 'Luchtkwaliteit' : `AQI ${Math.round(aqi)} · ${aqStatus.label}`;
+  return `<div class="card"><div class="card-title">${icon('cloud',true,13)} ${aqTitle}</div>
     <div class="aq-hero">
       <div class="aq-ring" style="--aq:${Math.min(100, aqi ?? 0)}"><b>${aqi == null ? '-' : Math.round(aqi)}</b><span>AQI</span></div>
       <div><strong>${aqStatus.label}</strong><p>${a ? airSummary(a.european_aqi, pollen) : 'Luchtkwaliteitsdata is momenteel niet beschikbaar.'}</p></div>
@@ -3042,20 +3069,18 @@ function coastSection(){
   if(!sea.available) return `<div class="card"><div class="card-title">${icon('drop',true,13)} Kustmodus</div><div class="subtle">${esc(sea.reason)}</div></div>`;
   const tide = sea.tide;
   return `<div class="card sea-mode-card"><div class="card-title">${icon('drop',true,13)} Sea Mode ${esc(sea.place)}</div>
-    <div class="sea-score-row">
-      <div class="sea-score"><b>${sea.beachScore}</b><span>Strandscore</span><small>${esc(sea.beachLabel)}</small></div>
-      <div class="sea-score"><b>${sea.swimScore}</b><span>Zwemcomfort</span><small>${esc(sea.swimComfort)}</small></div>
-    </div>
-    <div class="coast-grid premium-coast-grid">
-      <div><b>${sea.seaTemperature == null ? '-' : sea.seaTemperature.toFixed(1)} &deg;C</b><span>Zeewater</span></div>
-      <div><b>${sea.waveHeight == null ? '-' : sea.waveHeight.toFixed(1)} m</b><span>Golfhoogte</span></div>
-      <div><b>${sea.wavePeriod == null ? '-' : sea.wavePeriod.toFixed(1)} s</b><span>Golfperiode</span></div>
-      <div><b>${fmtWind(sea.wind)}</b><span>Wind</span></div>
-      <div><b>${tide.state}</b><span>Getij</span></div>
-      <div><b>${tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</b><span>Volgende ${tide.nextType}</span></div>
-      <div><b>${Math.round(sea.uv)}</b><span>UV-index</span></div>
-      <div><b>${sea.visibility ? (sea.visibility/1000).toFixed(1)+' km' : '-'}</b><span>Zicht</span></div>
-    </div>
+    ${metricListCard([
+      {label:'Strandscore', value:`${sea.beachScore} · ${sea.beachLabel}`},
+      {label:'Zwemcomfort', value:`${sea.swimScore} · ${sea.swimComfort}`},
+      {label:'Zeewater', value:sea.seaTemperature == null ? '-' : `${sea.seaTemperature.toFixed(1)} °C`},
+      {label:'Golfhoogte', value:sea.waveHeight == null ? '-' : `${sea.waveHeight.toFixed(1)} m`},
+      {label:'Golfperiode', value:sea.wavePeriod == null ? '-' : `${sea.wavePeriod.toFixed(1)} s`},
+      {label:'Wind', value:fmtWind(sea.wind)},
+      {label:'Getij', value:tide.state},
+      {label:`Volgende ${tide.nextType}`, value:tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})},
+      {label:'UV-index', value:String(Math.round(sea.uv))},
+      {label:'Zicht', value:sea.visibility ? (sea.visibility/1000).toFixed(1)+' km' : '-'}
+    ], 'sea-metrics')}
     <div class="sea-explain">
       <p><b>Strandscore</b> op basis van ${esc(sea.beachFactors.join(', ') || 'beschikbare kustdata')}.</p>
       <p><b>Zwemcomfort</b> op basis van ${esc(sea.swimFactors.join(', ') || 'beschikbare zeedata')}.</p>
@@ -3082,6 +3107,7 @@ function seaSparkDetailCard(){
 function seaSparkCoastPanel(){
   if(!state.seaspark) return '';
   const s = state.seaspark;
+  const tips = (s.advice || []).slice(0,2);
   return `<div class="seaspark-panel">
     <div class="seaspark-head">
       <div>
@@ -3091,10 +3117,10 @@ function seaSparkCoastPanel(){
       <div class="seaspark-ring" style="--score:${s.score}"><b>${s.score}%</b><span>${esc(s.level)}</span></div>
     </div>
     <div class="seaspark-factors">
-      ${s.factors.map(f=>`<span>${esc(f)}</span>`).join('')}
+      ${(s.factors || []).slice(0,4).map(f=>`<span>${esc(f)}</span>`).join('')}
     </div>
-    <ul class="seaspark-advice">${s.advice.map(a=>`<li>${esc(a)}</li>`).join('')}</ul>
-    <div class="subtle">Indicatie, geen officiele voorspelling. Zeevonk blijft afhankelijk van lokale algenbloei, stroming en lichtvervuiling.</div>
+    <ul class="seaspark-advice">${tips.map(a=>`<li>${esc(a)}</li>`).join('')}</ul>
+    <div class="subtle">Indicatief, geen officiële voorspelling.</div>
   </div>`;
 }
 
@@ -3105,7 +3131,7 @@ function seaSparkBestTimeText(s){
 
 function seaSparkSummary(s){
   const parts = [];
-  if(s.seaTemp != null) parts.push(`zeewater ${s.seaTemp.toFixed(1)} &deg;C`);
+  if(s.seaTemp != null) parts.push(`zeewater ${s.seaTemp.toFixed(1)} °C`);
   if(s.wind != null) parts.push(`wind ${Math.round(s.wind)} km/u`);
   if(s.wave != null) parts.push(`golfhoogte ${s.wave.toFixed(1)} m`);
   const basis = parts.length ? parts.join(', ') : 'beperkte kustdata';
@@ -3129,11 +3155,12 @@ function alertsCard(){
   const official = Boolean(alert.official || state.alertsMeta?.official);
   const title = isGreen ? 'Weermelding' : official ? 'Officiële waarschuwing' : 'Wheaterflow Alerts';
   const headline = isGreen ? 'Geen actieve weermelding' : alert.headline || level.title;
+  const levelLabel = isGreen || official ? level.label : 'Slim signaal';
   return `<div class="card alert-card ${level.cls}">
     <div class="alert-head">
       <div>
         <div class="card-title">${icon('gauge',true,13)} ${title}</div>
-        <div class="alert-code">${level.label}</div>
+        <div class="alert-code">${levelLabel}</div>
       </div>
     </div>
     <div class="alert-title">${esc(headline)}</div>
@@ -3345,8 +3372,6 @@ function moonPhase(date){
 $$('.tabbtn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     if(btn.dataset.tab === 'profile'){
-      $$('.tabbtn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
       openAuthSheet();
       return;
     }
@@ -3397,8 +3422,18 @@ function unlockPageScroll(){
   pageScrollLocked = false;
   window.scrollTo(0, lockedScrollY);
 }
-function openSheet(){ lockPageScroll(); $('#settingsSheet').classList.add('show'); $('#scrim').classList.add('show'); }
-function closeSheet(){ $('#settingsSheet').classList.remove('show'); $('#scrim').classList.remove('show'); unlockPageScroll(); }
+function openSheet(){
+  lockPageScroll();
+  document.body.classList.add('settings-open');
+  $('#settingsSheet').classList.add('show');
+  $('#scrim').classList.add('show');
+}
+function closeSheet(){
+  $('#settingsSheet').classList.remove('show');
+  $('#scrim').classList.remove('show');
+  document.body.classList.remove('settings-open');
+  unlockPageScroll();
+}
 $('#closeSheet').addEventListener('click', closeSheet);
 $('#openSheetBtn').addEventListener('click', openSheet);
 $('#scrim').addEventListener('click', closeSheet);
@@ -4802,6 +4837,8 @@ function updatePushUi(status){
   state.push.status = status;
   const statusEl = $('#pushStatusText');
   if(statusEl) statusEl.textContent = status;
+  const coastLabel = $('#pushCoastLabel');
+  if(coastLabel) coastLabel.textContent = `Kustwaarschuwingen · ${locationDisplayName('Oostende')}`;
   $('#pushInstallCard')?.classList.toggle('show', status === 'Installeer eerst de app');
   const enabled = status === 'Ingeschakeld';
   if($('#enablePushBtn')) $('#enablePushBtn').disabled = enabled || status === 'Niet ondersteund' || status === 'Geblokkeerd';
