@@ -6731,8 +6731,6 @@ body.tv-pair-open .tabbar{
 #tvscreen.active .tv-right{
   min-height:0!important;
   height:100%!important;
-  grid-template-rows:minmax(0,1fr) clamp(112px,13.5vh,132px)!important;
-  gap:clamp(10px,1.2vh,14px)!important;
 }
 #tvscreen.active .tv-radar-card{
   min-height:0!important;
