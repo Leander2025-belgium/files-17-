@@ -6469,14 +6469,28 @@ function disposeTvXweatherRadar(){
 }
 async function refreshTvRadarFrame(){
   if(!tv.map) return;
+  const rv = tvRadarView();
+  tv.map.setView(rv.center, rv.zoom, {animate:false});
+  tv.locationMarker?.setLatLng(rv.center);
+  try{
+    const frame = await fetchLatestRainviewerRadarFrame();
+    if(frame){
+      setTvRainviewerFrame(frame);
+      tv.map.invalidateSize();
+      return;
+    }
+  }catch(error){
+    console.warn('RainViewer tv-radar kon niet laden, Weatherflow-worker wordt geprobeerd', error);
+  }
   try{
     setTvFrame(0);
     tv.map.invalidateSize();
   }catch(error){
     console.warn('Weatherflow tv-radar kon niet verversen, actuele radarframe wordt geprobeerd', error);
-    const frame = await fetchLatestRainviewerRadarFrame().catch(()=>null);
-    if(frame) setTvRainviewerFrame(frame);
-    else {
+    try{
+      await setTvOpenMeteoRadarLayer();
+    }catch(fallbackError){
+      console.warn('Open-Meteo tv-radar fallback kon niet laden', fallbackError);
       updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
       setTvRadarFallback('Radar tijdelijk niet beschikbaar · Probeer later opnieuw');
     }
@@ -6563,8 +6577,13 @@ function setTvFrame(i){
   });
   layer.on('load', ()=>setTvRadarFallback(''));
   layer.on('tileerror', ()=>{
-    updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
-    setTvRadarFallback('Radar tijdelijk niet beschikbaar · Probeer later opnieuw');
+    updateTvRadarLabel(null, 'Fallback neerslaglaag laden');
+    setTvRadarFallback('Primaire radar laadt niet. Fallback-neerslaglaag wordt geprobeerd...');
+    setTvOpenMeteoRadarLayer().catch(error=>{
+      console.warn('TV fallback-neerslaglaag kon niet laden', error);
+      updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
+      setTvRadarFallback('Radar tijdelijk niet beschikbaar · Probeer later opnieuw');
+    });
   });
   tv.radarLayer = layer.addTo(tv.map);
   setTvRadarFallback('');

@@ -6594,3 +6594,210 @@ body.tv-pair-open .tabbar{
     text-align:left;
   }
 }
+
+/* Authoritative finish for this phase: TV readability, fit and profile spacing */
+#tvscreen.active{
+  color:#fff!important;
+  grid-template-rows:auto minmax(0,1fr)!important;
+  gap:clamp(10px,1.35vh,18px)!important;
+  padding:clamp(16px,2.1vh,28px) clamp(26px,4vw,62px) clamp(16px,2.2vh,30px)!important;
+}
+#tvscreen.active .tv-top{
+  align-items:flex-start!important;
+}
+#tvscreen.active .tv-locname,
+#tvscreen.active .tv-admin,
+#tvscreen.active .tv-clock,
+#tvscreen.active .tv-date,
+#tvscreen.active .tv-cast-status{
+  color:rgba(255,255,255,.94)!important;
+  text-shadow:0 2px 18px rgba(0,0,0,.34)!important;
+}
+#tvscreen.active .tv-cast-status{
+  min-height:0!important;
+  margin-top:6px!important;
+  font-size:clamp(10px,.8vw,14px)!important;
+  line-height:1!important;
+  opacity:.58!important;
+  letter-spacing:.09em!important;
+  text-transform:uppercase!important;
+}
+#tvscreen.active .tv-grid{
+  min-height:0!important;
+  height:100%!important;
+  align-items:stretch!important;
+}
+#tvscreen.active .tv-left{
+  min-height:0!important;
+  height:100%!important;
+  overflow:hidden!important;
+  grid-template-rows:minmax(185px,1fr) clamp(112px,16vh,148px) clamp(118px,19vh,154px)!important;
+  gap:clamp(8px,1.1vh,13px)!important;
+  padding:clamp(8px,1vh,13px)!important;
+}
+#tvscreen.active .tv-current{
+  min-height:0!important;
+  height:100%!important;
+  overflow:hidden!important;
+  padding:clamp(6px,1vh,15px) clamp(28px,3.8vw,62px)!important;
+  grid-template-columns:minmax(0,1fr) minmax(190px,32%)!important;
+}
+#tvscreen.active .tv-current>div:last-child{
+  justify-content:center!important;
+  overflow:hidden!important;
+}
+#tvscreen.active .tv-temp,
+#tvscreen.active .tv-cond,
+#tvscreen.active .tv-hilo,
+#tvscreen.active .tv-sunline,
+#tvscreen.active .tv-hilo b{
+  color:#fff!important;
+  text-shadow:0 3px 22px rgba(0,0,0,.32)!important;
+}
+#tvscreen.active .tv-temp{
+  font-size:clamp(112px,12.8vw,228px)!important;
+  line-height:.82!important;
+  font-weight:850!important;
+}
+#tvscreen.active .tv-cond{
+  font-size:clamp(28px,2.8vw,50px)!important;
+  line-height:1.04!important;
+  margin-top:clamp(8px,.9vh,14px)!important;
+  max-height:2.15em!important;
+}
+#tvscreen.active .tv-hilo{
+  font-size:clamp(16px,1.45vw,26px)!important;
+  line-height:1.2!important;
+  margin-top:clamp(7px,.8vh,12px)!important;
+}
+#tvscreen.active .tv-sunline{
+  font-size:clamp(14px,1.18vw,21px)!important;
+  margin-top:clamp(6px,.72vh,10px)!important;
+  color:rgba(255,255,255,.9)!important;
+}
+#tvscreen.active .tv-current .tv-icon{
+  min-width:0!important;
+  min-height:0!important;
+}
+#tvscreen.active .tv-current .tv-icon svg{
+  width:clamp(205px,19vw,360px)!important;
+  height:clamp(205px,19vw,360px)!important;
+  filter:drop-shadow(0 10px 24px rgba(0,0,0,.24))!important;
+}
+#tvscreen.active .tv-hourly{
+  min-height:0!important;
+  height:100%!important;
+  align-self:stretch!important;
+  border-radius:clamp(14px,1.2vw,20px)!important;
+}
+#tvscreen.active .tv-hourly .hitem{
+  min-height:0!important;
+  padding:clamp(8px,1vh,14px) clamp(5px,.75vw,10px)!important;
+  justify-content:space-between!important;
+}
+#tvscreen.active .tv-hourly .hitem .t{
+  font-size:clamp(12px,.95vw,16px)!important;
+}
+#tvscreen.active .tv-hourly .hitem svg{
+  width:clamp(27px,2.15vw,40px)!important;
+  height:clamp(27px,2.15vw,40px)!important;
+}
+#tvscreen.active .tv-hourly .hitem .p{
+  min-height:14px!important;
+  height:auto!important;
+}
+#tvscreen.active .tv-hourly .hitem .v{
+  font-size:clamp(17px,1.42vw,24px)!important;
+}
+#tvscreen.active .tv-details{
+  min-height:0!important;
+  height:100%!important;
+  overflow:hidden!important;
+}
+#tvscreen.active .tv-details .dcard{
+  min-height:0!important;
+  padding:clamp(7px,.85vw,12px)!important;
+}
+#tvscreen.active .tv-details .dt-title{
+  font-size:clamp(8px,.66vw,11px)!important;
+}
+#tvscreen.active .tv-details .dt-val{
+  font-size:clamp(15px,1.2vw,22px)!important;
+}
+#tvscreen.active .tv-details .dt-sub{
+  font-size:clamp(8px,.64vw,11px)!important;
+  -webkit-line-clamp:1!important;
+}
+#tvscreen.active .tv-right{
+  min-height:0!important;
+  height:100%!important;
+}
+#tvscreen.active .tv-radar-card{
+  overflow:hidden!important;
+}
+#tvscreen.active #tvmap{
+  background:#dfe9f2!important;
+}
+#tvscreen.active .tv-radar-live-layer{
+  opacity:.92!important;
+  mix-blend-mode:multiply;
+}
+#tvscreen.active .tv-daily{
+  min-height:0!important;
+}
+
+.auth-sheet .profile-quick-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+}
+.auth-sheet .profile-stat-card{
+  min-height:68px!important;
+  grid-template-columns:auto minmax(0,1fr)!important;
+  grid-template-rows:auto auto!important;
+  column-gap:9px!important;
+  align-content:center!important;
+}
+.auth-sheet .profile-stat-card span{
+  grid-row:1 / span 2;
+  align-self:center;
+}
+.auth-sheet .profile-stat-card b,
+.auth-sheet .profile-stat-card small{
+  display:block!important;
+}
+.auth-sheet .profile-stat-card b{
+  white-space:nowrap!important;
+}
+.auth-sheet .profile-action-row,
+.auth-sheet .profile-menu-row,
+.auth-sheet .profile-edit-row{
+  background:linear-gradient(180deg,rgba(255,255,255,.105),rgba(255,255,255,.058))!important;
+}
+
+@media (min-width:701px) and (max-height:820px){
+  #tvscreen.active .tv-left{
+    grid-template-rows:minmax(168px,1fr) 116px 126px!important;
+    gap:8px!important;
+  }
+  #tvscreen.active .tv-current .tv-icon svg{
+    width:clamp(185px,17vw,300px)!important;
+    height:clamp(185px,17vw,300px)!important;
+  }
+  #tvscreen.active .tv-temp{
+    font-size:clamp(96px,11.2vw,185px)!important;
+  }
+  #tvscreen.active .tv-cond{
+    font-size:clamp(24px,2.45vw,42px)!important;
+  }
+  #tvscreen.active .tv-hilo{
+    font-size:clamp(14px,1.25vw,22px)!important;
+  }
+  #tvscreen.active .tv-sunline{
+    font-size:clamp(12px,1vw,18px)!important;
+  }
+  #tvscreen.active .tv-hourly .hitem{
+    padding:8px 4px!important;
+  }
+  #tvscreen.active .tv-details .dt-val{
+    font-size:clamp(14px,1.05vw,19px)!important;
+  }
+}
