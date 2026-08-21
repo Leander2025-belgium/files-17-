@@ -705,10 +705,10 @@ function radarView(){
 
 const TV_RADAR_OOSTENDE_VIEW = Object.freeze({
   marker:[51.225, 2.919],
-  center:[51.46, 2.90],
-  bounds:[[50.68, 1.05], [52.24, 4.75]],
-  padding:[26, 26],
-  zoom:8
+  center:[51.44, 2.85],
+  bounds:[[50.60, .90], [52.28, 4.80]],
+  padding:[18, 18],
+  zoom:7
 });
 
 function tvRadarView(){
@@ -731,20 +731,17 @@ function setTvRadarViewForProvider(provider){
   const rv = tvRadarView();
   const range = RADAR_PROVIDER_ZOOMS[provider] || RADAR_PROVIDER_ZOOMS.rainviewer;
   const zoom = clampRadarZoom(provider, rv.zoom);
+  tv.radarProvider = provider;
   if(tv.map){
     tv.map.stop();
     tv.map.setMinZoom(range.min);
     tv.map.setMaxZoom(range.max);
-    if(window.L && Array.isArray(rv.bounds)){
-      tv.map.fitBounds(L.latLngBounds(rv.bounds), {
-        animate:false,
-        paddingTopLeft:rv.padding,
-        paddingBottomRight:rv.padding,
-        maxZoom:zoom
-      });
-    }else{
-      tv.map.setView(rv.center, zoom, {animate:false});
-    }
+    tv.map.fitBounds(L.latLngBounds(rv.bounds), {
+      animate:false,
+      paddingTopLeft:rv.padding,
+      paddingBottomRight:rv.padding,
+      maxZoom:zoom
+    });
   }
   tv.locationMarker?.setLatLng(rv.marker);
   return {center:rv.center, zoom};
@@ -5730,16 +5727,14 @@ function weatherflowRadarFrames(){
 }
 function tvOpenMeteoRadarPoints(){
   const rv = tvRadarView();
-  const south = Number(rv.bounds?.[0]?.[0]) || 50.68;
-  const west = Number(rv.bounds?.[0]?.[1]) || 1.05;
-  const north = Number(rv.bounds?.[1]?.[0]) || 52.24;
-  const east = Number(rv.bounds?.[1]?.[1]) || 4.75;
+  const centerLat = Number(rv.center?.[0]) || 51.225;
+  const centerLon = Number(rv.center?.[1]) || 2.925;
   const points = [];
-  for(let lat = south; lat <= north + 0.001; lat += 0.26){
-    for(let lon = west; lon <= east + 0.001; lon += 0.28){
+  for(let dLat = -1.25; dLat <= 1.25; dLat += 0.25){
+    for(let dLon = -1.70; dLon <= 1.70; dLon += 0.25){
       points.push({
-        lat:Number(lat.toFixed(2)),
-        lon:Number(lon.toFixed(2))
+        lat:Number((centerLat + dLat).toFixed(2)),
+        lon:Number((centerLon + dLon).toFixed(2))
       });
     }
   }
@@ -6224,7 +6219,12 @@ const tv = {
   refreshTimer:null,
   baseMapLoaded:false,
   radarLayerLoaded:false,
-  radarFallbackBusy:false
+  radarFallbackBusy:false,
+  radarRefreshPromise:null,
+  radarProvider:'rainviewer',
+  resizeObserver:null,
+  resizeFrame:null,
+  resizeTimers:[]
 };
 
 async function enterTV(options={}){
@@ -6285,12 +6285,12 @@ window.addEventListener('focus', ()=>{
 });
 window.addEventListener('resize', ()=>{
   if(state.map) setTimeout(()=>state.map.invalidateSize(), 120);
-  if(tv.map) setTimeout(()=>tv.map.invalidateSize(), 120);
+  if(tv.map) resizeTvMap();
   positionSunPaths();
 });
 window.addEventListener('orientationchange', ()=>{
   if(state.map) setTimeout(()=>state.map.invalidateSize(), 350);
-  if(tv.map) setTimeout(()=>tv.map.invalidateSize(), 350);
+  if(tv.map) resizeTvMap();
   setTimeout(positionSunPaths, 350);
 });
 
@@ -6365,15 +6365,14 @@ function renderTV(){
     const dwc = wcInfo(daily.weather_code[i]);
     const d = new Date(daily.time[i]);
     const dn = i===0?'Vandaag':d.toLocaleDateString('nl-BE',{weekday:'short'});
-    const high = fmtTemp(daily.temperature_2m_max[i]);
-    const low = fmtTemp(daily.temperature_2m_min[i]);
-    dd += `<div class="ditem${i===0?' today':''}"><div class="dn">${dn}</div><div class="dicon">${icon(dwc.ic,true,30)}</div><div class="dv" aria-label="Maximum ${high}, minimum ${low}"><span class="hi"><small>max</small><b>${high}</b></span><span class="lo"><small>min</small><b>${low}</b></span></div></div>`;
+    dd += `<div class="ditem"><div class="dn">${dn}</div>${icon(dwc.ic,true,22)}<div class="dv">${fmtTemp(daily.temperature_2m_max[i])} <span class="lo">${fmtTemp(daily.temperature_2m_min[i])}</span></div></div>`;
   }
   $('#tvDaily').innerHTML = dd;
 }
 
 function tvMetricCard(ic,title,val,sub){
-  return `<div class="dcard">${icon(ic,true,18)}<div><div class="dt-title">${title}</div><div class="dt-val">${val}</div><div class="dt-sub">${sub}</div></div></div>`;
+  const extraClass = title === 'Rain ETA' ? ' tv-rain-eta' : '';
+  return `<div class="dcard${extraClass}">${icon(ic,true,18)}<div><div class="dt-title">${title}</div><div class="dt-val">${val}</div><div class="dt-sub">${sub}</div></div></div>`;
 }
 
 function formatTvSunTime(value){
@@ -6408,6 +6407,22 @@ function tvMarineCard(){
   return `<div class="dcard tv-marine">${icon('drop',true,18)}<div><div class="dt-title">Kust</div><div class="dt-val">${esc(tide.state || 'Kust')}</div><div class="dt-sub">Volgende ${nextLabel} ${nextTime} - golfhoogte ${wave}${spark}</div></div></div>`;
 }
 
+function resizeTvMap({refit=true}={}){
+  if(!tv.map) return;
+  const apply = ()=>{
+    if(!tv.map || !document.querySelector('#tvscreen.active')) return;
+    tv.map.invalidateSize({animate:false, pan:false, debounceMoveend:true});
+    if(refit) setTvRadarViewForProvider(tv.radarProvider || 'rainviewer');
+    tv.xweatherController?.resize?.();
+  };
+  if(tv.resizeFrame) cancelAnimationFrame(tv.resizeFrame);
+  tv.resizeFrame = requestAnimationFrame(()=>{
+    tv.resizeFrame = requestAnimationFrame(apply);
+  });
+  tv.resizeTimers.forEach(clearTimeout);
+  tv.resizeTimers = [160, 480].map(delay=>setTimeout(apply, delay));
+}
+
 async function initTvMap(){
   if(!tv.map){
     const rv = tvRadarView();
@@ -6425,7 +6440,7 @@ async function initTvMap(){
       zoomSnap:.25,
       minZoom:range.min,
       maxZoom:range.max
-    }).setView(rv.center, clampRadarZoom('rainviewer', rv.zoom));
+    }).setView(rv.center, rv.zoom);
     tv.map.createPane('radarPane');
     tv.map.getPane('radarPane').style.zIndex = 420;
     tv.map.createPane('labelPane');
@@ -6435,29 +6450,26 @@ async function initTvMap(){
     base.on('load', ()=>{ tv.baseMapLoaded = true; });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, pane:'labelPane'}).addTo(tv.map);
     tv.locationMarker = L.circleMarker(rv.marker, {
-      radius:5,
+      radius:6,
       color:'#fff',
       weight:2,
       fillColor:'#1677ff',
-      fillOpacity:1,
-      pane:'labelPane',
-      className:'tv-oostende-marker'
-    }).addTo(tv.map).bindTooltip('Oostende', {
-      permanent:true,
-      direction:'right',
-      offset:[7, 0],
-      className:'tv-oostende-label'
-    });
+      fillOpacity:.98,
+      pane:'labelPane'
+    }).addTo(tv.map);
+    if(window.ResizeObserver){
+      tv.resizeObserver = new ResizeObserver(()=>resizeTvMap());
+      tv.resizeObserver.observe(document.getElementById('tvmap'));
+    }
   } else {
     tv.locationMarker?.setLatLng(tvRadarView().marker);
   }
-  setTimeout(()=>{
-    tv.map.invalidateSize();
-    setTvRadarViewForProvider('rainviewer');
-  }, 200);
+  setTvRadarViewForProvider('rainviewer');
+  resizeTvMap();
   disposeTvXweatherRadar();
   clearInterval(tv.loopTimer);
   await refreshTvRadarFrame();
+  resizeTvMap();
   tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
 }
 
@@ -6465,7 +6477,8 @@ function tvRainValue(rain){
   if(!rain || rain.status === 'unavailable') return 'N.b.';
   if(rain.status === 'dry') return 'Droog';
   if(rain.status === 'raining') return rain.intensityLabel;
-  return `Over ${minuteRange(rain.startsInMinutes, rain.confidence)}`;
+  if(rain.startTime) return `Rond ${formatShortTime(rain.startTime)}`;
+  return `Over ${Math.max(0, Math.round(Number(rain.startsInMinutes) || 0))} min`;
 }
 
 function tvRainSubtitle(rain){
@@ -6539,7 +6552,7 @@ async function refreshTvXweatherRadar(){
     return true;
   }catch(err){
     console.warn('Xweather tv-radar kon niet verversen', err);
-    updateTvRadarLabel(null, 'Radar vernieuwen mislukt');
+    updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
     return false;
   }
 }
@@ -6554,6 +6567,16 @@ function disposeTvXweatherRadar(){
   tv.xweatherReady = false;
 }
 async function refreshTvRadarFrame(){
+  if(tv.radarRefreshPromise) return tv.radarRefreshPromise;
+  const refresh = refreshTvRadarFrameNow();
+  tv.radarRefreshPromise = refresh;
+  try{
+    return await refresh;
+  }finally{
+    if(tv.radarRefreshPromise === refresh) tv.radarRefreshPromise = null;
+  }
+}
+async function refreshTvRadarFrameNow(){
   if(!tv.map) return;
   setTvRadarViewForProvider('rainviewer');
   tv.radarLayerLoaded = false;
@@ -6561,18 +6584,18 @@ async function refreshTvRadarFrame(){
     const frame = await fetchLatestRainviewerRadarFrame();
     if(frame){
       setTvRainviewerFrame(frame);
-      tv.map.invalidateSize();
+      resizeTvMap();
       return;
     }
   }catch(error){
-    console.warn('RainViewer tv-radar kon niet laden, Wheaterflow Rain fallback wordt geprobeerd', error);
+    console.info('TV-radar schakelt over op de neerslagfallback', error);
   }
   try{
     await setTvOpenMeteoRadarLayer();
   }catch(fallbackError){
     console.warn('Wheaterflow Rain tv-fallback kon niet laden', fallbackError);
     updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
-    setTvRadarFallback('Radar tijdelijk niet beschikbaar · Neerslagverwachting blijft beschikbaar via Wheaterflow Rain.');
+    setTvRadarFallback('Radar tijdelijk niet beschikbaar');
   }
 }
 async function setTvOpenMeteoRadarLayer(){
@@ -6603,15 +6626,11 @@ async function setTvOpenMeteoRadarLayer(){
   });
   tv.radarLayer = layer.addTo(tv.map);
   tv.radarLayerLoaded = wetCells > 0;
-  updateTvRadarLabel(null, wetCells ? 'Neerslagverwachting geladen' : 'Radarlaag kon niet worden geladen');
+  updateTvRadarLabel(null, wetCells ? 'Neerslagverwachting geladen' : 'Radar tijdelijk niet beschikbaar');
   if(wetCells){
-    setTvRadarFallback('Live radar tijdelijk niet beschikbaar · Wheaterflow Rain toont de verwachte neerslag rond je locatie.');
+    setTvRadarFallback('Live radar tijdelijk niet beschikbaar');
   }else{
-    const rain = nowcastEngine();
-    const text = rain?.status === 'rain_soon' || rain?.status === 'raining'
-      ? 'Radarlaag kon niet worden geladen · neerslagverwachting blijft beschikbaar via Wheaterflow Rain.'
-      : 'Radarlaag kon niet worden geladen · Wheaterflow Rain verwacht voorlopig geen meetbare neerslag rond je locatie.';
-    setTvRadarFallback(text);
+    setTvRadarFallback('Radar tijdelijk niet beschikbaar');
   }
 }
 function setTvRainviewerFrame(frame){
@@ -6621,7 +6640,7 @@ function setTvRainviewerFrame(frame){
   tv.radarLayerLoaded = false;
   let failed = false;
   let loaded = false;
-  tv.radarLayer = L.tileLayer(rainviewerTileUrl(frame, 'tv'), {
+  const layer = L.tileLayer(rainviewerTileUrl(frame, 'tv'), {
     opacity:0.9,
     minZoom:RADAR_PROVIDER_ZOOMS.rainviewer.min,
     maxZoom:RADAR_PROVIDER_ZOOMS.rainviewer.max,
@@ -6633,35 +6652,38 @@ function setTvRainviewerFrame(frame){
     updateWhenIdle:false,
     updateWhenZooming:false
   });
-  tv.radarLayer.on('load', ()=>{
+  tv.radarLayer = layer;
+  layer.on('load', ()=>{
     if(failed) return;
     loaded = true;
     tv.radarLayerLoaded = true;
     setTvRadarFallback('');
     updateTvRadarLabel(frame.time, 'Radar bijgewerkt');
   });
-  tv.radarLayer.on('tileerror', ()=>{
+  layer.on('tileerror', ()=>{
     if(failed) return;
     failed = true;
-    console.warn('TV RainViewer tileerror', {
+    layer.setOpacity(0);
+    console.info('TV-radar schakelt over na een ongeldige radartegel', {
       provider:'rainviewer',
       requestedZoom:tvRadarView().zoom,
       clampedZoom:clampRadarZoom('rainviewer', tvRadarView().zoom),
       frameTime:frame.time,
       center:tvRadarView().center
     });
-    updateTvRadarLabel(null, 'Radarlaag kon niet worden geladen');
-    setTvRadarFallback('Radarlaag kon niet worden geladen · neerslagverwachting blijft beschikbaar via Wheaterflow Rain.');
+    updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
+    setTvRadarFallback('Radar tijdelijk niet beschikbaar');
     setTvOpenMeteoRadarLayer().catch(error=>{
       console.warn('TV Open-Meteo fallback kon niet laden', error);
       updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
-      setTvRadarFallback('Radar tijdelijk niet beschikbaar · Neerslagverwachting blijft beschikbaar via Wheaterflow Rain.');
+      setTvRadarFallback('Radar tijdelijk niet beschikbaar');
     });
   });
   updateTvRadarLabel(null, 'Radarlaag laden');
   setTvRadarFallback('Radarlaag wordt geladen...');
-  tv.radarLayer.addTo(tv.map);
+  layer.addTo(tv.map);
   setTimeout(()=>{
+    if(tv.radarLayer !== layer) return;
     if(!loaded && !failed){
       setTvRadarFallback('Radarlaag wordt geladen...');
     }
@@ -6695,11 +6717,11 @@ function setTvFrame(i){
     if(tv.radarFallbackBusy) return;
     tv.radarFallbackBusy = true;
     updateTvRadarLabel(null, 'Fallback neerslaglaag laden');
-    setTvRadarFallback('Primaire radar laadt niet. Fallback-neerslaglaag wordt geprobeerd...');
+    setTvRadarFallback('Radar tijdelijk niet beschikbaar');
     setTvOpenMeteoRadarLayer().catch(error=>{
       console.warn('TV fallback-neerslaglaag kon niet laden', error);
       updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
-      setTvRadarFallback('Radar tijdelijk niet beschikbaar · Probeer later opnieuw');
+      setTvRadarFallback('Radar tijdelijk niet beschikbaar');
     }).finally(()=>{
       tv.radarFallbackBusy = false;
     });
