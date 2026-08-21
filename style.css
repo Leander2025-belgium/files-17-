@@ -1441,7 +1441,7 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
   min-height:0;
   height:100%;
   display:grid;
-  grid-template-rows:minmax(0,1fr) clamp(72px,11vh,100px);
+  grid-template-rows:minmax(0,1fr) clamp(68px,9.5vh,90px);
   gap:clamp(12px,1.4vh,18px);
 }
 .tv-radar-card{
@@ -1489,8 +1489,8 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
   font-weight:800;
   box-shadow:0 5px 14px rgba(0,0,0,.24);
 }
-#tvmap .tv-location-label.leaflet-tooltip-right::before{
-  border-right-color:rgba(7,37,85,.78);
+#tvmap .tv-location-label.leaflet-tooltip-left::before{
+  border-left-color:rgba(7,37,85,.78);
 }
 .tv-daily{
   min-width:0;
@@ -1509,12 +1509,12 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
 .tv-daily .ditem{
   min-width:0;
   height:100%;
-  padding:clamp(3px,.4vw,6px) 3px;
+  padding:clamp(2px,.32vw,5px) 3px;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  gap:clamp(1px,.25vw,3px);
+  gap:clamp(1px,.18vw,2px);
   border:0;
   border-right:1px solid rgba(255,255,255,.12);
   border-radius:0;
@@ -1523,9 +1523,9 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
 }
 .tv-daily .ditem:first-child{background:linear-gradient(180deg,rgba(0,119,255,.82),rgba(0,90,210,.66));}
 .tv-daily .ditem:last-child{border-right:none;}
-.tv-daily .dn{max-width:100%;font-size:clamp(9px,.68vw,12px);line-height:1.02;color:#fff;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.tv-daily .ditem svg{width:clamp(15px,1.3vw,23px);height:clamp(15px,1.3vw,23px);margin:0;flex:0 0 auto;}
-.tv-daily .dv{max-width:100%;font-size:clamp(11px,.82vw,15px);line-height:1.02;color:#fff;font-weight:800;white-space:nowrap;}
+.tv-daily .dn{max-width:100%;font-size:clamp(8.5px,.64vw,11px);line-height:1.02;color:#fff;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tv-daily .ditem svg{width:clamp(14px,1.2vw,21px);height:clamp(14px,1.2vw,21px);margin:0;flex:0 0 auto;}
+.tv-daily .dv{max-width:100%;font-size:clamp(10.5px,.76vw,14px);line-height:1.02;color:#fff;font-weight:800;white-space:nowrap;}
 .tv-daily .dv .lo{display:block;color:rgba(255,255,255,.72);font-size:.82em;margin-top:1px;}
 @media (max-width:1450px){
   #tvscreen{padding:14px 26px 18px;gap:10px;}
@@ -1535,7 +1535,7 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
   .tv-temp{font-size:clamp(126px,14.5vw,198px);}
   .tv-cond{font-size:clamp(28px,3vw,44px);}
   .tv-current .tv-icon svg{width:clamp(130px,13vw,190px);height:clamp(130px,13vw,190px);}
-  .tv-right{grid-template-rows:minmax(0,1fr) 84px;gap:12px;}
+  .tv-right{grid-template-rows:minmax(0,1fr) 76px;gap:12px;}
 }
 @media (max-width:900px){
   #tvscreen{padding:14px;gap:12px;}
@@ -6628,13 +6628,7 @@ body.tv-pair-open .tabbar{
   text-shadow:0 2px 18px rgba(0,0,0,.34)!important;
 }
 #tvscreen.active .tv-cast-status{
-  min-height:0!important;
-  margin-top:6px!important;
-  font-size:clamp(10px,.8vw,14px)!important;
-  line-height:1!important;
-  opacity:.58!important;
-  letter-spacing:.09em!important;
-  text-transform:uppercase!important;
+  display:none!important;
 }
 #tvscreen.active .tv-grid{
   min-height:0!important;
@@ -6645,7 +6639,7 @@ body.tv-pair-open .tabbar{
   min-height:0!important;
   height:100%!important;
   overflow:hidden!important;
-  grid-template-rows:minmax(185px,1fr) clamp(96px,13vh,120px) clamp(138px,22vh,182px)!important;
+  grid-template-rows:minmax(185px,1fr) clamp(96px,13vh,120px) clamp(112px,16vh,150px)!important;
   gap:clamp(8px,1.1vh,13px)!important;
   padding:clamp(8px,1vh,13px)!important;
 }
@@ -6732,10 +6726,13 @@ body.tv-pair-open .tabbar{
   min-height:0!important;
   height:100%!important;
   overflow:hidden!important;
+  column-gap:clamp(7px,.9vw,10px)!important;
+  row-gap:clamp(5px,.65vh,8px)!important;
 }
 #tvscreen.active .tv-details .dcard{
   min-height:0!important;
-  padding:clamp(7px,.85vw,12px)!important;
+  gap:clamp(5px,.55vw,8px)!important;
+  padding:clamp(5px,.58vw,8px)!important;
 }
 #tvscreen.active .tv-details .dt-title{
   font-size:clamp(8px,.66vw,11px)!important;
@@ -6806,7 +6803,7 @@ body.tv-pair-open .tabbar{
 
 @media (min-width:701px) and (max-height:820px){
   #tvscreen.active .tv-left{
-    grid-template-rows:minmax(168px,1fr) 96px 146px!important;
+    grid-template-rows:minmax(168px,1fr) 96px 126px!important;
     gap:8px!important;
   }
   #tvscreen.active .tv-current .tv-icon svg{

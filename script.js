@@ -6438,8 +6438,8 @@ async function initTvMap(){
       pane:'labelPane'
     }).bindTooltip('Oostende', {
       permanent:true,
-      direction:'right',
-      offset:[8, 0],
+      direction:'left',
+      offset:[-8, 0],
       className:'tv-location-label'
     }).addTo(tv.map);
     if(window.ResizeObserver){
