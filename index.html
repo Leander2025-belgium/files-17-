@@ -469,28 +469,47 @@
         <div>
           <h3 id="profileName">Profiel laden...</h3>
           <p id="profileEmail"></p>
+          <div class="profile-badges">
+            <span>Actief</span>
+            <span>Wheaterflow-server</span>
+          </div>
           <button class="linkbtn" id="changeAvatarBtn" type="button">Profielfoto wijzigen</button>
         </div>
       </div>
+      <div class="profile-quick-grid" aria-label="Mijn Wheaterflow">
+        <div class="profile-stat-card"><span>☆</span><b id="profileFavoritesCount">0</b><small>Favorieten</small></div>
+        <div class="profile-stat-card"><span>◌</span><b id="profileNotificationsStatus">Uit</b><small>Meldingen</small></div>
+        <div class="profile-stat-card"><span>TV</span><b id="profileTvStatus">Niet gekoppeld</b><small>Apparaten</small></div>
+        <div class="profile-stat-card"><span>☁</span><b id="profileSyncStatus">Gast</b><small>Status</small></div>
+      </div>
       <form id="profileForm" class="auth-form">
-        <label>Weergavenaam<input id="profileDisplayName" type="text" autocomplete="name"></label>
-        <label>Thuislocatie<input id="profileHomeLocation" type="text" placeholder="Bijvoorbeeld Oostende"></label>
-        <button class="smallbtn profile-location-btn" id="profileUseCurrentLocation" type="button">Huidige locatie gebruiken</button>
-        <div class="profile-stats">
-          <span><b id="profileFavoritesCount">0</b>Favorieten</span>
-          <span><b id="profileNotificationsStatus">Uit</b>Meldingen</span>
-          <span><b id="profileSyncStatus">Gast</b>Status</span>
+        <div class="profile-section-title">Persoonlijke gegevens</div>
+        <label class="profile-edit-row"><span>Weergavenaam</span><input id="profileDisplayName" type="text" autocomplete="name"></label>
+        <label class="profile-edit-row"><span>Thuislocatie</span><input id="profileHomeLocation" type="text" placeholder="Locatie bepalen…"></label>
+        <button class="profile-action-row" id="profileUseCurrentLocation" type="button"><span>Huidige locatie gebruiken</span><b id="profileCurrentLocationName">Locatie bepalen…</b></button>
+        <div class="profile-section-title">Mijn Wheaterflow</div>
+        <div class="profile-menu-list">
+          <button class="profile-menu-row" id="profileClimateBtn" type="button"><span>Persoonlijk klimaat</span><b>Openen ›</b></button>
+          <button class="profile-menu-row" id="profileTvDevicesBtn" type="button"><span>TV & apparaten</span><b id="profileTvRowStatus">Niet gekoppeld ›</b></button>
+          <button class="profile-menu-row" id="profileNotificationsRow" type="button"><span>Meldingen</span><b id="profileNotificationsRowStatus">Uit ›</b></button>
         </div>
-        <button class="smallbtn primary-auth" type="submit">Profiel opslaan</button>
+        <button class="smallbtn primary-auth profile-save-btn" id="profileSaveBtn" type="submit">Wijzigingen opslaan</button>
       </form>
       <div class="profile-favorites">
-        <div class="settings-section-head"><span>Favoriete plaatsen</span><strong id="profileFavoritesHint">Sync</strong></div>
+        <div class="settings-section-head"><span>Favoriete plaatsen</span><strong id="profileFavoritesHint">Synchroniseren</strong></div>
         <div id="profileFavoritesList" class="profile-favorites-list"></div>
       </div>
+      <div class="profile-section-title">Synchronisatie</div>
       <div class="account-actions">
         <button class="smallbtn" id="syncLocalBtn" type="button">Lokale gegevens naar account kopieren</button>
+      </div>
+      <div class="profile-section-title">Beveiliging</div>
+      <div class="account-actions">
         <button class="smallbtn" id="resetPasswordLoggedInBtn" type="button">Wachtwoord wijzigen</button>
         <button class="smallbtn" id="logoutBtn" type="button">Uitloggen</button>
+      </div>
+      <div class="profile-section-title">Account</div>
+      <div class="account-actions">
         <button class="smallbtn danger" id="deleteAccountBtn" type="button">Account verwijderen</button>
       </div>
         <div class="auth-message" id="profileMessage"></div>

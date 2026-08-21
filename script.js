@@ -1585,10 +1585,22 @@ function nowcastEngine(){
 }
 
 function rainIntensity(mm){
+  return rainIntensityToLevel(mm);
+}
+
+function rainIntensityToLevel(value){
+  const mm = Math.max(0, Number(value) || 0);
   if(mm >= 3) return {id:'heavy', label:'Zware regen'};
   if(mm >= 1) return {id:'moderate', label:'Regen'};
   if(mm >= .1) return {id:'light', label:'Lichte regen'};
   return {id:'none', label:'Droog'};
+}
+
+function rainIntensityToHeight(value){
+  const mm = Math.max(0, Number(value) || 0);
+  if(mm <= 0) return 4;
+  const capped = Math.min(mm, 4);
+  return Math.max(6, Math.round((capped / 4) * 48));
 }
 
 function forecastWindowStats(hours=3){
@@ -1873,8 +1885,11 @@ function rainNowcastCard(){
     <h3>${esc(rain.title)}</h3>
     <p>${esc(rain.summary)}</p>
   </div>`;
-  const maxRain = Math.max(.4, ...rain.slots.map(s=>s.precipitation));
-  const bars = rain.slots.map((slot,i)=>`<i class="${i===0?'now':''} ${slot.wet?'wet':'dry'}" title="${slot.minutes} min: ${slot.precipitation.toFixed(1)} mm" style="height:${Math.max(4, Math.round((slot.precipitation / maxRain) * 38))}px"></i>`).join('');
+  const bars = rain.slots.map((slot,i)=>{
+    const level = rainIntensityToLevel(slot.precipitation);
+    const height = rainIntensityToHeight(slot.precipitation);
+    return `<i class="${i===0?'now':''} ${slot.wet?'wet':'dry'} ${level.id}" title="${slot.minutes} min: ${slot.precipitation.toFixed(1)} mm/u · ${level.label}" style="height:${height}px"></i>`;
+  }).join('');
   const confidence = Math.round(rain.confidence * 100);
   const meta = rain.status === 'rain_soon'
     ? `±${etaUncertaintyMinutes(rain)} min onzekerheid · ${confidence}% betrouwbaarheid`
@@ -3520,10 +3535,17 @@ function updateAuthInterface(session){
   $('#profileBtn')?.setAttribute('title', loggedIn ? displayName : 'Inloggen');
   if($('#profileName')) $('#profileName').textContent = displayName;
   if($('#profileEmail')) $('#profileEmail').textContent = email;
+  const homeName = profile?.home_location_name || locationDisplayName('Locatie bepalen…');
   if($('#profileDisplayName')) $('#profileDisplayName').value = profile?.display_name || displayName;
-  if($('#profileHomeLocation')) $('#profileHomeLocation').value = profile?.home_location_name || state.loc.name || '';
+  if($('#profileHomeLocation')) $('#profileHomeLocation').value = homeName;
   if($('#profileFavoritesCount')) $('#profileFavoritesCount').textContent = state.favorites.length;
-  if($('#profileNotificationsStatus')) $('#profileNotificationsStatus').textContent = state.push.status === 'Ingeschakeld' ? 'Aan' : 'Uit';
+  const notifications = state.push.status === 'Ingeschakeld' ? 'Aan' : 'Uit';
+  if($('#profileNotificationsStatus')) $('#profileNotificationsStatus').textContent = notifications;
+  if($('#profileNotificationsRowStatus')) $('#profileNotificationsRowStatus').textContent = `${notifications} ›`;
+  const tvStatus = state.tvPairing.connected ? 'Gekoppeld' : 'Niet gekoppeld';
+  if($('#profileTvStatus')) $('#profileTvStatus').textContent = tvStatus;
+  if($('#profileTvRowStatus')) $('#profileTvRowStatus').textContent = `${tvStatus} ›`;
+  if($('#profileCurrentLocationName')) $('#profileCurrentLocationName').textContent = locationDisplayName('Locatie bepalen…');
   if($('#profileSyncStatus')) $('#profileSyncStatus').textContent = loggedIn ? 'Actief' : 'Gast';
   renderProfileFavorites();
   if($('#profileAvatarInitials')) $('#profileAvatarInitials').textContent = initials;
@@ -3535,15 +3557,16 @@ function renderProfileFavorites(){
   const list = $('#profileFavoritesList');
   if(!list) return;
   if(!state.favorites.length){
-    list.innerHTML = '<div class="subtle" style="font-size:12px;">Nog geen favoriete plaatsen.</div>';
+    list.innerHTML = '<div class="profile-empty">Nog geen favoriete plaatsen. Voeg een plaats toe via de zoekbalk.</div>';
     return;
   }
   list.innerHTML = state.favorites.map((f,i)=>`
     <div class="profile-favorite-row" data-i="${i}">
       <b>${esc(f.name)}</b>
-      <button type="button" data-act="open" title="Openen">&gt;</button>
-      <button type="button" data-act="up" title="Omhoog">^</button>
-      <button type="button" data-act="delete" title="Verwijderen">x</button>
+      <small>${esc(f.admin || f.country || 'Opgeslagen plaats')}</small>
+      <button type="button" data-act="open" title="Openen">›</button>
+      <button type="button" data-act="up" title="Omhoog">↑</button>
+      <button type="button" data-act="delete" title="Verwijderen">×</button>
     </div>
   `).join('');
 }
@@ -3662,6 +3685,16 @@ function wireAuthUi(){
     if(!input) return;
     input.value = state.loc?.name && !/locatie bepalen/i.test(state.loc.name) ? state.loc.name : '';
     updateProfileMessage(input.value ? `Thuislocatie ingesteld op ${input.value}. Sla je profiel nog even op.` : 'Kies eerst een plaats of geef locatietoegang.', input.value ? 'ok' : 'error');
+  });
+  $('#profileTvDevicesBtn')?.addEventListener('click', ()=>{
+    closeAuthSheet();
+    openSheet();
+    $('.tv-settings-group')?.scrollIntoView({block:'center', behavior:'smooth'});
+  });
+  $('#profileNotificationsRow')?.addEventListener('click', ()=>{
+    closeAuthSheet();
+    openSheet();
+    $('.notification-settings')?.scrollIntoView({block:'center', behavior:'smooth'});
   });
   $('#avatarInput')?.addEventListener('change', e=>{
     const file = e.target.files?.[0];
@@ -6215,6 +6248,12 @@ function renderTV(){
 
   $('#tvLocName').textContent = locationDisplayName();
   $('#tvAdmin').textContent = state.loc.admin || '';
+  const tvStatus = $('#tvCastStatus');
+  if(tvStatus){
+    if(state.cast.receiver) tvStatus.textContent = 'Cast actief';
+    else if(state.tvPairing.receiver || state.tvPairing.connected) tvStatus.textContent = 'TV gekoppeld';
+    else tvStatus.textContent = 'Wheaterflow TV';
+  }
   $('#tvIcon').innerHTML = icon(wc.ic, isDay, 110);
   $('#tvTemp').innerHTML = fmtTemp(cur.temperature_2m);
   $('#tvCond').textContent = wc.l;
@@ -6279,10 +6318,12 @@ function formatTvSunTime(value){
 function tvAlertCard(){
   const alert = state.alerts?.[0] || buildIndicativeAlert()[0];
   const level = ALERT_LEVELS[alert.level] || ALERT_LEVELS.green;
+  const official = alert.source === 'officieel' || alert.official === true || alert.region || alert.validFrom || alert.validTo;
   if(alert.level === 'green'){
     return `<div class="dcard tv-warning green">${icon('gauge',true,18)}<div><div class="dt-title">Weermelding</div><div class="dt-val">Code groen</div></div></div>`;
   }
-  return `<div class="dcard tv-warning ${level.cls}">${icon('gauge',true,18)}<div><div class="dt-title">Weermelding</div><div class="dt-val">${level.label}</div><div class="dt-sub">${esc(alert.headline)}</div></div></div>`;
+  const label = official ? level.label : 'Slim signaal';
+  return `<div class="dcard tv-warning ${level.cls}">${icon('gauge',true,18)}<div><div class="dt-title">Weermelding</div><div class="dt-val">${label}</div><div class="dt-sub">${esc(alert.headline)}</div></div></div>`;
 }
 
 function tvMarineCard(){
@@ -6321,10 +6362,11 @@ async function initTvMap(){
     tv.map.getPane('labelPane').style.pointerEvents = 'none';
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(tv.map);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, pane:'labelPane'}).addTo(tv.map);
-    L.circleMarker([state.loc.lat, state.loc.lon], {radius:7, color:'#fff', weight:3, fillColor:'#1677ff', fillOpacity:.95}).addTo(tv.map);
+    tv.locationMarker = L.circleMarker(rv.center, {radius:7, color:'#fff', weight:3, fillColor:'#1677ff', fillOpacity:.95}).addTo(tv.map);
   } else {
     const rv = tvRadarView();
     tv.map.setView(rv.center, rv.zoom);
+    tv.locationMarker?.setLatLng(rv.center);
   }
   setTimeout(()=>tv.map.invalidateSize(), 200);
   disposeTvXweatherRadar();
@@ -6428,13 +6470,13 @@ function disposeTvXweatherRadar(){
 async function refreshTvRadarFrame(){
   if(!tv.map) return;
   try{
-    await setTvOpenMeteoRadarLayer();
+    setTvFrame(0);
     tv.map.invalidateSize();
   }catch(error){
-    console.warn('Open-Meteo tv-radar kon niet verversen, actuele radarframe wordt geprobeerd', error);
+    console.warn('Weatherflow tv-radar kon niet verversen, actuele radarframe wordt geprobeerd', error);
     const frame = await fetchLatestRainviewerRadarFrame().catch(()=>null);
     if(frame) setTvRainviewerFrame(frame);
-    else{
+    else {
       updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
       setTvRadarFallback('Radar tijdelijk niet beschikbaar · Probeer later opnieuw');
     }
@@ -6481,6 +6523,8 @@ async function setTvOpenMeteoRadarLayer(){
 }
 function setTvRainviewerFrame(frame){
   if(!tv.map || !frame) return;
+  const rv = tvRadarView();
+  tv.map.setView(rv.center, rv.zoom, {animate:false});
   clearTvRadarLayer();
   tv.radarLayer = L.tileLayer(rainviewerTileUrl(frame, 'tv'), {
     opacity:0.9,
@@ -6500,20 +6544,29 @@ function setTvRainviewerFrame(frame){
 function setTvFrame(i){
   if(!tv.map) return;
   tv.index = i;
+  const rv = tvRadarView();
+  tv.map.setView(rv.center, rv.zoom, {animate:false});
   const offset = WEATHERFLOW_RADAR_OFFSETS[i] ?? 0;
   const url = weatherflowRadarTileUrl(offset);
   clearTvRadarLayer();
-  tv.radarLayer = L.tileLayer(url, {
+  const layer = L.tileLayer(url, {
     opacity:0.9,
+    minZoom:5,
     maxZoom:10,
-    maxNativeZoom:10,
+    maxNativeZoom:8,
     pane:'radarPane',
     className:'radar-tile-layer tv-radar-live-layer',
     crossOrigin:true,
     keepBuffer:1,
     updateWhenIdle:false,
     updateWhenZooming:false
-  }).addTo(tv.map);
+  });
+  layer.on('load', ()=>setTvRadarFallback(''));
+  layer.on('tileerror', ()=>{
+    updateTvRadarLabel(null, 'Radar tijdelijk niet beschikbaar');
+    setTvRadarFallback('Radar tijdelijk niet beschikbaar · Probeer later opnieuw');
+  });
+  tv.radarLayer = layer.addTo(tv.map);
   setTvRadarFallback('');
   updateTvRadarLabel(Math.round(Date.now()/1000), 'Radar bijgewerkt');
 }
