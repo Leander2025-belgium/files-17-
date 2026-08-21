@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260821-polish-bugfix";
+const CACHE_VERSION = "wheaterflow-v20260821-tv-condition-backgrounds";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -25,6 +25,14 @@ const STATIC_ASSETS = [
   "./assets/backgrounds/Onweersbuien.png",
   "./assets/backgrounds/Zwaar onweer.png",
   "./assets/backgrounds/Hagel.png",
+  "./assets/backgrounds/tv-night-clear.png",
+  "./assets/backgrounds/tv-night-light-clouds.png",
+  "./assets/backgrounds/tv-night-cloudy.png",
+  "./assets/backgrounds/tv-night-heavy-clouds.png",
+  "./assets/backgrounds/tv-drizzle.png",
+  "./assets/backgrounds/tv-light-rain.png",
+  "./assets/backgrounds/tv-rain.png",
+  "./assets/backgrounds/tv-heavy-rain.png",
   "./assets/moon/new-moon.jpg",
   "./assets/moon/young-crescent.jpg",
   "./assets/moon/first-quarter.jpg",

@@ -44,6 +44,16 @@ const WEATHER_PHOTO_FILES = new Set([
   'Zwaar onweer.png',
   'Hagel.png'
 ]);
+const TV_WEATHER_PHOTO_FILES = new Set([
+  'tv-night-clear.png',
+  'tv-night-light-clouds.png',
+  'tv-night-cloudy.png',
+  'tv-night-heavy-clouds.png',
+  'tv-drizzle.png',
+  'tv-light-rain.png',
+  'tv-rain.png',
+  'tv-heavy-rain.png'
+]);
 
 const state = {
   loc: { lat: 51.2405, lon: 2.9309, name: "Oostende", admin: "West-Vlaanderen, Belgie" },
@@ -2054,6 +2064,20 @@ function stormModeCard(){
 
 /* ---------------- real photo background: matches current conditions ---------------- */
 let lightningTimer = null;
+function tvWeatherPhotoFilename(code, isDay, cloudCover, fallback){
+  if([51,53,55,56,57].includes(code)) return 'tv-drizzle.png';
+  if([61,80].includes(code)) return 'tv-light-rain.png';
+  if([63,66,67,81].includes(code)) return 'tv-rain.png';
+  if([65,82].includes(code)) return 'tv-heavy-rain.png';
+  if(isDay) return fallback;
+
+  if(code === 0) return 'tv-night-clear.png';
+  if(code === 1) return 'tv-night-light-clouds.png';
+  if(code === 2) return 'tv-night-cloudy.png';
+  if(code === 3) return cloudCover >= 86 ? 'tv-night-heavy-clouds.png' : 'tv-night-cloudy.png';
+  return fallback;
+}
+
 function applyWeatherBG(code, isDay, cloudCover=0){
   const el = $('#weatherBG');
   if(!el) return;
@@ -2123,14 +2147,20 @@ function applyWeatherBG(code, isDay, cloudCover=0){
   }
 
   if(!WEATHER_PHOTO_FILES.has(filename)) filename = DEFAULT_WEATHER_PHOTO;
+  let tvFilename = tvWeatherPhotoFilename(code, Boolean(isDay), cc, filename);
+  if(!TV_WEATHER_PHOTO_FILES.has(tvFilename) && !WEATHER_PHOTO_FILES.has(tvFilename)) tvFilename = filename;
 
   const safe = encodeURI(`./assets/backgrounds/${filename}`);
   const photoValue = `url("${safe}")`;
+  const tvSafe = encodeURI(`./assets/backgrounds/${tvFilename}`);
+  const tvPhotoValue = `url("${tvSafe}")`;
   el.style.backgroundImage = photoValue;
   el.style.setProperty('--weather-photo', photoValue);
   document.documentElement.style.setProperty('--weather-photo', photoValue);
   document.body?.style?.setProperty('--weather-photo', photoValue);
-  $('#tvscreen')?.style?.setProperty('--weather-photo', photoValue);
+  const tvScreen = $('#tvscreen');
+  tvScreen?.style?.setProperty('--weather-photo', photoValue);
+  tvScreen?.style?.setProperty('--tv-weather-photo', tvPhotoValue);
 
   const scenes = ['sunny','cloudy','rainy','stormy','snowy'];
   scenes.forEach(s=>el.classList.toggle(s, s===scene));

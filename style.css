@@ -1187,7 +1187,7 @@ table.hourtable tr.hit td:first-child{color:var(--storm);font-weight:600;}
   position:absolute;
   inset:0;
   z-index:-2;
-  background-image:var(--weather-photo);
+  background-image:var(--tv-weather-photo,var(--weather-photo));
   background-size:cover;
   background-position:center center;
   background-repeat:no-repeat;
@@ -5045,9 +5045,9 @@ input{
   z-index:5 !important;
 }
 
-/* TV uses the same condition photo as the main app. */
+/* TV can use its dedicated condition photo without changing the main app. */
 #tvscreen.active{
-  background-image:var(--weather-photo) !important;
+  background-image:var(--tv-weather-photo,var(--weather-photo)) !important;
   background-size:cover !important;
   background-position:center center !important;
   background-repeat:no-repeat !important;
