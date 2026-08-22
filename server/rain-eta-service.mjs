@@ -36,6 +36,42 @@ function intensityFor(maxRain) {
   if (maxRain >= 0.1) return { id: "light", label: "Lichte regen" };
   return { id: "none", label: "Droog" };
 }
+function currentRainSnapshot(forecast) {
+  const current = forecast?.current || {};
+
+  const precipitation = Math.max(
+    0,
+    Number(current.precipitation) || 0
+  );
+
+  const rain = Math.max(
+    0,
+    Number(current.rain) || 0
+  );
+
+  const showers = Math.max(
+    0,
+    Number(current.showers) || 0
+  );
+
+  const weatherCode = Number(current.weather_code);
+
+  const amount = Math.max(
+    precipitation,
+    rain,
+    showers
+  );
+
+  const wetByCode = RAIN_CODES.has(weatherCode);
+
+  return {
+    wet: amount >= 0.1 || wetByCode,
+    precipitation: amount,
+    weatherCode: Number.isFinite(weatherCode)
+      ? weatherCode
+      : null
+  };
+} 
 
 function confidenceFor(slots, maxRain) {
   const coverage = Math.min(1, slots.length / 8);
@@ -128,14 +164,23 @@ export function computeRainETA(forecast, { now = new Date(), name = "Mijn locati
   }
   if (!slots.length) return unavailable(location, now);
 
-  const rainingNow = slots[0].wet;
-  const firstWetIndex = slots.findIndex(slot => slot.wet);
+  const currentRain = currentRainSnapshot(forecast);
+
+const rainingNow =
+  currentRain.wet ||
+  slots[0].wet;
+
+const firstWetIndex = slots.findIndex(slot => slot.wet);
   const firstWet = firstWetIndex >= 0 ? slots[firstWetIndex] : null;
   const firstDryAfterWetIndex = firstWetIndex >= 0
     ? slots.findIndex((slot, slotIndex) => slotIndex > firstWetIndex && !slot.wet)
     : -1;
   const firstDryAfterWet = firstDryAfterWetIndex >= 0 ? slots[firstDryAfterWetIndex] : null;
-  const maxRain = Math.max(0, ...slots.map(slot => slot.precipitation));
+  const maxRain = Math.max(
+  currentRain.precipitation,
+  0,
+  ...slots.map(slot => slot.precipitation)
+);
   const hourly = forecast?.hourly || {};
   const hourlyIndex = Array.isArray(hourly.time) && hourly.time.length
     ? closestIndex(hourly.time, nowMs)
@@ -147,9 +192,15 @@ export function computeRainETA(forecast, { now = new Date(), name = "Mijn locati
   const intensity = intensityFor(maxRain);
   const confidence = confidenceFor(slots, maxRain);
   const status = rainingNow ? "raining" : firstWet ? "rain_soon" : "dry";
-  const startTime = firstWet?.time ?? null;
-  const endTime = firstDryAfterWet?.time ?? null;
-  const startsInMinutes = firstWet?.minutes ?? null;
+  const startTime = rainingNow
+  ? now.toISOString()
+  : firstWet?.time ?? null;
+
+const endTime = firstDryAfterWet?.time ?? null;
+
+const startsInMinutes = rainingNow
+  ? 0
+  : firstWet?.minutes ?? null;
   const endsInMinutes = firstDryAfterWet?.minutes ?? null;
   const dryWindowMinutes = rainingNow ? 0 : (firstWet?.minutes ?? 120);
 
@@ -196,6 +247,10 @@ function forecastURL(latitude, longitude, model) {
   url.searchParams.set("latitude", String(latitude));
   url.searchParams.set("longitude", String(longitude));
   url.searchParams.set("minutely_15", "precipitation,weather_code");
+  url.searchParams.set(
+  "current",
+  "precipitation,rain,showers,weather_code"
+);
   url.searchParams.set("hourly", "weather_code");
   url.searchParams.set("timezone", "auto");
   url.searchParams.set("timeformat", "unixtime");
