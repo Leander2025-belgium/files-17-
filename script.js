@@ -637,9 +637,24 @@ function precipitationSignal(cur=state.current || {}){
   // Gebruik zowel de actuele snapshot als de ruwe current-data. Zo kan een
   // 15-minutenframe met 0 mm een echte actuele regenmeting niet overschrijven.
   const snapshotPrecip = Number(cur?.precipitation) || 0;
-  const currentPrecip = Number(state.current?.precipitation) || 0;
-  signal.now = Math.max(signal.now, snapshotPrecip, currentPrecip);
-  signal.soon = Math.max(signal.soon, snapshotPrecip, currentPrecip);
+const snapshotRain = Number(cur?.rain) || 0;
+const snapshotShowers = Number(cur?.showers) || 0;
+
+const currentPrecip = Number(state.current?.precipitation) || 0;
+const currentRain = Number(state.current?.rain) || 0;
+const currentShowers = Number(state.current?.showers) || 0;
+
+const currentTotal = Math.max(
+  snapshotPrecip,
+  snapshotRain,
+  snapshotShowers,
+  currentPrecip,
+  currentRain,
+  currentShowers
+);
+
+signal.now = Math.max(signal.now, currentTotal);
+signal.soon = Math.max(signal.soon, currentTotal);
 
   const targetMs = Date.now();
   if(state.minutely?.time?.length){
@@ -1419,7 +1434,7 @@ async function notifyTvPairingLocationChanged(){
 function buildForecastUrl(model){
   const {lat, lon} = state.loc;
   return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-    `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m`+
+    `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m`+
     `&minutely_15=precipitation,weather_code,temperature_2m,wind_speed_10m,wind_gusts_10m`+
     `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape,lifted_index,freezing_level_height,relative_humidity_2m,dew_point_2m,uv_index`+
     `&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,daylight_duration,sunshine_duration`+
@@ -1587,24 +1602,107 @@ function nowcastEngine(){
     return output;
   }
 
-  const wetSlots = slots.filter(s=>s.wet);
-  const rainingNow = slots[0].wet;
-  const firstWet = slots.find(s=>s.wet);
-  const firstDryAfterNow = slots.find((s,i)=>i > 0 && !s.wet);
-  const wetFromNow = slots.findIndex(s=>s.wet);
-  const firstWetIndex = wetFromNow >= 0 ? wetFromNow : -1;
-  const dryAfterWetIndex = firstWetIndex >= 0 ? slots.findIndex((s,i)=>i > firstWetIndex && !s.wet) : -1;
-  const maxRain = Math.max(0, ...slots.map(s=>s.precipitation));
+  const wetSlots = slots.filter(s => s.wet);
+
+/*
+ * Actuele neerslag krijgt voorrang op de 15-minutenvoorspelling.
+ *
+ * Dit voorkomt bijvoorbeeld:
+ * - Home zegt "Helder"
+ * - Radar toont regen
+ * - Rain ETA zegt "geen regen"
+ *
+ * precipitationSignal() combineert de actuele snapshot,
+ * current-data en de meest recente minutely-data.
+ */
+const currentSignal = precipitationSignal(liveWeatherSnapshot());
+
+const rainingNow =
+  currentSignal.now >= 0.1 ||
+  slots[0]?.wet === true;
+
+/*
+ * Als het nu al regent, begint de regen op minuut 0.
+ * Anders zoeken we zoals vroeger naar de eerstvolgende natte periode.
+ */
+const firstWetFromForecast = slots.find(s => s.wet);
+
+const firstWet = rainingNow
+  ? {
+      time: new Date(),
+      minutes: 0,
+      precipitation: Math.max(
+        currentSignal.now,
+        Number(slots[0]?.precipitation) || 0
+      ),
+      wet: true
+    }
+  : firstWetFromForecast;
+
+/*
+ * Zoek het eerste droge tijdstip ná de actuele regen.
+ */
+const firstDryAfterNow = rainingNow
+  ? slots.find((s, i) => i > 0 && !s.wet)
+  : null;
+
+const wetFromNow = slots.findIndex(s => s.wet);
+const firstWetIndex = wetFromNow >= 0 ? wetFromNow : -1;
+
+/*
+ * Wanneer het nú regent maar het eerste 15-minutenframe foutief droog is,
+ * zoeken we gewoon het eerste toekomstige droge frame.
+ */
+let dryAfterWetIndex = -1;
+
+if (rainingNow) {
+  dryAfterWetIndex = slots.findIndex((s, i) => i > 0 && !s.wet);
+} else if (firstWetIndex >= 0) {
+  dryAfterWetIndex = slots.findIndex(
+    (s, i) => i > firstWetIndex && !s.wet
+  );
+}
+
+/*
+ * Neem ook de actuele hoeveelheid mee voor de intensiteit.
+ */
+const maxRain = Math.max(
+  currentSignal.now || 0,
+  0,
+  ...slots.map(s => Number(s.precipitation) || 0)
+);
   const thunderPossible = slots.some(s=>[95,96,99].includes(Number(s.weatherCode))) || stormEngine().relevant;
   const heavyShower = maxRain >= 3 || slots.some(s=>[65,82,95,96,99].includes(Number(s.weatherCode)));
   const intensity = rainIntensity(maxRain);
   const confidence = nowcastConfidence(slots, maxRain);
 
-  output.status = rainingNow ? 'raining' : firstWet ? 'rain_soon' : 'dry';
-  output.startTime = firstWet ? firstWet.time.toISOString() : null;
-  output.startsInMinutes = firstWet ? firstWet.minutes : null;
-  output.endTime = dryAfterWetIndex >= 0 ? slots[dryAfterWetIndex].time.toISOString() : null;
-  output.endsInMinutes = firstDryAfterNow ? firstDryAfterNow.minutes : null;
+  output.status = rainingNow
+  ? 'raining'
+  : firstWet
+    ? 'rain_soon'
+    : 'dry';
+
+output.startTime = rainingNow
+  ? new Date().toISOString()
+  : firstWet
+    ? firstWet.time.toISOString()
+    : null;
+
+output.startsInMinutes = rainingNow
+  ? 0
+  : firstWet
+    ? firstWet.minutes
+    : null;
+
+output.endTime =
+  dryAfterWetIndex >= 0
+    ? slots[dryAfterWetIndex].time.toISOString()
+    : null;
+
+output.endsInMinutes =
+  dryAfterWetIndex >= 0
+    ? slots[dryAfterWetIndex].minutes
+    : null;
   output.intensity = intensity.id;
   output.intensityLabel = intensity.label;
   output.dryWindowMinutes = rainingNow ? 0 : (firstWet ? firstWet.minutes : 120);
