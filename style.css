@@ -6858,3 +6858,10 @@ body.tv-pair-open .tabbar{
   width:100%;
 }
 
+/* =========================================================
+   Gelijke kaartafstand: Zeevonk → AQI
+   ========================================================= */
+#home .detail-grid {
+  margin-bottom: 14px !important;
+}
+
