@@ -2,242 +2,1270 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Wheaterflow — Beheer meldingen</title>
-<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080d16">
+<title>Wheaterflow Admin</title>
+
 <style>
-  :root {
-    --bg: #0d1117; --panel: #161b22; --border: #30363d;
-    --text: #e6edf3; --muted: #8b949e; --accent: #3b82f6;
-    --info: #3b82f6; --warning: #f59e0b; --danger: #ef4444;
+:root{
+  --bg:#080d16;
+  --panel:#101824;
+  --panel2:#151f2d;
+  --line:rgba(255,255,255,.09);
+  --text:#f5f8fc;
+  --muted:#8e9aac;
+  --blue:#4b8dff;
+  --green:#36c98f;
+  --orange:#ffad3d;
+  --red:#ff5d67;
+  --radius:18px;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  background:
+    radial-gradient(circle at 85% -10%,rgba(64,126,255,.17),transparent 32%),
+    var(--bg);
+  color:var(--text);
+}
+
+button,input,textarea,select{font:inherit}
+
+button{cursor:pointer}
+
+.hidden{display:none!important}
+
+/* LOGIN */
+
+.login{
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  padding:24px;
+}
+
+.login-card{
+  width:min(420px,100%);
+  padding:32px;
+  background:rgba(16,24,36,.92);
+  border:1px solid var(--line);
+  border-radius:26px;
+  box-shadow:0 30px 80px rgba(0,0,0,.4);
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:28px;
+}
+
+.brand-icon{
+  width:45px;
+  height:45px;
+  border-radius:14px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,#397cff,#70a8ff);
+  font-size:22px;
+}
+
+.brand strong{
+  display:block;
+  font-size:18px;
+}
+
+.brand small{color:var(--muted)}
+
+.login-card h1{
+  margin:0 0 8px;
+  font-size:27px;
+}
+
+.login-card>p{
+  margin:0 0 22px;
+  color:var(--muted);
+  line-height:1.5;
+}
+
+/* LAYOUT */
+
+.shell{
+  display:grid;
+  grid-template-columns:250px minmax(0,1fr);
+  min-height:100vh;
+}
+
+.sidebar{
+  position:sticky;
+  top:0;
+  height:100vh;
+  padding:24px 16px;
+  border-right:1px solid var(--line);
+  background:rgba(9,14,23,.92);
+}
+
+.nav-title{
+  color:#647083;
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.1em;
+  padding:12px 12px 8px;
+}
+
+.nav button{
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  border:0;
+  color:#aeb8c7;
+  background:transparent;
+  padding:12px 13px;
+  border-radius:12px;
+  text-align:left;
+  margin:2px 0;
+}
+
+.nav button.active{
+  color:white;
+  background:rgba(75,141,255,.15);
+}
+
+.main{
+  padding:32px;
+  width:100%;
+  max-width:1450px;
+  margin:0 auto;
+}
+
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  align-items:center;
+  margin-bottom:28px;
+}
+
+.topbar h1{
+  margin:0 0 5px;
+  font-size:28px;
+}
+
+.topbar p{
+  margin:0;
+  color:var(--muted);
+}
+
+.status{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  color:#aeb8c7;
+  font-size:13px;
+}
+
+.status-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 12px var(--green);
+}
+
+/* GENERAL */
+
+.card{
+  background:linear-gradient(180deg,rgba(21,31,45,.96),rgba(15,23,35,.96));
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+}
+
+.card-head{
+  padding:20px 22px;
+  border-bottom:1px solid var(--line);
+}
+
+.card-head h2{
+  margin:0 0 4px;
+  font-size:17px;
+}
+
+.card-head p{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.form{
+  padding:22px;
+}
+
+label{
+  display:block;
+  color:#aab5c5;
+  font-size:12px;
+  font-weight:650;
+  margin:0 0 7px;
+}
+
+.field{margin-bottom:18px}
+
+input,textarea,select{
+  width:100%;
+  border:1px solid var(--line);
+  outline:0;
+  background:#0b121d;
+  color:white;
+  border-radius:11px;
+  padding:12px 13px;
+}
+
+input:focus,textarea:focus,select:focus{
+  border-color:rgba(75,141,255,.7);
+  box-shadow:0 0 0 3px rgba(75,141,255,.1);
+}
+
+textarea{
+  min-height:110px;
+  resize:vertical;
+  line-height:1.5;
+}
+
+.row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+
+.btn{
+  border:0;
+  border-radius:11px;
+  padding:11px 16px;
+  font-weight:700;
+  color:white;
+}
+
+.btn-primary{
+  background:linear-gradient(135deg,#397cff,#5999ff);
+}
+
+.btn-secondary{
+  background:#202b3a;
+  border:1px solid var(--line);
+}
+
+.btn-danger{
+  background:rgba(255,93,103,.13);
+  color:#ff7c84;
+  border:1px solid rgba(255,93,103,.2);
+}
+
+.actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:22px;
+}
+
+/* GRID */
+
+.editor-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);
+  gap:20px;
+}
+
+/* SEVERITY */
+
+.severity{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:9px;
+}
+
+.severity button{
+  padding:12px 8px;
+  border-radius:11px;
+  border:1px solid var(--line);
+  background:#0b121d;
+  color:#aeb8c7;
+}
+
+.severity button.selected{
+  border-color:var(--blue);
+  color:white;
+  background:rgba(75,141,255,.13);
+}
+
+.severity button[data-type="warning"].selected{
+  border-color:var(--orange);
+  background:rgba(255,173,61,.12);
+}
+
+.severity button[data-type="danger"].selected{
+  border-color:var(--red);
+  background:rgba(255,93,103,.12);
+}
+
+/* SCOPE */
+
+.scope-options{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:9px;
+}
+
+.scope-btn{
+  border:1px solid var(--line);
+  background:#0b121d;
+  color:#aeb8c7;
+  padding:11px;
+  border-radius:11px;
+}
+
+.scope-btn.selected{
+  color:white;
+  border-color:var(--blue);
+  background:rgba(75,141,255,.12);
+}
+
+/* TOGGLES */
+
+.option{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  align-items:center;
+  padding:14px 0;
+  border-top:1px solid var(--line);
+}
+
+.option:first-child{border-top:0}
+
+.option strong{
+  display:block;
+  font-size:14px;
+}
+
+.option small{
+  color:var(--muted);
+  display:block;
+  margin-top:3px;
+}
+
+.switch{
+  width:46px;
+  height:26px;
+  background:#303b49;
+  border-radius:99px;
+  position:relative;
+  flex:0 0 auto;
+}
+
+.switch input{display:none}
+
+.switch span{
+  position:absolute;
+  width:20px;
+  height:20px;
+  left:3px;
+  top:3px;
+  background:white;
+  border-radius:50%;
+  transition:.2s;
+}
+
+.switch:has(input:checked){
+  background:var(--blue);
+}
+
+.switch input:checked+span{
+  transform:translateX(20px);
+}
+
+/* PREVIEW */
+
+.preview-wrap{
+  padding:22px;
+}
+
+.phone-title{
+  color:var(--muted);
+  font-size:12px;
+  margin-bottom:12px;
+}
+
+.alert-preview{
+  border:1px solid rgba(75,141,255,.28);
+  background:linear-gradient(135deg,rgba(39,100,213,.18),rgba(24,45,76,.28));
+  border-radius:16px;
+  padding:17px;
+}
+
+.alert-preview.warning{
+  border-color:rgba(255,173,61,.32);
+  background:rgba(255,173,61,.08);
+}
+
+.alert-preview.danger{
+  border-color:rgba(255,93,103,.35);
+  background:rgba(255,93,103,.09);
+}
+
+.preview-label{
+  font-size:11px;
+  color:#82afff;
+  text-transform:uppercase;
+  font-weight:800;
+  letter-spacing:.08em;
+}
+
+.warning .preview-label{color:var(--orange)}
+.danger .preview-label{color:var(--red)}
+
+.alert-preview h3{
+  margin:8px 0 5px;
+  font-size:16px;
+}
+
+.alert-preview p{
+  margin:0;
+  color:#c2cbd7;
+  line-height:1.45;
+  font-size:13px;
+}
+
+.preview-meta{
+  color:#778497;
+  font-size:11px;
+  margin-top:12px;
+}
+
+/* ALERT LIST */
+
+.list-card{margin-top:20px}
+
+.tabs{
+  display:flex;
+  gap:4px;
+  padding:14px 18px 0;
+}
+
+.tab{
+  background:transparent;
+  border:0;
+  color:var(--muted);
+  padding:9px 12px;
+  border-bottom:2px solid transparent;
+}
+
+.tab.active{
+  color:white;
+  border-color:var(--blue);
+}
+
+.alerts{
+  padding:14px 18px 20px;
+}
+
+.alert-row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:18px;
+  padding:16px 4px;
+  border-bottom:1px solid var(--line);
+}
+
+.alert-row:last-child{border-bottom:0}
+
+.alert-row h3{
+  margin:5px 0;
+  font-size:15px;
+}
+
+.alert-row p{
+  color:var(--muted);
+  font-size:13px;
+  margin:0;
+}
+
+.badges{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.badge{
+  border-radius:999px;
+  background:#202b3a;
+  color:#aeb8c7;
+  padding:4px 8px;
+  font-size:10px;
+  font-weight:700;
+}
+
+.badge.info{color:#79aaff;background:rgba(75,141,255,.12)}
+.badge.warning{color:#ffc264;background:rgba(255,173,61,.11)}
+.badge.danger{color:#ff7e86;background:rgba(255,93,103,.11)}
+
+.empty{
+  padding:32px;
+  text-align:center;
+  color:var(--muted);
+}
+
+/* MESSAGES */
+
+.message{
+  margin-top:14px;
+  font-size:13px;
+}
+
+.message.error{color:#ff7c84}
+.message.success{color:#55dca7}
+
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .sidebar{
+    position:relative;
+    height:auto;
+    border-right:0;
+    border-bottom:1px solid var(--line);
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg); color: var(--text); padding: 24px 16px 80px;
-  }
-  .wrap { max-width: 640px; margin: 0 auto; }
-  h1 { font-size: 1.4rem; margin-bottom: 4px; }
-  p.sub { color: var(--muted); margin-top: 0; font-size: 0.9rem; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-  label { display: block; font-size: 0.85rem; color: var(--muted); margin: 12px 0 4px; }
-  input, textarea, select {
-    width: 100%; background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
-    padding: 10px 12px; color: var(--text); font-size: 0.95rem; font-family: inherit;
-  }
-  textarea { min-height: 80px; resize: vertical; }
-  button {
-    background: var(--accent); color: white; border: none; border-radius: 8px;
-    padding: 10px 16px; font-size: 0.95rem; font-weight: 600; cursor: pointer; margin-top: 16px;
-  }
-  button:hover { opacity: 0.9; }
-  button.danger { background: var(--danger); }
-  .alert-item {
-    border: 1px solid var(--border); border-left: 4px solid var(--info);
-    border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
-  }
-  .alert-item.warning { border-left-color: var(--warning); }
-  .alert-item.danger { border-left-color: var(--danger); }
-  .alert-item .meta { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
-  .alert-item .title-row { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
-  .alert-item h3 { margin: 0 0 4px; font-size: 1rem; }
-  .alert-item p { margin: 0; font-size: 0.9rem; color: var(--text); }
-  .badge {
-    font-size: 0.7rem; text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
-    background: rgba(59,130,246,0.15); color: var(--info); white-space: nowrap; margin-right: 6px;
-  }
-  .badge.warning { background: rgba(245,158,11,0.15); color: var(--warning); }
-  .badge.danger { background: rgba(239,68,68,0.15); color: var(--danger); }
-  .badge.scope { background: rgba(139,148,158,0.15); color: var(--muted); }
-  #loginScreen { max-width: 320px; margin: 80px auto; text-align: center; }
-  .error { color: var(--danger); font-size: 0.85rem; margin-top: 8px; }
-  .empty { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 20px; }
-  #scopeValueField { display: none; }
+  .nav{display:flex;overflow:auto}
+  .nav-title{display:none}
+  .nav button{white-space:nowrap;width:auto}
+  .editor-grid{grid-template-columns:1fr}
+}
+
+@media(max-width:600px){
+  .main{padding:20px 14px}
+  .sidebar{padding:14px}
+  .topbar{align-items:flex-start}
+  .status{display:none}
+  .row{grid-template-columns:1fr}
+  .severity{grid-template-columns:1fr}
+  .scope-options{grid-template-columns:1fr 1fr}
+}
 </style>
 </head>
+
 <body>
 
-<div id="loginScreen">
-  <h1>🔒 Beheer</h1>
-  <p class="sub">Voer je admin-token in</p>
-  <input type="password" id="tokenInput" placeholder="Token">
-  <button onclick="login()">Inloggen</button>
-  <div class="error" id="loginError"></div>
-</div>
-
-<div class="wrap" id="app" style="display:none">
-  <h1>Wheaterflow — Meldingen</h1>
-  <p class="sub">Voeg waarschuwingen of meldingen toe voor op de site</p>
-
-  <div class="card">
-    <label>Type</label>
-    <select id="type">
-      <option value="info">Info</option>
-      <option value="warning">Waarschuwing</option>
-      <option value="danger">Gevaar / code rood</option>
-    </select>
-
-    <label>Bereik</label>
-    <select id="scope" onchange="onScopeChange()">
-      <option value="all">Heel Wheaterflow (overal)</option>
-      <option value="land">Specifiek land</option>
-      <option value="provincie">Specifieke provincie</option>
-      <option value="stad">Specifieke stad</option>
-    </select>
-
-    <div id="scopeValueField">
-      <label id="scopeValueLabel">Waarde</label>
-      <input type="text" id="scopeValue" placeholder="Bv. België, West-Vlaanderen, Oostende">
+<section id="login" class="login">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-icon">☁</div>
+      <div>
+        <strong>Wheaterflow</strong>
+        <small>Administration</small>
+      </div>
     </div>
 
-    <label>Titel</label>
-    <input type="text" id="title" placeholder="Bv. Onweer op komst">
+    <h1>Welkom terug</h1>
+    <p>Log in met je beheertoken om meldingen te beheren.</p>
 
-    <label>Bericht</label>
-    <textarea id="message" placeholder="Bv. Vanavond vanaf 20u kans op zware onweersbuien aan de kust."></textarea>
+    <div class="field">
+      <label>ADMIN TOKEN</label>
+      <input id="token" type="password" placeholder="Voer je token in">
+    </div>
 
-    <label>Einddatum (optioneel — verloopt automatisch)</label>
-    <input type="datetime-local" id="endsAt">
+    <button class="btn btn-primary" style="width:100%" onclick="login()">
+      Inloggen
+    </button>
 
-    <button onclick="createAlert()">Melding plaatsen</button>
-    <div class="error" id="createError"></div>
+    <div id="loginMessage" class="message error"></div>
   </div>
+</section>
 
-  <h2 style="font-size:1.1rem;">Actieve meldingen</h2>
-  <div id="alertsList"></div>
-</div>
+
+<section id="admin" class="shell hidden">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">☁</div>
+      <div>
+        <strong>Wheaterflow</strong>
+        <small>Admin</small>
+      </div>
+    </div>
+
+    <div class="nav-title">Beheer</div>
+
+    <nav class="nav">
+      <button class="active">⚡ Meldingen</button>
+      <button disabled>🔔 Push</button>
+      <button disabled>📊 Statistieken</button>
+      <button disabled>⚙ Instellingen</button>
+    </nav>
+  </aside>
+
+
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h1>Meldingen</h1>
+        <p>Publiceer berichten en waarschuwingen in Wheaterflow.</p>
+      </div>
+
+      <div class="status">
+        <span class="status-dot"></span>
+        Systeem online
+      </div>
+    </header>
+
+
+    <div class="editor-grid">
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Nieuwe melding</h2>
+          <p>Stel de inhoud en het doelgebied van je melding in.</p>
+        </div>
+
+        <div class="form">
+
+          <div class="field">
+            <label>TYPE MELDING</label>
+
+            <div class="severity">
+              <button data-type="info" class="selected" onclick="setType('info')">
+                ℹ Info
+              </button>
+
+              <button data-type="warning" onclick="setType('warning')">
+                ⚠ Waarschuwing
+              </button>
+
+              <button data-type="danger" onclick="setType('danger')">
+                ⛔ Ernstig
+              </button>
+            </div>
+          </div>
+
+
+          <div class="field">
+            <label>TITEL</label>
+            <input
+              id="title"
+              maxlength="100"
+              placeholder="Bijvoorbeeld: Zware regen op komst"
+              oninput="updatePreview()">
+          </div>
+
+
+          <div class="field">
+            <label>BERICHT</label>
+            <textarea
+              id="message"
+              maxlength="500"
+              placeholder="Beschrijf wat gebruikers moeten weten..."
+              oninput="updatePreview()"></textarea>
+          </div>
+
+
+          <div class="field">
+            <label>DOELGEBIED</label>
+
+            <div class="scope-options">
+              <button class="scope-btn selected" data-scope="all" onclick="setScope('all')">
+                🌍 Overal
+              </button>
+
+              <button class="scope-btn" data-scope="land" onclick="setScope('land')">
+                🏳 Land
+              </button>
+
+              <button class="scope-btn" data-scope="provincie" onclick="setScope('provincie')">
+                🗺 Regio
+              </button>
+
+              <button class="scope-btn" data-scope="stad" onclick="setScope('stad')">
+                📍 Stad
+              </button>
+            </div>
+          </div>
+
+
+          <div id="scopeField" class="field hidden">
+            <label id="scopeLabel">LOCATIE</label>
+
+            <input
+              id="scopeValue"
+              list="locationSuggestions"
+              placeholder="Zoek een locatie..."
+              oninput="updatePreview()">
+
+            <datalist id="locationSuggestions">
+              <option value="België">
+              <option value="Nederland">
+              <option value="Frankrijk">
+              <option value="Duitsland">
+              <option value="West-Vlaanderen">
+              <option value="Oost-Vlaanderen">
+              <option value="Antwerpen">
+              <option value="Limburg">
+              <option value="Oostende">
+              <option value="Brugge">
+              <option value="Gent">
+              <option value="Brussel">
+              <option value="Antwerpen">
+            </datalist>
+          </div>
+
+
+          <div class="row">
+
+            <div class="field">
+              <label>START</label>
+              <input id="startsAt" type="datetime-local">
+            </div>
+
+            <div class="field">
+              <label>EIND</label>
+              <input id="endsAt" type="datetime-local">
+            </div>
+
+          </div>
+
+
+          <div class="field">
+
+            <div class="option">
+              <div>
+                <strong>Tonen in Wheaterflow</strong>
+                <small>Toon de melding boven Wheaterflow Intelligence.</small>
+              </div>
+
+              <label class="switch">
+                <input id="showInApp" type="checkbox" checked>
+                <span></span>
+              </label>
+            </div>
+
+
+            <div class="option">
+              <div>
+                <strong>Pushmelding</strong>
+                <small>Wordt in de volgende backendstap gekoppeld.</small>
+              </div>
+
+              <label class="switch">
+                <input id="sendPush" type="checkbox">
+                <span></span>
+              </label>
+            </div>
+
+          </div>
+
+
+          <div class="actions">
+            <button class="btn btn-secondary" onclick="resetForm()">
+              Wissen
+            </button>
+
+            <button id="publishBtn" class="btn btn-primary" onclick="publishAlert()">
+              Publiceren
+            </button>
+          </div>
+
+          <div id="formMessage" class="message"></div>
+
+        </div>
+      </section>
+
+
+      <aside class="card">
+        <div class="card-head">
+          <h2>Voorbeeld</h2>
+          <p>Zo kan de melding in Wheaterflow verschijnen.</p>
+        </div>
+
+        <div class="preview-wrap">
+
+          <div class="phone-title">WHEATERFLOW</div>
+
+          <div id="preview" class="alert-preview">
+            <div id="previewType" class="preview-label">INFORMATIE</div>
+
+            <h3 id="previewTitle">
+              Titel van je melding
+            </h3>
+
+            <p id="previewMessage">
+              Je bericht verschijnt hier.
+            </p>
+
+            <div id="previewScope" class="preview-meta">
+              🌍 Overal
+            </div>
+          </div>
+
+        </div>
+      </aside>
+
+    </div>
+
+
+    <section class="card list-card">
+
+      <div class="card-head">
+        <h2>Meldingen beheren</h2>
+        <p>Bekijk de meldingen die momenteel in het systeem staan.</p>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="setTab('active',this)">Actief</button>
+        <button class="tab" onclick="setTab('scheduled',this)">Gepland</button>
+        <button class="tab" onclick="setTab('expired',this)">Verlopen</button>
+      </div>
+
+      <div id="alerts" class="alerts">
+        <div class="empty">Meldingen laden...</div>
+      </div>
+
+    </section>
+
+  </main>
+</section>
+
 
 <script>
-  const API = '/api/alerts';
-  let token = '';
+const API = '/api/alerts';
 
-  const scopeLabels = { land: 'Naam van het land', provincie: 'Naam van de provincie', stad: 'Naam van de stad' };
+let token = sessionStorage.getItem('wfAdminToken') || '';
+let selectedType = 'info';
+let selectedScope = 'all';
+let selectedTab = 'active';
+let alerts = [];
 
-  function onScopeChange() {
-    const scope = document.getElementById('scope').value;
-    const field = document.getElementById('scopeValueField');
-    if (scope === 'all') {
-      field.style.display = 'none';
-    } else {
-      field.style.display = 'block';
-      document.getElementById('scopeValueLabel').textContent = scopeLabels[scope];
+
+function escapeHtml(value=''){
+  const el=document.createElement('div');
+  el.textContent=String(value);
+  return el.innerHTML;
+}
+
+
+async function login(){
+  const input=document.getElementById('token');
+  const msg=document.getElementById('loginMessage');
+
+  token=input.value.trim();
+
+  if(!token){
+    msg.textContent='Vul je beheertoken in.';
+    return;
+  }
+
+  /*
+   * De huidige API heeft nog geen aparte loginroute.
+   * We controleren het token daarom bij de eerste beheeractie.
+   */
+  sessionStorage.setItem('wfAdminToken',token);
+
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('admin').classList.remove('hidden');
+
+  await loadAlerts();
+}
+
+
+function setType(type){
+  selectedType=type;
+
+  document.querySelectorAll('.severity button')
+    .forEach(btn=>{
+      btn.classList.toggle(
+        'selected',
+        btn.dataset.type===type
+      );
+    });
+
+  updatePreview();
+}
+
+
+function setScope(scope){
+  selectedScope=scope;
+
+  document.querySelectorAll('.scope-btn')
+    .forEach(btn=>{
+      btn.classList.toggle(
+        'selected',
+        btn.dataset.scope===scope
+      );
+    });
+
+  const field=document.getElementById('scopeField');
+  const label=document.getElementById('scopeLabel');
+  const input=document.getElementById('scopeValue');
+
+  field.classList.toggle('hidden',scope==='all');
+
+  const labels={
+    land:'LAND',
+    provincie:'REGIO / PROVINCIE',
+    stad:'STAD / GEMEENTE'
+  };
+
+  const placeholders={
+    land:'Bijvoorbeeld België',
+    provincie:'Bijvoorbeeld West-Vlaanderen',
+    stad:'Bijvoorbeeld Oostende'
+  };
+
+  if(scope!=='all'){
+    label.textContent=labels[scope] || 'LOCATIE';
+    input.placeholder=placeholders[scope] || 'Locatie';
+  }
+
+  updatePreview();
+}
+
+
+function updatePreview(){
+  const title=
+    document.getElementById('title').value.trim()
+    || 'Titel van je melding';
+
+  const message=
+    document.getElementById('message').value.trim()
+    || 'Je bericht verschijnt hier.';
+
+  const scopeValue=
+    document.getElementById('scopeValue').value.trim();
+
+  const preview=document.getElementById('preview');
+
+  preview.className='alert-preview';
+  if(selectedType!=='info'){
+    preview.classList.add(selectedType);
+  }
+
+  const typeLabels={
+    info:'INFORMATIE',
+    warning:'WAARSCHUWING',
+    danger:'ERNSTIGE WAARSCHUWING'
+  };
+
+  document.getElementById('previewType').textContent=
+    typeLabels[selectedType];
+
+  document.getElementById('previewTitle').textContent=title;
+  document.getElementById('previewMessage').textContent=message;
+
+  const scopeIcons={
+    all:'🌍',
+    land:'🏳',
+    provincie:'🗺',
+    stad:'📍'
+  };
+
+  document.getElementById('previewScope').textContent=
+    selectedScope==='all'
+      ? '🌍 Overal'
+      : `${scopeIcons[selectedScope]} ${scopeValue || 'Kies een locatie'}`;
+}
+
+
+async function publishAlert(){
+  const title=document.getElementById('title').value.trim();
+  const message=document.getElementById('message').value.trim();
+  const scopeValue=document.getElementById('scopeValue').value.trim();
+
+  const startsRaw=document.getElementById('startsAt').value;
+  const endsRaw=document.getElementById('endsAt').value;
+
+  const formMessage=document.getElementById('formMessage');
+  const button=document.getElementById('publishBtn');
+
+  formMessage.className='message';
+  formMessage.textContent='';
+
+  if(!title || !message){
+    formMessage.className='message error';
+    formMessage.textContent='Titel en bericht zijn verplicht.';
+    return;
+  }
+
+  if(selectedScope!=='all' && !scopeValue){
+    formMessage.className='message error';
+    formMessage.textContent='Kies een doelgebied.';
+    return;
+  }
+
+  const startsAt=startsRaw
+    ? new Date(startsRaw).toISOString()
+    : new Date().toISOString();
+
+  const endsAt=endsRaw
+    ? new Date(endsRaw).toISOString()
+    : null;
+
+  if(endsAt && new Date(endsAt)<=new Date(startsAt)){
+    formMessage.className='message error';
+    formMessage.textContent='De eindtijd moet na de starttijd liggen.';
+    return;
+  }
+
+  button.disabled=true;
+  button.textContent='Publiceren...';
+
+  try{
+    const response=await fetch(API,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${token}`
+      },
+      body:JSON.stringify({
+        type:selectedType,
+        title,
+        message,
+        scope:selectedScope,
+        scopeValue:selectedScope==='all' ? null : scopeValue,
+        startsAt,
+        endsAt,
+
+        /*
+         * De oude API negeert deze twee velden voorlopig.
+         * De nieuwe API gaat ze straks gebruiken.
+         */
+        showInApp:document.getElementById('showInApp').checked,
+        sendPush:document.getElementById('sendPush').checked
+      })
+    });
+
+    if(response.status===401){
+      sessionStorage.removeItem('wfAdminToken');
+
+      formMessage.className='message error';
+      formMessage.textContent='Je beheertoken is ongeldig.';
+      return;
     }
+
+    if(!response.ok){
+      const error=await response.text();
+      throw new Error(error || 'Publiceren mislukt');
+    }
+
+    formMessage.className='message success';
+    formMessage.textContent='✓ Melding gepubliceerd.';
+
+    resetForm(false);
+    await loadAlerts();
+
+  }catch(error){
+    formMessage.className='message error';
+    formMessage.textContent=
+      'Publiceren mislukt: '+error.message;
+  }finally{
+    button.disabled=false;
+    button.textContent='Publiceren';
+  }
+}
+
+
+async function loadAlerts(){
+  const container=document.getElementById('alerts');
+
+  container.innerHTML=
+    '<div class="empty">Meldingen laden...</div>';
+
+  try{
+    const response=await fetch(API,{
+      cache:'no-store'
+    });
+
+    if(!response.ok){
+      throw new Error('HTTP '+response.status);
+    }
+
+    alerts=await response.json();
+
+    if(!Array.isArray(alerts)){
+      alerts=[];
+    }
+
+    renderAlerts();
+
+  }catch(error){
+    container.innerHTML=
+      '<div class="empty">Meldingen konden niet worden geladen.</div>';
+  }
+}
+
+
+function statusFor(alert){
+  const now=Date.now();
+
+  const start=alert.startsAt
+    ? new Date(alert.startsAt).getTime()
+    : 0;
+
+  const end=alert.endsAt
+    ? new Date(alert.endsAt).getTime()
+    : Infinity;
+
+  if(start>now) return 'scheduled';
+  if(end<=now) return 'expired';
+
+  return 'active';
+}
+
+
+function setTab(tab,button){
+  selectedTab=tab;
+
+  document.querySelectorAll('.tab')
+    .forEach(item=>item.classList.remove('active'));
+
+  button.classList.add('active');
+
+  renderAlerts();
+}
+
+
+function renderAlerts(){
+  const container=document.getElementById('alerts');
+
+  const filtered=alerts.filter(alert=>
+    statusFor(alert)===selectedTab
+  );
+
+  if(!filtered.length){
+    const labels={
+      active:'Geen actieve meldingen.',
+      scheduled:'Geen geplande meldingen.',
+      expired:'Geen verlopen meldingen.'
+    };
+
+    container.innerHTML=
+      `<div class="empty">${labels[selectedTab]}</div>`;
+
+    return;
   }
 
-  function login() {
-    const val = document.getElementById('tokenInput').value.trim();
-    if (!val) return;
-    token = val;
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    loadAlerts();
-  }
+  container.innerHTML=filtered.map(alert=>{
 
-  function scopeBadgeText(a) {
-    if (!a.scope || a.scope === 'all') return 'Overal';
-    const labels = { land: 'Land', provincie: 'Provincie', stad: 'Stad' };
-    return `${labels[a.scope]}: ${a.scopeValue}`;
-  }
+    const scope=
+      !alert.scope || alert.scope==='all'
+        ? 'Overal'
+        : alert.scopeValue || alert.scope;
 
-  async function loadAlerts() {
-    const listEl = document.getElementById('alertsList');
-    listEl.innerHTML = '<p class="empty">Laden...</p>';
-    try {
-      const res = await fetch(API);
-      const alerts = await res.json();
-      if (!alerts.length) {
-        listEl.innerHTML = '<p class="empty">Geen actieve meldingen</p>';
-        return;
-      }
-      listEl.innerHTML = alerts.map(a => `
-        <div class="alert-item ${a.type}">
-          <div class="title-row">
-            <div>
-              <span class="badge ${a.type}">${a.type}</span>
-              <span class="badge scope">${scopeBadgeText(a)}</span>
-              <h3>${escapeHtml(a.title)}</h3>
-            </div>
-            <button class="danger" onclick="deleteAlert('${a.id}')" style="margin:0;padding:6px 10px;font-size:0.8rem;">Verwijder</button>
+    const created=alert.createdAt
+      ? new Date(alert.createdAt).toLocaleString('nl-BE')
+      : '';
+
+    return `
+      <div class="alert-row">
+
+        <div>
+
+          <div class="badges">
+            <span class="badge ${escapeHtml(alert.type || 'info')}">
+              ${escapeHtml((alert.type || 'info').toUpperCase())}
+            </span>
+
+            <span class="badge">
+              ${escapeHtml(scope)}
+            </span>
           </div>
-          <p>${escapeHtml(a.message)}</p>
-          <div class="meta">Geplaatst: ${new Date(a.createdAt).toLocaleString('nl-BE')}${a.endsAt ? ' · Verloopt: ' + new Date(a.endsAt).toLocaleString('nl-BE') : ''}</div>
+
+          <h3>${escapeHtml(alert.title)}</h3>
+
+          <p>${escapeHtml(alert.message)}</p>
+
+          <div class="preview-meta">
+            ${created ? `Aangemaakt ${escapeHtml(created)}` : ''}
+          </div>
+
         </div>
-      `).join('');
-    } catch (e) {
-      listEl.innerHTML = '<p class="error">Kon meldingen niet laden</p>';
-    }
+
+        <div>
+          <button
+            class="btn btn-danger"
+            onclick="deleteAlert('${escapeHtml(alert.id)}')">
+            Verwijder
+          </button>
+        </div>
+
+      </div>
+    `;
+  }).join('');
+}
+
+
+async function deleteAlert(id){
+  if(!confirm('Deze melding definitief verwijderen?')){
+    return;
   }
 
-  async function createAlert() {
-    const type = document.getElementById('type').value;
-    const scope = document.getElementById('scope').value;
-    const scopeValue = document.getElementById('scopeValue').value.trim();
-    const title = document.getElementById('title').value.trim();
-    const message = document.getElementById('message').value.trim();
-    const endsAtRaw = document.getElementById('endsAt').value;
-    const errEl = document.getElementById('createError');
-    errEl.textContent = '';
+  try{
+    const response=await fetch(
+      `${API}?id=${encodeURIComponent(id)}`,
+      {
+        method:'DELETE',
+        headers:{
+          'Authorization':`Bearer ${token}`
+        }
+      }
+    );
 
-    if (!title || !message) {
-      errEl.textContent = 'Titel en bericht zijn verplicht.';
+    if(response.status===401){
+      alert('Je beheertoken is ongeldig.');
       return;
     }
-    if (scope !== 'all' && !scopeValue) {
-      errEl.textContent = 'Vul een waarde in voor het gekozen bereik.';
-      return;
+
+    if(!response.ok){
+      throw new Error('HTTP '+response.status);
     }
 
-    try {
-      const res = await fetch(API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          type, title, message, scope,
-          scopeValue: scope === 'all' ? null : scopeValue,
-          endsAt: endsAtRaw ? new Date(endsAtRaw).toISOString() : null,
-        }),
-      });
-      if (res.status === 401) {
-        errEl.textContent = 'Ongeldig token.';
-        return;
-      }
-      if (!res.ok) {
-        errEl.textContent = 'Er ging iets mis bij het opslaan.';
-        return;
-      }
-      document.getElementById('title').value = '';
-      document.getElementById('message').value = '';
-      document.getElementById('scopeValue').value = '';
-      document.getElementById('endsAt').value = '';
-      document.getElementById('scope').value = 'all';
-      onScopeChange();
-      loadAlerts();
-    } catch (e) {
-      errEl.textContent = 'Netwerkfout.';
-    }
+    alerts=alerts.filter(alert=>alert.id!==id);
+    renderAlerts();
+
+  }catch(error){
+    alert('De melding kon niet worden verwijderd.');
+  }
+}
+
+
+function resetForm(clearMessage=true){
+  document.getElementById('title').value='';
+  document.getElementById('message').value='';
+  document.getElementById('scopeValue').value='';
+  document.getElementById('startsAt').value='';
+  document.getElementById('endsAt').value='';
+  document.getElementById('showInApp').checked=true;
+  document.getElementById('sendPush').checked=false;
+
+  setType('info');
+  setScope('all');
+
+  if(clearMessage){
+    document.getElementById('formMessage').textContent='';
   }
 
-  async function deleteAlert(id) {
-    if (!confirm('Deze melding verwijderen?')) return;
-    try {
-      await fetch(`${API}?id=${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      loadAlerts();
-    } catch (e) {
-      alert('Kon melding niet verwijderen.');
-    }
-  }
+  updatePreview();
+}
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
+
+if(token){
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('admin').classList.remove('hidden');
+  loadAlerts();
+}
+
+updatePreview();
 </script>
 
 </body>
