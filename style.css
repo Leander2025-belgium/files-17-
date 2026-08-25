@@ -6820,3 +6820,41 @@ body.tv-pair-open .tabbar{
     font-size:clamp(14px,1.05vw,19px)!important;
   }
 }
+
+/* =========================================================
+   Wheaterflow home readability + Bewolking full-width
+   ========================================================= */
+
+/* Hoofdweer blijft altijd leesbaar boven de dynamische foto-achtergrond. */
+#home .hero .hero-kicker,
+#home .hero .locname,
+#home .hero .bignum,
+#home .hero .cond,
+#home .hero .hilo {
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+}
+
+#home .hero .locname,
+#home .hero .bignum,
+#home .hero .cond {
+  text-shadow:0 3px 24px rgba(0,0,0,.34) !important;
+}
+
+#home .hero .hero-kicker {
+  color:rgba(255,255,255,.90) !important;
+  -webkit-text-fill-color:rgba(255,255,255,.90) !important;
+}
+
+#home .hero .updated {
+  color:rgba(255,255,255,.68) !important;
+  -webkit-text-fill-color:rgba(255,255,255,.68) !important;
+  text-shadow:0 2px 14px rgba(0,0,0,.28);
+}
+
+/* Bewolking gebruikt de lege tweede kaartpositie en vult de volledige rij. */
+#home .detail-grid .detail-card.cloud-wide {
+  grid-column:1 / -1 !important;
+  width:100%;
+}
+
