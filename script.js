@@ -1477,16 +1477,27 @@ async function loadWeather(){
     state.current = d.current; state.hourly = d.hourly; state.daily = d.daily; state.minutely = d.minutely_15;
     state.tz = d.timezone; state.utcOffsetSec = d.utc_offset_seconds;
     state.lastUpdated = Date.now();
-    const optionalResults = await Promise.allSettled([
-      loadCurrentObservation(),
-      loadMarine(),
-      loadAirQuality(),
-      loadAlerts(),
-      loadAstroEvents()
-    ]);
+const optionalResults = await Promise.allSettled([
+  loadCurrentObservation(),
+  loadMarine(),
+  loadAirQuality(),
+  loadAlerts(),
+  loadWheaterflowAdminAlerts(),
+  loadAstroEvents()
+]);
     optionalResults.forEach((result, index)=>{
       if(result.status === 'rejected'){
-        console.warn(['METAR','Marine','Luchtkwaliteit','Meldingen','Astro-events'][index] + ' laden faalde:', result.reason);
+console.warn(
+  [
+    'METAR',
+    'Marine',
+    'Luchtkwaliteit',
+    'Officiële meldingen',
+    'Wheaterflow adminmeldingen',
+    'Astro-events'
+  ][index] + ' laden faalde:',
+  result.reason
+);
       }
     });
     try{
@@ -2131,6 +2142,131 @@ function weatherTrendSummary(){
   return text;
 }
 
+/* ---------------- Wheaterflow admin alerts ---------------- */
+
+let wheaterflowAdminAlerts = [];
+
+async function loadWheaterflowAdminAlerts(){
+  try{
+    const params = new URLSearchParams();
+
+    const city =
+      state.loc?.name ||
+      state.loc?.city ||
+      '';
+
+    const admin =
+      state.loc?.admin ||
+      '';
+
+    const country =
+      state.loc?.country ||
+      state.loc?.countryName ||
+      '';
+
+    if(country){
+      params.set('land', country);
+    }
+
+    if(admin){
+      params.set('provincie', admin);
+    }
+
+    if(city){
+      params.set('stad', city);
+    }
+
+    const response = await fetch(
+      `/api/alerts?${params.toString()}`,
+      {
+        cache:'no-store'
+      }
+    );
+
+    if(!response.ok){
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    wheaterflowAdminAlerts =
+      Array.isArray(data)
+        ? data
+        : [];
+
+  }catch(error){
+    console.warn(
+      'Wheaterflow meldingen konden niet worden geladen:',
+      error
+    );
+
+    wheaterflowAdminAlerts = [];
+  }
+}
+
+
+function wheaterflowAdminAlertsCard(){
+  if(!wheaterflowAdminAlerts.length){
+    return '';
+  }
+
+  const icons = {
+    info:'info',
+    warning:'warning',
+    danger:'warning'
+  };
+
+  return wheaterflowAdminAlerts.map(alert => {
+    const type =
+      ['info','warning','danger'].includes(alert.type)
+        ? alert.type
+        : 'info';
+
+    const scopeText =
+      alert.scope === 'all'
+        ? 'Heel Wheaterflow'
+        : alert.scopeValue || '';
+
+    return `
+      <div class="card wf-admin-alert wf-admin-alert-${type}">
+        <div class="wf-admin-alert-head">
+          <div class="wf-admin-alert-icon">
+            ${icon(icons[type],true,20)}
+          </div>
+
+          <div class="wf-admin-alert-content">
+            <div class="wf-admin-alert-label">
+              ${
+                type === 'danger'
+                  ? 'ERNSTIGE WAARSCHUWING'
+                  : type === 'warning'
+                    ? 'WAARSCHUWING'
+                    : 'WHEATERFLOW MELDING'
+              }
+            </div>
+
+            <div class="wf-admin-alert-title">
+              ${esc(alert.title || '')}
+            </div>
+
+            <div class="wf-admin-alert-message">
+              ${esc(alert.message || '')}
+            </div>
+
+            ${
+              scopeText
+                ? `<div class="wf-admin-alert-scope">
+                    ${esc(scopeText)}
+                   </div>`
+                : ''
+            }
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function weatherSummaryCard(){
   return `<div class="card weather-summary-card">
     <div class="card-title">${icon('gauge',true,13)} Wheaterflow Intelligence</div>
@@ -2290,9 +2426,10 @@ function renderHome(){
     <div class="updated"><span id="updatedText">Zojuist bijgewerkt</span>${state.loc.admin ? ' · ' + esc(state.loc.admin) : ''} · Model: ${esc(currentSource)}</div>
   </div>`;
 
-  html += weatherSummaryCard();
-  html += alertsCard();
-  html += rainNowcastCard();
+html += wheaterflowAdminAlertsCard();
+html += weatherSummaryCard();
+html += alertsCard();
+html += rainNowcastCard();
 
   // hourly
   html += `<div class="card"><div class="card-title">${icon('gauge',true,13)} Komende 24 uur</div><div class="hourly-scroll">`;
