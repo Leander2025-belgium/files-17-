@@ -1074,32 +1074,56 @@ async function publishAlert(){
   }
 }
 
-
 async function loadAlerts(){
-  const container=document.getElementById('alerts');
+  const container =
+    document.getElementById('alerts');
 
-  container.innerHTML=
+  container.innerHTML =
     '<div class="empty">Meldingen laden...</div>';
 
   try{
-    const response=await fetch(API,{
-      cache:'no-store'
-    });
+    const response = await fetch(
+      `${API}?admin=1`,
+      {
+        cache:'no-store',
+        headers:{
+          'Authorization':`Bearer ${token}`
+        }
+      }
+    );
+
+    if(response.status === 401){
+      sessionStorage.removeItem('wfAdminToken');
+
+      container.innerHTML =
+        '<div class="empty">Je beheertoken is ongeldig. Log opnieuw in.</div>';
+
+      return;
+    }
 
     if(!response.ok){
-      throw new Error('HTTP '+response.status);
+      throw new Error(
+        'HTTP ' + response.status
+      );
     }
 
-    alerts=await response.json();
+    const data =
+      await response.json();
 
-    if(!Array.isArray(alerts)){
-      alerts=[];
-    }
+    alerts =
+      Array.isArray(data.alerts)
+        ? data.alerts
+        : [];
 
     renderAlerts();
 
   }catch(error){
-    container.innerHTML=
+    console.error(
+      'Admin meldingen laden:',
+      error
+    );
+
+    container.innerHTML =
       '<div class="empty">Meldingen konden niet worden geladen.</div>';
   }
 }
