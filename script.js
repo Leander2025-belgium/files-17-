@@ -2795,10 +2795,7 @@ function initHomeWeatherMap(){
     maxZoom:14
   }).setView(rv.center, Math.min(8, rv.zoom));
   state.homeMap.map = map;
-  state.homeMap.base = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    subdomains:'abcd',
-    maxZoom:19
-  }).addTo(map);
+  state.homeMap.base = addOpenFreeMapBase(map, {attribution:false});
   L.circleMarker([state.loc.lat,state.loc.lon], {radius:6,color:'#fff',weight:2,fillColor:'#1677ff',fillOpacity:.9}).addTo(map);
   setTimeout(()=>map.invalidateSize(), 120);
 }
@@ -4949,7 +4946,7 @@ function initCommunityMap(){
   if(!window.L || !$('#communityMap')) return;
   if(!state.community.map){
     state.community.map = L.map('communityMap', {zoomControl:true, attributionControl:true, zoomSnap:.25}).setView([50.85,4.35], 7);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, attribution:'&copy; OpenStreetMap, &copy; CARTO'}).addTo(state.community.map);
+    addOpenFreeMapBase(state.community.map);
     state.community.markers = window.L.markerClusterGroup
       ? L.markerClusterGroup({showCoverageOnHover:false, maxClusterRadius:46, spiderfyOnMaxZoom:true})
       : L.layerGroup();
@@ -5239,6 +5236,40 @@ function wirePushSettings(){
 $('#home').addEventListener('dblclick', openSheet);
 
 /* =========================================================================
+   OPENFREEMAP BASEMAP
+   Eén universele kaart voor iPhone, Android, desktop en tv.
+   OpenFreeMap gebruikt OpenStreetMap-data en vereist geen API-key.
+   De MapLibre-laag blijft binnen Leaflet zodat bestaande radar-, marker-
+   en Xweather-lagen ongewijzigd kunnen blijven werken.
+   ========================================================================= */
+const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+const OPENSTREETMAP_FALLBACK = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+function addOpenFreeMapBase(map, options={}){
+  if(!map || !window.L) return null;
+  const attribution = options.attribution !== false;
+  try{
+    if(typeof L.maplibreGL === 'function' && window.maplibregl){
+      const layer = L.maplibreGL({
+        style: OPENFREEMAP_STYLE,
+        attributionControl:false,
+        interactive:false
+      }).addTo(map);
+      if(attribution && map.attributionControl){
+        map.attributionControl.addAttribution('&copy; OpenStreetMap contributors · OpenFreeMap');
+      }
+      return layer;
+    }
+  }catch(error){
+    console.warn('OpenFreeMap/MapLibre kon niet starten; OpenStreetMap fallback wordt gebruikt.', error);
+  }
+  return L.tileLayer(OPENSTREETMAP_FALLBACK, {
+    maxZoom:19,
+    attribution: attribution ? '&copy; OpenStreetMap contributors' : ''
+  }).addTo(map);
+}
+
+/* =========================================================================
    RADAR MAP
    ========================================================================= */
 const XWEATHER_LAYER_DEFS = [
@@ -5285,13 +5316,7 @@ function initMapIfNeeded(){
   state.map.getPane('labelPane').style.zIndex = 650;
   state.map.getPane('labelPane').style.pointerEvents = 'none';
   L.control.zoom({position:'bottomright'}).addTo(state.map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-    subdomains:'abcd', maxZoom:19,
-    attribution:'&copy; OpenStreetMap, &copy; CARTO'
-  }).addTo(state.map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {
-    subdomains:'abcd', maxZoom:19, pane:'labelPane'
-  }).addTo(state.map);
+  addOpenFreeMapBase(state.map);
 
   placeMarker(state.loc.lat, state.loc.lon, locationDisplayName());
 
@@ -6691,9 +6716,9 @@ async function initTvMap(){
     tv.map.createPane('labelPane');
     tv.map.getPane('labelPane').style.zIndex = 650;
     tv.map.getPane('labelPane').style.pointerEvents = 'none';
-    const base = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(tv.map);
-    base.on('load', ()=>{ tv.baseMapLoaded = true; });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, pane:'labelPane'}).addTo(tv.map);
+    const base = addOpenFreeMapBase(tv.map, {attribution:false});
+    if(base?.on) base.on('load', ()=>{ tv.baseMapLoaded = true; });
+    // MapLibre vectorstijlen bevatten hun eigen labels, dus een aparte label-tegellaag is niet meer nodig.
     tv.locationMarker = L.circleMarker(rv.marker, {
       radius:6,
       color:'#fff',
