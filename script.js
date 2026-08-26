@@ -1753,9 +1753,12 @@ function rainIntensityToLevel(value){
 
 function rainIntensityToHeight(value){
   const mm = Math.max(0, Number(value) || 0);
-  if(mm <= 0) return 4;
-  const capped = Math.min(mm, 4);
-  return Math.max(6, Math.round((capped / 4) * 48));
+  if(mm <= 0) return 6;
+  if(mm < .1) return 8;
+  if(mm < 1) return Math.round(14 + ((mm - .1) / .9) * 10);
+  if(mm < 3) return Math.round(28 + ((mm - 1) / 2) * 16);
+  const capped = Math.min(mm, 6);
+  return Math.round(48 + ((capped - 3) / 3) * 18);
 }
 
 function forecastWindowStats(hours=3){
