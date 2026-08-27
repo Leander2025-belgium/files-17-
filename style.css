@@ -7081,3 +7081,24 @@ body.tv-pair-open .tabbar{
 @supports not (overflow:clip){
   #home{overflow-x:hidden!important;}
 }
+
+/* ===== iPhone home vertical-gap definitive fix =====
+   Cap iOS safe-area values and apply them only once. The home topbar owns
+   the top safe area; home content must not add it a second time. */
+@media (max-width:760px){
+  #home .topbar{
+    position:relative!important;
+    top:auto!important;
+    padding-top:clamp(12px, env(safe-area-inset-top, 12px), 64px)!important;
+    margin-top:0!important;
+    min-height:0!important;
+  }
+  #home .screen-inner{
+    padding-top:12px!important;
+    margin-top:0!important;
+  }
+  #home .hero{
+    min-height:0!important;
+    padding-top:16px!important;
+  }
+}

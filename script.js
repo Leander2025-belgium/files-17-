@@ -2637,23 +2637,9 @@ function applyWeatherBG(code, isDay, cloudCover=0){
   el.classList.add('photo-weather-bg');
 }
 
-function fixHomeHeaderPosition({force=false}={}){
-  const home = document.getElementById('home');
-  const topbar = home?.querySelector('.topbar');
-  if(!home?.classList.contains('active') || !topbar) return;
-
-  const safeTop = Math.max(0, parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--wf-safe-top')) || 0);
-  const rect = topbar.getBoundingClientRect();
-  const anomalousGap = rect.top > Math.max(140, safeTop + 110);
-
-  // Safari/PWA can restore an obsolete scroll anchor after the home DOM changes
-  // (for example when an admin alert is inserted). Only correct clearly broken
-  // positions, so normal reading/scrolling is left untouched.
-  if(force || anomalousGap){
-    window.scrollTo({top:0, left:0, behavior:'auto'});
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-  }
+function fixHomeHeaderPosition(){
+  // Layout is handled in CSS. Do not force window scroll positions on iOS;
+  // doing so can create a stale visual offset after dynamic admin alerts.
 }
 
 function renderHome(){
@@ -3959,21 +3945,7 @@ function moonPhase(date){
   return {phase, illumination, name, daysToFull};
 }
 
-// Prevent iOS Safari/PWA from restoring a stale vertical position after
-// dynamic home updates or a full app relaunch.
-try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
-window.addEventListener('pageshow', event=>{
-  if(event.persisted){
-    requestAnimationFrame(()=>fixHomeHeaderPosition({force:true}));
-  }else{
-    requestAnimationFrame(()=>fixHomeHeaderPosition());
-  }
-});
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'visible'){
-    setTimeout(()=>fixHomeHeaderPosition(), 80);
-  }
-});
+// Keep native iOS scroll restoration; home spacing is handled by CSS.
 
 /* ---------------- tabs ---------------- */
 $$('.tabbtn').forEach(btn=>{
