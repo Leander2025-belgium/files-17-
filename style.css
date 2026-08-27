@@ -7102,3 +7102,13 @@ body.tv-pair-open .tabbar{
     padding-top:16px!important;
   }
 }
+
+/* ===== Home top controls position fix — only requested change =====
+   Pull the complete home controls block upward on phones. Because this uses
+   negative margin (not transform), the search and hero content naturally
+   follow upward too, without touching the bottom navigation or card layout. */
+@media (max-width:760px){
+  #home .topbar{
+    margin-top:-120px!important;
+  }
+}

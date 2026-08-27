@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260827-gap-definitive";
+const CACHE_VERSION = "wheaterflow-v20260827-top-only";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
