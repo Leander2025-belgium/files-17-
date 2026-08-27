@@ -1804,11 +1804,52 @@ function forecastWindowStats(hours=3){
 }
 
 function nowcastConfidence(slots, maxRain){
+  // Dynamische confidence-score. Dit is geen officiële KMI-kans, maar een
+  // transparante kwaliteitsscore op basis van actuele data + live radar.
+  const now = Date.now();
   const coverage = Math.min(1, slots.length / 8);
   const variability = slots.reduce((sum,s,i)=>i ? sum + Math.abs(s.precipitation - slots[i-1].precipitation) : 0, 0);
-  const variabilityPenalty = Math.min(.22, variability / 18);
-  const weakSignalPenalty = maxRain > 0 && maxRain < .18 ? .12 : 0;
-  return Math.max(.35, Math.min(.92, .58 + coverage * .26 - variabilityPenalty - weakSignalPenalty));
+  const variabilityPenalty = Math.min(.18, variability / 14);
+
+  // Zwakke motregen is moeilijker exact te timen dan een duidelijk signaal.
+  const weakSignalPenalty = maxRain > 0 && maxRain < .20 ? .10 : 0;
+  const strongSignalBonus = maxRain >= 1 ? .05 : maxRain >= .3 ? .025 : 0;
+
+  // Hoe vers is de lokale 15-minutendata?
+  const firstTime = slots[0]?.time instanceof Date ? slots[0].time.getTime() : Date.parse(slots[0]?.time || '');
+  const localAgeMin = Number.isFinite(firstTime) ? Math.abs(now-firstTime)/60000 : 60;
+  const freshness = localAgeMin <= 8 ? 1 : localAgeMin <= 18 ? .85 : localAgeMin <= 30 ? .65 : .4;
+
+  // Live RainViewer-radar maakt de score echt situationeel.
+  const radar = state.radar?.proximity;
+  const radarAgeMin = radar?.frameTime ? Math.max(0,(now-radar.frameTime)/60000) : 99;
+  const radarFresh = radar && radarAgeMin <= RADAR_MAX_AGE_MINUTES;
+  let radarAdjustment = 0;
+  if(radarFresh){
+    if(radar.upwind && radar.distanceKm <= 20) radarAdjustment += .08;
+    else if(radar.upwind && radar.distanceKm <= 45) radarAdjustment += .05;
+    else if(radar.distanceKm <= 25 && !radar.upwind) radarAdjustment -= .04;
+    if(radarAgeMin > 12) radarAdjustment -= .04;
+  }else{
+    radarAdjustment -= .07;
+  }
+
+  // Als model en radar elkaar tegenspreken, verlaag de zekerheid duidelijk.
+  const forecastWetSoon = slots.some(s=>s.wet && s.minutes <= 60);
+  const radarWetSoon = !!(radarFresh && radar.upwind && radar.distanceKm <= 45 && radar.etaMinutes <= 70);
+  const agreementAdjustment = forecastWetSoon === radarWetSoon ? .045 : -.11;
+
+  const raw = .50
+    + coverage * .20
+    + freshness * .10
+    + strongSignalBonus
+    - variabilityPenalty
+    - weakSignalPenalty
+    + radarAdjustment
+    + agreementAdjustment;
+
+  // Vermijd schijnprecisie aan de uitersten; echte waarde mag wel duidelijk variëren.
+  return Math.max(.42, Math.min(.95, raw));
 }
 
 function minuteRange(minutes, confidence){
@@ -2070,8 +2111,8 @@ function rainNowcastCard(){
   }).join('');
   const confidence = Math.round(rain.confidence * 100);
   const meta = rain.status === 'rain_soon'
-    ? `±${etaUncertaintyMinutes(rain)} min onzekerheid · ${confidence}% betrouwbaarheid`
-    : `${confidence}% betrouwbaarheid`;
+    ? `±${etaUncertaintyMinutes(rain)} min · ${confidence}% zekerheid`
+    : `${confidence}% zekerheid`;
   return `<div class="card rain-now-card ${rain.status} ${rain.heavyShower?'heavy':''}">
     <div class="rain-now-top"><span>Wheaterflow Rain</span><b>${esc(meta)}</b></div>
     <h3>${esc(rain.title)}</h3>

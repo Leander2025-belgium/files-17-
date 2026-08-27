@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260827-radar-refresh";
+const CACHE_VERSION = "wheaterflow-v20260827-confidence";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
