@@ -7009,3 +7009,25 @@ body.tv-pair-open .tabbar{
   font-size:10px;
   font-weight:700;
 }
+
+/* ---------- Moon photo centering ----------
+   De bronfoto's hebben de maan niet allemaal exact in het midden.
+   Per fase corrigeren we de foto binnen de ronde uitsnede, zodat de maan
+   visueel gecentreerd blijft op mobiel, desktop en in 'Zon & maan'. */
+#home .moon-photo,
+.more-content .moon-photo,
+.moon-photo{
+  display:block!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  background:#000!important;
+  transform-origin:center center!important;
+}
+.moon-photo[src$="/full-moon.jpg"]{transform:translate(2%,-3%)!important;}
+.moon-photo[src$="/young-crescent.jpg"]{transform:translate(-22%,-4%)!important;}
+.moon-photo[src$="/first-quarter.jpg"]{transform:translate(-14%,-3%)!important;}
+.moon-photo[src$="/waxing-moon.jpg"]{transform:translate(-5%,-2%)!important;}
+.moon-photo[src$="/waning-moon.jpg"]{transform:translate(8%,-2%)!important;}
+.moon-photo[src$="/last-quarter.jpg"]{transform:translate(15%,0)!important;}
+.moon-photo[src$="/earthshine-moon.jpg"]{transform:translate(21%,4%)!important;}
+.moon-photo[src$="/new-moon.jpg"]{transform:translate(-13%,-9%)!important;}
