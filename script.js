@@ -155,10 +155,15 @@ async function loadStoredUnits(){
     const r = await window.storage.get('weerscoop:units');
     if(r && r.value) Object.assign(state.units, JSON.parse(r.value));
   }catch(e){}
-  state.units.model = 'knmi_seamless';
+  // Modelkeuze blijft behouden; alleen oude/ongeldige waarden herstellen.
+  const validModels = new Set(['best_match','ecmwf_ifs025','icon_eu','gfs_seamless','knmi_seamless']);
+  if(!validModels.has(state.units.model)) state.units.model = 'best_match';
+}
+async function saveUnitsLocalOnly(){
+  try{ await window.storage.set('weerscoop:units', JSON.stringify(state.units)); }catch(e){}
 }
 async function saveUnits(){
-  try{ await window.storage.set('weerscoop:units', JSON.stringify(state.units)); }catch(e){}
+  await saveUnitsLocalOnly();
   syncProfileSettingsToCloud();
 }
 
@@ -232,6 +237,15 @@ async function applyAuthSession(session,event=''){
   renderClimateDashboard();
 }
 
+function parseProfileJsonSetting(value, fallback){
+  if(value == null) return fallback;
+  if(typeof value === 'object') return value;
+  if(typeof value === 'string'){
+    try{ return JSON.parse(value); }catch(e){ return fallback; }
+  }
+  return fallback;
+}
+
 function mapProfileToUnits(profile){
   if(!profile) return;
   if(profile.temperature_unit) state.units.temp = profile.temperature_unit;
@@ -239,7 +253,14 @@ function mapProfileToUnits(profile){
   if(profile.precipitation_unit) state.units.precip = profile.precipitation_unit;
   if(profile.pressure_unit) state.units.press = profile.pressure_unit;
   if(profile.forecast_days) state.units.days = Number(profile.forecast_days);
-  state.units.model = 'knmi_seamless';
+  if(profile.weather_model && ['best_match','ecmwf_ifs025','icon_eu','gfs_seamless','knmi_seamless'].includes(profile.weather_model)){
+    state.units.model = profile.weather_model;
+  }
+
+  const cloudPrefs = parseProfileJsonSetting(profile.notification_preferences ?? profile.push_preferences, null);
+  const cloudThresholds = parseProfileJsonSetting(profile.notification_thresholds ?? profile.push_thresholds, null);
+  if(cloudPrefs) state.push.preferences = {...defaultPushPreferences(), ...state.push.preferences, ...cloudPrefs};
+  if(cloudThresholds) state.push.thresholds = {...defaultPushThresholds(), ...state.push.thresholds, ...cloudThresholds};
 }
 
 function profilePayload(){
@@ -257,8 +278,11 @@ function profilePayload(){
     pressure_unit:state.units.press,
     precipitation_unit:state.units.precip,
     forecast_days:state.units.days,
-    weather_model:'knmi_seamless',
-    notifications_enabled:state.push.status === 'Ingeschakeld'
+    weather_model:preferredWeatherModel(),
+    notifications_enabled:state.push.status === 'Ingeschakeld',
+    // Nieuwe servers kunnen deze JSON-instellingen accountbreed bewaren.
+    notification_preferences:state.push.preferences,
+    notification_thresholds:state.push.thresholds
   };
 }
 
@@ -268,6 +292,10 @@ async function loadCloudProfileAndFavorites(){
     const data = await apiJson('/profile');
     state.auth.profile = data.profile || null;
     mapProfileToUnits(state.auth.profile);
+    await saveUnitsLocalOnly();
+    savePushSettings();
+    refreshPushSettingsControls();
+    refreshSettingsSegments();
     if(Array.isArray(data.favorites)){
       state.favorites = data.favorites.map(f=>({id:f.id, name:f.name, lat:+f.latitude, lon:+f.longitude, admin:f.country || ''}));
       await window.storage.set('weerscoop:favorites', JSON.stringify(state.favorites)).catch(()=>undefined);
@@ -282,7 +310,18 @@ async function syncProfileSettingsToCloud(){
   if(state.auth.syncing || !state.auth.user) return;
   state.auth.syncing = true;
   try{
-    const data = await apiJson('/profile', {method:'PUT', body:JSON.stringify(profilePayload())});
+    const payload = profilePayload();
+    let data;
+    try{
+      data = await apiJson('/profile', {method:'PUT', body:JSON.stringify(payload)});
+    }catch(error){
+      // Compatibiliteit met een oudere API die de twee nieuwe JSON-velden nog niet kent.
+      const legacyPayload = {...payload};
+      delete legacyPayload.notification_preferences;
+      delete legacyPayload.notification_thresholds;
+      data = await apiJson('/profile', {method:'PUT', body:JSON.stringify(legacyPayload)});
+      console.info('Profielserver gebruikt nog het oude schema; meldingsvoorkeuren blijven lokaal bewaard.', error?.message || error);
+    }
     state.auth.profile = data.profile || state.auth.profile;
     updateAuthInterface(state.auth.session);
   }catch(e){
@@ -355,7 +394,8 @@ function isBeneluxLocation(){
 }
 
 function preferredWeatherModel(){
-  return 'knmi_seamless';
+  const model = state.units.model || 'best_match';
+  return ['best_match','ecmwf_ifs025','icon_eu','gfs_seamless','knmi_seamless'].includes(model) ? model : 'best_match';
 }
 
 function closestIndex(times, targetMs){
@@ -5125,11 +5165,10 @@ function wireSeg(id, key){
       if(key==='days'){ state.units.days = +b.dataset.v; } else { state.units[key] = b.dataset.v; }
       saveUnits();
       if(key==='model'){
-        state.units.model = 'knmi_seamless';
-        $$('#segModel button').forEach(x=>x.classList.toggle('active', x.dataset.v==='knmi_seamless'));
         saveUnits();
         loadWeather();
-        toast('KNMI HARMONIE actief');
+        const labels = {best_match:'Automatisch', ecmwf_ifs025:'ECMWF', icon_eu:'ICON-EU', gfs_seamless:'GFS', knmi_seamless:'Harmonie (Benelux)'};
+        toast(`${labels[state.units.model] || 'Weermodel'} actief`);
         return;
       }
       if(state.current) renderHome();
@@ -5314,6 +5353,31 @@ function updatePushUi(status){
   if($('#disablePushBtn')) $('#disablePushBtn').disabled = !enabled;
 }
 
+function refreshPushSettingsControls(){
+  $$('#pushPrefs input[type=checkbox]').forEach(input=>{
+    input.checked = state.push.preferences[input.dataset.pref] !== false;
+  });
+  const thresholdMap = [
+    ['pushRainThreshold','rainProbability'],
+    ['pushWindThreshold','windGust'],
+    ['pushHeatThreshold','heat'],
+    ['pushFrostThreshold','frost']
+  ];
+  thresholdMap.forEach(([id,key])=>{
+    const el = $('#'+id);
+    if(el && state.push.thresholds[key] != null) el.value = state.push.thresholds[key];
+  });
+}
+
+function refreshSettingsSegments(){
+  $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
+  $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));
+  $$('#segPrecip button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.precip));
+  $$('#segPress button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.press));
+  $$('#segDays button').forEach(b=>b.classList.toggle('active', +b.dataset.v===state.units.days));
+  $$('#segModel button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.model));
+}
+
 function wirePushSettings(){
   loadPushSettings();
   $$('#pushPrefs input[type=checkbox]').forEach(input=>{
@@ -5321,6 +5385,7 @@ function wirePushSettings(){
     input.addEventListener('change', ()=>{
       state.push.preferences[input.dataset.pref] = input.checked;
       savePushSettings();
+      syncProfileSettingsToCloud();
     });
   });
   const map = [
@@ -5336,6 +5401,7 @@ function wirePushSettings(){
     el.addEventListener('change', ()=>{
       state.push.thresholds[key] = Number(el.value);
       savePushSettings();
+      syncProfileSettingsToCloud();
     });
   });
   $('#enablePushBtn')?.addEventListener('click', ()=>enablePushNotifications().catch(e=>{ console.warn(e); updatePushUi('Tijdelijk offline'); toast('Meldingen konden niet worden ingesteld. Probeer het later opnieuw.'); }));
@@ -7225,14 +7291,7 @@ async function init(){
   await safeInitStep('Community realtime starten', subscribeCommunityRealtime);
   await safeInitStep('Google Cast starten', initCast);
   await safeInitStep('TV koppeling starten', initTvPairing);
-  await safeInitStep('Instellingenknoppen herstellen', ()=>{
-    $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
-    $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));
-    $$('#segPrecip button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.precip));
-    $$('#segPress button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.press));
-    $$('#segDays button').forEach(b=>b.classList.toggle('active', +b.dataset.v===state.units.days));
-    $$('#segModel button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.model));
-  });
+  await safeInitStep('Instellingenknoppen herstellen', ()=>refreshSettingsSegments());
 
   await safeInitStep('Locatie ophalen', async ()=>{
     if(state.cast.receiver || state.tvPairing.receiver) return;
