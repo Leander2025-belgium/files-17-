@@ -74,7 +74,7 @@ const state = {
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   cast: { service:null, status:'idle', available:false, configured:false, connected:false, deviceName:'', receiver:false },
   tvPairing: { service:null, receiver:false, connected:false, code:'', expiresAt:0, status:'idle' },
-  radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null, openMeteoLayer: null },
+  radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null, openMeteoLayer: null, proximity:null },
   map: null, marker: null, homeMap: { map:null, base:null, overlay:null, xweatherController:null, activeLayer:'radar' },
   activeTab: 'home',
   refreshTimer: null, clockTickTimer: null
@@ -1483,7 +1483,8 @@ const optionalResults = await Promise.allSettled([
   loadAirQuality(),
   loadAlerts(),
   loadWheaterflowAdminAlerts(),
-  loadAstroEvents()
+  loadAstroEvents(),
+  refreshRadarProximityIfStale()
 ]);
     optionalResults.forEach((result, index)=>{
       if(result.status === 'rejected'){
@@ -1494,7 +1495,8 @@ console.warn(
     'Luchtkwaliteit',
     'Officiële meldingen',
     'Wheaterflow adminmeldingen',
-    'Astro-events'
+    'Astro-events',
+    'Radar-nabijheid'
   ][index] + ' laden faalde:',
   result.reason
 );
@@ -1541,9 +1543,13 @@ function startAutoRefresh(){
   }, 60*1000);
   state.clockTickTimer = setInterval(updateLastUpdatedText, 15*1000);
   document.addEventListener('visibilitychange', ()=>{
-    if(!document.hidden && state.lastUpdated && Date.now()-state.lastUpdated > 60*1000){
-      loadWeather();
-    }
+    if(document.hidden) return;
+    // iOS/PWA kan een oude radarlaag in geheugen houden. Zodra Wheaterflow
+    // opnieuw zichtbaar wordt, weerdata én radar opnieuw synchroniseren.
+    const weatherAge = state.lastUpdated ? Date.now()-state.lastUpdated : Infinity;
+    if(weatherAge > 30*1000) loadWeather();
+    refreshRadarSource().catch?.(()=>{});
+    if(state.map) setTimeout(()=>state.map.invalidateSize(),120);
   });
 }
 
@@ -1685,11 +1691,19 @@ const maxRain = Math.max(
   const thunderPossible = slots.some(s=>[95,96,99].includes(Number(s.weatherCode))) || stormEngine().relevant;
   const heavyShower = maxRain >= 3 || slots.some(s=>[65,82,95,96,99].includes(Number(s.weatherCode)));
   const intensity = rainIntensity(maxRain);
-  const confidence = nowcastConfidence(slots, maxRain);
+  let confidence = nowcastConfidence(slots, maxRain);
+
+  // Combineer de lokale 15-minutenverwachting met de ECHTE RainViewer-radar.
+  // Als Open-Meteo lokaal droog zegt maar een verse bui duidelijk upwind en
+  // dichtbij ligt, mag Wheaterflow niet langer "minstens 2 u droog" tonen.
+  const radarNear = state.radar?.proximity;
+  const radarFresh = radarNear && Date.now()-(radarNear.checkedAt||0) < 10*60*1000;
+  const radarApproaching = radarFresh && radarNear.upwind && radarNear.distanceKm <= 45 && radarNear.etaMinutes <= 70;
+  const radarStart = radarApproaching ? new Date(Date.now()+radarNear.etaMinutes*60000) : null;
 
   output.status = rainingNow
   ? 'raining'
-  : firstWet
+  : (firstWet || radarApproaching)
     ? 'rain_soon'
     : 'dry';
 
@@ -1697,13 +1711,17 @@ output.startTime = rainingNow
   ? new Date().toISOString()
   : firstWet
     ? firstWet.time.toISOString()
-    : null;
+    : radarStart
+      ? radarStart.toISOString()
+      : null;
 
 output.startsInMinutes = rainingNow
   ? 0
   : firstWet
     ? firstWet.minutes
-    : null;
+    : radarApproaching
+      ? radarNear.etaMinutes
+      : null;
 
 output.endTime =
   dryAfterWetIndex >= 0
@@ -1716,11 +1734,11 @@ output.endsInMinutes =
     : null;
   output.intensity = intensity.id;
   output.intensityLabel = intensity.label;
-  output.dryWindowMinutes = rainingNow ? 0 : (firstWet ? firstWet.minutes : 120);
-  output.confidence = confidence;
+  output.dryWindowMinutes = rainingNow ? 0 : (firstWet ? firstWet.minutes : (radarApproaching ? radarNear.etaMinutes : 120));
+  output.confidence = radarApproaching && !firstWet ? Math.max(.62, confidence) : confidence;
   output.heavyShower = heavyShower;
   output.thunderPossible = thunderPossible;
-  output.source = 'Open-Meteo minutely_15 + Wheaterflow intelligence';
+  output.source = radarApproaching ? 'RainViewer radar + Open-Meteo minutely_15 + Wheaterflow intelligence' : 'Open-Meteo minutely_15 + Wheaterflow intelligence';
   output.slots = slots.map(s=>({time:s.time.toISOString(), minutes:s.minutes, precipitation:s.precipitation, wet:s.wet, weatherCode:s.weatherCode}));
 
   if(output.status === 'raining'){
@@ -1730,7 +1748,9 @@ output.endsInMinutes =
   }else if(output.status === 'rain_soon'){
     const range = minuteRange(output.startsInMinutes, confidence);
     output.title = heavyShower ? `Zware bui rond ${formatShortTime(output.startTime)}` : `Regen rond ${formatShortTime(output.startTime)}`;
-    output.summary = `${intensity.label}. Aankomst over ${range}, waarschijnlijk ${rainDurationText(output)}.`;
+    output.summary = radarApproaching && !firstWet
+      ? `Een bui nadert op de live radar. Aankomst naar schatting over ${range}.`
+      : `${intensity.label}. Aankomst over ${range}, waarschijnlijk ${rainDurationText(output)}.`;
   }else{
     output.title = 'Droog';
     output.summary = `Minstens ${output.dryWindowMinutes} minuten geen regen verwacht.`;
@@ -2106,7 +2126,7 @@ function radarEtaText(rain=nowcastEngine()){
     return `Regen bereikt ${place} waarschijnlijk rond ${formatShortTime(rain.startTime)} · ${formatConfidence(rain.confidence)} betrouwbaarheid.`;
   }
   if(rain.status === 'dry'){
-    return `Geen regen verwacht rond ${place} in de komende ${Math.round((rain.dryWindowMinutes || 120) / 60)} uur.`;
+    return (rain.dryWindowMinutes || 120) < 60 ? `Geen regen verwacht rond ${place} in de komende ${Math.max(1,Math.round(rain.dryWindowMinutes))} minuten.` : `Geen regen verwacht rond ${place} in de komende ${Math.round((rain.dryWindowMinutes || 120) / 60)} uur.`;
   }
   return rain.summary || 'Geen duidelijke neerslagindicatie.';
 }
@@ -3729,7 +3749,7 @@ $$('.tabbtn').forEach(btn=>{
         else el?.scrollIntoView({behavior:'smooth', block:'start'});
       }, 80);
     }
-    if(btn.dataset.tab === 'radarscreen'){ initMapIfNeeded(); setTimeout(()=>state.map && state.map.invalidateSize(),150); }
+    if(btn.dataset.tab === 'radarscreen'){ initMapIfNeeded(); refreshRadarSource().catch?.(()=>{}); setTimeout(()=>state.map && state.map.invalidateSize(),150); }
     if(btn.dataset.tab === 'communityscreen'){
       loadCommunityPosts(true);
       subscribeCommunityRealtime();
@@ -6100,6 +6120,87 @@ async function refreshOpenMeteoRadarLayer(){
     : 'Open-Meteo fallback actief: er wordt momenteel geen meetbare neerslag rond je locatie gevonden.';
   return true;
 }
+function webMercatorTilePoint(lat, lon, zoom){
+  const n = 2 ** zoom;
+  const x = (lon + 180) / 360 * n;
+  const latRad = lat * Math.PI / 180;
+  const y = (1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2 * n;
+  return {x,y};
+}
+function angleDiff(a,b){
+  const d = Math.abs((((a-b)+540)%360)-180);
+  return d;
+}
+function radarBearingFromPixel(dx,dy){
+  // canvas y loopt naar het zuiden; atan2(oost, noord)
+  return (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
+}
+async function refreshRadarProximity(meta=rainviewerMeta){
+  try{
+    const lat = Number(state.loc?.lat), lon = Number(state.loc?.lon);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon) || !meta?.host) return null;
+    const latest = latestRainviewerObservedFrame(meta);
+    if(!isFreshRadarFrame(latest)) return null;
+    const z = 7;
+    const t = webMercatorTilePoint(lat, lon, z);
+    const baseX = Math.floor(t.x), baseY = Math.floor(t.y);
+    const userPxX = t.x * 256, userPxY = t.y * 256;
+    const groundMPerPx = 156543.03392 * Math.cos(lat*Math.PI/180) / (2**z);
+    let best = null;
+    const jobs=[];
+    for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++) jobs.push([baseX+ox,baseY+oy]);
+    const results = await Promise.allSettled(jobs.map(async ([x,y])=>{
+      const url = `${meta.host}${latest.path}/256/${z}/${x}/${y}/4/1_1.png?prox=${latest.time}-${Date.now()}`;
+      const r = await fetch(url,{cache:'no-store',mode:'cors'});
+      if(!r.ok) throw new Error('radar tile '+r.status);
+      const bmp = await createImageBitmap(await r.blob());
+      const c = document.createElement('canvas'); c.width=256; c.height=256;
+      const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.drawImage(bmp,0,0);
+      const data=ctx.getImageData(0,0,256,256).data;
+      let local=null;
+      for(let py=1;py<256;py+=3){
+        for(let px=1;px<256;px+=3){
+          const a=data[(py*256+px)*4+3];
+          if(a < 32) continue;
+          const gx=x*256+px, gy=y*256+py;
+          const dx=gx-userPxX, dy=gy-userPxY;
+          const distPx=Math.hypot(dx,dy);
+          if(!local || distPx<local.distPx) local={distPx,dx,dy};
+        }
+      }
+      bmp.close?.();
+      return local;
+    }));
+    for(const res of results){
+      if(res.status!=='fulfilled' || !res.value) continue;
+      if(!best || res.value.distPx<best.distPx) best=res.value;
+    }
+    if(!best){ state.radar.proximity=null; return null; }
+    const distanceKm=best.distPx*groundMPerPx/1000;
+    const bearing=radarBearingFromPixel(best.dx,best.dy);
+    const windFrom=Number(state.current?.wind_direction_10m);
+    const upwind = !Number.isFinite(windFrom) || angleDiff(bearing,windFrom) <= 75;
+    const gust=Math.max(Number(state.current?.wind_gusts_10m)||0, Number(state.current?.wind_speed_10m)||0);
+    const motionKmh=Math.max(40,Math.min(75,gust*1.15 || 45));
+    const etaMinutes=Math.max(1,Math.round(distanceKm/motionKmh*60));
+    const proximity={distanceKm,etaMinutes,bearing,upwind,frameTime:latest.time*1000,checkedAt:Date.now()};
+    state.radar.proximity=proximity;
+    return proximity;
+  }catch(error){
+    console.warn('Radar-nabijheid kon niet worden bepaald:',error);
+    state.radar.proximity=null;
+    return null;
+  }
+}
+
+async function refreshRadarProximityIfStale(){
+  const last=Number(state.radar?.proximity?.checkedAt)||0;
+  if(Date.now()-last < 4*60*1000) return state.radar.proximity;
+  const meta=await fetchRainviewerMeta();
+  rainviewerMeta=meta;
+  return refreshRadarProximity(meta);
+}
+
 async function fetchRainviewerMeta(){
   const r = await fetch('https://api.rainviewer.com/public/weather-maps.json?ts=' + Date.now(), {cache:'no-store'});
   if(!r.ok) throw new Error('RainViewer '+r.status);
@@ -6141,6 +6242,7 @@ async function loadRadarFrames(keepFrame=false){
   if(state.radar.layer === 'precip'){
     try{
       rainviewerMeta = await fetchRainviewerMeta();
+      refreshRadarProximity(rainviewerMeta).then(()=>{ try{ renderHome(); updateRadarLocationUi(); }catch(_){} });
       buildFrameList(keepFrame);
     }catch(e){
       console.error('RainViewer radarframes konden niet laden, worker-fallback wordt geprobeerd', e);
