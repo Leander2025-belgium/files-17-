@@ -3847,7 +3847,11 @@ $$('.tabbtn').forEach(btn=>{
     state.activeTab = btn.dataset.tab;
     if(btn.dataset.tab === 'home' && btn.dataset.section){
       const target = btn.dataset.section;
+      const moreTarget = btn.dataset.moreTarget;
       setTimeout(()=>{
+        if(moreTarget){
+          document.querySelector(`#moreWeatherTabs [data-more-tab="${moreTarget}"]`)?.click();
+        }
         const el = document.querySelector(target);
         if(target === '#sec0') window.scrollTo({top:0, behavior:'smooth'});
         else el?.scrollIntoView({behavior:'smooth', block:'start'});

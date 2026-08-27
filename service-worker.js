@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260827-mooncenter";
+const CACHE_VERSION = "wheaterflow-v20260827-forecast-nav";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
