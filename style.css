@@ -7112,3 +7112,7 @@ body.tv-pair-open .tabbar{
     margin-top:-120px!important;
   }
 }
+
+/* iOS/PWA: dynamische waarschuwingen mogen de home-scrollpositie niet verankeren. */
+#home{overflow-anchor:none;}
+#home .hero, #home .topbar, #home .search-wrap{overflow-anchor:none;}

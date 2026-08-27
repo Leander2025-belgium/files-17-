@@ -3945,7 +3945,37 @@ function moonPhase(date){
   return {phase, illumination, name, daysToFull};
 }
 
-// Keep native iOS scroll restoration; home spacing is handled by CSS.
+// iOS/PWA mag een oude scrollpositie niet opnieuw bovenop de home-layout zetten.
+// Binnen een actieve sessie blijft normaal scrollen gewoon behouden.
+try{
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+}catch(e){}
+
+let wheaterflowHiddenAt = 0;
+function homeIsActive(){
+  return state.activeTab === 'home' || document.querySelector('#home')?.classList.contains('active');
+}
+function resetHomeScroll({force=false}={}){
+  if(!homeIsActive()) return;
+  const y = window.scrollY || document.documentElement.scrollTop || 0;
+  // Bij app-open/herstel altijd bovenaan. Zonder force alleen de typische
+  // iOS-restpositie corrigeren waarbij de bovenste knoppen uit beeld vallen.
+  if(force || (y > 70 && y < 520)) window.scrollTo({top:0, left:0, behavior:'auto'});
+}
+window.addEventListener('pageshow', (event)=>{
+  requestAnimationFrame(()=>resetHomeScroll({force:event.persisted || !sessionStorage.getItem('wf-page-shown')}));
+  sessionStorage.setItem('wf-page-shown','1');
+});
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){
+    wheaterflowHiddenAt = Date.now();
+    return;
+  }
+  const hiddenFor = wheaterflowHiddenAt ? Date.now() - wheaterflowHiddenAt : 0;
+  // Een echte terugkeer naar de app start op Vandaag bovenaan; een korte
+  // Control Center/notificatie-onderbreking laat de leespositie ongemoeid.
+  if(hiddenFor > 15000) requestAnimationFrame(()=>resetHomeScroll({force:true}));
+});
 
 /* ---------------- tabs ---------------- */
 $$('.tabbtn').forEach(btn=>{
@@ -3967,7 +3997,7 @@ $$('.tabbtn').forEach(btn=>{
           document.querySelector(`#moreWeatherTabs [data-more-tab="${moreTarget}"]`)?.click();
         }
         const el = document.querySelector(target);
-        if(target === '#sec0') window.scrollTo({top:0, behavior:'smooth'});
+        if(target === '#sec0') window.scrollTo({top:0, left:0, behavior:'auto'});
         else el?.scrollIntoView({behavior:'smooth', block:'start'});
       }, 80);
     }
