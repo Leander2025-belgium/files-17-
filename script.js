@@ -210,7 +210,27 @@ async function apiForm(path, formData, options={}){
 }
 
 async function initAuth(){ updateAuthMessage('Profiel laden...'); state.auth.configured=true; state.auth.supabase=null; await applyAuthSession(loadOwnServerSession()); if(typeof showPasswordResetPrompt==='function') await showPasswordResetPrompt(); state.auth.ready=true; }
-async function applyAuthSession(session,event=''){ state.auth.session=session||null; state.auth.user=session?.user||null; state.auth.guest=!state.auth.user; if(state.auth.user){ state.auth.profile={...(state.auth.profile||{}),display_name:state.auth.profile?.display_name||state.auth.user?.user_metadata?.display_name||state.auth.user?.username||state.auth.user?.email?.split('@')[0]||'Wheaterflow gebruiker'}; state.climate.loaded=true; } else { state.auth.profile=null; state.climate.loaded=true; } updateAuthInterface(state.auth.session); renderClimateDashboard(); }
+async function applyAuthSession(session,event=''){
+  state.auth.session=session||null;
+  state.auth.user=session?.user||null;
+  state.auth.guest=!state.auth.user;
+  if(state.auth.user){
+    state.auth.profile={
+      ...(state.auth.profile||{}),
+      display_name:state.auth.profile?.display_name||state.auth.user?.user_metadata?.display_name||state.auth.user?.username||state.auth.user?.email?.split('@')[0]||'Wheaterflow gebruiker'
+    };
+    state.climate.loaded=true;
+    // Laad het profiel van de Wheaterflow-server vóór de UI wordt ingevuld.
+    // Zo blijft o.a. de gekozen thuislocatie gekoppeld aan het account in
+    // plaats van telkens door de actuele GPS-locatie te worden vervangen.
+    await loadCloudProfileAndFavorites();
+  } else {
+    state.auth.profile=null;
+    state.climate.loaded=true;
+  }
+  updateAuthInterface(state.auth.session);
+  renderClimateDashboard();
+}
 
 function mapProfileToUnits(profile){
   if(!profile) return;
@@ -223,11 +243,14 @@ function mapProfileToUnits(profile){
 }
 
 function profilePayload(){
+  const profile = state.auth.profile || {};
   return {
-    display_name: state.auth.profile?.display_name || state.auth.user?.user_metadata?.display_name || state.auth.user?.email?.split('@')[0] || 'Wheaterflow gebruiker',
-    home_location_name: state.loc?.name || null,
-    home_latitude: state.loc?.lat ?? null,
-    home_longitude: state.loc?.lon ?? null,
+    display_name: profile.display_name || state.auth.user?.user_metadata?.display_name || state.auth.user?.email?.split('@')[0] || 'Wheaterflow gebruiker',
+    // Thuislocatie is een profielinstelling en mag NOOIT automatisch de
+    // huidige GPS-locatie volgen. Alleen expliciet kiezen/wijzigen past dit aan.
+    home_location_name: profile.home_location_name || null,
+    home_latitude: Number.isFinite(Number(profile.home_latitude)) ? Number(profile.home_latitude) : null,
+    home_longitude: Number.isFinite(Number(profile.home_longitude)) ? Number(profile.home_longitude) : null,
     language:'nl',
     temperature_unit:state.units.temp,
     wind_unit:state.units.wind,
@@ -4056,20 +4079,45 @@ function wireAuthUi(){
     e.preventDefault();
     if(!state.auth.user) return;
     updateProfileMessage('Profiel opslaan...');
+    const previousHomeName = state.auth.profile?.home_location_name || '';
+    const nextHomeName = $('#profileHomeLocation')?.value.trim() || '';
     state.auth.profile = {
       ...(state.auth.profile || {}),
       display_name: $('#profileDisplayName')?.value.trim() || state.auth.profile?.display_name,
-      home_location_name: $('#profileHomeLocation')?.value.trim() || ''
+      home_location_name: nextHomeName
     };
+    // Als de naam handmatig is gewijzigd, behouden we niet per ongeluk de
+    // coördinaten van een oude thuislocatie. De locatieknop hieronder bewaart
+    // naam + coördinaten samen.
+    if(nextHomeName !== previousHomeName){
+      state.auth.profile.home_latitude = null;
+      state.auth.profile.home_longitude = null;
+    }
     await syncProfileSettingsToCloud(true);
     updateAuthInterface(state.auth.session);
-    updateProfileMessage('Profiel opgeslagen.', 'ok');
+    updateProfileMessage('Profiel opgeslagen op je Wheaterflow-account.', 'ok');
   });
-  $('#profileUseCurrentLocation')?.addEventListener('click', ()=>{
+  $('#profileUseCurrentLocation')?.addEventListener('click', async ()=>{
     const input = $('#profileHomeLocation');
     if(!input) return;
-    input.value = state.loc?.name && !/locatie bepalen/i.test(state.loc.name) ? state.loc.name : '';
-    updateProfileMessage(input.value ? `Thuislocatie ingesteld op ${input.value}. Sla je profiel nog even op.` : 'Kies eerst een plaats of geef locatietoegang.', input.value ? 'ok' : 'error');
+    const name = state.loc?.name && !/locatie bepalen/i.test(state.loc.name) ? state.loc.name : '';
+    const lat = Number(state.loc?.lat);
+    const lon = Number(state.loc?.lon);
+    if(!name || !Number.isFinite(lat) || !Number.isFinite(lon)){
+      updateProfileMessage('Geef eerst locatietoegang zodat Wheaterflow je thuislocatie kan opslaan.', 'error');
+      return;
+    }
+    input.value = name;
+    state.auth.profile = {
+      ...(state.auth.profile || {}),
+      home_location_name:name,
+      home_latitude:lat,
+      home_longitude:lon
+    };
+    updateProfileMessage(`Thuislocatie ${name} opslaan...`);
+    await syncProfileSettingsToCloud(true);
+    updateAuthInterface(state.auth.session);
+    updateProfileMessage(`Thuislocatie ${name} is opgeslagen op je account.`, 'ok');
   });
   $('#profileTvDevicesBtn')?.addEventListener('click', ()=>{
     closeAuthSheet();
