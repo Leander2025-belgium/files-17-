@@ -62,6 +62,7 @@ const state = {
   observation: null, marine: null, seaspark: null, air: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
+  lightning: { available:false, loading:false, updated:null, strikes:[], nearest:null, summary:null, threat:null, error:null },
   locationStatus: 'ready',
   astroEvents: { loaded:false, events:[], sources:[], error:null },
   knmiKey: null,
@@ -1547,7 +1548,8 @@ const optionalResults = await Promise.allSettled([
   loadAlerts(),
   loadWheaterflowAdminAlerts(),
   loadAstroEvents(),
-  refreshRadarProximityIfStale()
+  refreshRadarProximityIfStale(),
+  loadLightning()
 ]);
     optionalResults.forEach((result, index)=>{
       if(result.status === 'rejected'){
@@ -1559,7 +1561,8 @@ console.warn(
     'Officiële meldingen',
     'Wheaterflow adminmeldingen',
     'Astro-events',
-    'Radar-nabijheid'
+    'Radar-nabijheid',
+    'Live bliksemdata'
   ][index] + ' laden faalde:',
   result.reason
 );
@@ -1948,6 +1951,56 @@ function formatShortTime(value){
   return date.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
 }
 
+async function loadLightning(force=false){
+  const lat = Number(state.loc?.lat);
+  const lon = Number(state.loc?.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if(state.lightning.loading) return state.lightning;
+  const lastUpdate = state.lightning.updated ? new Date(state.lightning.updated).getTime() : 0;
+  // Client-side guard: don't wake the server again when the same screen rerenders repeatedly.
+  if(!force && lastUpdate && Date.now() - lastUpdate < 90 * 1000) return state.lightning;
+  state.lightning.loading = true;
+  try{
+    const r = await fetch(`/api/lightning?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=100`, {cache:'default'});
+    const data = await r.json().catch(()=>({}));
+    if(!r.ok || data.ok === false) throw new Error(data.error || `Lightning API ${r.status}`);
+    state.lightning = {
+      available:Boolean(data.available),
+      loading:false,
+      updated:data.updated || new Date().toISOString(),
+      strikes:Array.isArray(data.strikes) ? data.strikes : [],
+      nearest:data.nearest || null,
+      summary:data.summary || null,
+      threat:data.threat || null,
+      source:data.source || 'Live lightning',
+      provider:data.provider || null,
+      fallback:Boolean(data.fallback),
+      error:null
+    };
+    return state.lightning;
+  }catch(error){
+    state.lightning = {...state.lightning, available:false, loading:false, error:String(error?.message || error)};
+    console.warn('Live bliksemdata laden faalde:', error);
+    return state.lightning;
+  }
+}
+
+function stormDirectionText(threat){
+  const move = threat?.movement;
+  if(!move) return null;
+  if(move.dir && move.dirTo) return `${move.dir} → ${move.dirTo}`;
+  return move.dirTo || move.dir || null;
+}
+
+function stormIntensityFromLightning(lightning, maxCape, maxGust){
+  const count = Number(lightning?.summary?.count || 0);
+  const severe = Boolean(lightning?.threat?.severe);
+  if(severe || count >= 40 || maxCape >= 1800 || maxGust >= 90) return 'Zwaar';
+  if(count >= 12 || maxCape >= 1000 || maxGust >= 70) return 'Matig';
+  if(count > 0 || maxCape >= 500) return 'Licht';
+  return 'Laag';
+}
+
 function stormEngine(){
   const h = state.hourly || {};
   const nowIdx = nowIndexInHourly();
@@ -1957,14 +2010,58 @@ function stormEngine(){
   const maxCape = Math.max(0, ...indexes.map(i=>Number(h.cape?.[i]) || 0));
   const minLi = Math.min(99, ...indexes.map(i=>Number(h.lifted_index?.[i]) || 99));
   const maxGust = Math.max(0, ...indexes.map(i=>Number(h.wind_gusts_10m?.[i]) || 0));
-  const relevant = thunderIdx != null || (maxCape >= 800 && minLi <= 0) || maxGust >= 70 || (state.alerts || []).some(a=>/onweer|storm|bliksem/i.test(`${a.headline || ''} ${a.description || ''}`));
+  const lightning = state.lightning || {};
+  const nearest = lightning.nearest;
+  const strikeCount = Number(lightning.summary?.count || 0);
+  const threat = lightning.threat || null;
+  const lightningRelevant = lightning.available && (nearest?.distanceKm <= 100 || strikeCount > 0 || threat);
+  const modelRelevant = thunderIdx != null || (maxCape >= 800 && minLi <= 0) || maxGust >= 70;
+  const alertRelevant = (state.alerts || []).some(a=>/onweer|storm|bliksem/i.test(`${a.headline || ''} ${a.description || ''}`));
+  const relevant = Boolean(lightningRelevant || modelRelevant || alertRelevant);
+
+  let etaMinutes = null;
+  if(threat?.etaMinutes != null) etaMinutes = Math.max(0, Math.round(Number(threat.etaMinutes)));
+  else if(thunderIdx != null) etaMinutes = Math.max(0, Math.round((new Date(h.time[thunderIdx]).getTime() - Date.now()) / 60000));
+
+  let status = 'Rustig';
+  if(nearest?.distanceKm <= 15 || threat?.affectsNow) status = 'Actief';
+  else if(nearest?.distanceKm <= 50 || threat || modelRelevant) status = 'Waakzaam';
+
+  const movement = stormDirectionText(threat);
+  const movementSpeedKph = Number(threat?.movement?.speedKph);
+  const lightningDistanceKm = Number(nearest?.distanceKm);
+  const lightningAgeSec = Number(nearest?.ageSec);
+  const intensity = stormIntensityFromLightning(lightning, maxCape, maxGust);
+  const count5m = strikeCount;
+
+  let summaryText;
+  if(lightning.available && Number.isFinite(lightningDistanceKm)){
+    const age = Number.isFinite(lightningAgeSec) ? ` (${Math.max(0, Math.round(lightningAgeSec/60))} min geleden)` : '';
+    summaryText = `Dichtstbijzijnde bliksem op ${lightningDistanceKm.toFixed(lightningDistanceKm < 10 ? 1 : 0)} km${age}.`;
+    if(count5m > 0) summaryText += ` ${count5m} ontlading${count5m===1?'':'en'} gemeten in de laatste 5 minuten binnen 100 km.`;
+    if(threat && movement) summaryText += ` De onweerszone beweegt ${movement}${Number.isFinite(movementSpeedKph) ? ` met ongeveer ${Math.round(movementSpeedKph)} km/u` : ''}.`;
+  }else if(modelRelevant){
+    summaryText = 'Het weermodel ziet onweerspotentieel, maar er is momenteel geen bevestigde live bliksem in de beschikbare meting.';
+  }else{
+    summaryText = 'Geen recente bliksem in de buurt gedetecteerd.';
+  }
+
   return {
     relevant,
-    lightningDistanceKm:null,
-    movement:null,
-    etaMinutes:thunderIdx != null ? Math.max(0, Math.round((new Date(h.time[thunderIdx]).getTime() - Date.now()) / 60000)) : null,
-    intensity:maxCape >= 1500 || maxGust >= 85 ? 'sterk' : relevant ? 'mogelijk' : 'laag',
-    limitation:'Geen live bliksemdetectie gekoppeld; afstand wordt niet verzonnen.'
+    status,
+    lightningAvailable:Boolean(lightning.available),
+    lightningDistanceKm:Number.isFinite(lightningDistanceKm) ? lightningDistanceKm : null,
+    lightningAgeSec:Number.isFinite(lightningAgeSec) ? lightningAgeSec : null,
+    lightningCount5m:count5m,
+    movement,
+    movementSpeedKph:Number.isFinite(movementSpeedKph) ? movementSpeedKph : null,
+    movementReliability:threat?.movement?.reliability || null,
+    etaMinutes,
+    intensity,
+    severe:Boolean(threat?.severe),
+    source:lightning.source || null,
+    summary:summaryText,
+    limitation:lightning.available ? null : 'Live bliksemdata tijdelijk niet beschikbaar; radar en model blijven actief.'
   };
 }
 
@@ -2404,22 +2501,31 @@ function weatherSummaryCard(){
 function stormModeCard(){
   const storm = stormEngine();
   if(!storm.relevant) return '';
-  const eta = storm.etaMinutes != null ? `±${storm.etaMinutes} min` : 'Onzeker';
-  return `<div class="card storm-mode-card">
+  const eta = storm.etaMinutes != null ? `${storm.etaMinutes} min` : '—';
+  const dist = storm.lightningDistanceKm != null ? `${storm.lightningDistanceKm.toFixed(storm.lightningDistanceKm < 10 ? 1 : 0)} km` : 'Geen recente bliksem';
+  const move = storm.movement ? `${storm.movement}${storm.movementSpeedKph != null ? ` · ${Math.round(storm.movementSpeedKph)} km/u` : ''}` : 'Niet bepaald';
+  const badgeClass = storm.status === 'Actief' ? 'active' : storm.status === 'Waakzaam' ? 'watch' : 'quiet';
+  return `<div class="card storm-mode-card storm-mode-card-v2">
     <div class="storm-mode-head">
       <div>
         <span>Live onweersmodus</span>
-        <h3>Onweer relevant</h3>
+        <h3>${storm.status === 'Actief' ? 'Onweer in de buurt' : storm.status === 'Waakzaam' ? 'Onweer mogelijk' : 'Geen direct gevaar'}</h3>
       </div>
-      ${icon('storm',true,34)}
+      <div class="storm-status-badge ${badgeClass}">${esc(storm.status)}</div>
+    </div>
+    <div class="storm-primary">
+      ${icon('storm',true,38)}
+      <div><b>${dist}</b><span>Dichtstbijzijnde bliksem</span></div>
     </div>
     <div class="storm-mode-grid">
-      <div><span>Dichtstbijzijnde bliksem</span><b>${storm.lightningDistanceKm == null ? 'Niet gekoppeld' : storm.lightningDistanceKm.toFixed(1)+' km'}</b></div>
+      <div><span>Ontladingen · 5 min</span><b>${storm.lightningAvailable ? storm.lightningCount5m : '—'}</b></div>
       <div><span>Verwachte passage</span><b>${eta}</b></div>
       <div><span>Intensiteit</span><b>${esc(storm.intensity)}</b></div>
-      <div><span>Trekrichting</span><b>${storm.movement || 'Nog geen data'}</b></div>
+      <div><span>Trekrichting</span><b>${esc(move)}</b></div>
     </div>
-    <p>${esc(storm.limitation)}</p>
+    <p class="storm-summary">${esc(storm.summary)}</p>
+    ${storm.source ? `<div class="storm-source">Live data · ${esc(storm.source)}</div>` : ''}
+    ${storm.limitation ? `<div class="storm-limitation">${esc(storm.limitation)}</div>` : ''}
   </div>`;
 }
 
@@ -2531,6 +2637,25 @@ function applyWeatherBG(code, isDay, cloudCover=0){
   el.classList.add('photo-weather-bg');
 }
 
+function fixHomeHeaderPosition({force=false}={}){
+  const home = document.getElementById('home');
+  const topbar = home?.querySelector('.topbar');
+  if(!home?.classList.contains('active') || !topbar) return;
+
+  const safeTop = Math.max(0, parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--wf-safe-top')) || 0);
+  const rect = topbar.getBoundingClientRect();
+  const anomalousGap = rect.top > Math.max(140, safeTop + 110);
+
+  // Safari/PWA can restore an obsolete scroll anchor after the home DOM changes
+  // (for example when an admin alert is inserted). Only correct clearly broken
+  // positions, so normal reading/scrolling is left untouched.
+  if(force || anomalousGap){
+    window.scrollTo({top:0, left:0, behavior:'auto'});
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }
+}
+
 function renderHome(){
   const cur = liveWeatherSnapshot(), hourly = state.hourly, daily = state.daily;
   const wc = wcInfo(cur.weather_code);
@@ -2620,6 +2745,7 @@ html += rainNowcastCard();
   wireSectionNav();
   wireHomeMapLayers();
   wireMoreWeatherSections();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>fixHomeHeaderPosition()));
 }
 
 function astroEventCards(){
@@ -3832,6 +3958,22 @@ function moonPhase(date){
   const daysToFull = Math.round(((0.5 - phase + 1) % 1) * synodic);
   return {phase, illumination, name, daysToFull};
 }
+
+// Prevent iOS Safari/PWA from restoring a stale vertical position after
+// dynamic home updates or a full app relaunch.
+try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
+window.addEventListener('pageshow', event=>{
+  if(event.persisted){
+    requestAnimationFrame(()=>fixHomeHeaderPosition({force:true}));
+  }else{
+    requestAnimationFrame(()=>fixHomeHeaderPosition());
+  }
+});
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible'){
+    setTimeout(()=>fixHomeHeaderPosition(), 80);
+  }
+});
 
 /* ---------------- tabs ---------------- */
 $$('.tabbtn').forEach(btn=>{

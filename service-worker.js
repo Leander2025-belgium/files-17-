@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260827-forecast-nav";
+const CACHE_VERSION = "wheaterflow-v20260827-layout-gap-fix";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
