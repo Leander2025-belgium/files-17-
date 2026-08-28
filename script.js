@@ -2646,6 +2646,7 @@ function fixHomeHeaderPosition(){
 }
 
 function renderHome(){
+  if(state.auth?.session?.user) setTimeout(renderProfileWeatherToday,0);
   const cur = liveWeatherSnapshot(), hourly = state.hourly, daily = state.daily;
   const wc = wcInfo(cur.weather_code);
   const isDay = cur.is_day === 1;
@@ -4121,6 +4122,7 @@ function updateAuthInterface(session){
   updateAuthMessage('');
   $('#authLoggedOut')?.classList.toggle('hidden', loggedIn);
   $('#authLoggedIn')?.classList.toggle('hidden', !loggedIn);
+  $('#authSheet')?.classList.toggle('profile-mode', loggedIn);
   const profile = state.auth.profile;
   const email = session?.user?.email || '';
   const displayName = profile?.display_name || session?.user?.user_metadata?.display_name || email.split('@')[0] || 'Gast';
@@ -4135,17 +4137,20 @@ function updateAuthInterface(session){
   if($('#profileName')) $('#profileName').textContent = displayName;
   if($('#profileEmail')) $('#profileEmail').textContent = email;
   const homeName = profile?.home_location_name || locationDisplayName('Locatie bepalen…');
+  if($('#profileHomeSummary')) $('#profileHomeSummary').textContent = homeName;
   if($('#profileDisplayName')) $('#profileDisplayName').value = profile?.display_name || displayName;
   if($('#profileHomeLocation')) $('#profileHomeLocation').value = homeName;
   if($('#profileFavoritesCount')) $('#profileFavoritesCount').textContent = state.favorites.length;
   const notifications = state.push.status === 'Ingeschakeld' ? 'Aan' : 'Uit';
-  if($('#profileNotificationsStatus')) $('#profileNotificationsStatus').textContent = notifications;
+  const enabledNotificationCount = Object.values(state.push.preferences || {}).filter(Boolean).length;
+  if($('#profileNotificationsStatus')) $('#profileNotificationsStatus').textContent = String(enabledNotificationCount);
   if($('#profileNotificationsRowStatus')) $('#profileNotificationsRowStatus').textContent = `${notifications} ›`;
   const tvStatus = state.tvPairing.connected ? 'Gekoppeld' : 'Niet gekoppeld';
   if($('#profileTvStatus')) $('#profileTvStatus').textContent = tvStatus;
   if($('#profileTvRowStatus')) $('#profileTvRowStatus').textContent = `${tvStatus} ›`;
   if($('#profileCurrentLocationName')) $('#profileCurrentLocationName').textContent = locationDisplayName('Locatie bepalen…');
   if($('#profileSyncStatus')) $('#profileSyncStatus').textContent = loggedIn ? 'Actief' : 'Gast';
+  renderProfileWeatherToday();
   renderProfileFavorites();
   if($('#profileAvatarInitials')) $('#profileAvatarInitials').textContent = initials;
   $('#profileAvatarImage')?.classList.toggle('hidden', !avatarUrl);
@@ -4156,15 +4161,14 @@ function renderProfileFavorites(){
   const list = $('#profileFavoritesList');
   if(!list) return;
   if(!state.favorites.length){
-    list.innerHTML = '<div class="profile-empty">Nog geen favoriete plaatsen. Voeg een plaats toe via de zoekbalk.</div>';
+    list.innerHTML = '<div class="profile-empty">Nog geen favoriete plaatsen. Zoek hierboven een plaats en tik op +.</div>';
     return;
   }
   list.innerHTML = state.favorites.map((f,i)=>`
     <div class="profile-favorite-row" data-i="${i}">
-      <b>${esc(f.name)}</b>
-      <small>${esc(f.admin || f.country || 'Opgeslagen plaats')}</small>
-      <button type="button" data-act="open" title="Openen">›</button>
-      <button type="button" data-act="up" title="Omhoog">↑</button>
+      <span class="profile-favorite-pin">⌖</span>
+      <span class="profile-favorite-copy"><b>${esc(f.name)}</b><small>${esc(f.admin || f.country || 'Opgeslagen plaats')}</small></span>
+      <button type="button" data-act="open" title="Openen">Open</button>
       <button type="button" data-act="delete" title="Verwijderen">×</button>
     </div>
   `).join('');
@@ -4193,6 +4197,88 @@ async function handleProfileFavoriteAction(target){
     updateAuthInterface(state.auth.session);
   }
 }
+
+function renderProfileWeatherToday(){
+  const cur = state.current || {};
+  const code = effectiveCurrentWeatherCode(cur);
+  const info = wcInfo(code);
+  const temp = Number(cur.temperature_2m);
+  const label = info?.l || 'Weer';
+  const rain = Number(cur.precipitation || cur.rain || cur.showers || 0);
+  const wind = Number(cur.wind_speed_10m || 0);
+  if($('#profileWeatherTemp')) $('#profileWeatherTemp').textContent = Number.isFinite(temp) ? `${Math.round(temp)}°` : '--°';
+  if($('#profileWeatherLabel')) $('#profileWeatherLabel').textContent = label;
+  if($('#profileWeatherIcon')) $('#profileWeatherIcon').innerHTML = icon(info?.ic || 'cloud', true, 76);
+  let advice = 'Bekijk je actuele weer voor vandaag.';
+  if(rain > .1 || [51,53,55,61,63,65,80,81,82,95,96,99].includes(Number(code))) advice = 'Neem voor de zekerheid een paraplu mee.';
+  else if(Number.isFinite(temp) && temp >= 25) advice = 'Warm weer: drink voldoende en zoek af en toe schaduw.';
+  else if(wind >= 50) advice = 'Het waait stevig. Hou rekening met sterke wind.';
+  else if(Number.isFinite(temp) && temp <= 5) advice = 'Fris buiten: een warme jas komt van pas.';
+  else advice = 'Een prima moment om je planning op het weer af te stemmen.';
+  if($('#profileWeatherAdvice')) $('#profileWeatherAdvice').textContent = advice;
+}
+
+let profileFavoriteSearchTimer = null;
+async function searchProfileFavorites(query){
+  const box = $('#profileFavoriteSuggestions');
+  if(!box) return;
+  const q = String(query || '').trim();
+  if(q.length < 2){ box.innerHTML=''; box.classList.remove('show'); return; }
+  box.innerHTML = '<div class="profile-favorite-loading">Plaatsen zoeken…</div>';
+  box.classList.add('show');
+  try{
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=nl&format=json`);
+    if(!r.ok) throw new Error(`Zoeken ${r.status}`);
+    const data = await r.json();
+    const results = data.results || [];
+    if(!results.length){ box.innerHTML='<div class="profile-favorite-loading">Geen plaatsen gevonden.</div>'; return; }
+    box.innerHTML = results.map((res,i)=>`
+      <button type="button" class="profile-favorite-suggestion" data-fav-search-i="${i}">
+        <span><b>${esc(res.name)}</b><small>${esc([res.admin1,res.country].filter(Boolean).join(', '))}</small></span>
+        <strong>+</strong>
+      </button>`).join('');
+    $$('[data-fav-search-i]', box).forEach(btn=>btn.addEventListener('click', async ()=>{
+      const res = results[Number(btn.dataset.favSearchI)];
+      if(!res) return;
+      await addProfileFavorite({
+        name:res.name,
+        lat:Number(res.latitude),
+        lon:Number(res.longitude),
+        admin:[res.admin1,res.country].filter(Boolean).join(', '),
+        country:res.country || ''
+      });
+      const input = $('#profileFavoriteSearch');
+      if(input) input.value='';
+      box.innerHTML=''; box.classList.remove('show');
+    }));
+  }catch(error){
+    console.warn('Favoriete plaats zoeken mislukt', error);
+    box.innerHTML='<div class="profile-favorite-loading">Zoeken mislukt. Probeer opnieuw.</div>';
+  }
+}
+
+async function addProfileFavorite(place){
+  const lat=Number(place?.lat), lon=Number(place?.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+  const duplicate = state.favorites.some(f=>Math.abs(Number(f.lat)-lat)<.01 && Math.abs(Number(f.lon)-lon)<.01);
+  if(duplicate){ toast(`${place.name || 'Deze plaats'} staat al bij je favorieten.`); return; }
+  state.favorites.push({
+    id:place.id || `local-${Date.now()}`,
+    name:place.name || 'Favoriet', lat, lon,
+    admin:place.admin || '', country:place.country || ''
+  });
+  await saveFavorites();
+  renderProfileFavorites();
+  renderFavChips();
+  updateAuthInterface(state.auth.session);
+  toast(`${place.name || 'Plaats'} toegevoegd aan favorieten.`);
+}
+
+function scrollProfileFavoritesIntoView(){
+  $('#profileFavoritesSection')?.scrollIntoView({behavior:'smooth', block:'start'});
+  setTimeout(()=>$('#profileFavoriteSearch')?.focus(), 350);
+}
+
 function validateEmail(email){
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -4320,6 +4406,27 @@ function wireAuthUi(){
     openSheet();
     $('.notification-settings')?.scrollIntoView({block:'center', behavior:'smooth'});
   });
+  $('#profileEditToggle')?.addEventListener('click', ()=>{
+    const panel=$('#profileEditPanel');
+    panel?.classList.toggle('hidden');
+    if(panel && !panel.classList.contains('hidden')) panel.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+  ['profileFavoritesJump','profileFavoritesMenu'].forEach(id=>$('#'+id)?.addEventListener('click', scrollProfileFavoritesIntoView));
+  ['profileNotificationsQuick','profileNotificationsMenu'].forEach(id=>$('#'+id)?.addEventListener('click', ()=>{
+    closeAuthSheet(); openSheet();
+    setTimeout(()=>$('.notification-settings')?.scrollIntoView({block:'center', behavior:'smooth'}), 160);
+  }));
+  $('#profileWeatherPrefsMenu')?.addEventListener('click', ()=>{
+    closeAuthSheet(); openSheet();
+  });
+  $('#profileFavoriteSearch')?.addEventListener('input', e=>{
+    clearTimeout(profileFavoriteSearchTimer);
+    profileFavoriteSearchTimer=setTimeout(()=>searchProfileFavorites(e.target.value), 280);
+  });
+  $('#profileAddCurrentFavorite')?.addEventListener('click', ()=>addProfileFavorite({
+    name:locationDisplayName('Huidige locatie'), lat:state.loc?.lat, lon:state.loc?.lon,
+    admin:state.loc?.admin || '', country:state.loc?.country || ''
+  }));
   $('#avatarInput')?.addEventListener('change', e=>{
     const file = e.target.files?.[0];
     if(file) uploadAvatar(file);

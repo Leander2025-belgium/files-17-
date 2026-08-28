@@ -114,7 +114,7 @@
   rel="stylesheet"
 >
 
-<link rel="stylesheet" href="style.css?v=20260828-icon-baseline">
+<link rel="stylesheet" href="style.css?v=20260828-profile-v2">
 
 <style>
 /*
@@ -1834,88 +1834,59 @@
         class="hidden"
       >
 
-        <div class="profile-hero">
+        <div class="profile-hero profile-hero-premium">
 
           <label
             class="profile-avatar-large"
             id="profileAvatarLarge"
           >
-
-            <span id="profileAvatarInitials">
-              ?
-            </span>
-
-            <img
-              id="profileAvatarImage"
-              alt=""
-              class="hidden"
-            >
-
-            <input
-              id="avatarInput"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              hidden
-            >
-
+            <span id="profileAvatarInitials">?</span>
+            <img id="profileAvatarImage" alt="" class="hidden">
+            <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
           </label>
 
-          <div>
-
-            <h3 id="profileName">
-              Profiel laden...
-            </h3>
-
-            <p id="profileEmail"></p>
-
-            <div class="profile-badges">
-              <span>Actief</span>
-              <span>Wheaterflow-server</span>
-            </div>
-
-            <button
-              class="linkbtn"
-              id="changeAvatarBtn"
-              type="button"
-            >
-              Profielfoto wijzigen
-            </button>
-
+          <div class="profile-identity">
+            <h3 id="profileName">Profiel laden...</h3>
+            <div class="profile-brand-badge">✦ Wheaterflow</div>
+            <p class="profile-home-line">⌖ <span id="profileHomeSummary">Locatie bepalen…</span></p>
+            <button class="profile-edit-main" id="profileEditToggle" type="button">✎ Bewerk profiel</button>
           </div>
 
         </div>
 
-        <div
-          class="profile-quick-grid"
-          aria-label="Mijn Wheaterflow"
-        >
-
-          <div class="profile-stat-card">
-            <span>☆</span>
-            <b id="profileFavoritesCount">0</b>
-            <small>Favorieten</small>
+        <section class="profile-weather-card" aria-label="Jouw weer vandaag">
+          <div class="profile-weather-copy">
+            <span>Jouw weer vandaag</span>
+            <div><strong id="profileWeatherTemp">--°</strong><b id="profileWeatherLabel">Weer laden…</b></div>
+            <p id="profileWeatherAdvice">Actuele weersinformatie voor jouw locatie.</p>
           </div>
+          <div class="profile-weather-icon" id="profileWeatherIcon" aria-hidden="true">☁</div>
+        </section>
 
-          <div class="profile-stat-card">
-            <span>◌</span>
-            <b id="profileNotificationsStatus">Uit</b>
-            <small>Meldingen</small>
-          </div>
-
-          <div class="profile-stat-card">
-            <span>TV</span>
-            <b id="profileTvStatus">Niet gekoppeld</b>
-            <small>Apparaten</small>
-          </div>
-
-          <div class="profile-stat-card">
-            <span>☁</span>
-            <b id="profileSyncStatus">Gast</b>
-            <small>Status</small>
-          </div>
-
+        <div class="profile-quick-grid profile-quick-grid-premium" aria-label="Mijn Wheaterflow">
+          <button class="profile-stat-card" id="profileFavoritesJump" type="button">
+            <span class="profile-stat-icon">⌖</span>
+            <span><small>Favoriete locaties</small><b id="profileFavoritesCount">0</b></span>
+          </button>
+          <button class="profile-stat-card" id="profileNotificationsQuick" type="button">
+            <span class="profile-stat-icon">♢</span>
+            <span><small>Weermeldingen</small><b id="profileNotificationsStatus">0</b></span>
+          </button>
         </div>
 
+        <div class="profile-menu-list profile-main-menu">
+          <button class="profile-menu-row" id="profileFavoritesMenu" type="button"><span>⌖ <b>Mijn locaties</b></span><strong>›</strong></button>
+          <button class="profile-menu-row" id="profileNotificationsMenu" type="button"><span>♢ <b>Meldingen</b></span><strong>›</strong></button>
+          <button class="profile-menu-row" id="profileWeatherPrefsMenu" type="button"><span>☷ <b>Weervoorkeuren</b></span><strong>›</strong></button>
+          <button class="profile-menu-row profile-pro-row" type="button"><span>♕ <b>Wheaterflow Pro</b></span><em>In de maak</em><strong>›</strong></button>
+        </div>
+
+        <div class="profile-pro-card">
+          <div><b>♕ Wheaterflow Pro</b><span>Binnenkort beschikbaar</span></div>
+          <span class="profile-pro-pill">In de maak</span>
+        </div>
+
+        <div id="profileEditPanel" class="profile-edit-panel hidden">
         <form
           id="profileForm"
           class="auth-form"
@@ -2014,13 +1985,22 @@
 
         </form>
 
-        <div class="profile-favorites">
+        </div>
+
+        <div class="profile-favorites" id="profileFavoritesSection">
 
           <div class="settings-section-head">
             <span>Favoriete plaatsen</span>
-            <strong id="profileFavoritesHint">
-              Synchroniseren
-            </strong>
+            <strong id="profileFavoritesHint">Op je account</strong>
+          </div>
+
+          <div class="profile-favorite-add">
+            <div class="profile-favorite-search-wrap">
+              <span>⌕</span>
+              <input id="profileFavoriteSearch" type="search" placeholder="Zoek een plaats om toe te voegen…" autocomplete="off">
+            </div>
+            <button id="profileAddCurrentFavorite" type="button">+ Huidige locatie</button>
+            <div id="profileFavoriteSuggestions" class="profile-favorite-suggestions"></div>
           </div>
 
           <div
@@ -3008,7 +2988,7 @@
 
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260828-icon-baseline"></script>
+<script src="script.js?v=20260828-profile-v2"></script>
 
 </body>
 </html>

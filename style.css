@@ -7205,3 +7205,120 @@ body.tv-pair-open .tabbar{
   align-items:center;
   justify-content:center;
 }
+
+/* ===== Wheaterflow profiel v2 ===== */
+.auth-sheet.profile-mode{
+  background:
+    linear-gradient(180deg,rgba(15,35,61,.42),rgba(8,22,42,.62)),
+    rgba(13,31,54,.42);
+  border-color:rgba(255,255,255,.28);
+  backdrop-filter:blur(34px) saturate(165%);
+  -webkit-backdrop-filter:blur(34px) saturate(165%);
+}
+.auth-sheet.profile-mode .auth-brand{display:none!important;}
+.auth-sheet.profile-mode .profile-header{
+  background:linear-gradient(180deg,rgba(14,31,54,.74),rgba(14,31,54,.30));
+}
+.profile-hero-premium{
+  grid-template-columns:104px minmax(0,1fr)!important;
+  gap:18px!important;
+  padding:22px!important;
+  margin-bottom:14px!important;
+  border-radius:28px!important;
+  background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.045))!important;
+  border:1px solid rgba(255,255,255,.25)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 18px 50px rgba(2,12,26,.18)!important;
+}
+.profile-hero-premium .profile-avatar-large{
+  width:104px!important;height:104px!important;
+  border-radius:50%!important;
+  font-size:34px!important;
+  background:linear-gradient(145deg,rgba(68,154,230,.72),rgba(14,80,144,.58))!important;
+  border:1.5px solid rgba(196,235,255,.78)!important;
+  box-shadow:inset 0 0 28px rgba(255,255,255,.10),0 14px 34px rgba(0,16,38,.28)!important;
+}
+.profile-identity h3{
+  font-size:23px!important;
+  line-height:1.12!important;
+  margin:0 0 7px!important;
+}
+.profile-brand-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  width:max-content;max-width:100%;
+  padding:5px 9px;border-radius:999px;
+  color:#e9f6ff;font-size:12px;font-weight:750;
+  background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.15);
+}
+.profile-home-line{margin:8px 0 12px!important;font-size:13px!important;color:rgba(231,242,255,.76)!important;}
+.profile-edit-main{
+  min-height:42px;padding:0 18px;border-radius:16px;
+  border:1px solid rgba(255,255,255,.26);background:rgba(255,255,255,.08);
+  color:#fff;font:inherit;font-weight:750;
+}
+.profile-weather-card{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  min-height:142px;padding:20px 22px;margin-bottom:14px;
+  border:1px solid rgba(255,255,255,.24);border-radius:27px;
+  background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.045));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.13);
+}
+.profile-weather-copy>span{font-size:14px;color:rgba(240,247,255,.88);}
+.profile-weather-copy>div{display:flex;align-items:baseline;gap:14px;margin:7px 0 4px;}
+.profile-weather-copy strong{font-size:44px;line-height:1;font-weight:650;letter-spacing:-.04em;}
+.profile-weather-copy b{font-size:18px;font-weight:650;}
+.profile-weather-copy p{margin:0!important;font-size:13px!important;color:rgba(238,245,255,.72)!important;}
+.profile-weather-icon{flex:0 0 104px;display:grid;place-items:center;filter:drop-shadow(0 10px 16px rgba(1,12,31,.26));}
+.profile-weather-icon svg{width:88px!important;height:88px!important;overflow:visible!important;}
+.profile-quick-grid-premium{grid-template-columns:1fr 1fr!important;gap:0!important;margin-bottom:14px;border:1px solid rgba(255,255,255,.22);border-radius:22px;overflow:hidden;background:rgba(255,255,255,.07);}
+.profile-quick-grid-premium .profile-stat-card{
+  border:0!important;border-radius:0!important;min-height:82px!important;padding:14px 18px!important;
+  display:flex!important;align-items:center!important;gap:13px!important;text-align:left!important;
+  background:transparent!important;color:#fff!important;
+}
+.profile-quick-grid-premium .profile-stat-card+ .profile-stat-card{border-left:1px solid rgba(255,255,255,.16)!important;}
+.profile-stat-icon{font-size:28px;color:#78c9ff;}
+.profile-quick-grid-premium small{display:block;color:rgba(237,244,255,.72);font-size:12px;}
+.profile-quick-grid-premium b{display:block;font-size:24px!important;line-height:1.1;margin-top:2px;}
+.profile-main-menu{margin:0 0 14px!important;border-radius:24px!important;border:1px solid rgba(255,255,255,.22)!important;overflow:hidden;background:rgba(255,255,255,.065)!important;}
+.profile-main-menu .profile-menu-row{
+  min-height:63px!important;border-radius:0!important;border:0!important;border-bottom:1px solid rgba(255,255,255,.13)!important;
+  background:transparent!important;padding:0 18px!important;font-size:16px!important;
+}
+.profile-main-menu .profile-menu-row:last-child{border-bottom:0!important;}
+.profile-main-menu .profile-menu-row span{display:flex;align-items:center;gap:11px;}
+.profile-main-menu .profile-menu-row strong{font-size:25px;color:rgba(235,245,255,.64);}
+.profile-main-menu .profile-menu-row em{margin-left:auto;margin-right:8px;color:rgba(235,245,255,.58);font-style:normal;font-size:12px;}
+.profile-main-menu .profile-pro-row span{color:#ffd66e;}
+.profile-pro-card{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;padding:17px 20px;margin-bottom:14px;
+  border-radius:24px;border:1px solid rgba(255,225,142,.32);background:linear-gradient(135deg,rgba(255,205,82,.09),rgba(255,255,255,.055));
+}
+.profile-pro-card>div{display:grid;gap:3px;}.profile-pro-card b{color:#ffd66e;font-size:17px;}.profile-pro-card span{font-size:12px;color:rgba(240,246,255,.72);}
+.profile-pro-pill{padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);white-space:nowrap;}
+.profile-edit-panel{margin:0 0 14px;padding:14px;border-radius:22px;border:1px solid rgba(255,255,255,.16);background:rgba(5,17,34,.20);}
+.profile-favorites{
+  margin-top:0!important;padding:16px!important;border-radius:24px!important;
+  border:1px solid rgba(255,255,255,.22)!important;background:rgba(255,255,255,.07)!important;
+}
+.profile-favorite-add{display:grid;gap:9px;margin-top:10px;}
+.profile-favorite-search-wrap{display:grid;grid-template-columns:22px 1fr;align-items:center;gap:8px;min-height:48px;padding:0 13px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(3,13,29,.26);}
+.profile-favorite-search-wrap input{width:100%;border:0!important;outline:0;background:transparent!important;color:#fff!important;font:inherit!important;min-height:46px!important;padding:0!important;}
+.profile-favorite-search-wrap input::placeholder{color:rgba(235,243,255,.48);}
+#profileAddCurrentFavorite{min-height:43px;border-radius:14px;border:1px solid rgba(105,210,255,.30);background:rgba(69,184,236,.12);color:#a8e7ff;font:inherit;font-weight:800;}
+.profile-favorite-suggestions{display:none;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.15);background:rgba(4,17,34,.82);}
+.profile-favorite-suggestions.show{display:block;}
+.profile-favorite-suggestion{width:100%;min-height:55px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 13px;border:0;border-bottom:1px solid rgba(255,255,255,.10);background:transparent;color:#fff;text-align:left;}
+.profile-favorite-suggestion:last-child{border-bottom:0;}.profile-favorite-suggestion span{display:grid;gap:3px;}.profile-favorite-suggestion small{color:rgba(235,243,255,.58);}.profile-favorite-suggestion strong{font-size:25px;color:#68ddff;}
+.profile-favorite-loading{padding:14px;color:rgba(237,245,255,.66);font-size:13px;}
+.profile-favorites-list{gap:8px!important;margin-top:12px!important;}
+.profile-favorite-row{grid-template-columns:32px minmax(0,1fr) auto 34px!important;gap:9px!important;padding:11px!important;border-radius:16px!important;background:rgba(3,14,30,.24)!important;border:1px solid rgba(255,255,255,.08);}
+.profile-favorite-pin{font-size:22px;color:#72cfff;}.profile-favorite-copy{display:grid;gap:2px;min-width:0;}.profile-favorite-copy b{font-size:14px;}.profile-favorite-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(234,244,255,.58);}
+.profile-favorite-row button{width:auto!important;min-width:34px!important;padding:0 10px!important;}
+.profile-empty{padding:14px;text-align:center;color:rgba(235,244,255,.60);font-size:13px;line-height:1.4;}
+@media(max-width:520px){
+  .profile-hero-premium{grid-template-columns:88px minmax(0,1fr)!important;padding:17px!important;gap:14px!important;}
+  .profile-hero-premium .profile-avatar-large{width:88px!important;height:88px!important;}
+  .profile-identity h3{font-size:20px!important;}
+  .profile-weather-card{padding:17px;min-height:126px;}.profile-weather-icon{flex-basis:80px}.profile-weather-icon svg{width:72px!important;height:72px!important;}
+  .profile-weather-copy strong{font-size:40px;}
+}
