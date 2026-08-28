@@ -7785,6 +7785,7 @@ function initFirstRunOnboarding(){
     pages[current]?.classList.add('active');
     dots.forEach((d,i)=>d.classList.toggle('active',i===current));
     shell.querySelector('#onboardingSkipAll')?.classList.toggle('hidden',current===pages.length-1);
+    shell.querySelector('#onboardingBackBtn')?.classList.toggle('hidden',current===0);
   };
   const finish = ()=>{
     completeFirstRunOnboarding();
@@ -7802,6 +7803,7 @@ function initFirstRunOnboarding(){
     },350);
   };
   shell.querySelectorAll('[data-onboarding-next]').forEach(btn=>btn.addEventListener('click',()=>show(current+1)));
+  shell.querySelector('#onboardingBackBtn')?.addEventListener('click',()=>show(current-1));
   shell.querySelector('#onboardingSkipAll')?.addEventListener('click',finish);
   shell.querySelector('#onboardingFinishBtn')?.addEventListener('click',finish);
 

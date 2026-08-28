@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260828-onboarding-v1" rel="stylesheet"/>
+<link href="style.css?v=20260828-onboarding-icons-v2" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -139,6 +139,7 @@
   <div class="onboarding-glow onboarding-glow-two"></div>
   <div class="onboarding-frame">
     <div class="onboarding-topline">
+      <button class="onboarding-back hidden" id="onboardingBackBtn" type="button" aria-label="Vorige stap"><img src="./assets/ui/onboarding/back.png" alt=""></button>
       <div class="onboarding-brand"><img src="./icons/icon-192.png" alt="" aria-hidden="true"><span>Wheaterflow</span></div>
       <button class="onboarding-skip" id="onboardingSkipAll" type="button">Sla over</button>
     </div>
@@ -154,13 +155,15 @@
         <p>Live radar, slimme waarschuwingen en lokale verwachtingen in één rustige, persoonlijke app.</p>
       </div>
       <div class="onboarding-feature-row">
-        <span><b>Live</b> radar</span><span><b>Slimme</b> meldingen</span><span><b>Lokaal</b> weer</span>
+        <span><img src="./assets/ui/onboarding/rain.png" alt=""><b>Live</b> radar</span>
+        <span><img src="./assets/ui/onboarding/warning.png" alt=""><b>Slimme</b> meldingen</span>
+        <span><img src="./assets/ui/onboarding/calendar.png" alt=""><b>Dagelijks</b> overzicht</span>
       </div>
       <div class="onboarding-actions single"><button class="onboarding-primary" data-onboarding-next type="button">Begin</button></div>
     </section>
 
     <section class="onboarding-page" data-onboarding-page="1">
-      <div class="onboarding-symbol location-symbol" aria-hidden="true"><span></span></div>
+      <div class="onboarding-symbol" aria-hidden="true"><img src="./assets/ui/onboarding/location.png" alt=""></div>
       <div class="onboarding-copy">
         <p class="onboarding-kicker">Jouw locatie</p>
         <h1>Hyperlokaal vanaf het eerste moment.</h1>
@@ -173,22 +176,23 @@
     </section>
 
     <section class="onboarding-page" data-onboarding-page="2">
-      <div class="onboarding-symbol bell-symbol" aria-hidden="true"><span></span></div>
+      <div class="onboarding-symbol" aria-hidden="true"><img src="./assets/ui/onboarding/bell.png" alt=""></div>
       <div class="onboarding-copy">
         <p class="onboarding-kicker">Blijf op de hoogte</p>
         <h1>Alleen meldingen die ertoe doen.</h1>
         <p>Krijg een seintje bij naderende regen, onweer en officiële waarschuwingen. Je kunt alles later per type aanpassen.</p>
       </div>
       <div class="onboarding-mini-alerts">
-        <div><span>🌧️</span><p><b>Regen op komst</b><small>Bui bereikt je locatie over ongeveer 20 min.</small></p></div>
-        <div><span>⚡</span><p><b>Onweer in de buurt</b><small>Actieve onweerscel nadert jouw regio.</small></p></div>
+        <div><img src="./assets/ui/onboarding/rain.png" alt=""><p><b>Regen op komst</b><small>Bui bereikt je locatie over ongeveer 20 min.</small></p></div>
+        <div><img src="./assets/ui/onboarding/lightning.png" alt=""><p><b>Onweer in de buurt</b><small>Actieve onweerscel nadert jouw regio.</small></p></div>
+        <div><img src="./assets/ui/onboarding/warning.png" alt=""><p><b>Officiële waarschuwingen</b><small>Belangrijke weerwaarschuwingen voor jouw regio.</small></p></div>
       </div>
       <p class="onboarding-note" id="onboardingPushNote"></p>
       <div class="onboarding-actions"><button class="onboarding-secondary" data-onboarding-next type="button">Niet nu</button><button class="onboarding-primary" id="onboardingPushBtn" type="button">Schakel meldingen in</button></div>
     </section>
 
     <section class="onboarding-page" data-onboarding-page="3">
-      <div class="onboarding-symbol profile-symbol" aria-hidden="true"><span></span></div>
+      <div class="onboarding-symbol" aria-hidden="true"><img src="./assets/ui/onboarding/profile.png" alt=""></div>
       <div class="onboarding-copy">
         <p class="onboarding-kicker">Maak het persoonlijk</p>
         <h1>Je Wheaterflow, op elk toestel.</h1>
@@ -201,7 +205,7 @@
     </section>
 
     <section class="onboarding-page" data-onboarding-page="4">
-      <div class="onboarding-finish-icon" aria-hidden="true"><span>✓</span></div>
+      <div class="onboarding-finish-icon" aria-hidden="true"><img src="./assets/ui/onboarding/check.png" alt=""></div>
       <div class="onboarding-copy onboarding-copy-center">
         <p class="onboarding-kicker">Klaar</p>
         <h1>Wheaterflow is ingesteld.</h1>
@@ -1528,6 +1532,6 @@
 <!-- Wheaterflow scripts -->
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260828-onboarding-v1"></script>
+<script src="script.js?v=20260828-onboarding-icons-v2"></script>
 </body>
 </html>

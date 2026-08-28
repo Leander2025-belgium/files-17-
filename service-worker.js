@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260828-onboarding-v1";
+const CACHE_VERSION = "wheaterflow-v20260828-onboarding-icons-v2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -9,6 +9,15 @@ const STATIC_ASSETS = [
   "./castService.js",
   "./tvPairingService.js",
   "./manifest.webmanifest",
+  "./assets/ui/onboarding/location.png",
+  "./assets/ui/onboarding/bell.png",
+  "./assets/ui/onboarding/profile.png",
+  "./assets/ui/onboarding/check.png",
+  "./assets/ui/onboarding/rain.png",
+  "./assets/ui/onboarding/lightning.png",
+  "./assets/ui/onboarding/warning.png",
+  "./assets/ui/onboarding/calendar.png",
+  "./assets/ui/onboarding/back.png",
   "./assets/branding/weerscoop-logo-master.png",
   "./assets/backgrounds/zonnig.png",
   "./assets/backgrounds/licht bewolkt.png",
