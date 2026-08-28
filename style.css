@@ -7322,3 +7322,113 @@ body.tv-pair-open .tabbar{
   .profile-weather-card{padding:17px;min-height:126px;}.profile-weather-icon{flex-basis:80px}.profile-weather-icon svg{width:72px!important;height:72px!important;}
   .profile-weather-copy strong{font-size:40px;}
 }
+
+/* ===== 2026-08-28 — Profile v3: compact rows + official glass icons ===== */
+.tabbtn .tab-icon-img{
+  width:26px!important;
+  height:26px!important;
+  object-fit:contain!important;
+  display:block!important;
+  margin:0 auto 3px!important;
+  filter:drop-shadow(0 1px 4px rgba(127,216,255,.18));
+  opacity:.88;
+  transition:transform .18s ease,opacity .18s ease,filter .18s ease!important;
+}
+.tabbtn.active .tab-icon-img{
+  opacity:1;
+  transform:scale(1.06);
+  filter:drop-shadow(0 0 7px rgba(146,224,255,.45));
+}
+.tabbtn:active .tab-icon-img{transform:scale(.91)!important;}
+.profile-done-button{
+  width:42px!important;
+  min-width:42px!important;
+  padding:0!important;
+  display:grid!important;
+  place-items:center!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  background:rgba(255,255,255,.055)!important;
+}
+.profile-header-icon{width:25px;height:25px;object-fit:contain;display:block;}
+.profile-home-line{display:flex!important;align-items:center!important;gap:6px!important;}
+.profile-inline-icon{width:18px;height:18px;object-fit:contain;flex:0 0 18px;opacity:.86;}
+.profile-edit-main{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;}
+.profile-edit-icon{width:19px;height:19px;object-fit:contain;}
+.profile-stat-icon{
+  width:31px!important;height:31px!important;display:grid!important;place-items:center!important;flex:0 0 31px!important;
+  font-size:0!important;
+}
+.profile-stat-icon img{width:31px!important;height:31px!important;object-fit:contain!important;display:block!important;}
+.profile-quick-grid-premium .profile-stat-card{
+  min-height:68px!important;
+  padding:10px 14px!important;
+  gap:10px!important;
+}
+.profile-quick-grid-premium small{font-size:11.5px!important;}
+.profile-quick-grid-premium b{font-size:20px!important;}
+.profile-main-menu{
+  border-radius:21px!important;
+  margin-bottom:12px!important;
+}
+.profile-main-menu .profile-menu-row{
+  min-height:54px!important;
+  height:54px!important;
+  padding:0 15px!important;
+  font-size:15px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+}
+.profile-main-menu .profile-menu-row span{
+  gap:10px!important;
+  min-width:0!important;
+  flex:1 1 auto!important;
+}
+.profile-menu-icon{
+  width:27px!important;
+  height:27px!important;
+  flex:0 0 27px!important;
+  object-fit:contain!important;
+  display:block!important;
+}
+.profile-main-menu .profile-menu-row b{
+  font-size:15.5px!important;
+  font-weight:720!important;
+  white-space:nowrap!important;
+}
+.profile-main-menu .profile-menu-row strong{
+  margin-left:auto!important;
+  font-size:21px!important;
+  line-height:1!important;
+  font-weight:500!important;
+  color:rgba(235,245,255,.58)!important;
+}
+.profile-main-menu .profile-menu-row em{
+  margin-left:auto!important;
+  margin-right:2px!important;
+  font-size:11.5px!important;
+  white-space:nowrap!important;
+}
+.profile-menu-icon-pro{filter:drop-shadow(0 0 5px rgba(255,196,76,.20));}
+.profile-pro-card{
+  min-height:82px!important;
+  padding:14px 16px!important;
+  border-radius:21px!important;
+  margin-bottom:12px!important;
+}
+.profile-pro-card>div{gap:2px!important;}
+.profile-pro-card b{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  font-size:16px!important;
+}
+.profile-pro-icon{width:27px;height:27px;object-fit:contain;display:block;}
+.profile-pro-card>div>span{font-size:11.5px!important;}
+.profile-pro-pill{padding:6px 10px!important;font-size:11.5px!important;}
+@media(max-width:520px){
+  .profile-main-menu .profile-menu-row{min-height:52px!important;height:52px!important;padding:0 14px!important;}
+  .profile-menu-icon{width:25px!important;height:25px!important;flex-basis:25px!important;}
+  .profile-main-menu .profile-menu-row b{font-size:15px!important;}
+  .tabbtn .tab-icon-img{width:25px!important;height:25px!important;}
+}

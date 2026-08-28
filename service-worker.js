@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260828-profile-v2";
+const CACHE_VERSION = "wheaterflow-v20260828-profile-v3-icons";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -58,7 +58,18 @@ const STATIC_ASSETS = [
   "./icons/icon-512.png",
   "./icons/icon-512-maskable.png",
   "./icons/apple-touch-icon.png",
-  "./icons/badge-96.png"
+  "./icons/badge-96.png",
+  "./assets/ui/profile/location.png",
+  "./assets/ui/profile/notifications.png",
+  "./assets/ui/profile/preferences.png",
+  "./assets/ui/profile/pro.png",
+  "./assets/ui/profile/settings.png",
+  "./assets/ui/profile/edit.png",
+  "./assets/ui/profile/today.png",
+  "./assets/ui/profile/forecast.png",
+  "./assets/ui/profile/radar.png",
+  "./assets/ui/profile/community.png",
+  "./assets/ui/profile/profile.png"
 ];
 
 self.addEventListener("install", event => {

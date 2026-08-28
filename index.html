@@ -1,47 +1,31 @@
 <!DOCTYPE html>
+
 <html lang="nl-BE">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-
-<meta name="theme-color" content="#0a3f8f">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Wheaterflow">
-<meta name="application-name" content="Wheaterflow">
-
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+<meta content="#0a3f8f" name="theme-color"/>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
+<meta content="Wheaterflow" name="apple-mobile-web-app-title"/>
+<meta content="Wheaterflow" name="application-name"/>
 <title>Wheaterflow – live weer, radar en verwachtingen</title>
-
-<meta
-  name="description"
-  content="Wheaterflow is een Belgisch weerplatform voor live weer, regenradar, lokale weersverwachtingen en weerwaarschuwingen."
->
-
-<meta name="robots" content="index,follow,max-image-preview:large">
-
-<link rel="canonical" href="https://wheaterflow.be/">
-
+<meta content="Wheaterflow is een Belgisch weerplatform voor live weer, regenradar, lokale weersverwachtingen en weerwaarschuwingen." name="description"/>
+<meta content="index,follow,max-image-preview:large" name="robots"/>
+<link href="https://wheaterflow.be/" rel="canonical"/>
 <!-- Open Graph -->
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Wheaterflow">
-<meta property="og:title" content="Wheaterflow – live weer, radar en verwachtingen">
-<meta
-  property="og:description"
-  content="Wheaterflow is een Belgisch weerplatform voor live weer, regenradar, lokale weersverwachtingen en weerwaarschuwingen."
->
-<meta property="og:url" content="https://wheaterflow.be/">
-<meta property="og:image" content="https://wheaterflow.be/icons/icon-512.png">
-<meta property="og:locale" content="nl_BE">
-
+<meta content="website" property="og:type"/>
+<meta content="Wheaterflow" property="og:site_name"/>
+<meta content="Wheaterflow – live weer, radar en verwachtingen" property="og:title"/>
+<meta content="Wheaterflow is een Belgisch weerplatform voor live weer, regenradar, lokale weersverwachtingen en weerwaarschuwingen." property="og:description"/>
+<meta content="https://wheaterflow.be/" property="og:url"/>
+<meta content="https://wheaterflow.be/icons/icon-512.png" property="og:image"/>
+<meta content="nl_BE" property="og:locale"/>
 <!-- Twitter / social -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Wheaterflow – live weer, radar en verwachtingen">
-<meta
-  name="twitter:description"
-  content="Belgisch weerplatform voor live weer, regenradar, lokale verwachtingen en weerwaarschuwingen."
->
-<meta name="twitter:image" content="https://wheaterflow.be/icons/icon-512.png">
-
+<meta content="summary_large_image" name="twitter:card"/>
+<meta content="Wheaterflow – live weer, radar en verwachtingen" name="twitter:title"/>
+<meta content="Belgisch weerplatform voor live weer, regenradar, lokale verwachtingen en weerwaarschuwingen." name="twitter:description"/>
+<meta content="https://wheaterflow.be/icons/icon-512.png" name="twitter:image"/>
 <!-- Wheaterflow website -->
 <script type="application/ld+json">
 {
@@ -57,7 +41,6 @@
   }
 }
 </script>
-
 <!-- Wheaterflow organisatie -->
 <script type="application/ld+json">
 {
@@ -80,42 +63,21 @@
   ]
 }
 </script>
-
 <!-- Icons -->
-<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
-<link rel="manifest" href="./manifest.webmanifest">
-
+<link href="./icons/favicon-32.png" rel="icon" sizes="32x32" type="image/png"/>
+<link href="./icons/favicon-16.png" rel="icon" sizes="16x16" type="image/png"/>
+<link href="./icons/apple-touch-icon.png" rel="apple-touch-icon" sizes="180x180"/>
+<link href="./manifest.webmanifest" rel="manifest"/>
 <!-- Leaflet + MapLibre / OpenFreeMap -->
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
->
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/maplibre-gl@2.2.1/dist/maplibre-gl.css"
->
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css"
->
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css"
->
-
+<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet"/>
+<link href="https://unpkg.com/maplibre-gl@2.2.1/dist/maplibre-gl.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" rel="stylesheet"/>
 <!-- Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-<link
-  href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-  rel="stylesheet"
->
-
-<link rel="stylesheet" href="style.css?v=20260828-profile-v2">
-
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="style.css?v=20260828-profile-v3-icons" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -134,7 +96,6 @@
   border: 0 !important;
 }
 </style>
-
 <script>
 (function(){
   try{
@@ -150,1673 +111,774 @@
   }catch(error){}
 })();
 </script>
-
 </head>
-
 <body>
-
-<section class="seo-brand-intro" aria-label="Over Wheaterflow">
-  <h1>Wheaterflow – live weer voor België</h1>
-  <p>
+<section aria-label="Over Wheaterflow" class="seo-brand-intro">
+<h1>Wheaterflow – live weer voor België</h1>
+<p>
     Wheaterflow is een Belgisch weerplatform voor live weer,
     regenradar, lokale weersverwachtingen en weerwaarschuwingen.
   </p>
 </section>
-
 <div id="alerts-container"></div>
-
-<div
-  id="app-splash"
-  class="app-splash"
-  aria-label="Wheaterflow wordt geladen"
->
-  <div class="app-splash-content">
-
-    <div class="app-splash-logo-wrap">
-      <img
-        class="app-splash-logo"
-        src="./icons/icon-512.png"
-        alt="Wheaterflow"
-      >
-    </div>
-
-    <div class="app-splash-name">Wheaterflow</div>
-    <div class="app-splash-status">Live weer wordt geladen</div>
-
-    <div class="app-splash-progress" aria-hidden="true">
-      <span></span>
-    </div>
-
-  </div>
+<div aria-label="Wheaterflow wordt geladen" class="app-splash" id="app-splash">
+<div class="app-splash-content">
+<div class="app-splash-logo-wrap">
+<img alt="Wheaterflow" class="app-splash-logo" src="./icons/icon-512.png"/>
 </div>
-
-<div id="weatherBG" class="sunny">
-
-  <div class="wbg-sky"></div>
-  <div class="wbg-photo" aria-hidden="true"></div>
-  <div class="wbg-stars"></div>
-  <div class="wbg-sun"></div>
-  <div class="wbg-moon"></div>
-
-  <div class="wbg-clouds">
-    <div class="cloud c1"></div>
-    <div class="cloud c2"></div>
-    <div class="cloud c3"></div>
-    <div class="cloud c4"></div>
-    <div class="cloud c5"></div>
-    <div class="cloud c6"></div>
-    <div class="cloud c7"></div>
-    <div class="cloud c8"></div>
-  </div>
-
-  <div class="wbg-rain"></div>
-  <div class="wbg-snow"></div>
-  <div class="wbg-lightning"></div>
-
+<div class="app-splash-name">Wheaterflow</div>
+<div class="app-splash-status">Live weer wordt geladen</div>
+<div aria-hidden="true" class="app-splash-progress">
+<span></span>
 </div>
-
+</div>
+</div>
+<div class="sunny" id="weatherBG">
+<div class="wbg-sky"></div>
+<div aria-hidden="true" class="wbg-photo"></div>
+<div class="wbg-stars"></div>
+<div class="wbg-sun"></div>
+<div class="wbg-moon"></div>
+<div class="wbg-clouds">
+<div class="cloud c1"></div>
+<div class="cloud c2"></div>
+<div class="cloud c3"></div>
+<div class="cloud c4"></div>
+<div class="cloud c5"></div>
+<div class="cloud c6"></div>
+<div class="cloud c7"></div>
+<div class="cloud c8"></div>
+</div>
+<div class="wbg-rain"></div>
+<div class="wbg-snow"></div>
+<div class="wbg-lightning"></div>
+</div>
 <div id="app">
-
-  <!-- ============ HOME ============ -->
-
-  <div class="screen active" id="home">
-
-    <div class="topbar">
-
-      <div class="home-action-row">
-
-        <div class="home-action-left">
-
-          <button
-            class="home-round-btn"
-            id="tvBtn"
-            type="button"
-            aria-label="TV koppelen of openen"
-            title="TV koppelen"
-          >
-            <span>TV</span>
-          </button>
-
-          <button
-            class="home-round-btn"
-            id="openSheetBtn"
-            type="button"
-            aria-label="Instellingen openen"
-            title="Instellingen"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.1"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="3.2"></circle>
-
-              <path
-                d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.08A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.88.34l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.05-.05a2 2 0 1 1 2.83-2.83l.05.05A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.08A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.88-.34l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.08a2 2 0 1 1 0 4h-.08a1.7 1.7 0 0 0-1.7.6Z"
-              ></path>
-            </svg>
-          </button>
-
-        </div>
-
-        <button
-          class="profile-trigger home-profile-trigger"
-          id="profileBtn"
-          type="button"
-          aria-label="Profiel openen"
-          title="Profiel"
-        >
-          <span id="profileAvatarMini" class="profile-mini">?</span>
-        </button>
-
-      </div>
-
-      <div class="searchwrap">
-
-        <div class="searchbox">
-
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            width="17"
-            height="17"
-          >
-            <circle cx="11" cy="11" r="7"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-
-          <input
-            id="searchInput"
-            placeholder="Zoek een plaats..."
-            autocomplete="off"
-          >
-
-          <svg
-            class="clearbtn"
-            id="clearSearch"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            width="16"
-            height="16"
-          >
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-
-        </div>
-
-        <div class="suggestions" id="suggestions"></div>
-
-      </div>
-
-    </div>
-
-    <div class="screen-inner" id="homeInner">
-
-      <div class="loader" id="homeLoader">
-        <div class="spinner"></div>
-        <span>Weer laden...</span>
-      </div>
-
-    </div>
-
-  </div>
-
-  <!-- ============ RADAR ============ -->
-
-  <div class="screen" id="radarscreen">
-
-    <div class="radar-wrap">
-
-      <div id="map"></div>
-
-      <div class="radar-top">
-
-        <div class="chip-row">
-
-          <button
-            class="chip active"
-            data-layer="precip"
-            id="chipPrecip"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                d="M16 13v8M8 13v8M12 15v8M20 16.58A5 5 0 0018 7h-1.26A8 8 0 104 15.25"
-              ></path>
-            </svg>
+<!-- ============ HOME ============ -->
+<div class="screen active" id="home">
+<div class="topbar">
+<div class="home-action-row">
+<div class="home-action-left">
+<button aria-label="TV koppelen of openen" class="home-round-btn" id="tvBtn" title="TV koppelen" type="button">
+<span>TV</span>
+</button>
+<button aria-label="Instellingen openen" class="home-round-btn" id="openSheetBtn" title="Instellingen" type="button">
+<svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="3.2"></circle>
+<path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.08A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.88.34l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.05-.05a2 2 0 1 1 2.83-2.83l.05.05A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.08A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.88-.34l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.08a2 2 0 1 1 0 4h-.08a1.7 1.7 0 0 0-1.7.6Z"></path>
+</svg>
+</button>
+</div>
+<button aria-label="Profiel openen" class="profile-trigger home-profile-trigger" id="profileBtn" title="Profiel" type="button">
+<span class="profile-mini" id="profileAvatarMini">?</span>
+</button>
+</div>
+<div class="searchwrap">
+<div class="searchbox">
+<svg fill="none" height="17" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="17">
+<circle cx="11" cy="11" r="7"></circle>
+<line x1="21" x2="16.65" y1="21" y2="16.65"></line>
+</svg>
+<input autocomplete="off" id="searchInput" placeholder="Zoek een plaats..."/>
+<svg class="clearbtn" fill="none" height="16" id="clearSearch" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16">
+<line x1="18" x2="6" y1="6" y2="18"></line>
+<line x1="6" x2="18" y1="6" y2="18"></line>
+</svg>
+</div>
+<div class="suggestions" id="suggestions"></div>
+</div>
+</div>
+<div class="screen-inner" id="homeInner">
+<div class="loader" id="homeLoader">
+<div class="spinner"></div>
+<span>Weer laden...</span>
+</div>
+</div>
+</div>
+<!-- ============ RADAR ============ -->
+<div class="screen" id="radarscreen">
+<div class="radar-wrap">
+<div id="map"></div>
+<div class="radar-top">
+<div class="chip-row">
+<button class="chip active" data-layer="precip" id="chipPrecip">
+<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M16 13v8M8 13v8M12 15v8M20 16.58A5 5 0 0018 7h-1.26A8 8 0 104 15.25"></path>
+</svg>
             Buienradar
           </button>
-
-          <button
-            class="chip"
-            data-layer="satellite"
-            id="chipSat"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="12" cy="12" r="10"></circle>
-              <path
-                d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"
-              ></path>
-            </svg>
+<button class="chip" data-layer="satellite" id="chipSat">
+<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="10"></circle>
+<path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"></path>
+</svg>
             Satelliet
           </button>
-
-          <button class="chip" id="chipScheme">
+<button class="chip" id="chipScheme">
             Kleur:
             <span id="schemeLabel">Helder</span>
-          </button>
-
-          <button class="chip" id="chipLocate">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
-            </svg>
+</button>
+<button class="chip" id="chipLocate">
+<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="3"></circle>
+<path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+</svg>
             Mijn locatie
           </button>
-
-          <button
-            class="chip"
-            id="xweatherLayersBtn"
-            type="button"
-          >
+<button class="chip" id="xweatherLayersBtn" type="button">
             Lagen
           </button>
-
-          <button
-            class="chip"
-            id="radarFullscreen"
-            type="button"
-          >
+<button class="chip" id="radarFullscreen" type="button">
             Volledig
           </button>
-
-        </div>
-
-        <div class="chip-row" id="durationRow">
-          <button class="chip active" data-dur="1">1 uur</button>
-          <button class="chip" data-dur="6">6 uur</button>
-          <button class="chip" data-dur="12">12 uur</button>
-          <button class="chip" data-dur="24">24 uur</button>
-        </div>
-
-        <div
-          class="xweather-layerbar"
-          id="xweatherLayerBar"
-          aria-label="Professionele weerlagen"
-        ></div>
-
-      </div>
-
-      <div class="radar-info" id="radarInfo"></div>
-
-      <div class="radar-bottom">
-
-        <div id="xweatherPanel" class="xweather-panel hide">
-
-          <div class="xweather-panel-head">
-
-            <div>
-              <b id="xweatherLayerTitle">Radar</b>
-              <span id="xweatherLayerMeta">
+</div>
+<div class="chip-row" id="durationRow">
+<button class="chip active" data-dur="1">1 uur</button>
+<button class="chip" data-dur="6">6 uur</button>
+<button class="chip" data-dur="12">12 uur</button>
+<button class="chip" data-dur="24">24 uur</button>
+</div>
+<div aria-label="Professionele weerlagen" class="xweather-layerbar" id="xweatherLayerBar"></div>
+</div>
+<div class="radar-info" id="radarInfo"></div>
+<div class="radar-bottom">
+<div class="xweather-panel hide" id="xweatherPanel">
+<div class="xweather-panel-head">
+<div>
+<b id="xweatherLayerTitle">Radar</b>
+<span id="xweatherLayerMeta">
                 Xweather MapsGL laden...
               </span>
-            </div>
-
-            <button
-              class="smallbtn"
-              id="xweatherRetry"
-              type="button"
-            >
+</div>
+<button class="smallbtn" id="xweatherRetry" type="button">
               Opnieuw proberen
             </button>
-
-          </div>
-
-          <div
-            class="radar-eta-line"
-            id="xweatherEtaLine"
-          ></div>
-
-          <div
-            class="xweather-timeline"
-            id="xweatherTimelinePanel"
-          >
-
-            <button
-              class="playbtn"
-              id="xweatherPlay"
-              type="button"
-              aria-label="Animatie afspelen"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="6,4 20,12 6,20"></polygon>
-              </svg>
-            </button>
-
-            <button
-              class="chip"
-              id="xweatherPrev"
-              type="button"
-            >
+</div>
+<div class="radar-eta-line" id="xweatherEtaLine"></div>
+<div class="xweather-timeline" id="xweatherTimelinePanel">
+<button aria-label="Animatie afspelen" class="playbtn" id="xweatherPlay" type="button">
+<svg fill="currentColor" viewbox="0 0 24 24">
+<polygon points="6,4 20,12 6,20"></polygon>
+</svg>
+</button>
+<button class="chip" id="xweatherPrev" type="button">
               Vorige
             </button>
-
-            <input
-              id="xweatherTimeSlider"
-              type="range"
-              min="0"
-              max="100"
-              value="100"
-              aria-label="Tijdlijn"
-            >
-
-            <button
-              class="chip"
-              id="xweatherNext"
-              type="button"
-            >
+<input aria-label="Tijdlijn" id="xweatherTimeSlider" max="100" min="0" type="range" value="100"/>
+<button class="chip" id="xweatherNext" type="button">
               Volgende
             </button>
-
-            <button
-              class="chip"
-              id="xweatherNow"
-              type="button"
-            >
+<button class="chip" id="xweatherNow" type="button">
               Nu
             </button>
-
-            <select
-              id="xweatherSpeed"
-              aria-label="Animatiesnelheid"
-            >
-              <option value="0.5">0,5x</option>
-              <option value="1" selected>1x</option>
-              <option value="2">2x</option>
-            </select>
-
-            <span id="xweatherTimeLabel">--:--</span>
-
-          </div>
-
-          <div
-            class="xweather-legend"
-            id="xweatherLegend"
-          ></div>
-
-          <details
-            class="xweather-wind-settings"
-            id="xweatherWindSettings"
-          >
-
-            <summary>Windinstellingen</summary>
-
-            <label>
+<select aria-label="Animatiesnelheid" id="xweatherSpeed">
+<option value="0.5">0,5x</option>
+<option selected="" value="1">1x</option>
+<option value="2">2x</option>
+</select>
+<span id="xweatherTimeLabel">--:--</span>
+</div>
+<div class="xweather-legend" id="xweatherLegend"></div>
+<details class="xweather-wind-settings" id="xweatherWindSettings">
+<summary>Windinstellingen</summary>
+<label>
               Snelheid
-              <input
-                id="windParticleSpeed"
-                type="range"
-                min="20"
-                max="120"
-                value="55"
-              >
-            </label>
-
-            <label>
+              <input id="windParticleSpeed" max="120" min="20" type="range" value="55"/>
+</label>
+<label>
               Dichtheid
-              <input
-                id="windParticleDensity"
-                type="range"
-                min="15"
-                max="100"
-                value="45"
-              >
-            </label>
-
-            <label>
+              <input id="windParticleDensity" max="100" min="15" type="range" value="45"/>
+</label>
+<label>
               Lengte
-              <input
-                id="windParticleTrail"
-                type="range"
-                min="20"
-                max="100"
-                value="60"
-              >
-            </label>
-
-            <label>
+              <input id="windParticleTrail" max="100" min="20" type="range" value="60"/>
+</label>
+<label>
               Dekking
-              <input
-                id="windParticleOpacity"
-                type="range"
-                min="25"
-                max="100"
-                value="75"
-              >
-            </label>
-
-          </details>
-
-        </div>
-
-        <div id="liveRadarPanel">
-
-          <div class="radar-panel-head">
-
-            <div>
-              <b>Wheaterflow buienradar</b>
-              <span id="radarPlaceLabel">
+              <input id="windParticleOpacity" max="100" min="25" type="range" value="75"/>
+</label>
+</details>
+</div>
+<div id="liveRadarPanel">
+<div class="radar-panel-head">
+<div>
+<b>Wheaterflow buienradar</b>
+<span id="radarPlaceLabel">
                 Radar rond België
               </span>
-            </div>
-
-            <span
-              class="radar-now-badge"
-              id="radarNowBadge"
-            >
+</div>
+<span class="radar-now-badge" id="radarNowBadge">
               NU
             </span>
-
-          </div>
-
-          <div
-            class="radar-eta-line"
-            id="radarEtaLine"
-          ></div>
-
-          <div class="legend">
-
-            <span>Licht</span>
-
-            <div class="swatches">
-              <div style="background:#3d7ff0"></div>
-              <div style="background:#35c7e0"></div>
-              <div style="background:#3fd07a"></div>
-              <div style="background:#e8d64a"></div>
-              <div style="background:#f0913c"></div>
-              <div style="background:#e8503c"></div>
-              <div style="background:#b13cd6"></div>
-            </div>
-
-            <span>Zwaar</span>
-
-          </div>
-
-          <div class="opacity-row">
-
-            <span>Dekking</span>
-
-            <input
-              type="range"
-              id="opacitySlider"
-              min="20"
-              max="100"
-              value="90"
-            >
-
-          </div>
-
-          <div
-            class="timeline-row"
-            style="margin-top:8px;"
-          >
-
-            <button
-              class="playbtn"
-              id="playBtn"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <polygon points="6,4 20,12 6,20"></polygon>
-              </svg>
-            </button>
-
-            <div
-              class="timeline"
-              id="timeline"
-            ></div>
-
-            <div
-              class="timelabel"
-              id="timeLabel"
-            >
+</div>
+<div class="radar-eta-line" id="radarEtaLine"></div>
+<div class="legend">
+<span>Licht</span>
+<div class="swatches">
+<div style="background:#3d7ff0"></div>
+<div style="background:#35c7e0"></div>
+<div style="background:#3fd07a"></div>
+<div style="background:#e8d64a"></div>
+<div style="background:#f0913c"></div>
+<div style="background:#e8503c"></div>
+<div style="background:#b13cd6"></div>
+</div>
+<span>Zwaar</span>
+</div>
+<div class="opacity-row">
+<span>Dekking</span>
+<input id="opacitySlider" max="100" min="20" type="range" value="90"/>
+</div>
+<div class="timeline-row" style="margin-top:8px;">
+<button class="playbtn" id="playBtn">
+<svg fill="currentColor" viewbox="0 0 24 24">
+<polygon points="6,4 20,12 6,20"></polygon>
+</svg>
+</button>
+<div class="timeline" id="timeline"></div>
+<div class="timelabel" id="timeLabel">
               --:--
             </div>
-
-          </div>
-
-          <input
-            class="radar-frame-slider"
-            id="radarFrameSlider"
-            type="range"
-            min="0"
-            max="12"
-            value="12"
-            aria-label="Radartijdlijn"
-          >
-
-          <div class="radar-axis">
-            <span>-2u</span>
-            <span>-1u</span>
-            <span>Nu</span>
-          </div>
-
-          <div class="radar-note">
+</div>
+<input aria-label="Radartijdlijn" class="radar-frame-slider" id="radarFrameSlider" max="12" min="0" type="range" value="12"/>
+<div class="radar-axis">
+<span>-2u</span>
+<span>-1u</span>
+<span>Nu</span>
+</div>
+<div class="radar-note">
             Wheaterflow radar: laatste 2 uur neerslag,
             per 10 minuten. Beweeg de schuif om een frame
             vast te zetten.
           </div>
-
-        </div>
-
-        <div id="hourlyChartPanel">
-
-          <div
-            class="radar-note"
-            id="hourlyChartNote"
-          >
+</div>
+<div id="hourlyChartPanel">
+<div class="radar-note" id="hourlyChartNote">
             Neerslagverwachting per uur - geen bewegend
             radarbeeld beschikbaar over deze periode,
             wel actuele modeldata.
           </div>
-
-          <div
-            class="hourlychart"
-            id="hourlyChart"
-          ></div>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
-
-  <!-- ============ COMMUNITY ============ -->
-
-  <div class="screen" id="communityscreen">
-
-    <div class="screen-inner community-inner">
-
-      <div class="community-head">
-
-        <div>
-          <h2 class="section-h">
+<div class="hourlychart" id="hourlyChart"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- ============ COMMUNITY ============ -->
+<div class="screen" id="communityscreen">
+<div class="screen-inner community-inner">
+<div class="community-head">
+<div>
+<h2 class="section-h">
             Wheaterflow Community
           </h2>
-
-          <p class="subtle">
+<p class="subtle">
             Live weerfoto's en waarnemingen van gebruikers.
           </p>
-        </div>
-
-        <button
-          class="smallbtn community-upload-open"
-          id="communityUploadOpen"
-          type="button"
-        >
+</div>
+<button class="smallbtn community-upload-open" id="communityUploadOpen" type="button">
           Foto delen
         </button>
-
-      </div>
-
-      <div
-        class="community-live"
-        id="communityLiveStats"
-      >
-        <span>Live</span>
-        <b>Community laden...</b>
-      </div>
-
-      <div class="community-filters">
-
-        <input
-          id="communitySearch"
-          type="search"
-          placeholder="Zoek plaats, gebruiker, hashtag..."
-          autocomplete="off"
-        >
-
-        <select
-          id="communityCategoryFilter"
-          aria-label="Categorie filter"
-        >
-          <option value="">
+</div>
+<div class="community-live" id="communityLiveStats">
+<span>Live</span>
+<b>Community laden...</b>
+</div>
+<div class="community-filters">
+<input autocomplete="off" id="communitySearch" placeholder="Zoek plaats, gebruiker, hashtag..." type="search"/>
+<select aria-label="Categorie filter" id="communityCategoryFilter">
+<option value="">
             Alle categorieën
           </option>
-        </select>
-
-      </div>
-
-      <div class="community-tabs">
-
-        <button
-          class="active"
-          data-community-view="feed"
-          type="button"
-        >
+</select>
+</div>
+<div class="community-tabs">
+<button class="active" data-community-view="feed" type="button">
           Feed
         </button>
-
-        <button
-          data-community-view="map"
-          type="button"
-        >
+<button data-community-view="map" type="button">
           Kaart
         </button>
-
-        <button
-          data-community-view="collection"
-          type="button"
-        >
+<button data-community-view="collection" type="button">
           Mijn collectie
         </button>
-
-      </div>
-
-      <section
-        class="community-panel active"
-        id="communityFeedPanel"
-      >
-
-        <div
-          class="community-feed"
-          id="communityFeed"
-        ></div>
-
-        <button
-          class="smallbtn community-load-more"
-          id="communityLoadMore"
-          type="button"
-        >
+</div>
+<section class="community-panel active" id="communityFeedPanel">
+<div class="community-feed" id="communityFeed"></div>
+<button class="smallbtn community-load-more" id="communityLoadMore" type="button">
           Meer laden
         </button>
-
-      </section>
-
-      <section
-        class="community-panel"
-        id="communityMapPanel"
-      >
-        <div class="community-map-card">
-          <div id="communityMap"></div>
-        </div>
-      </section>
-
-      <section
-        class="community-panel"
-        id="communityCollectionPanel"
-      >
-
-        <div
-          id="communityCollection"
-          class="community-collection"
-        ></div>
-
-        <div
-          id="communityLeaderboard"
-          class="community-leaderboard"
-        ></div>
-
-      </section>
-
-    </div>
-
-  </div>
-
-  <!-- ============ MIJN KLIMAAT ============ -->
-
-  <div class="screen" id="climatescreen">
-
-    <div class="screen-inner climate-inner">
-
-      <div class="climate-head">
-
-        <div>
-
-          <h2 class="section-h">
+</section>
+<section class="community-panel" id="communityMapPanel">
+<div class="community-map-card">
+<div id="communityMap"></div>
+</div>
+</section>
+<section class="community-panel" id="communityCollectionPanel">
+<div class="community-collection" id="communityCollection"></div>
+<div class="community-leaderboard" id="communityLeaderboard"></div>
+</section>
+</div>
+</div>
+<!-- ============ MIJN KLIMAAT ============ -->
+<div class="screen" id="climatescreen">
+<div class="screen-inner climate-inner">
+<div class="climate-head">
+<div>
+<h2 class="section-h">
             Mijn Klimaat
           </h2>
-
-          <p class="subtle">
+<p class="subtle">
             Persoonlijk weerarchief van jouw opgeslagen
             locaties. Geen officieel klimatologisch onderzoek.
           </p>
-
-        </div>
-
-        <button
-          class="smallbtn"
-          id="climateBackBtn"
-          type="button"
-        >
+</div>
+<button class="smallbtn" id="climateBackBtn" type="button">
           Terug
         </button>
-
-      </div>
-
-      <div class="card climate-consent-card">
-
-        <div class="settings-section-head">
-          <span>Dagelijks bewaren</span>
-          <strong id="climateStatus">Uit</strong>
-        </div>
-
-        <p class="subtle">
+</div>
+<div class="card climate-consent-card">
+<div class="settings-section-head">
+<span>Dagelijks bewaren</span>
+<strong id="climateStatus">Uit</strong>
+</div>
+<p class="subtle">
           Wheaterflow bewaart maximaal een dagsamenvatting
           per locatie. Er worden geen voortdurende
           gps-bewegingen bijgehouden.
         </p>
-
-        <div class="climate-settings-grid">
-
-          <label>
+<div class="climate-settings-grid">
+<label>
             Privacy
 
             <select id="climateMode">
-              <option value="off">
+<option value="off">
                 Functie uit
               </option>
-              <option value="home">
+<option value="home">
                 Alleen thuislocatie
               </option>
-              <option value="municipality">
+<option value="municipality">
                 Alleen gemeente
               </option>
-              <option value="rounded">
+<option value="rounded">
                 Afgeronde locatie
               </option>
-              <option value="manual">
+<option value="manual">
                 Handmatig opgeslagen locaties
               </option>
-            </select>
-
-          </label>
-
-          <label>
+</select>
+</label>
+<label>
             Periode
 
             <select id="climatePeriod">
-              <option value="month">
+<option value="month">
                 Deze maand
               </option>
-              <option value="year">
+<option value="year">
                 Dit jaar
               </option>
-              <option value="lastYear">
+<option value="lastYear">
                 Vorig jaar
               </option>
-              <option value="all">
+<option value="all">
                 Alles
               </option>
-            </select>
-
-          </label>
-
-          <label>
+</select>
+</label>
+<label>
             Locatie
 
             <select id="climateLocationFilter">
-              <option value="all">
+<option value="all">
                 Alle locaties
               </option>
-            </select>
-
-          </label>
-
-        </div>
-
-        <div class="climate-actions">
-
-          <button
-            class="smallbtn"
-            id="climateSaveToday"
-            type="button"
-          >
+</select>
+</label>
+</div>
+<div class="climate-actions">
+<button class="smallbtn" id="climateSaveToday" type="button">
             Vandaag bewaren
           </button>
-
-          <button
-            class="smallbtn"
-            id="climateExport"
-            type="button"
-          >
+<button class="smallbtn" id="climateExport" type="button">
             Exporteren
           </button>
-
-          <button
-            class="smallbtn danger"
-            id="climateDeleteLocation"
-            type="button"
-          >
+<button class="smallbtn danger" id="climateDeleteLocation" type="button">
             Locatie wissen
           </button>
-
-          <button
-            class="smallbtn danger"
-            id="climateDeleteAll"
-            type="button"
-          >
+<button class="smallbtn danger" id="climateDeleteAll" type="button">
             Alles wissen
           </button>
-
-        </div>
-
-        <div
-          class="auth-message"
-          id="climateMessage"
-        ></div>
-
-      </div>
-
-      <div
-        class="climate-summary"
-        id="climateSummary"
-      ></div>
-
-      <div class="card">
-
-        <div class="card-title">
+</div>
+<div class="auth-message" id="climateMessage"></div>
+</div>
+<div class="climate-summary" id="climateSummary"></div>
+<div class="card">
+<div class="card-title">
           Temperatuur en neerslag
         </div>
-
-        <div class="climate-chart-wrap">
-          <canvas id="climateChart"></canvas>
-        </div>
-
-      </div>
-
-      <div class="climate-grid-2">
-
-        <div class="card">
-
-          <div class="card-title">
+<div class="climate-chart-wrap">
+<canvas id="climateChart"></canvas>
+</div>
+</div>
+<div class="climate-grid-2">
+<div class="card">
+<div class="card-title">
             Kalender
           </div>
-
-          <div
-            class="climate-calendar"
-            id="climateCalendar"
-          ></div>
-
-        </div>
-
-        <div class="card">
-
-          <div class="card-title">
+<div class="climate-calendar" id="climateCalendar"></div>
+</div>
+<div class="card">
+<div class="card-title">
             Tijdlijn
           </div>
-
-          <div
-            class="climateTimeline"
-            id="climateTimeline"
-          ></div>
-
-        </div>
-
-      </div>
-
-      <div class="card">
-
-        <div class="card-title">
+<div class="climateTimeline" id="climateTimeline"></div>
+</div>
+</div>
+<div class="card">
+<div class="card-title">
           Weerherinneringen
         </div>
-
-        <div
-          id="climateMemories"
-          class="climate-memories"
-        ></div>
-
-      </div>
-
-    </div>
-
-  </div>
-
-  <!-- ============ STORM CHASER ============ -->
-
-  <div class="screen" id="stormscreen">
-
-    <div class="screen-inner">
-
-      <h2 class="section-h">
+<div class="climate-memories" id="climateMemories"></div>
+</div>
+</div>
+</div>
+<!-- ============ STORM CHASER ============ -->
+<div class="screen" id="stormscreen">
+<div class="screen-inner">
+<h2 class="section-h">
         Storm chaser
       </h2>
-
-      <p class="subtle">
+<p class="subtle">
         Instabiliteitsdata (CAPE, lifted index,
         vrieslaagniveau) per locatie, met filters om
         kansrijke uren op te sporen.
       </p>
-
-      <div class="card">
-
-        <div class="card-title">
+<div class="card">
+<div class="card-title">
           Vergelijk locaties
         </div>
-
-        <div id="favchips"></div>
-
-        <button
-          class="smallbtn"
-          id="addCurrentFav"
-          style="margin-top:6px;"
-        >
+<div id="favchips"></div>
+<button class="smallbtn" id="addCurrentFav" style="margin-top:6px;">
           + Huidige locatie toevoegen
         </button>
-
-      </div>
-
-      <div class="card">
-
-        <div class="card-title">
+</div>
+<div class="card">
+<div class="card-title">
           Storm-risico nu -
           <span id="riskLocName">-</span>
-        </div>
-
-        <div class="risk-scope">
-
-          <svg viewBox="0 0 150 150">
-
-            <circle
-              cx="75"
-              cy="75"
-              r="62"
-              fill="none"
-              stroke="#182543"
-              stroke-width="11"
-            ></circle>
-
-            <circle
-              id="riskArc"
-              cx="75"
-              cy="75"
-              r="62"
-              fill="none"
-              stroke="#f5a524"
-              stroke-width="11"
-              stroke-linecap="round"
-              stroke-dasharray="389.6"
-              stroke-dashoffset="389.6"
-              transform="rotate(-90 75 75)"
-            ></circle>
-
-          </svg>
-
-          <div class="rs-val">
-
-            <div
-              class="rs-num"
-              id="riskNum"
-            >
+</div>
+<div class="risk-scope">
+<svg viewbox="0 0 150 150">
+<circle cx="75" cy="75" fill="none" r="62" stroke="#182543" stroke-width="11"></circle>
+<circle cx="75" cy="75" fill="none" id="riskArc" r="62" stroke="#f5a524" stroke-dasharray="389.6" stroke-dashoffset="389.6" stroke-linecap="round" stroke-width="11" transform="rotate(-90 75 75)"></circle>
+</svg>
+<div class="rs-val">
+<div class="rs-num" id="riskNum">
               -
             </div>
-
-            <div class="rs-lbl">
+<div class="rs-lbl">
               risico-index
             </div>
-
-          </div>
-
-        </div>
-
-        <div
-          class="detail-grid"
-          style="margin-top:10px;"
-        >
-
-          <div class="detail-card">
-            <div class="dt-title">CAPE</div>
-            <div
-              class="dt-val mono"
-              id="capeNow"
-            >
+</div>
+</div>
+<div class="detail-grid" style="margin-top:10px;">
+<div class="detail-card">
+<div class="dt-title">CAPE</div>
+<div class="dt-val mono" id="capeNow">
               -
             </div>
-            <div class="dt-sub">J/kg</div>
-          </div>
-
-          <div class="detail-card">
-            <div class="dt-title">
+<div class="dt-sub">J/kg</div>
+</div>
+<div class="detail-card">
+<div class="dt-title">
               Lifted index
             </div>
-            <div
-              class="dt-val mono"
-              id="liNow"
-            >
+<div class="dt-val mono" id="liNow">
               -
             </div>
-            <div class="dt-sub">
+<div class="dt-sub">
               instabiliteit
             </div>
-          </div>
-
-          <div class="detail-card">
-            <div class="dt-title">
+</div>
+<div class="detail-card">
+<div class="dt-title">
               Windstoten
             </div>
-            <div
-              class="dt-val mono"
-              id="gustNow"
-            >
+<div class="dt-val mono" id="gustNow">
               -
             </div>
-            <div class="dt-sub">km/u</div>
-          </div>
-
-          <div class="detail-card">
-            <div class="dt-title">
+<div class="dt-sub">km/u</div>
+</div>
+<div class="detail-card">
+<div class="dt-title">
               Vrieslaag
             </div>
-            <div
-              class="dt-val mono"
-              id="frzNow"
-            >
+<div class="dt-val mono" id="frzNow">
               -
             </div>
-            <div class="dt-sub">
+<div class="dt-sub">
               m hoogte
             </div>
-          </div>
-
-        </div>
-
-      </div>
-
-      <div class="card">
-
-        <div class="card-title">
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-title">
           Filters - komende 48 uur
         </div>
-
-        <div class="filter-grid">
-
-          <div class="slider-block">
-
-            <label>
+<div class="filter-grid">
+<div class="slider-block">
+<label>
               Min. CAPE
               <b id="fCapeVal">500</b>
               J/kg
             </label>
-
-            <input
-              type="range"
-              id="fCape"
-              min="0"
-              max="3500"
-              step="50"
-              value="500"
-            >
-
-          </div>
-
-          <div class="slider-block">
-
-            <label>
+<input id="fCape" max="3500" min="0" step="50" type="range" value="500"/>
+</div>
+<div class="slider-block">
+<label>
               Max. lifted index
               <b id="fLiVal">0</b>
-            </label>
-
-            <input
-              type="range"
-              id="fLi"
-              min="-12"
-              max="6"
-              step="1"
-              value="0"
-            >
-
-          </div>
-
-          <div class="slider-block">
-
-            <label>
+</label>
+<input id="fLi" max="6" min="-12" step="1" type="range" value="0"/>
+</div>
+<div class="slider-block">
+<label>
               Min. windstoten
               <b id="fGustVal">40</b>
               km/u
             </label>
-
-            <input
-              type="range"
-              id="fGust"
-              min="0"
-              max="150"
-              step="5"
-              value="40"
-            >
-
-          </div>
-
-          <div class="slider-block">
-
-            <label>
+<input id="fGust" max="150" min="0" step="5" type="range" value="40"/>
+</div>
+<div class="slider-block">
+<label>
               Min. neerslagkans
               <b id="fPopVal">40</b>
               %
             </label>
-
-            <input
-              type="range"
-              id="fPop"
-              min="0"
-              max="100"
-              step="5"
-              value="40"
-            >
-
-          </div>
-
-        </div>
-
-        <div
-          class="headerbar"
-          style="margin-top:12px;"
-        >
-
-          <span
-            class="subtle"
-            id="hitCount"
-            style="font-size:12.5px;"
-          >
+<input id="fPop" max="100" min="0" step="5" type="range" value="40"/>
+</div>
+</div>
+<div class="headerbar" style="margin-top:12px;">
+<span class="subtle" id="hitCount" style="font-size:12.5px;">
             0 uur voldoet aan filters
           </span>
-
-          <button
-            class="smallbtn"
-            id="onlyHits"
-          >
+<button class="smallbtn" id="onlyHits">
             Alleen treffers
           </button>
-
-        </div>
-
-        <div class="tablewrap">
-
-          <table
-            class="hourtable"
-            id="hourTable"
-          >
-
-            <thead>
-              <tr>
-                <th>Tijd</th>
-                <th>Weer</th>
-                <th>CAPE</th>
-                <th>LI</th>
-                <th>Stoten</th>
-                <th>Neerslag%</th>
-              </tr>
-            </thead>
-
-            <tbody id="hourTableBody"></tbody>
-
-          </table>
-
-        </div>
-
-      </div>
-
-      <div class="safety-note">
-        <b>Let op:</b>
+</div>
+<div class="tablewrap">
+<table class="hourtable" id="hourTable">
+<thead>
+<tr>
+<th>Tijd</th>
+<th>Weer</th>
+<th>CAPE</th>
+<th>LI</th>
+<th>Stoten</th>
+<th>Neerslag%</th>
+</tr>
+</thead>
+<tbody id="hourTableBody"></tbody>
+</table>
+</div>
+</div>
+<div class="safety-note">
+<b>Let op:</b>
         dit is een indicatieve modelinschatting (GFS),
         geen officiële waarschuwing. Volg voor veiligheid
         altijd de waarschuwingen van het KMI/RMI en houd
         voldoende afstand tot onweer en hagel.
       </div>
-
-    </div>
-
-  </div>
-
-  <!-- ============ TABBAR ============ -->
-
-  <div class="tabbar">
-
-    <div
-      class="tab-glass-indicator"
-      aria-hidden="true"
-    ></div>
-
-    <button
-      class="tabbtn active"
-      data-tab="home"
-      data-section="#sec0"
-    >
-
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <path d="M3 12l9-9 9 9"></path>
-        <path d="M5 10v10h14V10"></path>
-      </svg>
+</div>
+</div>
+<!-- ============ TABBAR ============ -->
+<div class="tabbar">
+<div aria-hidden="true" class="tab-glass-indicator"></div>
+<button class="tabbtn active" data-section="#sec0" data-tab="home">
+<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/today.png"/>
 
       Vandaag
 
     </button>
-
-    <button
-      class="tabbtn"
-      data-tab="home"
-      data-section="#sec2"
-      data-more-target="fourteen"
-    >
-
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <rect
-          x="3"
-          y="4"
-          width="18"
-          height="17"
-          rx="4"
-        ></rect>
-
-        <path d="M8 2v4M16 2v4M3 10h18"></path>
-        <path d="M8 15h.01M12 15h.01M16 15h.01"></path>
-      </svg>
+<button class="tabbtn" data-more-target="fourteen" data-section="#sec2" data-tab="home">
+<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/forecast.png"/>
 
       Voorspelling
 
     </button>
-
-    <button
-      class="tabbtn"
-      data-tab="radarscreen"
-    >
-
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <circle cx="12" cy="12" r="9"></circle>
-        <circle cx="12" cy="12" r="4.5"></circle>
-        <circle cx="12" cy="12" r="1"></circle>
-        <path d="M12 3v3M21 12h-3"></path>
-      </svg>
+<button class="tabbtn" data-tab="radarscreen">
+<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/radar.png"/>
 
       Radar
 
     </button>
-
-    <button
-      class="tabbtn"
-      data-tab="communityscreen"
-    >
-
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
-        <circle cx="9" cy="7" r="4"></circle>
-        <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
-        <path d="M16 3.13a4 4 0 010 7.75"></path>
-      </svg>
+<button class="tabbtn" data-tab="communityscreen">
+<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/community.png"/>
 
       Community
 
     </button>
-
-    <button
-      class="tabbtn"
-      data-tab="profile"
-    >
-
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <circle cx="12" cy="8" r="4"></circle>
-        <path d="M4 22a8 8 0 0116 0"></path>
-      </svg>
+<button class="tabbtn" data-tab="profile">
+<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/profile.png"/>
 
       Profiel
 
     </button>
-
-  </div>
-
-  <!-- ============ SETTINGS / DIALOGS ============ -->
-
-  <div class="scrim" id="scrim"></div>
-  <div class="auth-scrim" id="authScrim"></div>
-  <div class="day-scrim" id="dayScrim"></div>
-  <div class="community-scrim" id="communityScrim"></div>
-
-  <div
-    class="community-composer"
-    id="communityComposer"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="communityComposerTitle"
-  >
-
-    <header class="community-composer-head">
-
-      <button
-        class="profile-close-button"
-        id="communityComposerClose"
-        type="button"
-        aria-label="Sluiten"
-      >
-        &times;
+</div>
+<!-- ============ SETTINGS / DIALOGS ============ -->
+<div class="scrim" id="scrim"></div>
+<div class="auth-scrim" id="authScrim"></div>
+<div class="day-scrim" id="dayScrim"></div>
+<div class="community-scrim" id="communityScrim"></div>
+<div aria-labelledby="communityComposerTitle" aria-modal="true" class="community-composer" id="communityComposer" role="dialog">
+<header class="community-composer-head">
+<button aria-label="Sluiten" class="profile-close-button" id="communityComposerClose" type="button">
+        ×
       </button>
-
-      <h3 id="communityComposerTitle">
+<h3 id="communityComposerTitle">
         Weerfoto delen
       </h3>
-
-      <button
-        class="profile-done-button"
-        id="communitySubmitPost"
-        type="button"
-      >
+<button class="profile-done-button" id="communitySubmitPost" type="button">
         Plaatsen
       </button>
-
-    </header>
-
-    <div class="community-composer-body">
-
-      <label class="community-photo-picker">
-
-        <input
-          id="communityPhotoInput"
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          capture="environment"
-        >
-
-        <span>
+</header>
+<div class="community-composer-body">
+<label class="community-photo-picker">
+<input accept="image/png,image/jpeg,image/webp" capture="environment" id="communityPhotoInput" type="file"/>
+<span>
           Camera openen of foto kiezen
         </span>
-
-        <img
-          id="communityPhotoPreview"
-          alt=""
-          class="hidden"
-        >
-
-      </label>
-
-      <label>
+<img alt="" class="hidden" id="communityPhotoPreview"/>
+</label>
+<label>
         Omschrijving
 
-        <textarea
-          id="communityCaption"
-          maxlength="500"
-          placeholder="Wat zie je? Gebruik gerust #onweer of #regenboog."
-        ></textarea>
-
-      </label>
-
-      <label>
+        <textarea id="communityCaption" maxlength="500" placeholder="Wat zie je? Gebruik gerust #onweer of #regenboog."></textarea>
+</label>
+<label>
         Weersoort
         <select id="communityCategorySelect"></select>
-      </label>
-
-      <label>
+</label>
+<label>
         Locatie delen
 
         <select id="communityLocationPrivacy">
-          <option value="municipality">
+<option value="municipality">
             Alleen gemeente
           </option>
-          <option value="exact">
+<option value="exact">
             Exacte locatie
           </option>
-          <option value="none">
+<option value="none">
             Geen locatie
           </option>
-        </select>
-
-      </label>
-
-      <label class="inline-check">
-        <input
-          id="communityUseGps"
-          type="checkbox"
-        >
+</select>
+</label>
+<label class="inline-check">
+<input id="communityUseGps" type="checkbox"/>
         Gebruik GPS voor deze upload
       </label>
-
-      <div
-        class="community-captured-weather"
-        id="communityCapturedWeather"
-      >
+<div class="community-captured-weather" id="communityCapturedWeather">
         Weergegevens worden toegevoegd bij plaatsen.
       </div>
-
-      <div
-        class="auth-message"
-        id="communityComposerMessage"
-      ></div>
-
-    </div>
-
-  </div>
-
-  <div
-    class="day-sheet"
-    id="daySheet"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="daySheetTitle"
-  ></div>
-
-  <div
-    class="auth-sheet"
-    id="authSheet"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="profileSheetTitle"
-  >
-
-    <header class="profile-header">
-
-      <button
-        class="profile-close-button"
-        id="closeAuthSheet"
-        type="button"
-        aria-label="Profiel sluiten"
-      >
-        &times;
+<div class="auth-message" id="communityComposerMessage"></div>
+</div>
+</div>
+<div aria-labelledby="daySheetTitle" aria-modal="true" class="day-sheet" id="daySheet" role="dialog"></div>
+<div aria-labelledby="profileSheetTitle" aria-modal="true" class="auth-sheet" id="authSheet" role="dialog">
+<header class="profile-header">
+<button aria-label="Profiel sluiten" class="profile-close-button" id="closeAuthSheet" type="button">
+        ×
       </button>
-
-      <h1 id="profileSheetTitle">
+<h1 id="profileSheetTitle">
         Profiel
       </h1>
-
-      <button
-        class="profile-done-button"
-        id="profileDoneBtn"
-        type="button"
-      >
-        Gereed
-      </button>
-
-    </header>
-
-    <div class="auth-scroll">
-
-      <div class="auth-brand">
-
-        <img
-          src="./icons/icon-96.png"
-          alt="Wheaterflow"
-        >
-
-        <div>
-          <h3 id="authTitle">
+<button aria-label="Profielinstellingen" class="profile-done-button" id="profileDoneBtn" title="Profielinstellingen" type="button"><img alt="" aria-hidden="true" class="profile-header-icon" src="./assets/ui/profile/settings.png"/></button>
+</header>
+<div class="auth-scroll">
+<div class="auth-brand">
+<img alt="Wheaterflow" src="./icons/icon-96.png"/>
+<div>
+<h3 id="authTitle">
             Wheaterflow account
           </h3>
-
-          <p id="authSubtitle">
+<p id="authSubtitle">
             Synchroniseer favorieten, instellingen
             en meldingen.
           </p>
-        </div>
-
-      </div>
-
-      <div id="authLoggedOut">
-
-        <div class="auth-tabs">
-
-          <button
-            class="active"
-            id="authLoginTab"
-            type="button"
-          >
+</div>
+</div>
+<div id="authLoggedOut">
+<div class="auth-tabs">
+<button class="active" id="authLoginTab" type="button">
             Inloggen
           </button>
-
-          <button
-            id="authSignupTab"
-            type="button"
-          >
+<button id="authSignupTab" type="button">
             Account aanmaken
           </button>
-
-        </div>
-
-        <form
-          id="loginForm"
-          class="auth-form"
-        >
-
-          <label>
+</div>
+<form class="auth-form" id="loginForm">
+<label>
             E-mailadres
 
-            <input
-              id="loginEmail"
-              type="email"
-              autocomplete="email"
-              required
-            >
-          </label>
-
-          <label>
+            <input autocomplete="email" id="loginEmail" required="" type="email"/>
+</label>
+<label>
             Wachtwoord
 
-            <input
-              id="loginPassword"
-              type="password"
-              autocomplete="current-password"
-              required
-            >
-          </label>
-
-          <label class="inline-check">
-            <input
-              id="showLoginPassword"
-              type="checkbox"
-            >
+            <input autocomplete="current-password" id="loginPassword" required="" type="password"/>
+</label>
+<label class="inline-check">
+<input id="showLoginPassword" type="checkbox"/>
             Wachtwoord tonen
           </label>
-
-          <button
-            class="smallbtn primary-auth"
-            type="submit"
-          >
+<button class="smallbtn primary-auth" type="submit">
             Inloggen
           </button>
-
-          <button
-            class="linkbtn"
-            id="forgotPasswordBtn"
-            type="button"
-          >
+<button class="linkbtn" id="forgotPasswordBtn" type="button">
             Wachtwoord vergeten?
           </button>
-
-        </form>
-
-        <form
-          id="signupForm"
-          class="auth-form hidden"
-        >
-
-          <label>
+</form>
+<form class="auth-form hidden" id="signupForm">
+<label>
             Weergavenaam
 
-            <input
-              id="signupName"
-              type="text"
-              autocomplete="name"
-              required
-            >
-          </label>
-
-          <label>
+            <input autocomplete="name" id="signupName" required="" type="text"/>
+</label>
+<label>
             E-mailadres
 
-            <input
-              id="signupEmail"
-              type="email"
-              autocomplete="email"
-              required
-            >
-          </label>
-
-          <label>
+            <input autocomplete="email" id="signupEmail" required="" type="email"/>
+</label>
+<label>
             Wachtwoord
 
-            <input
-              id="signupPassword"
-              type="password"
-              autocomplete="new-password"
-              required
-            >
-          </label>
-
-          <label>
+            <input autocomplete="new-password" id="signupPassword" required="" type="password"/>
+</label>
+<label>
             Wachtwoord herhalen
 
-            <input
-              id="signupPassword2"
-              type="password"
-              autocomplete="new-password"
-              required
-            >
-          </label>
-
-          <label class="inline-check">
-            <input
-              id="signupPrivacy"
-              type="checkbox"
-            >
+            <input autocomplete="new-password" id="signupPassword2" required="" type="password"/>
+</label>
+<label class="inline-check">
+<input id="signupPrivacy" type="checkbox"/>
             Ik ga akkoord met de privacyvoorwaarden.
           </label>
-
-          <button
-            class="smallbtn primary-auth"
-            type="submit"
-          >
+<button class="smallbtn primary-auth" type="submit">
             Account aanmaken
           </button>
-
-        </form>
-
-        <div
-          class="auth-message"
-          id="authMessage"
-        ></div>
-
-        <button
-          class="linkbtn"
-          id="continueGuestBtn"
-          type="button"
-        >
+</form>
+<div class="auth-message" id="authMessage"></div>
+<button class="linkbtn" id="continueGuestBtn" type="button">
           Doorgaan als gast
         </button>
-
-        <details class="privacy-note">
-
-          <summary>
+<details class="privacy-note">
+<summary>
             Privacy in het kort
           </summary>
-
-          <p>
+<p>
             Wheaterflow bewaart alleen je e-mailadres,
             profielnaam, avatar, favoriete plaatsen,
             instellingen en meldingsvoorkeuren.
@@ -1824,1171 +886,575 @@
             favorieten en waarschuwingen te synchroniseren.
             Je kunt je account en gegevens zelf verwijderen.
           </p>
-
-        </details>
-
-      </div>
-
-      <div
-        id="authLoggedIn"
-        class="hidden"
-      >
-
-        <div class="profile-hero profile-hero-premium">
-
-          <label
-            class="profile-avatar-large"
-            id="profileAvatarLarge"
-          >
-            <span id="profileAvatarInitials">?</span>
-            <img id="profileAvatarImage" alt="" class="hidden">
-            <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
-          </label>
-
-          <div class="profile-identity">
-            <h3 id="profileName">Profiel laden...</h3>
-            <div class="profile-brand-badge">✦ Wheaterflow</div>
-            <p class="profile-home-line">⌖ <span id="profileHomeSummary">Locatie bepalen…</span></p>
-            <button class="profile-edit-main" id="profileEditToggle" type="button">✎ Bewerk profiel</button>
-          </div>
-
-        </div>
-
-        <section class="profile-weather-card" aria-label="Jouw weer vandaag">
-          <div class="profile-weather-copy">
-            <span>Jouw weer vandaag</span>
-            <div><strong id="profileWeatherTemp">--°</strong><b id="profileWeatherLabel">Weer laden…</b></div>
-            <p id="profileWeatherAdvice">Actuele weersinformatie voor jouw locatie.</p>
-          </div>
-          <div class="profile-weather-icon" id="profileWeatherIcon" aria-hidden="true">☁</div>
-        </section>
-
-        <div class="profile-quick-grid profile-quick-grid-premium" aria-label="Mijn Wheaterflow">
-          <button class="profile-stat-card" id="profileFavoritesJump" type="button">
-            <span class="profile-stat-icon">⌖</span>
-            <span><small>Favoriete locaties</small><b id="profileFavoritesCount">0</b></span>
-          </button>
-          <button class="profile-stat-card" id="profileNotificationsQuick" type="button">
-            <span class="profile-stat-icon">♢</span>
-            <span><small>Weermeldingen</small><b id="profileNotificationsStatus">0</b></span>
-          </button>
-        </div>
-
-        <div class="profile-menu-list profile-main-menu">
-          <button class="profile-menu-row" id="profileFavoritesMenu" type="button"><span>⌖ <b>Mijn locaties</b></span><strong>›</strong></button>
-          <button class="profile-menu-row" id="profileNotificationsMenu" type="button"><span>♢ <b>Meldingen</b></span><strong>›</strong></button>
-          <button class="profile-menu-row" id="profileWeatherPrefsMenu" type="button"><span>☷ <b>Weervoorkeuren</b></span><strong>›</strong></button>
-          <button class="profile-menu-row profile-pro-row" type="button"><span>♕ <b>Wheaterflow Pro</b></span><em>In de maak</em><strong>›</strong></button>
-        </div>
-
-        <div class="profile-pro-card">
-          <div><b>♕ Wheaterflow Pro</b><span>Binnenkort beschikbaar</span></div>
-          <span class="profile-pro-pill">In de maak</span>
-        </div>
-
-        <div id="profileEditPanel" class="profile-edit-panel hidden">
-        <form
-          id="profileForm"
-          class="auth-form"
-        >
-
-          <div class="profile-section-title">
+</details>
+</div>
+<div class="hidden" id="authLoggedIn">
+<div class="profile-hero profile-hero-premium">
+<label class="profile-avatar-large" id="profileAvatarLarge">
+<span id="profileAvatarInitials">?</span>
+<img alt="" class="hidden" id="profileAvatarImage"/>
+<input accept="image/png,image/jpeg,image/webp" hidden="" id="avatarInput" type="file"/>
+</label>
+<div class="profile-identity">
+<h3 id="profileName">Profiel laden...</h3>
+<div class="profile-brand-badge">✦ Wheaterflow</div>
+<p class="profile-home-line"><img alt="" aria-hidden="true" class="profile-inline-icon" src="./assets/ui/profile/location.png"/><span id="profileHomeSummary">Locatie bepalen…</span></p>
+<button class="profile-edit-main" id="profileEditToggle" type="button"><img alt="" aria-hidden="true" class="profile-edit-icon" src="./assets/ui/profile/edit.png"/>Bewerk profiel</button>
+</div>
+</div>
+<section aria-label="Jouw weer vandaag" class="profile-weather-card">
+<div class="profile-weather-copy">
+<span>Jouw weer vandaag</span>
+<div><strong id="profileWeatherTemp">--°</strong><b id="profileWeatherLabel">Weer laden…</b></div>
+<p id="profileWeatherAdvice">Actuele weersinformatie voor jouw locatie.</p>
+</div>
+<div aria-hidden="true" class="profile-weather-icon" id="profileWeatherIcon">☁</div>
+</section>
+<div aria-label="Mijn Wheaterflow" class="profile-quick-grid profile-quick-grid-premium">
+<button class="profile-stat-card" id="profileFavoritesJump" type="button">
+<span class="profile-stat-icon"><img alt="" aria-hidden="true" src="./assets/ui/profile/location.png"/></span>
+<span><small>Favoriete locaties</small><b id="profileFavoritesCount">0</b></span>
+</button>
+<button class="profile-stat-card" id="profileNotificationsQuick" type="button">
+<span class="profile-stat-icon"><img alt="" aria-hidden="true" src="./assets/ui/profile/notifications.png"/></span>
+<span><small>Weermeldingen</small><b id="profileNotificationsStatus">0</b></span>
+</button>
+</div>
+<div class="profile-menu-list profile-main-menu">
+<button class="profile-menu-row" id="profileFavoritesMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/location.png"/><b>Mijn locaties</b></span><strong>›</strong></button>
+<button class="profile-menu-row" id="profileNotificationsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/notifications.png"/><b>Meldingen</b></span><strong>›</strong></button>
+<button class="profile-menu-row" id="profileWeatherPrefsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/preferences.png"/><b>Weervoorkeuren</b></span><strong>›</strong></button>
+<button class="profile-menu-row profile-pro-row" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon profile-menu-icon-pro" src="./assets/ui/profile/pro.png"/><b>Wheaterflow Pro</b></span><em>In de maak</em><strong>›</strong></button>
+</div>
+<div class="profile-pro-card">
+<div><b><img alt="" aria-hidden="true" class="profile-pro-icon" src="./assets/ui/profile/pro.png"/>Wheaterflow Pro</b><span>Binnenkort beschikbaar</span></div>
+<span class="profile-pro-pill">In de maak</span>
+</div>
+<div class="profile-edit-panel hidden" id="profileEditPanel">
+<form class="auth-form" id="profileForm">
+<div class="profile-section-title">
             Persoonlijke gegevens
           </div>
-
-          <label class="profile-edit-row">
-
-            <span>Weergavenaam</span>
-
-            <input
-              id="profileDisplayName"
-              type="text"
-              autocomplete="name"
-            >
-
-          </label>
-
-          <label class="profile-edit-row">
-
-            <span>Thuislocatie</span>
-
-            <input
-              id="profileHomeLocation"
-              type="text"
-              placeholder="Locatie bepalen…"
-            >
-
-          </label>
-
-          <button
-            class="profile-action-row"
-            id="profileUseCurrentLocation"
-            type="button"
-          >
-
-            <span>
+<label class="profile-edit-row">
+<span>Weergavenaam</span>
+<input autocomplete="name" id="profileDisplayName" type="text"/>
+</label>
+<label class="profile-edit-row">
+<span>Thuislocatie</span>
+<input id="profileHomeLocation" placeholder="Locatie bepalen…" type="text"/>
+</label>
+<button class="profile-action-row" id="profileUseCurrentLocation" type="button">
+<span>
               Huidige locatie gebruiken
             </span>
-
-            <b id="profileCurrentLocationName">
+<b id="profileCurrentLocationName">
               Locatie bepalen…
             </b>
-
-          </button>
-
-          <div class="profile-section-title">
+</button>
+<div class="profile-section-title">
             Mijn Wheaterflow
           </div>
-
-          <div class="profile-menu-list">
-
-            <button
-              class="profile-menu-row"
-              id="profileClimateBtn"
-              type="button"
-            >
-              <span>Persoonlijk klimaat</span>
-              <b>Openen ›</b>
-            </button>
-
-            <button
-              class="profile-menu-row"
-              id="profileTvDevicesBtn"
-              type="button"
-            >
-              <span>TV & apparaten</span>
-              <b id="profileTvRowStatus">
+<div class="profile-menu-list">
+<button class="profile-menu-row" id="profileClimateBtn" type="button">
+<span>Persoonlijk klimaat</span>
+<b>Openen ›</b>
+</button>
+<button class="profile-menu-row" id="profileTvDevicesBtn" type="button">
+<span>TV &amp; apparaten</span>
+<b id="profileTvRowStatus">
                 Niet gekoppeld ›
               </b>
-            </button>
-
-            <button
-              class="profile-menu-row"
-              id="profileNotificationsRow"
-              type="button"
-            >
-              <span>Meldingen</span>
-              <b id="profileNotificationsRowStatus">
+</button>
+<button class="profile-menu-row" id="profileNotificationsRow" type="button">
+<span>Meldingen</span>
+<b id="profileNotificationsRowStatus">
                 Uit ›
               </b>
-            </button>
-
-          </div>
-
-          <button
-            class="smallbtn primary-auth profile-save-btn"
-            id="profileSaveBtn"
-            type="submit"
-          >
+</button>
+</div>
+<button class="smallbtn primary-auth profile-save-btn" id="profileSaveBtn" type="submit">
             Wijzigingen opslaan
           </button>
-
-        </form>
-
-        </div>
-
-        <div class="profile-favorites" id="profileFavoritesSection">
-
-          <div class="settings-section-head">
-            <span>Favoriete plaatsen</span>
-            <strong id="profileFavoritesHint">Op je account</strong>
-          </div>
-
-          <div class="profile-favorite-add">
-            <div class="profile-favorite-search-wrap">
-              <span>⌕</span>
-              <input id="profileFavoriteSearch" type="search" placeholder="Zoek een plaats om toe te voegen…" autocomplete="off">
-            </div>
-            <button id="profileAddCurrentFavorite" type="button">+ Huidige locatie</button>
-            <div id="profileFavoriteSuggestions" class="profile-favorite-suggestions"></div>
-          </div>
-
-          <div
-            id="profileFavoritesList"
-            class="profile-favorites-list"
-          ></div>
-
-        </div>
-
-        <div class="profile-section-title">
+</form>
+</div>
+<div class="profile-favorites" id="profileFavoritesSection">
+<div class="settings-section-head">
+<span>Favoriete plaatsen</span>
+<strong id="profileFavoritesHint">Op je account</strong>
+</div>
+<div class="profile-favorite-add">
+<div class="profile-favorite-search-wrap">
+<span>⌕</span>
+<input autocomplete="off" id="profileFavoriteSearch" placeholder="Zoek een plaats om toe te voegen…" type="search"/>
+</div>
+<button id="profileAddCurrentFavorite" type="button">+ Huidige locatie</button>
+<div class="profile-favorite-suggestions" id="profileFavoriteSuggestions"></div>
+</div>
+<div class="profile-favorites-list" id="profileFavoritesList"></div>
+</div>
+<div class="profile-section-title">
           Synchronisatie
         </div>
-
-        <div class="account-actions">
-
-          <button
-            class="smallbtn"
-            id="syncLocalBtn"
-            type="button"
-          >
+<div class="account-actions">
+<button class="smallbtn" id="syncLocalBtn" type="button">
             Lokale gegevens naar account kopiëren
           </button>
-
-        </div>
-
-        <div class="profile-section-title">
+</div>
+<div class="profile-section-title">
           Beveiliging
         </div>
-
-        <div class="account-actions">
-
-          <button
-            class="smallbtn"
-            id="resetPasswordLoggedInBtn"
-            type="button"
-          >
+<div class="account-actions">
+<button class="smallbtn" id="resetPasswordLoggedInBtn" type="button">
             Wachtwoord wijzigen
           </button>
-
-          <button
-            class="smallbtn"
-            id="logoutBtn"
-            type="button"
-          >
+<button class="smallbtn" id="logoutBtn" type="button">
             Uitloggen
           </button>
-
-        </div>
-
-        <div class="profile-section-title">
+</div>
+<div class="profile-section-title">
           Account
         </div>
-
-        <div class="account-actions">
-
-          <button
-            class="smallbtn danger"
-            id="deleteAccountBtn"
-            type="button"
-          >
+<div class="account-actions">
+<button class="smallbtn danger" id="deleteAccountBtn" type="button">
             Account verwijderen
           </button>
-
-        </div>
-
-        <div
-          class="auth-message"
-          id="profileMessage"
-        ></div>
-
-      </div>
-
-    </div>
-
-  </div>
-
-  <div
-    class="panelsheet"
-    id="settingsSheet"
-  >
-
-    <div class="sheet-handle"></div>
-
-    <h3 style="margin:0 0 10px;">
+</div>
+<div class="auth-message" id="profileMessage"></div>
+</div>
+</div>
+</div>
+<div class="panelsheet" id="settingsSheet">
+<div class="sheet-handle"></div>
+<h3 style="margin:0 0 10px;">
       Instellingen
     </h3>
-
-    <section class="settings-group">
-
-      <div class="settings-section-head">
-        <span>Eenheden</span>
-        <strong>Weergave</strong>
-      </div>
-
-      <div class="sheet-row">
-
-        <span>Temperatuur</span>
-
-        <div
-          class="seg"
-          id="segTemp"
-        >
-          <button
-            data-v="C"
-            class="active"
-          >
+<section class="settings-group">
+<div class="settings-section-head">
+<span>Eenheden</span>
+<strong>Weergave</strong>
+</div>
+<div class="sheet-row">
+<span>Temperatuur</span>
+<div class="seg" id="segTemp">
+<button class="active" data-v="C">
             °C
           </button>
-
-          <button data-v="F">
+<button data-v="F">
             °F
           </button>
-        </div>
-
-      </div>
-
-      <div class="sheet-row">
-
-        <span>Windsnelheid</span>
-
-        <div
-          class="seg"
-          id="segWind"
-        >
-          <button
-            data-v="kmh"
-            class="active"
-          >
+</div>
+</div>
+<div class="sheet-row">
+<span>Windsnelheid</span>
+<div class="seg" id="segWind">
+<button class="active" data-v="kmh">
             km/u
           </button>
-
-          <button data-v="ms">
+<button data-v="ms">
             m/s
           </button>
-
-          <button data-v="kn">
+<button data-v="kn">
             kn
           </button>
-
-          <button data-v="mph">
+<button data-v="mph">
             mph
           </button>
-        </div>
-
-      </div>
-
-      <div class="sheet-row">
-
-        <span>Neerslag</span>
-
-        <div
-          class="seg"
-          id="segPrecip"
-        >
-          <button
-            data-v="mm"
-            class="active"
-          >
+</div>
+</div>
+<div class="sheet-row">
+<span>Neerslag</span>
+<div class="seg" id="segPrecip">
+<button class="active" data-v="mm">
             mm
           </button>
-
-          <button data-v="in">
+<button data-v="in">
             inch
           </button>
-        </div>
-
-      </div>
-
-      <div class="sheet-row">
-
-        <span>Luchtdruk</span>
-
-        <div
-          class="seg"
-          id="segPress"
-        >
-          <button
-            data-v="hpa"
-            class="active"
-          >
+</div>
+</div>
+<div class="sheet-row">
+<span>Luchtdruk</span>
+<div class="seg" id="segPress">
+<button class="active" data-v="hpa">
             hPa
           </button>
-
-          <button data-v="inhg">
+<button data-v="inhg">
             inHg
           </button>
-        </div>
-
-      </div>
-
-    </section>
-
-    <section class="settings-group">
-
-      <div class="settings-section-head">
-        <span>Voorspelling</span>
-        <strong>Model</strong>
-      </div>
-
-      <div class="sheet-row">
-
-        <span>Vooruitzicht</span>
-
-        <div
-          class="seg"
-          id="segDays"
-        >
-          <button
-            data-v="7"
-            class="active"
-          >
+</div>
+</div>
+</section>
+<section class="settings-group">
+<div class="settings-section-head">
+<span>Voorspelling</span>
+<strong>Model</strong>
+</div>
+<div class="sheet-row">
+<span>Vooruitzicht</span>
+<div class="seg" id="segDays">
+<button class="active" data-v="7">
             7 dagen
           </button>
-
-          <button data-v="14">
+<button data-v="14">
             14 dagen
           </button>
-        </div>
-
-      </div>
-
-      <div
-        class="sheet-row"
-        style="flex-direction:column;align-items:stretch;gap:8px;"
-      >
-
-        <span>Weermodel</span>
-
-        <div
-          class="seg"
-          id="segModel"
-          style="flex-wrap:wrap;"
-        >
-
-          <button
-            data-v="best_match"
-            class="active"
-          >
+</div>
+</div>
+<div class="sheet-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+<span>Weermodel</span>
+<div class="seg" id="segModel" style="flex-wrap:wrap;">
+<button class="active" data-v="best_match">
             Automatisch
           </button>
-
-          <button data-v="ecmwf_ifs025">
+<button data-v="ecmwf_ifs025">
             ECMWF
           </button>
-
-          <button data-v="icon_eu">
+<button data-v="icon_eu">
             ICON-EU
           </button>
-
-          <button data-v="gfs_seamless">
+<button data-v="gfs_seamless">
             GFS
           </button>
-
-          <button data-v="knmi_seamless">
+<button data-v="knmi_seamless">
             Harmonie (Benelux)
           </button>
-
-        </div>
-
-        <span class="settings-hint">
-          <b>Automatisch</b> kiest het beste beschikbare
+</div>
+<span class="settings-hint">
+<b>Automatisch</b> kiest het beste beschikbare
           model. <b>Harmonie</b> is sterk voor Benelux,
           <b>ECMWF</b> voor middellange termijn,
           <b>ICON-EU</b> voor Europa en <b>GFS</b>
           als globale fallback.
         </span>
-
-      </div>
-
-    </section>
-
-    <section class="settings-group">
-
-      <div class="settings-section-head">
-        <span>Data</span>
-        <strong>Actueel</strong>
-      </div>
-
-      <button
-        class="smallbtn"
-        id="manualRefresh"
-        style="width:100%;padding:10px;"
-      >
+</div>
+</section>
+<section class="settings-group">
+<div class="settings-section-head">
+<span>Data</span>
+<strong>Actueel</strong>
+</div>
+<button class="smallbtn" id="manualRefresh" style="width:100%;padding:10px;">
         Nu verversen
       </button>
-
-      <span class="settings-hint">
+<span class="settings-hint">
         Laatste update staat op het beginscherm
         bij je actuele weer.
       </span>
-
-    </section>
-
-    <section class="settings-group tv-settings-group">
-
-      <div class="settings-section-head">
-        <span>TV & apparaten</span>
-        <strong id="tvSettingsStatus">
+</section>
+<section class="settings-group tv-settings-group">
+<div class="settings-section-head">
+<span>TV &amp; apparaten</span>
+<strong id="tvSettingsStatus">
           Niet gekoppeld
         </strong>
-      </div>
-
-      <div class="tv-device-card">
-
-        <div>
-          <b id="tvSettingsTitle">
+</div>
+<div class="tv-device-card">
+<div>
+<b id="tvSettingsTitle">
             TV-modus
           </b>
-
-          <span id="tvSettingsSubtitle">
+<span id="tvSettingsSubtitle">
             Open wheaterflow.be/tv op je TV en
             koppel met de code.
           </span>
-        </div>
-
-        <button
-          class="smallbtn"
-          id="pairTvBtn"
-          type="button"
-        >
+</div>
+<button class="smallbtn" id="pairTvBtn" type="button">
           TV koppelen
         </button>
-
-      </div>
-
-      <div class="tv-settings-actions">
-
-        <button
-          class="smallbtn"
-          id="tvPairRefresh"
-          type="button"
-          hidden
-        >
+</div>
+<div class="tv-settings-actions">
+<button class="smallbtn" hidden="" id="tvPairRefresh" type="button">
           TV verversen
         </button>
-
-        <button
-          class="smallbtn danger"
-          id="tvPairDisconnect"
-          type="button"
-          hidden
-        >
+<button class="smallbtn danger" hidden="" id="tvPairDisconnect" type="button">
           TV ontkoppelen
         </button>
-
-      </div>
-
-      <button
-        class="smallbtn"
-        id="castBtn"
-        type="button"
-        hidden
-      >
+</div>
+<button class="smallbtn" hidden="" id="castBtn" type="button">
         Cast laden...
       </button>
-
-      <span class="settings-hint">
+<span class="settings-hint">
         TV-koppeling gebruikt je actieve plaats
         en vernieuwt het TV-scherm zonder extra
         knoppen op het beginscherm.
       </span>
-
-    </section>
-
-    <section
-      class="settings-group notification-settings"
-      style="flex-direction:column;align-items:stretch;gap:10px;"
-    >
-
-      <div class="settings-section-head">
-        <span>Meldingen</span>
-        <strong id="pushStatusText">
+</section>
+<section class="settings-group notification-settings" style="flex-direction:column;align-items:stretch;gap:10px;">
+<div class="settings-section-head">
+<span>Meldingen</span>
+<strong id="pushStatusText">
           Controleren...
         </strong>
-      </div>
-
-      <div
-        class="install-card"
-        id="pushInstallCard"
-      >
-
-        <img
-          class="settings-logo"
-          src="./icons/icon-96.png"
-          alt="Wheaterflow"
-        >
-
-        <b>
+</div>
+<div class="install-card" id="pushInstallCard">
+<img alt="Wheaterflow" class="settings-logo" src="./icons/icon-96.png"/>
+<b>
           Installeer Wheaterflow op je beginscherm
           om weerwaarschuwingen te ontvangen.
         </b>
-
-        <ol>
-          <li>Tik op Deel.</li>
-          <li>Kies 'Zet op beginscherm'.</li>
-          <li>
+<ol>
+<li>Tik op Deel.</li>
+<li>Kies 'Zet op beginscherm'.</li>
+<li>
             Open daarna Wheaterflow via het appicoon.
           </li>
-          <li>
+<li>
             Schakel meldingen in via Instellingen.
           </li>
-        </ol>
-
-      </div>
-
-      <div class="notify-actions">
-
-        <button
-          class="smallbtn"
-          id="enablePushBtn"
-          type="button"
-        >
+</ol>
+</div>
+<div class="notify-actions">
+<button class="smallbtn" id="enablePushBtn" type="button">
           Meldingen inschakelen
         </button>
-
-        <button
-          class="smallbtn"
-          id="testPushBtn"
-          type="button"
-        >
+<button class="smallbtn" id="testPushBtn" type="button">
           Testmelding sturen
         </button>
-
-        <button
-          class="smallbtn"
-          id="disablePushBtn"
-          type="button"
-        >
+<button class="smallbtn" id="disablePushBtn" type="button">
           Meldingen uitschakelen
         </button>
-
-      </div>
-
-      <div
-        class="notify-prefs"
-        id="pushPrefs"
-      >
-
-        <div class="notify-group-title">
+</div>
+<div class="notify-prefs" id="pushPrefs">
+<div class="notify-group-title">
           Officiële waarschuwingen
         </div>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="codeYellow"
-            checked
-          >
+<label>
+<input checked="" data-pref="codeYellow" type="checkbox"/>
           Code geel
         </label>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="codeOrange"
-            checked
-          >
+<label>
+<input checked="" data-pref="codeOrange" type="checkbox"/>
           Code oranje
         </label>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="codeRed"
-            checked
-          >
+<label>
+<input checked="" data-pref="codeRed" type="checkbox"/>
           Code rood
         </label>
-
-        <div class="notify-group-title">
+<div class="notify-group-title">
           Regen en onweer
         </div>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="thunder"
-            checked
-          >
+<label>
+<input checked="" data-pref="thunder" type="checkbox"/>
           Onweer in de buurt
         </label>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="heavyRain"
-            checked
-          >
+<label>
+<input checked="" data-pref="heavyRain" type="checkbox"/>
           Zware regen
         </label>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="snow"
-            checked
-          >
+<label>
+<input checked="" data-pref="snow" type="checkbox"/>
           Sneeuw
         </label>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="ice"
-            checked
-          >
+<label>
+<input checked="" data-pref="ice" type="checkbox"/>
           Gladheid
         </label>
-
-        <div class="notify-group-title">
+<div class="notify-group-title">
           Wind en temperatuur
         </div>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="wind"
-            checked
-          >
+<label>
+<input checked="" data-pref="wind" type="checkbox"/>
           Extreme windstoten
         </label>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="heat"
-            checked
-          >
+<label>
+<input checked="" data-pref="heat" type="checkbox"/>
           Hitte
         </label>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="frost"
-            checked
-          >
+<label>
+<input checked="" data-pref="frost" type="checkbox"/>
           Vorst
         </label>
-
-        <div class="notify-group-title">
-          UV & gezondheid
+<div class="notify-group-title">
+          UV &amp; gezondheid
         </div>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="uv"
-            checked
-          >
+<label>
+<input checked="" data-pref="uv" type="checkbox"/>
           Sterke UV
         </label>
-
-        <div class="notify-group-title">
+<div class="notify-group-title">
           Dagelijks en lokaal
         </div>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="rainSoon"
-            checked
-          >
+<label>
+<input checked="" data-pref="rainSoon" type="checkbox"/>
           Regen binnen 30 minuten
         </label>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="dailyMorning"
-          >
+<label>
+<input data-pref="dailyMorning" type="checkbox"/>
           Dagelijkse ochtendverwachting
         </label>
-
-        <label>
-          <input
-            type="checkbox"
-            data-pref="coast"
-            checked
-          >
-          <span id="pushCoastLabel">
+<label>
+<input checked="" data-pref="coast" type="checkbox"/>
+<span id="pushCoastLabel">
             Kustwaarschuwingen · Oostende
           </span>
-        </label>
-
-      </div>
-
-      <div class="threshold-grid">
-
-        <label>
+</label>
+</div>
+<div class="threshold-grid">
+<label>
           Neerslag vanaf
-          <input
-            id="pushRainThreshold"
-            type="number"
-            min="0"
-            max="100"
-            value="70"
-          >
+          <input id="pushRainThreshold" max="100" min="0" type="number" value="70"/>
           %
         </label>
-
-        <label>
+<label>
           Windstoten vanaf
-          <input
-            id="pushWindThreshold"
-            type="number"
-            min="0"
-            max="160"
-            value="70"
-          >
+          <input id="pushWindThreshold" max="160" min="0" type="number" value="70"/>
           km/u
         </label>
-
-        <label>
+<label>
           Hitte vanaf
-          <input
-            id="pushHeatThreshold"
-            type="number"
-            min="20"
-            max="50"
-            value="30"
-          >
+          <input id="pushHeatThreshold" max="50" min="20" type="number" value="30"/>
           °C
         </label>
-
-        <label>
+<label>
           Vorst onder
-          <input
-            id="pushFrostThreshold"
-            type="number"
-            min="-30"
-            max="10"
-            value="0"
-          >
+          <input id="pushFrostThreshold" max="10" min="-30" type="number" value="0"/>
           °C
         </label>
-
-      </div>
-
-      <span
-        class="subtle"
-        id="pushHelpText"
-        style="font-size:11.5px;"
-      >
+</div>
+<span class="subtle" id="pushHelpText" style="font-size:11.5px;">
         Vraag toestemming alleen via deze knop.
         Op iPhone werkt dit na installatie op je beginscherm.
       </span>
-
-    </section>
-
-    <!-- Over Wheaterflow -->
-
-    <section
-      class="settings-group about-weerscoop"
-      style="flex-direction:column;align-items:stretch;gap:8px;"
-    >
-
-      <div class="about-brand">
-
-        <img
-          src="./icons/icon-96.png"
-          alt="Wheaterflow"
-        >
-
-        <div>
-          <b>Wheaterflow</b>
-          <span>
+</section>
+<!-- Over Wheaterflow -->
+<section class="settings-group about-weerscoop" style="flex-direction:column;align-items:stretch;gap:8px;">
+<div class="about-brand">
+<img alt="Wheaterflow" src="./icons/icon-96.png"/>
+<div>
+<b>Wheaterflow</b>
+<span>
             Belgisch weerplatform voor live weer,
             radar en persoonlijke waarschuwingen
           </span>
-        </div>
-
-      </div>
-
-      <a
-        class="smallbtn"
-        href="/over-wheaterflow/"
-        style="display:block;text-align:center;text-decoration:none;"
-      >
+</div>
+</div>
+<a class="smallbtn" href="/over-wheaterflow/" style="display:block;text-align:center;text-decoration:none;">
         Over Wheaterflow
       </a>
-
-      <a
-        class="smallbtn"
-        href="https://www.instagram.com/wheaterflow/"
-        target="_blank"
-        rel="noopener noreferrer"
-        style="display:block;text-align:center;text-decoration:none;"
-      >
+<a class="smallbtn" href="https://www.instagram.com/wheaterflow/" rel="noopener noreferrer" style="display:block;text-align:center;text-decoration:none;" target="_blank">
         Wheaterflow op Instagram
       </a>
-
-    </section>
-
-    <button
-      class="smallbtn"
-      id="closeSheet"
-      style="width:100%;margin-top:8px;padding:12px;"
-    >
+</section>
+<button class="smallbtn" id="closeSheet" style="width:100%;margin-top:8px;padding:12px;">
       Sluiten
     </button>
-
-  </div>
-
-  <div
-    class="tv-pair-scrim"
-    id="tvPairScrim"
-  ></div>
-
-  <div
-    class="tv-pair-sheet"
-    id="tvPairSheet"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="tvPairTitle"
-  >
-
-    <button
-      class="tv-pair-close"
-      id="tvPairClose"
-      type="button"
-      aria-label="Koppelen sluiten"
-    >
+</div>
+<div class="tv-pair-scrim" id="tvPairScrim"></div>
+<div aria-labelledby="tvPairTitle" aria-modal="true" class="tv-pair-sheet" id="tvPairSheet" role="dialog">
+<button aria-label="Koppelen sluiten" class="tv-pair-close" id="tvPairClose" type="button">
       ×
     </button>
-
-    <div class="tv-pair-head">
-
-      <span class="tv-pair-icon">
+<div class="tv-pair-head">
+<span class="tv-pair-icon">
         TV
       </span>
-
-      <div>
-
-        <h3 id="tvPairTitle">
+<div>
+<h3 id="tvPairTitle">
           TV koppelen
         </h3>
-
-        <p>
+<p>
           Open <b>wheaterflow.be/tv</b>
           op je TV en vul hier de code in.
         </p>
-
-      </div>
-
-    </div>
-
-    <label
-      class="tv-pair-code-label"
-      for="tvPairCodeInput"
-    >
+</div>
+</div>
+<label class="tv-pair-code-label" for="tvPairCodeInput">
       Koppelcode
     </label>
-
-    <input
-      id="tvPairCodeInput"
-      class="tv-pair-code-input"
-      inputmode="numeric"
-      autocomplete="one-time-code"
-      maxlength="6"
-      placeholder="123456"
-    >
-
-    <button
-      class="smallbtn primary-auth"
-      id="tvPairSubmit"
-      type="button"
-    >
+<input autocomplete="one-time-code" class="tv-pair-code-input" id="tvPairCodeInput" inputmode="numeric" maxlength="6" placeholder="123456"/>
+<button class="smallbtn primary-auth" id="tvPairSubmit" type="button">
       Koppelen
     </button>
-
-    <div
-      class="tv-pair-message"
-      id="tvPairMessage"
-    ></div>
-
-  </div>
-
+<div class="tv-pair-message" id="tvPairMessage"></div>
 </div>
-
+</div>
 <!-- ============ TV MODE ============ -->
-
 <div id="tvscreen">
-
-  <div
-    class="tv-pair-overlay"
-    id="tvPairOverlay"
-    hidden
-  >
-
-    <div class="tv-pair-overlay-card">
-
-      <span class="tv-pair-overlay-eyebrow">
+<div class="tv-pair-overlay" hidden="" id="tvPairOverlay">
+<div class="tv-pair-overlay-card">
+<span class="tv-pair-overlay-eyebrow">
         Wheaterflow TV
       </span>
-
-      <h2>
+<h2>
         Koppel met je telefoon
       </h2>
-
-      <div
-        class="tv-pair-code"
-        id="tvPairCodeDisplay"
-      >
+<div class="tv-pair-code" id="tvPairCodeDisplay">
         ------
       </div>
-
-      <p id="tvPairCountdown">
+<p id="tvPairCountdown">
         Koppelcode wordt opgehaald...
       </p>
-
-      <small id="tvPairOverlayMessage">
+<small id="tvPairOverlayMessage">
         Open Wheaterflow op je telefoon
         en kies TV koppelen.
       </small>
-
-    </div>
-
-  </div>
-
-  <div class="tv-top">
-
-    <div class="tv-loc">
-
-      <div
-        class="tv-locname"
-        id="tvLocName"
-      >
+</div>
+</div>
+<div class="tv-top">
+<div class="tv-loc">
+<div class="tv-locname" id="tvLocName">
         -
       </div>
-
-      <div
-        class="tv-admin"
-        id="tvAdmin"
-      ></div>
-
-      <div
-        class="tv-cast-status"
-        id="tvCastStatus"
-      ></div>
-
-    </div>
-
-    <div class="tv-clockwrap">
-
-      <div
-        class="tv-date"
-        id="tvDate"
-      ></div>
-
-      <div
-        class="tv-clock mono"
-        id="tvClock"
-      >
+<div class="tv-admin" id="tvAdmin"></div>
+<div class="tv-cast-status" id="tvCastStatus"></div>
+</div>
+<div class="tv-clockwrap">
+<div class="tv-date" id="tvDate"></div>
+<div class="tv-clock mono" id="tvClock">
         --:--
       </div>
-
-      <button
-        id="tvExitBtn"
-        title="Tv-modus verlaten (Esc)"
-      >
-
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          width="18"
-          height="18"
-        >
-          <line
-            x1="18"
-            y1="6"
-            x2="6"
-            y2="18"
-          ></line>
-
-          <line
-            x1="6"
-            y1="6"
-            x2="18"
-            y2="18"
-          ></line>
-        </svg>
+<button id="tvExitBtn" title="Tv-modus verlaten (Esc)">
+<svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18">
+<line x1="18" x2="6" y1="6" y2="18"></line>
+<line x1="6" x2="18" y1="6" y2="18"></line>
+</svg>
 
         Sluiten
 
       </button>
-
-    </div>
-
-  </div>
-
-  <div class="tv-grid">
-
-    <div class="tv-left">
-
-      <div class="tv-current">
-
-        <div
-          class="tv-icon"
-          id="tvIcon"
-        ></div>
-
-        <div>
-
-          <div
-            class="tv-temp display"
-            id="tvTemp"
-          >
+</div>
+</div>
+<div class="tv-grid">
+<div class="tv-left">
+<div class="tv-current">
+<div class="tv-icon" id="tvIcon"></div>
+<div>
+<div class="tv-temp display" id="tvTemp">
             -°
           </div>
-
-          <div
-            class="tv-cond"
-            id="tvCond"
-          >
+<div class="tv-cond" id="tvCond">
             -
           </div>
-
-          <div
-            class="tv-hilo"
-            id="tvHiLo"
-          >
-            H: - &nbsp; L: -
+<div class="tv-hilo" id="tvHiLo">
+            H: -   L: -
           </div>
-
-        </div>
-
-      </div>
-
-      <div
-        class="tv-hourly"
-        id="tvHourly"
-      ></div>
-
-      <div
-        class="tv-details"
-        id="tvDetails"
-      ></div>
-
-    </div>
-
-    <div class="tv-right">
-
-      <div class="tv-radar-card">
-
-        <div class="tv-radar-label">
+</div>
+</div>
+<div class="tv-hourly" id="tvHourly"></div>
+<div class="tv-details" id="tvDetails"></div>
+</div>
+<div class="tv-right">
+<div class="tv-radar-card">
+<div class="tv-radar-label">
           Live buienradar
         </div>
-
-        <div id="tvmap"></div>
-
-      </div>
-
-      <div
-        class="tv-daily"
-        id="tvDaily"
-      ></div>
-
-    </div>
-
-  </div>
-
+<div id="tvmap"></div>
 </div>
-
-<div
-  class="toast"
-  id="toast"
-></div>
-
+<div class="tv-daily" id="tvDaily"></div>
+</div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
 <!-- Externe libraries -->
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://unpkg.com/maplibre-gl@2.2.1/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js"></script>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
-
 <!-- Wheaterflow scripts -->
-
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260828-profile-v2"></script>
-
+<script src="script.js?v=20260828-profile-v3-icons"></script>
 </body>
 </html>

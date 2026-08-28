@@ -7680,3 +7680,11 @@ function toonMeldingen(alerts) {
   bar.addEventListener('pointercancel', end, {passive:true});
   bar.addEventListener('lostpointercapture', end, {passive:true});
 })();
+
+// 2026-08-28 — profielinstellingen via glazen tandwiel rechtsboven.
+document.getElementById('profileDoneBtn')?.addEventListener('click', ()=>{
+  const panel=document.getElementById('profileEditPanel');
+  if(!panel) return;
+  panel.classList.remove('hidden');
+  setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}),60);
+});
