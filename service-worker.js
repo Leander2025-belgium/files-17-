@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260828-onboarding-icons-v2";
+const CACHE_VERSION = "wheaterflow-v20260828-onboarding-final-v3";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

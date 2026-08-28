@@ -7764,15 +7764,19 @@ document.getElementById('profileDoneBtn')?.addEventListener('click', ()=>{
 /* =========================================================================
    FIRST RUN ONBOARDING
    ========================================================================= */
-function initFirstRunOnboarding(){
+function initFirstRunOnboarding(force=false){
   const shell = document.getElementById('firstRunOnboarding');
-  if(!shell || !isFirstRunOnboarding()) return;
+  if(!shell || (!force && !isFirstRunOnboarding())) return;
   const pages = [...shell.querySelectorAll('[data-onboarding-page]')];
   const dots = [...shell.querySelectorAll('.onboarding-dots i')];
   let current = 0;
+  let locationConfirmed = false;
+  let pushConfirmed = false;
+  let profileChoice = 'Niet ingesteld';
   document.body.classList.add('onboarding-open');
   shell.classList.remove('hidden');
   shell.setAttribute('aria-hidden','false');
+  shell.style.opacity=''; shell.style.transform='';
 
   const show = (next)=>{
     next = Math.max(0, Math.min(pages.length-1, next));
@@ -7784,7 +7788,8 @@ function initFirstRunOnboarding(){
     current = next;
     pages[current]?.classList.add('active');
     dots.forEach((d,i)=>d.classList.toggle('active',i===current));
-    shell.querySelector('#onboardingSkipAll')?.classList.toggle('hidden',current===pages.length-1);
+    const skip=shell.querySelector('#onboardingSkipAll');
+    if(skip) skip.classList.toggle('hidden',current!==0);
     shell.querySelector('#onboardingBackBtn')?.classList.toggle('hidden',current===0);
   };
   const finish = ()=>{
@@ -7802,13 +7807,22 @@ function initFirstRunOnboarding(){
       }
     },350);
   };
-  shell.querySelectorAll('[data-onboarding-next]').forEach(btn=>btn.addEventListener('click',()=>show(current+1)));
-  shell.querySelector('#onboardingBackBtn')?.addEventListener('click',()=>show(current-1));
-  shell.querySelector('#onboardingSkipAll')?.addEventListener('click',finish);
-  shell.querySelector('#onboardingFinishBtn')?.addEventListener('click',finish);
+
+  shell.querySelectorAll('[data-onboarding-next]').forEach(btn=>btn.onclick=()=>show(current+1));
+  const backBtn=shell.querySelector('#onboardingBackBtn'); if(backBtn) backBtn.onclick=()=>show(current-1);
+  const skipAll=shell.querySelector('#onboardingSkipAll'); if(skipAll) skipAll.onclick=finish;
+  const finishBtn=shell.querySelector('#onboardingFinishBtn'); if(finishBtn) finishBtn.onclick=finish;
+  shell.querySelectorAll('[data-onboarding-edit]').forEach(btn=>btn.onclick=()=>show(Number(btn.dataset.onboardingEdit)||0));
 
   const locBtn=shell.querySelector('#onboardingLocationBtn');
-  locBtn?.addEventListener('click',async()=>{
+  const locLater=shell.querySelector('#onboardingLocationLater');
+  if(locLater) locLater.onclick=()=>{
+    locationConfirmed=false;
+    const sum=shell.querySelector('#onboardingSummaryLocation'); if(sum) sum.textContent='Niet ingesteld';
+    show(2);
+  };
+  if(locBtn) locBtn.onclick=async()=>{
+    if(locationConfirmed){ show(2); return; }
     if(locBtn.disabled) return;
     locBtn.disabled=true; locBtn.classList.add('onboarding-busy');
     const status=shell.querySelector('#onboardingLocationStatus');
@@ -7818,40 +7832,87 @@ function initFirstRunOnboarding(){
       if(!p) throw new Error('denied');
       const g=await reverseGeocode(p.lat,p.lon);
       await setLocation(p.lat,p.lon,g.name,g.admin,g.country,'gps');
+      locationConfirmed=true;
       shell.querySelector('#onboardingLocationCard')?.classList.add('allowed');
-      if(status) status.textContent=`${g.name}${g.admin ? ' · '+g.admin : ''}`;
+      if(status) status.textContent=`Locatie gevonden: ${g.name || 'huidige locatie'} ✓`;
       const sum=shell.querySelector('#onboardingSummaryLocation'); if(sum) sum.textContent=g.name || 'Ingeschakeld';
-      window.setTimeout(()=>show(2),420);
+      locBtn.textContent='Ga verder';
     }catch(e){
-      if(status) status.textContent='Geen toegang — je kunt dit later wijzigen';
-      locBtn.disabled=false;
-    }finally{locBtn.classList.remove('onboarding-busy')}
-  });
+      if(status) status.textContent='Geen toegang — je kunt dit later instellen';
+    }finally{
+      locBtn.disabled=false; locBtn.classList.remove('onboarding-busy');
+    }
+  };
 
   const pushBtn=shell.querySelector('#onboardingPushBtn');
+  const pushLater=shell.querySelector('#onboardingPushLater');
   const pushNote=shell.querySelector('#onboardingPushNote');
+  const choiceBox=shell.querySelector('#onboardingNotificationChoices');
   const isIos=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   if(isIos && !isStandaloneApp() && pushNote){
     pushNote.textContent='Op iPhone werken pushmeldingen nadat Wheaterflow aan je beginscherm is toegevoegd.';
   }
-  pushBtn?.addEventListener('click',async()=>{
+  const applyOnboardingPushChoices=()=>{
+    shell.querySelectorAll('[data-onboarding-pref]').forEach(input=>{
+      const key=input.dataset.onboardingPref;
+      if(key==='official'){
+        state.push.preferences.codeYellow=input.checked;
+        state.push.preferences.codeOrange=input.checked;
+        state.push.preferences.codeRed=input.checked;
+      }else{
+        state.push.preferences[key]=input.checked;
+      }
+    });
+    savePushSettings();
+    try{ syncProfileSettingsToCloud(); }catch(e){}
+    refreshPushSettingsControls();
+  };
+  shell.querySelectorAll('[data-onboarding-pref]').forEach(input=>input.onchange=applyOnboardingPushChoices);
+  if(pushLater) pushLater.onclick=()=>{
+    const sum=shell.querySelector('#onboardingSummaryPush'); if(sum) sum.textContent='Niet ingesteld';
+    show(3);
+  };
+  if(pushBtn) pushBtn.onclick=async()=>{
+    if(pushConfirmed){ applyOnboardingPushChoices(); show(3); return; }
     pushBtn.disabled=true;pushBtn.classList.add('onboarding-busy');
     try{
       await enablePushNotifications();
       const enabled=state.push.status==='Ingeschakeld' || window.Notification?.permission==='granted';
-      const sum=shell.querySelector('#onboardingSummaryPush'); if(sum) sum.textContent=enabled?'Ingeschakeld':(state.push.status||'Later');
-      if(pushNote) pushNote.textContent=enabled?'Meldingen zijn ingeschakeld.':'Je kunt meldingen later via Profiel inschakelen.';
-      window.setTimeout(()=>show(3),enabled?420:650);
+      const sum=shell.querySelector('#onboardingSummaryPush'); if(sum) sum.textContent=enabled?'Ingeschakeld':'Niet ingesteld';
+      if(enabled){
+        pushConfirmed=true;
+        if(pushNote) pushNote.textContent='Meldingen zijn ingeschakeld. Kies hieronder welke meldingen je wilt ontvangen.';
+        choiceBox?.classList.remove('hidden');
+        pushBtn.textContent='Ga verder';
+        applyOnboardingPushChoices();
+      }else{
+        if(pushNote) pushNote.textContent='Je kunt meldingen later instellen via Profiel of Instellingen.';
+      }
     }catch(e){
       if(pushNote) pushNote.textContent='Meldingen konden nu niet worden ingeschakeld. Je kunt dit later opnieuw proberen.';
     }finally{pushBtn.disabled=false;pushBtn.classList.remove('onboarding-busy')}
-  });
+  };
 
-  shell.querySelector('#onboardingProfileBtn')?.addEventListener('click',()=>{
-    onboardingPendingProfile=true;
-    const sum=shell.querySelector('#onboardingSummaryProfile'); if(sum) sum.textContent='Profiel maken';
+  const profileLater=shell.querySelector('#onboardingProfileLater');
+  if(profileLater) profileLater.onclick=()=>{
+    onboardingPendingProfile=false;
+    profileChoice='Niet ingesteld';
+    const sum=shell.querySelector('#onboardingSummaryProfile'); if(sum) sum.textContent=profileChoice;
     show(4);
-  });
+  };
+  const profileBtn=shell.querySelector('#onboardingProfileBtn');
+  if(profileBtn) profileBtn.onclick=()=>{
+    onboardingPendingProfile=true;
+    profileChoice='Profiel aanmaken';
+    const sum=shell.querySelector('#onboardingSummaryProfile'); if(sum) sum.textContent=profileChoice;
+    show(4);
+  };
   show(0);
 }
-window.addEventListener('DOMContentLoaded',()=>window.setTimeout(initFirstRunOnboarding,80));
+window.addEventListener('DOMContentLoaded',()=>window.setTimeout(()=>initFirstRunOnboarding(false),80));
+
+document.getElementById('replayOnboardingBtn')?.addEventListener('click',()=>{
+  try{ localStorage.removeItem(ONBOARDING_STORAGE_KEY); }catch(e){}
+  try{ closeSheet(); }catch(e){}
+  window.setTimeout(()=>window.location.reload(),120);
+});
