@@ -7186,3 +7186,22 @@ body.tv-pair-open .tabbar{
   overflow: visible;
   flex-shrink: 0;
 }
+
+
+/* 2026-08-28: identical weather-icon baseline everywhere (mobile + TV) */
+.hour-item svg,
+.daily-row svg,
+.forecast-icon svg,
+.tv-icon svg {
+  display:block;
+  margin-inline:auto;
+  transform-origin:50% 50%;
+  vertical-align:middle;
+}
+.hour-item .forecast-icon,
+.daily-row .forecast-icon,
+.forecast-icon,
+.tv-icon {
+  align-items:center;
+  justify-content:center;
+}
