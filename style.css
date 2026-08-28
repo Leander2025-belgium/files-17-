@@ -7916,3 +7916,43 @@ body.tv-pair-open .tabbar{
 .onboarding-summary>button:last-child{border-bottom:0}.onboarding-summary>button:active{background:rgba(255,255,255,.06)}
 .onboarding-summary>button span{color:rgba(242,248,255,.7);font-size:13px}.onboarding-summary>button b{font-size:13px;color:#fff}.onboarding-summary>button em{font-style:normal;color:rgba(255,255,255,.5);font-size:23px;line-height:1;text-align:right}
 @media(max-height:760px){.onboarding-copy{padding:10px 13px!important;margin:10px 0!important}.onboarding-page[data-onboarding-page="1"] .onboarding-symbol,.onboarding-page[data-onboarding-page="2"] .onboarding-symbol,.onboarding-page[data-onboarding-page="3"] .onboarding-symbol{width:100px;height:100px}.onboarding-page[data-onboarding-page="1"] .onboarding-symbol>img,.onboarding-page[data-onboarding-page="2"] .onboarding-symbol>img,.onboarding-page[data-onboarding-page="3"] .onboarding-symbol>img{width:72px;height:72px}.onboarding-notification-choices{max-height:220px}.onboarding-notification-choices label{min-height:50px;padding:7px 10px}}
+
+/* 2026-08-28 — onboarding header exact gecentreerd */
+.onboarding-topline{
+  position:relative!important;
+  display:block!important;
+  min-height:52px!important;
+}
+.onboarding-brand{
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  transform:translate(-50%,-50%)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:9px!important;
+  width:max-content!important;
+  max-width:58%!important;
+  text-align:center!important;
+  z-index:2!important;
+}
+.onboarding-back,
+.onboarding-skip{
+  position:absolute!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  z-index:3!important;
+}
+.onboarding-back{left:0!important}
+.onboarding-skip{right:0!important;margin:0!important}
+.onboarding-back.hidden,
+.onboarding-skip.hidden{
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+@media(max-width:390px){
+  .onboarding-brand{max-width:52%!important;font-size:14px!important;gap:7px!important}
+  .onboarding-brand img{width:28px!important;height:28px!important}
+  .onboarding-skip{padding:8px 11px!important;font-size:12px!important}
+}
