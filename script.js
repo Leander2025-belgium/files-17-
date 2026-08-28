@@ -7773,13 +7773,29 @@ function initFirstRunOnboarding(force=false){
   let locationConfirmed = false;
   let pushConfirmed = false;
   let profileChoice = 'Niet ingesteld';
+  const isIosDevice=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const shouldShowInstallPage = isIosDevice && !isStandaloneApp();
+  const installPageIndex = 3;
+  const profilePageIndex = 4;
+  const finishPageIndex = 5;
+  const normalizeStep=(target,dir=1)=>{
+    target=Math.max(0,Math.min(pages.length-1,target));
+    if(!shouldShowInstallPage && target===installPageIndex){
+      target += dir >= 0 ? 1 : -1;
+      target=Math.max(0,Math.min(pages.length-1,target));
+    }
+    return target;
+  };
+  const installPage=shell.querySelector('#onboardingInstallPage');
+  if(installPage) installPage.classList.toggle('onboarding-step-disabled',!shouldShowInstallPage);
+  shell.querySelector('[data-install-dot]')?.classList.toggle('onboarding-step-disabled',!shouldShowInstallPage);
   document.body.classList.add('onboarding-open');
   shell.classList.remove('hidden');
   shell.setAttribute('aria-hidden','false');
   shell.style.opacity=''; shell.style.transform='';
 
-  const show = (next)=>{
-    next = Math.max(0, Math.min(pages.length-1, next));
+  const show = (next,dir=1)=>{
+    next = normalizeStep(next,dir);
     const oldPage = pages[current];
     if(oldPage && next !== current){
       oldPage.classList.add('leaving');
@@ -7809,8 +7825,8 @@ function initFirstRunOnboarding(force=false){
     },350);
   };
 
-  shell.querySelectorAll('[data-onboarding-next]').forEach(btn=>btn.onclick=()=>show(current+1));
-  const backBtn=shell.querySelector('#onboardingBackBtn'); if(backBtn) backBtn.onclick=()=>show(current-1);
+  shell.querySelectorAll('[data-onboarding-next]').forEach(btn=>btn.onclick=()=>show(current+1,1));
+  const backBtn=shell.querySelector('#onboardingBackBtn'); if(backBtn) backBtn.onclick=()=>show(current-1,-1);
   const skipAll=shell.querySelector('#onboardingSkipAll'); if(skipAll) skipAll.onclick=finish;
   const finishBtn=shell.querySelector('#onboardingFinishBtn'); if(finishBtn) finishBtn.onclick=finish;
   shell.querySelectorAll('[data-onboarding-edit]').forEach(btn=>btn.onclick=()=>show(Number(btn.dataset.onboardingEdit)||0));
@@ -7871,10 +7887,10 @@ function initFirstRunOnboarding(force=false){
   shell.querySelectorAll('[data-onboarding-pref]').forEach(input=>input.onchange=applyOnboardingPushChoices);
   if(pushLater) pushLater.onclick=()=>{
     const sum=shell.querySelector('#onboardingSummaryPush'); if(sum) sum.textContent='Niet ingesteld';
-    show(3);
+    show(installPageIndex,1);
   };
   if(pushBtn) pushBtn.onclick=async()=>{
-    if(pushConfirmed){ applyOnboardingPushChoices(); show(3); return; }
+    if(pushConfirmed){ applyOnboardingPushChoices(); show(installPageIndex,1); return; }
     pushBtn.disabled=true;pushBtn.classList.add('onboarding-busy');
     try{
       await enablePushNotifications();
@@ -7894,19 +7910,24 @@ function initFirstRunOnboarding(force=false){
     }finally{pushBtn.disabled=false;pushBtn.classList.remove('onboarding-busy')}
   };
 
+  const installLater=shell.querySelector('#onboardingInstallLater');
+  const installDone=shell.querySelector('#onboardingInstallDone');
+  if(installLater) installLater.onclick=()=>show(profilePageIndex,1);
+  if(installDone) installDone.onclick=()=>show(profilePageIndex,1);
+
   const profileLater=shell.querySelector('#onboardingProfileLater');
   if(profileLater) profileLater.onclick=()=>{
     onboardingPendingProfile=false;
     profileChoice='Niet ingesteld';
     const sum=shell.querySelector('#onboardingSummaryProfile'); if(sum) sum.textContent=profileChoice;
-    show(4);
+    show(finishPageIndex,1);
   };
   const profileBtn=shell.querySelector('#onboardingProfileBtn');
   if(profileBtn) profileBtn.onclick=()=>{
     onboardingPendingProfile=true;
     profileChoice='Profiel aanmaken';
     const sum=shell.querySelector('#onboardingSummaryProfile'); if(sum) sum.textContent=profileChoice;
-    show(4);
+    show(finishPageIndex,1);
   };
   show(0);
 }

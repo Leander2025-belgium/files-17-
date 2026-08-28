@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260828-onboarding-layout-polish" rel="stylesheet"/>
+<link href="style.css?v=20260828-onboarding-homescreen" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -197,7 +197,26 @@
       <div class="onboarding-actions"><button class="onboarding-secondary" id="onboardingPushLater" type="button">Later instellen</button><button class="onboarding-primary" id="onboardingPushBtn" type="button">Schakel meldingen in</button></div>
     </section>
 
-    <section class="onboarding-page" data-onboarding-page="3">
+
+    <section class="onboarding-page onboarding-install-page" data-onboarding-page="3" id="onboardingInstallPage">
+      <div class="onboarding-symbol onboarding-install-symbol" aria-hidden="true">
+        <img src="./icons/icon-192.png" alt="">
+      </div>
+      <div class="onboarding-copy">
+        <p class="onboarding-kicker">Als echte app</p>
+        <h1>Zet Wheaterflow op je beginscherm.</h1>
+        <p>Open Wheaterflow zonder browserbalk en krijg de beste ervaring voor radar, meldingen en je locaties.</p>
+      </div>
+      <div class="onboarding-install-steps" aria-label="Wheaterflow toevoegen aan beginscherm">
+        <div><span class="install-step-number">1</span><span class="install-step-icon share-glyph">↑</span><p><b>Tik op Delen</b><small>Onderaan in Safari.</small></p></div>
+        <div><span class="install-step-number">2</span><span class="install-step-icon homescreen-glyph">＋</span><p><b>Zet op beginscherm</b><small>Kies deze optie in het deelmenu.</small></p></div>
+        <div><span class="install-step-number">3</span><span class="install-step-icon check-glyph">✓</span><p><b>Tik op Voeg toe</b><small>Daarna opent Wheaterflow als app.</small></p></div>
+      </div>
+      <p class="onboarding-note onboarding-install-note">Dit scherm verschijnt alleen op iPhone/iPad wanneer Wheaterflow nog niet vanaf je beginscherm draait.</p>
+      <div class="onboarding-actions"><button class="onboarding-secondary" id="onboardingInstallLater" type="button">Later instellen</button><button class="onboarding-primary" id="onboardingInstallDone" type="button">Begrepen</button></div>
+    </section>
+
+    <section class="onboarding-page" data-onboarding-page="4">
       <div class="onboarding-symbol" aria-hidden="true"><img src="./assets/ui/onboarding/profile.png" alt=""></div>
       <div class="onboarding-copy">
         <p class="onboarding-kicker">Maak het persoonlijk</p>
@@ -210,7 +229,7 @@
       <div class="onboarding-actions"><button class="onboarding-secondary" id="onboardingProfileLater" type="button">Later instellen</button><button class="onboarding-primary" id="onboardingProfileBtn" type="button">Maak profiel</button></div>
     </section>
 
-    <section class="onboarding-page" data-onboarding-page="4">
+    <section class="onboarding-page" data-onboarding-page="5">
       <div class="onboarding-finish-icon" aria-hidden="true"><img src="./assets/ui/onboarding/check.png" alt=""></div>
       <div class="onboarding-copy onboarding-copy-center">
         <p class="onboarding-kicker">Klaar</p>
@@ -220,12 +239,12 @@
       <div class="onboarding-summary" id="onboardingSummary">
         <button type="button" data-onboarding-edit="1"><span>Locatie</span><b id="onboardingSummaryLocation">Niet ingesteld</b><em>›</em></button>
         <button type="button" data-onboarding-edit="2"><span>Meldingen</span><b id="onboardingSummaryPush">Niet ingesteld</b><em>›</em></button>
-        <button type="button" data-onboarding-edit="3"><span>Profiel</span><b id="onboardingSummaryProfile">Niet ingesteld</b><em>›</em></button>
+        <button type="button" data-onboarding-edit="4"><span>Profiel</span><b id="onboardingSummaryProfile">Niet ingesteld</b><em>›</em></button>
       </div>
       <div class="onboarding-actions single"><button class="onboarding-primary onboarding-finish" id="onboardingFinishBtn" type="button">Start Wheaterflow</button></div>
     </section>
 
-    <div class="onboarding-dots" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i><i></i></div>
+    <div class="onboarding-dots" aria-hidden="true"><i class="active"></i><i></i><i></i><i data-install-dot></i><i></i><i></i></div>
   </div>
 </div>
 <div class="sunny" id="weatherBG">
@@ -1546,6 +1565,6 @@
 <!-- Wheaterflow scripts -->
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260828-onboarding-layout-polish"></script>
+<script src="script.js?v=20260828-onboarding-homescreen"></script>
 </body>
 </html>
