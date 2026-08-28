@@ -7444,3 +7444,52 @@ body.tv-pair-open .tabbar{
 .auth-sheet.profile-mode{
   background-color:#0d2138;
 }
+
+
+/* ===== 2026-08-28 — Profile weather background + home glass icons ===== */
+#home .home-round-btn .home-action-icon{
+  width:31px!important;
+  height:31px!important;
+  max-width:31px!important;
+  max-height:31px!important;
+  object-fit:contain!important;
+  display:block!important;
+  pointer-events:none!important;
+  filter:drop-shadow(0 1px 5px rgba(105,215,255,.28));
+}
+#home .home-round-btn .home-action-icon-tv{width:32px!important;height:32px!important;}
+#home .home-round-btn .home-action-icon-settings{width:29px!important;height:29px!important;}
+
+/* De profiel-sheet gebruikt exact dezelfde actuele weerfoto als Home. */
+.auth-sheet.profile-mode{
+  background-color:#0d2138!important;
+  background-image:
+    linear-gradient(180deg,rgba(5,18,34,.18),rgba(5,18,34,.48)),
+    var(--profile-weather-photo,var(--weather-photo))!important;
+  background-size:cover,cover!important;
+  background-position:center center,center center!important;
+  background-repeat:no-repeat,no-repeat!important;
+  background-attachment:local,local!important;
+}
+.auth-sheet.profile-mode::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(4,14,29,.04),rgba(4,14,29,.18));
+}
+.auth-sheet.profile-mode .profile-header{
+  background:linear-gradient(180deg,rgba(8,22,40,.38),rgba(8,22,40,.10))!important;
+  backdrop-filter:blur(16px) saturate(145%)!important;
+  -webkit-backdrop-filter:blur(16px) saturate(145%)!important;
+}
+.auth-sheet.profile-mode .profile-hero-premium,
+.auth-sheet.profile-mode .profile-weather-card,
+.auth-sheet.profile-mode .profile-quick-grid-premium,
+.auth-sheet.profile-mode .profile-main-menu,
+.auth-sheet.profile-mode .profile-pro-card,
+.auth-sheet.profile-mode .profile-favorites{
+  backdrop-filter:blur(18px) saturate(145%)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(145%)!important;
+}

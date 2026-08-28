@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260828-profile-weather-bg";
+const CACHE_VERSION = "wheaterflow-v20260828-profile-bg-homeicons";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -59,6 +59,8 @@ const STATIC_ASSETS = [
   "./icons/icon-512-maskable.png",
   "./icons/apple-touch-icon.png",
   "./icons/badge-96.png",
+  "./assets/ui/home/tv.png",
+  "./assets/ui/home/settings.png",
   "./assets/ui/profile/location.png",
   "./assets/ui/profile/notifications.png",
   "./assets/ui/profile/preferences.png",

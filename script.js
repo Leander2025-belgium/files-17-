@@ -2628,6 +2628,7 @@ function applyWeatherBG(code, isDay, cloudCover=0){
   el.style.setProperty('--weather-photo', photoValue);
   document.documentElement.style.setProperty('--weather-photo', photoValue);
   document.body?.style?.setProperty('--weather-photo', photoValue);
+  $('#authSheet')?.style?.setProperty('--profile-weather-photo', photoValue);
   const tvScreen = $('#tvscreen');
   tvScreen?.style?.setProperty('--weather-photo', photoValue);
   tvScreen?.style?.setProperty('--tv-weather-photo', tvPhotoValue);
@@ -4057,7 +4058,17 @@ $('#scrim').addEventListener('click', closeSheet);
 $('#dayScrim')?.addEventListener('click', closeDayDetail);
 
 let authHistoryOpen = false;
+function syncProfileWeatherBackground(){
+  const sheet = $('#authSheet');
+  if(!sheet) return;
+  const rootPhoto = document.documentElement.style.getPropertyValue('--weather-photo')
+    || document.body?.style?.getPropertyValue('--weather-photo')
+    || getComputedStyle(document.documentElement).getPropertyValue('--weather-photo');
+  if(rootPhoto && rootPhoto.trim()) sheet.style.setProperty('--profile-weather-photo', rootPhoto.trim());
+}
+
 function openAuthSheet(){
+  syncProfileWeatherBackground();
   lockPageScroll();
   $('#authSheet')?.classList.add('show');
   $('#authScrim')?.classList.add('show');
