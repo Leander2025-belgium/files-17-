@@ -7791,6 +7791,7 @@ function initFirstRunOnboarding(force=false){
     const skip=shell.querySelector('#onboardingSkipAll');
     if(skip) skip.classList.toggle('hidden',current!==0);
     shell.querySelector('#onboardingBackBtn')?.classList.toggle('hidden',current===0);
+    shell.classList.toggle('onboarding-first-page', current===0);
   };
   const finish = ()=>{
     completeFirstRunOnboarding();
