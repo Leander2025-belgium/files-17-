@@ -7208,16 +7208,23 @@ body.tv-pair-open .tabbar{
 
 /* ===== Wheaterflow profiel v2 ===== */
 .auth-sheet.profile-mode{
-  background:
-    linear-gradient(180deg,rgba(15,35,61,.42),rgba(8,22,42,.62)),
-    rgba(13,31,54,.42);
-  border-color:rgba(255,255,255,.28);
-  backdrop-filter:blur(34px) saturate(165%);
-  -webkit-backdrop-filter:blur(34px) saturate(165%);
+  /* Gebruik exact dezelfde dynamische weerfoto als de huidige locatie op Home. */
+  background-image:
+    linear-gradient(180deg,rgba(8,24,44,.26),rgba(5,18,34,.52)),
+    var(--weather-photo);
+  background-size:cover,cover;
+  background-position:center,center;
+  background-repeat:no-repeat,no-repeat;
+  border-color:rgba(255,255,255,.30);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 26px 82px rgba(0,0,0,.38);
+  backdrop-filter:blur(18px) saturate(150%);
+  -webkit-backdrop-filter:blur(18px) saturate(150%);
 }
 .auth-sheet.profile-mode .auth-brand{display:none!important;}
-.auth-sheet.profile-mode .profile-header{
-  background:linear-gradient(180deg,rgba(14,31,54,.74),rgba(14,31,54,.30));
+..auth-sheet.profile-mode .profile-header{
+  background:linear-gradient(180deg,rgba(8,22,40,.48),rgba(8,22,40,.16));
+  backdrop-filter:blur(20px) saturate(155%);
+  -webkit-backdrop-filter:blur(20px) saturate(155%);
 }
 .profile-hero-premium{
   grid-template-columns:104px minmax(0,1fr)!important;
@@ -7431,4 +7438,9 @@ body.tv-pair-open .tabbar{
   .profile-menu-icon{width:25px!important;height:25px!important;flex-basis:25px!important;}
   .profile-main-menu .profile-menu-row b{font-size:15px!important;}
   .tabbtn .tab-icon-img{width:25px!important;height:25px!important;}
+}
+
+/* 2026-08-28 — profiel volgt actuele weerachtergrond */
+.auth-sheet.profile-mode{
+  background-color:#0d2138;
 }
