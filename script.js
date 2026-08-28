@@ -7534,3 +7534,39 @@ function toonMeldingen(alerts) {
 .weather-alert p { margin: 0; font-size: 0.9rem; }
 
 */
+
+
+// Interactive Liquid Glass highlight for the bottom navigation.
+(() => {
+  const bar = document.querySelector('.tabbar');
+  if (!bar || bar.dataset.liquidGlassBound === '1') return;
+  bar.dataset.liquidGlassBound = '1';
+
+  const moveHighlight = (event) => {
+    const rect = bar.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    bar.style.setProperty('--glass-x', `${x}px`);
+    bar.style.setProperty('--glass-y', `${y}px`);
+  };
+  const begin = (event) => {
+    moveHighlight(event);
+    bar.classList.add('glass-touching');
+    try { bar.setPointerCapture?.(event.pointerId); } catch (_) {}
+  };
+  const end = () => {
+    bar.classList.remove('glass-touching');
+    window.setTimeout(() => {
+      bar.style.setProperty('--glass-x', '50%');
+      bar.style.setProperty('--glass-y', '50%');
+    }, 140);
+  };
+
+  bar.addEventListener('pointerdown', begin, {passive:true});
+  bar.addEventListener('pointermove', (event) => {
+    if (bar.classList.contains('glass-touching')) moveHighlight(event);
+  }, {passive:true});
+  bar.addEventListener('pointerup', end, {passive:true});
+  bar.addEventListener('pointercancel', end, {passive:true});
+  bar.addEventListener('lostpointercapture', end, {passive:true});
+})();

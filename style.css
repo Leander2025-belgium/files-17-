@@ -7123,3 +7123,60 @@ body.tv-pair-open .tabbar{
 /* iOS/PWA: dynamische waarschuwingen mogen de home-scrollpositie niet verankeren. */
 #home{overflow-anchor:none;}
 #home .hero, #home .topbar, #home .search-wrap{overflow-anchor:none;}
+
+
+/* 2026-08-28 — ultra-transparent interactive Liquid Glass bottom navigation */
+.tabbar{
+  --glass-x:50%;
+  --glass-y:50%;
+  --glass-press:0;
+  bottom:calc(2px + env(safe-area-inset-bottom))!important;
+  background:
+    radial-gradient(circle at var(--glass-x) var(--glass-y), rgba(255,255,255,calc(.20 + var(--glass-press) * .12)) 0%, rgba(255,255,255,.045) 23%, transparent 48%),
+    linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.012) 52%,rgba(255,255,255,.026)),
+    rgba(255,255,255,.012)!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+  box-shadow:
+    0 14px 38px rgba(0,8,22,.17),
+    0 2px 8px rgba(0,0,0,.08),
+    inset 0 1px 0 rgba(255,255,255,.48),
+    inset 0 -1px 0 rgba(255,255,255,.08),
+    inset 0 0 18px rgba(255,255,255,.025)!important;
+  backdrop-filter:blur(28px) saturate(185%) brightness(1.08)!important;
+  -webkit-backdrop-filter:blur(28px) saturate(185%) brightness(1.08)!important;
+  transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s ease,background .12s linear!important;
+}
+.tabbar::before{
+  background:linear-gradient(180deg,rgba(255,255,255,.15),rgba(255,255,255,.018) 58%,transparent)!important;
+  opacity:.62!important;
+}
+.tabbar::after{
+  background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,.01) 25%,rgba(255,255,255,.18) 50%,rgba(255,255,255,.01) 75%,transparent 100%)!important;
+  opacity:.38!important;
+}
+.tabbar.glass-touching{
+  --glass-press:1;
+  transform:translateX(-50%) scale(.992) translateZ(0)!important;
+  box-shadow:
+    0 10px 30px rgba(0,8,22,.13),
+    inset 0 1px 0 rgba(255,255,255,.56),
+    inset 0 -1px 0 rgba(255,255,255,.06),
+    inset 0 0 24px rgba(255,255,255,.045)!important;
+}
+.tabbtn.active::before{
+  background:
+    radial-gradient(circle at 50% 22%,rgba(255,255,255,.16),transparent 58%),
+    rgba(255,255,255,.025)!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.38),
+    inset 0 -1px 0 rgba(255,255,255,.05),
+    0 4px 14px rgba(0,0,0,.08)!important;
+}
+.tabbtn:active{
+  transform:scale(.94)!important;
+  background:rgba(255,255,255,.045)!important;
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .tabbar{background:rgba(35,52,76,.66)!important;}
+}
