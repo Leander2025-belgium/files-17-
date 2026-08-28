@@ -69,7 +69,7 @@ const state = {
   lastUpdated: null,
   favorites: [],
   auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
-  community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', map: null, markers: null, selectedFile: null, realtimeChannel: null },
+  community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', quickFilter: 'foryou', map: null, markers: null, selectedFile: null, realtimeChannel: null },
   climate: { records: [], settings: {mode:'off'}, period:'month', location:'all', chart:null, loaded:false },
   xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
@@ -4924,6 +4924,16 @@ function initCommunityUi(){
     state.community.category = e.target.value;
     loadCommunityPosts(true);
   });
+  $('#communityFilterChips')?.addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-community-filter]');
+    if(!btn) return;
+    $$('#communityFilterChips button').forEach(b=>b.classList.toggle('active', b === btn));
+    const filter = btn.dataset.communityFilter || 'foryou';
+    state.community.quickFilter = filter;
+    state.community.category = filter === 'rain' ? 'rain' : filter === 'thunder' ? 'thunder' : '';
+    if($('#communityCategoryFilter')) $('#communityCategoryFilter').value = state.community.category;
+    loadCommunityPosts(true);
+  });
   $$('.community-tabs button').forEach(btn=>btn.addEventListener('click', ()=>{
     $$('.community-tabs button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
@@ -5040,13 +5050,37 @@ function timeAgo(value){
   return `${Math.floor(h/24)} d geleden`;
 }
 
+function communityDistanceKm(lat1, lon1, lat2, lon2){
+  const a1=Number(lat1), o1=Number(lon1), a2=Number(lat2), o2=Number(lon2);
+  if(![a1,o1,a2,o2].every(Number.isFinite)) return null;
+  const r=6371, toRad=v=>v*Math.PI/180;
+  const dLat=toRad(a2-a1), dLon=toRad(o2-o1);
+  const h=Math.sin(dLat/2)**2 + Math.cos(toRad(a1))*Math.cos(toRad(a2))*Math.sin(dLon/2)**2;
+  return 2*r*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+function filteredCommunityPosts(){
+  const filter = state.community.quickFilter || 'foryou';
+  if(filter === 'sun') return state.community.posts.filter(p=>['sunset','sunrise'].includes(p.category) || /zon|opklaring|zonsopkomst|zonsondergang/i.test(p.caption||''));
+  if(filter === 'nearby') {
+    const here = state.loc || {};
+    const hereName = String(here.name || '').toLowerCase();
+    return state.community.posts.filter(p=>{
+      const d = communityDistanceKm(here.lat, here.lon, p.latitude ?? p.lat, p.longitude ?? p.lon);
+      if(d != null) return d <= 50;
+      return hereName && String(p.location_name || '').toLowerCase().includes(hereName);
+    });
+  }
+  return state.community.posts;
+}
 function renderCommunityFeed(){
   const feed = $('#communityFeed');
   if(!feed) return;
-  if(!state.community.posts.length){
-    feed.innerHTML = '<div class="community-empty">Nog geen communityposts. Deel de eerste waarneming vanuit jouw buurt.</div>';
+  const posts = filteredCommunityPosts();
+  if(!posts.length){
+    const label = state.community.quickFilter === 'nearby' ? 'Geen recente weerposts in de buurt.' : state.community.quickFilter === 'sun' ? 'Nog geen recente zon- of opklaringsfoto’s.' : 'Nog geen communityposts. Deel de eerste weerfoto.';
+    feed.innerHTML = `<div class="community-empty">${label}</div>`;
   }else{
-    feed.innerHTML = state.community.posts.map(communityPostHtml).join('');
+    feed.innerHTML = posts.map(communityPostHtml).join('');
   }
   $('#communityLoadMore')?.classList.toggle('hidden', !state.community.hasMore);
 }
@@ -5068,53 +5102,64 @@ function communityObservationMeta(post){
   return {type, minutesLeft, reliability};
 }
 
+function communityMiniIcon(name){
+  const stroke='stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+  if(name==='temp') return `<svg viewBox="0 0 24 24" ${stroke}><path d="M10 4a2 2 0 014 0v9.2a4 4 0 11-4 0V4z"/><path d="M12 14v4"/></svg>`;
+  if(name==='wind') return `<svg viewBox="0 0 24 24" ${stroke}><path d="M3 8h11a2.5 2.5 0 10-2.2-3.7M3 12h15a2 2 0 10-1.8-2.9M3 16h12a2.5 2.5 0 11-2.2 3.7"/></svg>`;
+  if(name==='rain') return `<svg viewBox="0 0 24 24" ${stroke}><path d="M12 3s6 7 6 11.3a6 6 0 11-12 0C6 10 12 3 12 3z"/></svg>`;
+  if(name==='heart') return `<svg viewBox="0 0 24 24" ${stroke}><path d="M20.8 4.8a5.5 5.5 0 00-7.8 0L12 5.8l-1-1a5.5 5.5 0 00-7.8 7.8L12 21l8.8-8.4a5.5 5.5 0 000-7.8z"/></svg>`;
+  if(name==='comment') return `<svg viewBox="0 0 24 24" ${stroke}><path d="M21 12a8 8 0 01-8 8H7l-4 2 1.2-4.3A8 8 0 1121 12z"/></svg>`;
+  if(name==='share') return `<svg viewBox="0 0 24 24" ${stroke}><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M5 11v8h14v-8"/></svg>`;
+  if(name==='save') return `<svg viewBox="0 0 24 24" ${stroke}><path d="M6 3h12v18l-6-4-6 4V3z"/></svg>`;
+  return '';
+}
 function communityPostHtml(post){
   const cat = communityCategory(post.category);
   const obs = communityObservationMeta(post);
   const profile = post.profiles || {};
   const name = profile.display_name || 'Wheaterflow gebruiker';
   const avatar = profile.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : esc(userInitials(name));
+  const verified = Boolean(profile.verified || profile.is_verified || profile.verified_at);
   const liked = post.community_likes?.some(l=>l.user_id === state.auth.user?.id);
   const saved = post.community_favorites?.some(f=>f.user_id === state.auth.user?.id);
   const comments = (post.community_comments || []).slice(0,3);
   const hasPhoto = Boolean(post.photo_url);
+  const categoryIcon = cat.id === 'sunset' || cat.id === 'sunrise' ? '☀' : cat.id === 'thunder' || cat.id === 'storm' ? 'ϟ' : cat.id === 'rain' || cat.id === 'shower' ? '☁' : cat.id === 'snow' ? '❄' : cat.id === 'fog' ? '≋' : '◌';
   const media = hasPhoto
     ? `<img class="community-photo" src="${esc(post.photo_url)}" alt="${esc(post.caption || cat.label)}" loading="lazy">`
-    : `<div class="community-text-card" style="--community-accent:${cat.color};">${icon('cloud', true, 30)}<b>${esc(cat.label)}</b>${post.caption ? `<p>${linkHashtags(esc(post.caption))}</p>` : ''}</div>`;
+    : `<div class="community-text-card" style="--community-accent:${cat.color};">${icon('cloud', true, 34)}<b>${esc(cat.label)}</b>${post.caption ? `<p>${linkHashtags(esc(post.caption))}</p>` : ''}</div>`;
   return `<article class="community-post" data-post-id="${post.id}">
     <div class="community-post-head">
       <div class="community-avatar">${avatar}</div>
-      <div>
-        <div class="community-post-name">${esc(name)}</div>
-        <div class="community-post-place">${esc(post.location_name || 'Locatie verborgen')} - ${timeAgo(post.created_at)}</div>
+      <div class="community-author-copy">
+        <div class="community-post-name">${esc(name)}${verified ? '<span class="community-verified" aria-label="Geverifieerd">✓</span>' : ''}</div>
+        <div class="community-post-place">${esc(post.location_name || 'Locatie verborgen')} · ${timeAgo(post.created_at)}</div>
       </div>
-      <div class="community-category" style="box-shadow:inset 0 -2px 0 ${cat.color};">${esc(cat.label)}</div>
+      <button class="community-more" data-act="report" type="button" aria-label="Meer opties">•••</button>
     </div>
-    ${obs ? `<div class="community-observation-badge"><span>${esc(obs.type.icon)}</span><b>${esc(obs.type.label)}</b><small>${esc(obs.reliability)}${obs.minutesLeft != null ? ` - nog ${obs.minutesLeft} min actueel` : ''}</small></div>` : ''}
-    ${media}
+    <div class="community-media-wrap">
+      ${media}
+      <div class="community-category"><span>${categoryIcon}</span>${esc(cat.label)}</div>
+      ${obs ? `<div class="community-observation-badge"><span>${esc(obs.type.icon)}</span><b>${esc(obs.type.label)}</b></div>` : ''}
+    </div>
     <div class="community-body">
       ${hasPhoto && post.caption ? `<p class="community-caption">${linkHashtags(esc(post.caption))}</p>` : ''}
       <div class="community-weather-line">
-        <span>${fmtTemp(post.temperature)}</span>
-        <span>Voelt ${fmtTemp(post.apparent_temperature)}</span>
-        <span>Wind ${fmtWind(post.wind_speed)}</span>
-        <span>${fmtPrecip(post.precipitation || 0)}</span>
-        <span>${post.humidity ?? '-'}% vocht</span>
+        <span>${communityMiniIcon('temp')}<b>${fmtTemp(post.temperature)}</b></span>
+        <span>${communityMiniIcon('wind')}<b>Wind ${fmtWind(post.wind_speed)}</b></span>
+        <span>${communityMiniIcon('rain')}<b>${fmtPrecip(post.precipitation || 0)}</b></span>
       </div>
     </div>
     <div class="community-actions">
-      <button class="${liked?'active':''}" data-act="like">${liked?'Geliked':'Like'} ${post.like_count || 0}</button>
-      <button data-act="comment">Reacties ${post.comment_count || 0}</button>
-      <button data-act="share">Delen</button>
-      <button class="${saved?'active':''}" data-act="save">${saved?'Bewaard':'Opslaan'}</button>
-      <button data-act="report">Rapport</button>
+      <button class="${liked?'active':''}" data-act="like" aria-label="Vind ik leuk">${communityMiniIcon('heart')}<span>${post.like_count || 0}</span></button>
+      <button data-act="comment" aria-label="Reageren">${communityMiniIcon('comment')}<span>${post.comment_count || 0}</span></button>
+      <span class="community-action-spacer"></span>
+      <button data-act="share" aria-label="Delen">${communityMiniIcon('share')}</button>
+      <button class="${saved?'active':''}" data-act="save" aria-label="Bewaren">${communityMiniIcon('save')}</button>
     </div>
     <div class="community-comments">
-      ${comments.map(c=>`<div class="subtle"><b>${esc(c.profiles?.display_name || 'Gebruiker')}</b> ${esc(c.body)}</div>`).join('')}
-      <form class="community-comment-row">
-        <input name="body" maxlength="240" placeholder="Reageer..." autocomplete="off">
-        <button type="submit">Plaats</button>
-      </form>
+      ${comments.map(c=>`<div class="community-comment"><b>${esc(c.profiles?.display_name || 'Gebruiker')}</b> ${esc(c.body)}</div>`).join('')}
+      <form class="community-comment-row"><input name="body" maxlength="240" placeholder="Reageer..." autocomplete="off"><button type="submit">Plaats</button></form>
     </div>
   </article>`;
 }
@@ -5249,7 +5294,10 @@ async function handleCommunityAction(e){
   if(act === 'like') await toggleCommunityRelation('community_likes', postId);
   if(act === 'save') await toggleCommunityRelation('community_favorites', postId);
   if(act === 'report') await reportCommunityPost(postId);
-  if(act === 'comment') postEl.querySelector('input[name=body]')?.focus();
+  if(act === 'comment'){
+    postEl.classList.toggle('comments-open');
+    if(postEl.classList.contains('comments-open')) setTimeout(()=>postEl.querySelector('input[name=body]')?.focus(), 40);
+  }
 }
 
 async function toggleCommunityRelation(table, postId){

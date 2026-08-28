@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260828-profile-bg-homeicons" rel="stylesheet"/>
+<link href="style.css?v=20260828-community-v2" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -362,59 +362,50 @@
 </div>
 <!-- ============ COMMUNITY ============ -->
 <div class="screen" id="communityscreen">
-<div class="screen-inner community-inner">
-<div class="community-head">
-<div>
-<h2 class="section-h">
-            Wheaterflow Community
-          </h2>
-<p class="subtle">
-            Live weerfoto's en waarnemingen van gebruikers.
-          </p>
-</div>
-<button class="smallbtn community-upload-open" id="communityUploadOpen" type="button">
-          Foto delen
-        </button>
-</div>
-<div class="community-live" id="communityLiveStats">
-<span>Live</span>
-<b>Community laden...</b>
-</div>
-<div class="community-filters">
-<input autocomplete="off" id="communitySearch" placeholder="Zoek plaats, gebruiker, hashtag..." type="search"/>
-<select aria-label="Categorie filter" id="communityCategoryFilter">
-<option value="">
-            Alle categorieën
-          </option>
-</select>
-</div>
-<div class="community-tabs">
-<button class="active" data-community-view="feed" type="button">
-          Feed
-        </button>
-<button data-community-view="map" type="button">
-          Kaart
-        </button>
-<button data-community-view="collection" type="button">
-          Mijn collectie
-        </button>
-</div>
-<section class="community-panel active" id="communityFeedPanel">
-<div class="community-feed" id="communityFeed"></div>
-<button class="smallbtn community-load-more" id="communityLoadMore" type="button">
-          Meer laden
-        </button>
-</section>
-<section class="community-panel" id="communityMapPanel">
-<div class="community-map-card">
-<div id="communityMap"></div>
-</div>
-</section>
-<section class="community-panel" id="communityCollectionPanel">
-<div class="community-collection" id="communityCollection"></div>
-<div class="community-leaderboard" id="communityLeaderboard"></div>
-</section>
-</div>
+  <div class="screen-inner community-inner community-v2">
+    <div class="community-head-v2">
+      <div>
+        <h2>Community</h2>
+        <p>Live weer, gezien door jou</p>
+      </div>
+      <button class="community-share-photo" id="communityUploadOpen" type="button"><span>＋</span> Deel foto</button>
+    </div>
+
+    <div class="community-search-v2">
+      <span class="community-search-icon" aria-hidden="true">⌕</span>
+      <input autocomplete="off" id="communitySearch" placeholder="Zoek plaats, gebruiker of hashtag" type="search"/>
+    </div>
+
+    <div class="community-quick-filters" id="communityFilterChips" aria-label="Community filters">
+      <button class="active" data-community-filter="foryou" type="button"><span>★</span> Voor jou</button>
+      <button data-community-filter="nearby" type="button"><span>⌖</span> In de buurt</button>
+      <button data-community-filter="rain" type="button"><span>☔</span> Regen</button>
+      <button data-community-filter="thunder" type="button"><span>ϟ</span> Onweer</button>
+      <button data-community-filter="sun" type="button"><span>☀</span> Zon</button>
+    </div>
+
+    <select aria-label="Categorie filter" id="communityCategoryFilter" class="community-category-select-hidden">
+      <option value="">Alle categorieën</option>
+    </select>
+    <div class="community-live" id="communityLiveStats" aria-hidden="true"><span>Live</span><b>Community laden...</b></div>
+
+    <div class="community-tabs community-tabs-v2">
+      <button class="active" data-community-view="feed" type="button">Feed</button>
+      <button data-community-view="map" type="button">Kaart</button>
+    </div>
+
+    <section class="community-panel active" id="communityFeedPanel">
+      <div class="community-feed" id="communityFeed"></div>
+      <button class="smallbtn community-load-more" id="communityLoadMore" type="button">Meer laden</button>
+    </section>
+    <section class="community-panel" id="communityMapPanel">
+      <div class="community-map-card"><div id="communityMap"></div></div>
+    </section>
+    <section class="community-panel" id="communityCollectionPanel" hidden>
+      <div class="community-collection" id="communityCollection"></div>
+      <div class="community-leaderboard" id="communityLeaderboard"></div>
+    </section>
+  </div>
 </div>
 <!-- ============ MIJN KLIMAAT ============ -->
 <div class="screen" id="climatescreen">
@@ -1452,6 +1443,6 @@
 <!-- Wheaterflow scripts -->
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260828-profile-bg-homeicons"></script>
+<script src="script.js?v=20260828-community-v2"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260828-profile-bg-homeicons";
+const CACHE_VERSION = "wheaterflow-v20260828-community-v2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
