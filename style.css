@@ -7103,13 +7103,20 @@ body.tv-pair-open .tabbar{
   }
 }
 
-/* ===== Home top controls position fix — only requested change =====
-   Pull the complete home controls block upward on phones. Because this uses
-   negative margin (not transform), the search and hero content naturally
-   follow upward too, without touching the bottom navigation or card layout. */
+/* ===== Stable iPhone home header =====
+   Keep the controls in normal document flow. The former -120px margin could
+   push the action row above the viewport after iOS restored/reset scrolling. */
 @media (max-width:760px){
   #home .topbar{
-    margin-top:-120px!important;
+    position:relative!important;
+    top:auto!important;
+    margin-top:0!important;
+    transform:none!important;
+    translate:none!important;
+    padding-top:max(12px, env(safe-area-inset-top, 12px))!important;
+  }
+  #home .home-action-row{
+    margin-top:0!important;
   }
 }
 
