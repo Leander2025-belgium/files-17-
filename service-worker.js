@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260828-onboarding-homescreen";
+const CACHE_VERSION = "wheaterflow-v20260828-night20";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -42,6 +42,26 @@ const STATIC_ASSETS = [
   "./assets/backgrounds/tv-light-rain.png",
   "./assets/backgrounds/tv-rain.png",
   "./assets/backgrounds/tv-heavy-rain.png",
+  "./assets/weather/night/01-night-clear.jpeg",
+  "./assets/weather/night/02-night-mostly-clear.jpeg",
+  "./assets/weather/night/03-night-partly-cloudy.jpeg",
+  "./assets/weather/night/04-night-cloudy.jpeg",
+  "./assets/weather/night/05-night-overcast.jpeg",
+  "./assets/weather/night/06-night-fog.jpeg",
+  "./assets/weather/night/07-night-mist.jpeg",
+  "./assets/weather/night/08-night-drizzle.jpeg",
+  "./assets/weather/night/09-night-light-rain.jpeg",
+  "./assets/weather/night/10-night-rain.jpeg",
+  "./assets/weather/night/11-night-heavy-rain.jpeg",
+  "./assets/weather/night/12-night-rain-showers.jpeg",
+  "./assets/weather/night/13-night-thunderstorm.jpeg",
+  "./assets/weather/night/14-night-thunder-showers.jpeg",
+  "./assets/weather/night/15-night-severe-thunderstorm.jpeg",
+  "./assets/weather/night/16-night-hail.jpeg",
+  "./assets/weather/night/17-night-sleet.jpeg",
+  "./assets/weather/night/18-night-light-snow.jpeg",
+  "./assets/weather/night/19-night-snow.jpeg",
+  "./assets/weather/night/20-night-heavy-snow.jpeg",
   "./assets/moon/new-moon.jpg",
   "./assets/moon/young-crescent.jpg",
   "./assets/moon/first-quarter.jpg",

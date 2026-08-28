@@ -52,6 +52,58 @@ const WEATHER_PHOTO_FILES = new Set([
   'Zwaar onweer.png',
   'Hagel.png'
 ]);
+
+const NIGHT_WEATHER_PHOTO_FILES = new Set([
+  '01-night-clear.jpeg',
+  '02-night-mostly-clear.jpeg',
+  '03-night-partly-cloudy.jpeg',
+  '04-night-cloudy.jpeg',
+  '05-night-overcast.jpeg',
+  '06-night-fog.jpeg',
+  '07-night-mist.jpeg',
+  '08-night-drizzle.jpeg',
+  '09-night-light-rain.jpeg',
+  '10-night-rain.jpeg',
+  '11-night-heavy-rain.jpeg',
+  '12-night-rain-showers.jpeg',
+  '13-night-thunderstorm.jpeg',
+  '14-night-thunder-showers.jpeg',
+  '15-night-severe-thunderstorm.jpeg',
+  '16-night-hail.jpeg',
+  '17-night-sleet.jpeg',
+  '18-night-light-snow.jpeg',
+  '19-night-snow.jpeg',
+  '20-night-heavy-snow.jpeg'
+]);
+
+function nightWeatherPhotoFilename(code, cloudCover=0){
+  const cc = Math.max(0, Math.min(100, Number(cloudCover) || 0));
+  const c = Number(code);
+  if(c === 0) return cc <= 12 ? '01-night-clear.jpeg' : '02-night-mostly-clear.jpeg';
+  if(c === 1) return '02-night-mostly-clear.jpeg';
+  if(c === 2) return '03-night-partly-cloudy.jpeg';
+  if(c === 3) return cc >= 88 ? '05-night-overcast.jpeg' : '04-night-cloudy.jpeg';
+  if(c === 45) return '06-night-fog.jpeg';
+  if(c === 48) return '07-night-mist.jpeg';
+  if([51,53,55,56,57].includes(c)) return '08-night-drizzle.jpeg';
+  if(c === 61) return '09-night-light-rain.jpeg';
+  if([63,66].includes(c)) return '10-night-rain.jpeg';
+  if([65,67].includes(c)) return '11-night-heavy-rain.jpeg';
+  if([80,81,82].includes(c)) return '12-night-rain-showers.jpeg';
+  if(c === 95) return '13-night-thunderstorm.jpeg';
+  if(c === 96) return '16-night-hail.jpeg';
+  if(c === 99) return '15-night-severe-thunderstorm.jpeg';
+  if([71,77,85].includes(c)) return '18-night-light-snow.jpeg';
+  if(c === 73) return '19-night-snow.jpeg';
+  if([75,86].includes(c)) return '20-night-heavy-snow.jpeg';
+  // Freezing/mixed precipitation gets the sleet image when no more specific code applies.
+  if([68,69,83,84].includes(c)) return '17-night-sleet.jpeg';
+  if(cc <= 15) return '01-night-clear.jpeg';
+  if(cc <= 30) return '02-night-mostly-clear.jpeg';
+  if(cc <= 60) return '03-night-partly-cloudy.jpeg';
+  if(cc <= 87) return '04-night-cloudy.jpeg';
+  return '05-night-overcast.jpeg';
+}
 const TV_WEATHER_PHOTO_FILES = new Set([
   'tv-night-clear.png',
   'tv-night-light-clouds.png',
@@ -2573,6 +2625,37 @@ function applyWeatherBG(code, isDay, cloudCover=0){
   const cc = Math.max(0, Math.min(100, Number(cloudCover) || 0));
   let filename = DEFAULT_WEATHER_PHOTO;
   let scene = 'sunny';
+
+  // Night uses the dedicated 9:16 Wheaterflow night photo set.
+  // Daytime keeps the existing backgrounds unchanged.
+  if(!isDay){
+    const nightFilename = nightWeatherPhotoFilename(code, cc);
+    if(NIGHT_WEATHER_PHOTO_FILES.has(nightFilename)){
+      const nightSafe = encodeURI(`./assets/weather/night/${nightFilename}`);
+      const nightPhotoValue = `url("${nightSafe}")`;
+      el.style.backgroundImage = nightPhotoValue;
+      el.style.setProperty('--weather-photo', nightPhotoValue);
+      document.documentElement.style.setProperty('--weather-photo', nightPhotoValue);
+      document.body?.style?.setProperty('--weather-photo', nightPhotoValue);
+      $('#authSheet')?.style?.setProperty('--profile-weather-photo', nightPhotoValue);
+      const tvScreen = $('#tvscreen');
+      tvScreen?.style?.setProperty('--weather-photo', nightPhotoValue);
+      // TV can keep its dedicated landscape assets when available.
+      const tvNightFilename = tvWeatherPhotoFilename(code, false, cc, DEFAULT_WEATHER_PHOTO);
+      const tvNightSafe = encodeURI(`./assets/backgrounds/${tvNightFilename}`);
+      tvScreen?.style?.setProperty('--tv-weather-photo', `url("${tvNightSafe}")`);
+
+      const rainyCodes = [51,53,55,56,57,61,63,65,66,67,80,81,82,68,69,83,84];
+      const stormCodes = [95,96,99];
+      const snowCodes = [71,73,75,77,85,86];
+      scene = stormCodes.includes(Number(code)) ? 'stormy' : snowCodes.includes(Number(code)) ? 'snowy' : rainyCodes.includes(Number(code)) ? 'rainy' : (Number(code) >= 2 || cc >= 66 ? 'cloudy' : 'sunny');
+      ['sunny','cloudy','rainy','stormy','snowy'].forEach(s=>el.classList.toggle(s, s===scene));
+      el.classList.add('night','photo-weather-bg');
+      el.classList.toggle('cloud-cover-heavy', cc >= 86);
+      el.classList.toggle('cloud-cover-light', scene === 'cloudy' && cc < 66);
+      return;
+    }
+  }
 
   // Neerslag / slecht weer krijgt altijd voorrang op bewolkingsgraad.
   if(code === 99){
