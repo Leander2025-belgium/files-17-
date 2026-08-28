@@ -2802,7 +2802,7 @@ html += rainNowcastCard();
     const width = ((hi-lo)/(gMax-gMin||1))*100;
     html += `<div class="daily-row">
       <div class="dname ${i===0?'today':''}">${dayName}</div>
-      ${icon(dwc.ic,true,22,'dicon')}
+      ${icon(dwc.ic,true,26,'dicon')}
       <div class="dpop">${daily.precipitation_probability_max[i]>10?daily.precipitation_probability_max[i]+'%':''}</div>
       <div class="dlow">${fmtTemp(lo)}</div>
       <div class="bar-track"><div class="bar-fill" style="left:${left}%;width:${Math.max(width,6)}%;"></div></div>
