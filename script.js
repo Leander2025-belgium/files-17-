@@ -244,6 +244,13 @@ async function applyAuthSession(session,event=''){
   }
   updateAuthInterface(state.auth.session);
   renderClimateDashboard();
+  // Als een account vanuit de first-run onboarding werd aangemaakt,
+  // laat de onboarding daarna pas doorgaan naar het samenvattingsscherm.
+  if(state.auth.user && onboardingPendingProfile){
+    window.dispatchEvent(new CustomEvent('wheaterflow:onboarding-profile-created', {
+      detail:{user:state.auth.user}
+    }));
+  }
 }
 
 function parseProfileJsonSetting(value, fallback){
@@ -7924,11 +7931,27 @@ function initFirstRunOnboarding(force=false){
   };
   const profileBtn=shell.querySelector('#onboardingProfileBtn');
   if(profileBtn) profileBtn.onclick=()=>{
+    // Open het echte account-aanmaakscherm in plaats van meteen door te gaan.
     onboardingPendingProfile=true;
-    profileChoice='Profiel aanmaken';
-    const sum=shell.querySelector('#onboardingSummaryProfile'); if(sum) sum.textContent=profileChoice;
+    try{
+      openAuthSheet();
+      setAuthMode('signup');
+      setTimeout(()=>document.getElementById('signupName')?.focus(),180);
+    }catch(e){
+      onboardingPendingProfile=false;
+    }
+  };
+
+  const onProfileCreated=()=>{
+    if(!onboardingPendingProfile) return;
+    onboardingPendingProfile=false;
+    profileChoice='Ingesteld';
+    const sum=shell.querySelector('#onboardingSummaryProfile');
+    if(sum) sum.textContent=profileChoice;
+    try{ closeAuthSheet(); }catch(e){}
     show(finishPageIndex,1);
   };
+  window.addEventListener('wheaterflow:onboarding-profile-created', onProfileCreated);
   show(0);
 }
 window.addEventListener('DOMContentLoaded',()=>window.setTimeout(()=>initFirstRunOnboarding(false),80));
