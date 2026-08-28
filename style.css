@@ -7180,3 +7180,9 @@ body.tv-pair-open .tabbar{
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   .tabbar{background:rgba(35,52,76,.66)!important;}
 }
+
+/* 2026-08-28: keep precipitation/storm glyphs fully visible and vertically aligned */
+.hour-item svg, .daily-row svg, .forecast-icon svg, .tv-icon svg {
+  overflow: visible;
+  flex-shrink: 0;
+}
