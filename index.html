@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260828-community-v2" rel="stylesheet"/>
+<link href="style.css?v=20260828-onboarding-v1" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -132,6 +132,91 @@
 <span></span>
 </div>
 </div>
+</div>
+<div class="onboarding-shell hidden" id="firstRunOnboarding" aria-modal="true" role="dialog" aria-label="Welkom bij Wheaterflow">
+  <div class="onboarding-backdrop"></div>
+  <div class="onboarding-glow onboarding-glow-one"></div>
+  <div class="onboarding-glow onboarding-glow-two"></div>
+  <div class="onboarding-frame">
+    <div class="onboarding-topline">
+      <div class="onboarding-brand"><img src="./icons/icon-192.png" alt="" aria-hidden="true"><span>Wheaterflow</span></div>
+      <button class="onboarding-skip" id="onboardingSkipAll" type="button">Sla over</button>
+    </div>
+
+    <section class="onboarding-page active" data-onboarding-page="0">
+      <div class="onboarding-hero-mark">
+        <div class="onboarding-orbit orbit-a"></div><div class="onboarding-orbit orbit-b"></div>
+        <img src="./icons/icon-512.png" alt="Wheaterflow">
+      </div>
+      <div class="onboarding-copy onboarding-copy-center">
+        <p class="onboarding-kicker">Welkom</p>
+        <h1>Weer dat met je meebeweegt.</h1>
+        <p>Live radar, slimme waarschuwingen en lokale verwachtingen in één rustige, persoonlijke app.</p>
+      </div>
+      <div class="onboarding-feature-row">
+        <span><b>Live</b> radar</span><span><b>Slimme</b> meldingen</span><span><b>Lokaal</b> weer</span>
+      </div>
+      <div class="onboarding-actions single"><button class="onboarding-primary" data-onboarding-next type="button">Begin</button></div>
+    </section>
+
+    <section class="onboarding-page" data-onboarding-page="1">
+      <div class="onboarding-symbol location-symbol" aria-hidden="true"><span></span></div>
+      <div class="onboarding-copy">
+        <p class="onboarding-kicker">Jouw locatie</p>
+        <h1>Hyperlokaal vanaf het eerste moment.</h1>
+        <p>Sta locatie toe om je huidige weer, regen-ETA, radar en waarschuwingen automatisch voor de juiste plek te tonen.</p>
+      </div>
+      <div class="onboarding-permission-card" id="onboardingLocationCard">
+        <span class="permission-dot"></span><div><b>Locatie</b><small id="onboardingLocationStatus">Nog niet ingesteld</small></div>
+      </div>
+      <div class="onboarding-actions"><button class="onboarding-secondary" data-onboarding-next type="button">Niet nu</button><button class="onboarding-primary" id="onboardingLocationBtn" type="button">Sta locatie toe</button></div>
+    </section>
+
+    <section class="onboarding-page" data-onboarding-page="2">
+      <div class="onboarding-symbol bell-symbol" aria-hidden="true"><span></span></div>
+      <div class="onboarding-copy">
+        <p class="onboarding-kicker">Blijf op de hoogte</p>
+        <h1>Alleen meldingen die ertoe doen.</h1>
+        <p>Krijg een seintje bij naderende regen, onweer en officiële waarschuwingen. Je kunt alles later per type aanpassen.</p>
+      </div>
+      <div class="onboarding-mini-alerts">
+        <div><span>🌧️</span><p><b>Regen op komst</b><small>Bui bereikt je locatie over ongeveer 20 min.</small></p></div>
+        <div><span>⚡</span><p><b>Onweer in de buurt</b><small>Actieve onweerscel nadert jouw regio.</small></p></div>
+      </div>
+      <p class="onboarding-note" id="onboardingPushNote"></p>
+      <div class="onboarding-actions"><button class="onboarding-secondary" data-onboarding-next type="button">Niet nu</button><button class="onboarding-primary" id="onboardingPushBtn" type="button">Schakel meldingen in</button></div>
+    </section>
+
+    <section class="onboarding-page" data-onboarding-page="3">
+      <div class="onboarding-symbol profile-symbol" aria-hidden="true"><span></span></div>
+      <div class="onboarding-copy">
+        <p class="onboarding-kicker">Maak het persoonlijk</p>
+        <h1>Je Wheaterflow, op elk toestel.</h1>
+        <p>Met een gratis profiel bewaar je thuislocatie, favorieten, eenheden, meldingsvoorkeuren en weermodelkeuze.</p>
+      </div>
+      <div class="onboarding-profile-preview">
+        <div class="onboarding-avatar">WF</div><div><b>Jouw profiel</b><span>Favorieten · instellingen · meldingen</span></div><em>Optioneel</em>
+      </div>
+      <div class="onboarding-actions"><button class="onboarding-secondary" data-onboarding-next type="button">Later</button><button class="onboarding-primary" id="onboardingProfileBtn" type="button">Maak profiel</button></div>
+    </section>
+
+    <section class="onboarding-page" data-onboarding-page="4">
+      <div class="onboarding-finish-icon" aria-hidden="true"><span>✓</span></div>
+      <div class="onboarding-copy onboarding-copy-center">
+        <p class="onboarding-kicker">Klaar</p>
+        <h1>Wheaterflow is ingesteld.</h1>
+        <p>Vanaf nu opent de app direct op je weer. Alles wat je net koos kun je later wijzigen via Profiel en Instellingen.</p>
+      </div>
+      <div class="onboarding-summary" id="onboardingSummary">
+        <div><span>Locatie</span><b id="onboardingSummaryLocation">Niet ingesteld</b></div>
+        <div><span>Meldingen</span><b id="onboardingSummaryPush">Niet ingesteld</b></div>
+        <div><span>Profiel</span><b id="onboardingSummaryProfile">Later</b></div>
+      </div>
+      <div class="onboarding-actions single"><button class="onboarding-primary onboarding-finish" id="onboardingFinishBtn" type="button">Start Wheaterflow</button></div>
+    </section>
+
+    <div class="onboarding-dots" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i><i></i></div>
+  </div>
 </div>
 <div class="sunny" id="weatherBG">
 <div class="wbg-sky"></div>
@@ -1443,6 +1528,6 @@
 <!-- Wheaterflow scripts -->
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260828-community-v2"></script>
+<script src="script.js?v=20260828-onboarding-v1"></script>
 </body>
 </html>

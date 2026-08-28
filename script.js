@@ -11,6 +11,14 @@ const WEATHERFLOW_RADAR_OFFSETS = [-120,-110,-100,-90,-80,-70,-60,-50,-40,-30,-2
 const WHEATERFLOW_API_BASE = 'https://api.wheaterflow.be/api';
 const FUNCTION_BASE = WHEATERFLOW_API_BASE + '/';
 const PUSH_FUNCTION_BASE = FUNCTION_BASE;
+const ONBOARDING_STORAGE_KEY = 'wheaterflow:onboarding:v1';
+let onboardingPendingProfile = false;
+function isFirstRunOnboarding(){
+  try{ return localStorage.getItem(ONBOARDING_STORAGE_KEY) !== 'done'; }catch(e){ return false; }
+}
+function completeFirstRunOnboarding(){
+  try{ localStorage.setItem(ONBOARDING_STORAGE_KEY, 'done'); }catch(e){}
+}
 const XWEATHER_SDK_VERSION = '1.9.3';
 const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEATHER_SDK_VERSION}/dist/`;
 const ASTRO_EVENTS_URL = 'assets/data/astro-events.json';
@@ -7614,6 +7622,10 @@ async function init(){
     if(state.cast.receiver || state.tvPairing.receiver) return;
     state.locationStatus = 'detecting';
     state.loc = {...state.loc, name: cleanLocationName(state.loc?.name, 'Locatie bepalen...')};
+    if(isFirstRunOnboarding()){
+      state.locationStatus = 'onboarding';
+      return;
+    }
     const p = await getBrowserLocation();
     if(p){
       const g = await reverseGeocode(p.lat, p.lon);
@@ -7747,3 +7759,97 @@ document.getElementById('profileDoneBtn')?.addEventListener('click', ()=>{
   panel.classList.remove('hidden');
   setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}),60);
 });
+
+
+/* =========================================================================
+   FIRST RUN ONBOARDING
+   ========================================================================= */
+function initFirstRunOnboarding(){
+  const shell = document.getElementById('firstRunOnboarding');
+  if(!shell || !isFirstRunOnboarding()) return;
+  const pages = [...shell.querySelectorAll('[data-onboarding-page]')];
+  const dots = [...shell.querySelectorAll('.onboarding-dots i')];
+  let current = 0;
+  document.body.classList.add('onboarding-open');
+  shell.classList.remove('hidden');
+  shell.setAttribute('aria-hidden','false');
+
+  const show = (next)=>{
+    next = Math.max(0, Math.min(pages.length-1, next));
+    const oldPage = pages[current];
+    if(oldPage && next !== current){
+      oldPage.classList.add('leaving');
+      window.setTimeout(()=>oldPage.classList.remove('active','leaving'),260);
+    }
+    current = next;
+    pages[current]?.classList.add('active');
+    dots.forEach((d,i)=>d.classList.toggle('active',i===current));
+    shell.querySelector('#onboardingSkipAll')?.classList.toggle('hidden',current===pages.length-1);
+  };
+  const finish = ()=>{
+    completeFirstRunOnboarding();
+    shell.style.transition='opacity .35s ease, transform .35s ease';
+    shell.style.opacity='0';
+    shell.style.transform='scale(1.015)';
+    window.setTimeout(()=>{
+      shell.classList.add('hidden');
+      document.body.classList.remove('onboarding-open');
+      shell.style.opacity='';shell.style.transform='';
+      if(onboardingPendingProfile){
+        onboardingPendingProfile=false;
+        try{ openAuthSheet(); setAuthMode('signup'); }catch(e){}
+      }
+    },350);
+  };
+  shell.querySelectorAll('[data-onboarding-next]').forEach(btn=>btn.addEventListener('click',()=>show(current+1)));
+  shell.querySelector('#onboardingSkipAll')?.addEventListener('click',finish);
+  shell.querySelector('#onboardingFinishBtn')?.addEventListener('click',finish);
+
+  const locBtn=shell.querySelector('#onboardingLocationBtn');
+  locBtn?.addEventListener('click',async()=>{
+    if(locBtn.disabled) return;
+    locBtn.disabled=true; locBtn.classList.add('onboarding-busy');
+    const status=shell.querySelector('#onboardingLocationStatus');
+    if(status) status.textContent='Locatie wordt opgehaald…';
+    try{
+      const p=await getBrowserLocation();
+      if(!p) throw new Error('denied');
+      const g=await reverseGeocode(p.lat,p.lon);
+      await setLocation(p.lat,p.lon,g.name,g.admin,g.country,'gps');
+      shell.querySelector('#onboardingLocationCard')?.classList.add('allowed');
+      if(status) status.textContent=`${g.name}${g.admin ? ' · '+g.admin : ''}`;
+      const sum=shell.querySelector('#onboardingSummaryLocation'); if(sum) sum.textContent=g.name || 'Ingeschakeld';
+      window.setTimeout(()=>show(2),420);
+    }catch(e){
+      if(status) status.textContent='Geen toegang — je kunt dit later wijzigen';
+      locBtn.disabled=false;
+    }finally{locBtn.classList.remove('onboarding-busy')}
+  });
+
+  const pushBtn=shell.querySelector('#onboardingPushBtn');
+  const pushNote=shell.querySelector('#onboardingPushNote');
+  const isIos=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(isIos && !isStandaloneApp() && pushNote){
+    pushNote.textContent='Op iPhone werken pushmeldingen nadat Wheaterflow aan je beginscherm is toegevoegd.';
+  }
+  pushBtn?.addEventListener('click',async()=>{
+    pushBtn.disabled=true;pushBtn.classList.add('onboarding-busy');
+    try{
+      await enablePushNotifications();
+      const enabled=state.push.status==='Ingeschakeld' || window.Notification?.permission==='granted';
+      const sum=shell.querySelector('#onboardingSummaryPush'); if(sum) sum.textContent=enabled?'Ingeschakeld':(state.push.status||'Later');
+      if(pushNote) pushNote.textContent=enabled?'Meldingen zijn ingeschakeld.':'Je kunt meldingen later via Profiel inschakelen.';
+      window.setTimeout(()=>show(3),enabled?420:650);
+    }catch(e){
+      if(pushNote) pushNote.textContent='Meldingen konden nu niet worden ingeschakeld. Je kunt dit later opnieuw proberen.';
+    }finally{pushBtn.disabled=false;pushBtn.classList.remove('onboarding-busy')}
+  });
+
+  shell.querySelector('#onboardingProfileBtn')?.addEventListener('click',()=>{
+    onboardingPendingProfile=true;
+    const sum=shell.querySelector('#onboardingSummaryProfile'); if(sum) sum.textContent='Profiel maken';
+    show(4);
+  });
+  show(0);
+}
+window.addEventListener('DOMContentLoaded',()=>window.setTimeout(initFirstRunOnboarding,80));
