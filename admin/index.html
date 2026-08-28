@@ -1058,8 +1058,46 @@ async function publishAlert(){
       throw new Error(error || 'Publiceren mislukt');
     }
 
+    const wantsPush=document.getElementById('sendPush').checked;
+
+    let pushResult=null;
+
+    if(wantsPush){
+const pushResponse=await fetch('https:'+'//api.wheaterflow.be/api/admin-push',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':`Bearer ${token}`
+        },
+        body:JSON.stringify({
+          type:selectedType,
+          title,
+          message,
+          scope:selectedScope,
+          scopeValue:selectedScope==='all' ? null : scopeValue
+        })
+      });
+
+      if(pushResponse.status===401){
+        throw new Error('Push geweigerd: beheertoken ongeldig.');
+      }
+
+      if(!pushResponse.ok){
+        const error=await pushResponse.text();
+        throw new Error('Melding opgeslagen, maar push mislukt: '+error);
+      }
+
+      pushResult=await pushResponse.json();
+    }
+
     formMessage.className='message success';
-    formMessage.textContent='✓ Melding gepubliceerd.';
+
+    if(pushResult){
+      formMessage.textContent=
+        `✓ Melding gepubliceerd · ${pushResult.sent || 0} pushmelding(en) verzonden.`;
+    }else{
+      formMessage.textContent='✓ Melding gepubliceerd.';
+    }
 
     resetForm(false);
     await loadAlerts();
