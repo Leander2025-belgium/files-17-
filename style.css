@@ -8475,3 +8475,142 @@ body.tv-pair-open .tabbar{
 .forecast-day-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.10);color:#fff;font-size:24px;line-height:30px;}
 .forecast-day-kicker{text-transform:capitalize;font-weight:800;font-size:14px;letter-spacing:.03em;color:rgba(235,244,255,.72);padding-right:42px;}
 .forecast-day-main{display:flex;align-items:center;gap:14px;margin:16px 0;}.forecast-day-main strong{display:block;font-size:24px}.forecast-day-main span{display:block;margin-top:2px;color:rgba(235,244,255,.7);font-size:16px}.forecast-day-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.forecast-day-grid div{padding:12px;border-radius:16px;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.10)}.forecast-day-grid b{display:block;font-size:17px}.forecast-day-grid span{font-size:11px;color:rgba(235,244,255,.62)}.forecast-day-sheet p{margin:14px 2px 0;color:rgba(235,244,255,.48);font-size:11px}
+
+
+/* 2026-08-29 — veel meer ademruimte tussen huidig weer en KMI */
+#home .hero{
+  margin-bottom:72px!important;
+}
+@media(max-width:560px){
+  #home .hero{
+    margin-bottom:88px!important;
+  }
+}
+
+/* Compacte officiële KMI-waarschuwing in Wheaterflow-stijl */
+#home .official-kmi.kmi-compact{
+  position:relative!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border-radius:25px!important;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.045) 48%,rgba(8,22,42,.15))!important;
+  border:1px solid rgba(255,255,255,.20)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(145%)!important;
+  backdrop-filter:blur(18px) saturate(145%)!important;
+}
+#home .official-kmi.kmi-compact summary{
+  list-style:none!important;
+}
+#home .official-kmi.kmi-compact summary::-webkit-details-marker{
+  display:none!important;
+}
+#home .kmi-summary{
+  position:relative;
+  min-height:98px;
+  display:grid;
+  grid-template-columns:7px 54px minmax(0,1fr) 34px;
+  align-items:center;
+  gap:14px;
+  padding:15px 18px 15px 13px;
+  cursor:pointer;
+  user-select:none;
+}
+#home .kmi-level-rail{
+  align-self:stretch;
+  width:7px;
+  border-radius:999px;
+  background:#ffd31a;
+  box-shadow:0 0 18px rgba(255,211,26,.28);
+}
+#home .official-kmi.orange .kmi-level-rail{background:#ff8a1f;box-shadow:0 0 18px rgba(255,138,31,.28)}
+#home .official-kmi.red .kmi-level-rail{background:#ff453a;box-shadow:0 0 18px rgba(255,69,58,.30)}
+#home .kmi-phenomenon-icon{
+  width:54px;
+  height:54px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+}
+#home .kmi-phenomenon-icon svg{
+  width:38px!important;
+  height:38px!important;
+}
+#home .kmi-summary-copy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+#home .kmi-summary-copy strong{
+  font-size:25px;
+  line-height:1.05;
+  font-weight:760;
+  color:#fff;
+  letter-spacing:-.025em;
+}
+#home .kmi-summary-copy small{
+  font-size:15px;
+  line-height:1.25;
+  font-weight:650;
+  color:rgba(245,249,255,.84);
+  white-space:normal;
+}
+#home .kmi-chevron{
+  display:grid;
+  place-items:center;
+  font-size:33px;
+  line-height:1;
+  color:#fff;
+  transform:rotate(0deg);
+  transition:transform .22s ease;
+}
+#home details[open] .kmi-chevron{
+  transform:rotate(180deg);
+}
+#home .kmi-expanded{
+  padding:0 22px 20px 88px;
+  border-top:1px solid rgba(255,255,255,.09);
+}
+#home .kmi-expanded-top{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  padding-top:15px;
+}
+#home .kmi-code-pill{
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:5px 11px;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:850;
+  color:#ffd31a;
+  background:rgba(255,211,26,.10);
+  border:1px solid rgba(255,211,26,.26);
+}
+#home .official-kmi.orange .kmi-code-pill{color:#ff9f3d;background:rgba(255,138,31,.10);border-color:rgba(255,138,31,.28)}
+#home .official-kmi.red .kmi-code-pill{color:#ff6961;background:rgba(255,69,58,.10);border-color:rgba(255,69,58,.28)}
+#home .kmi-expanded .alert-title{
+  margin-top:14px!important;
+  font-size:18px!important;
+}
+#home .kmi-expanded .alert-text{
+  margin-top:8px!important;
+  font-size:15px!important;
+  line-height:1.45!important;
+  color:rgba(245,249,255,.88)!important;
+}
+#home .kmi-expanded .alert-source{
+  margin-top:11px!important;
+  font-size:11px!important;
+  color:rgba(235,243,255,.50)!important;
+}
+
+/* behoud veel ruimte, ook wanneer de waarschuwing de eerste kaart is */
+#home .hero + .official-kmi,
+#home .hero ~ .official-kmi:first-of-type{
+  margin-top:0!important;
+}

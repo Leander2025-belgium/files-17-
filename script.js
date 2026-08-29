@@ -3903,7 +3903,32 @@ function alertsCard(){
   const levelLabel = isGreen || official ? level.label : 'Slim signaal';
   const timing = official ? formatOfficialAlertPeriod(alert) : '';
   const countdown = official ? officialAlertCountdown(alert) : '';
-  return `<div class="card alert-card ${level.cls} ${official ? 'official-kmi' : ''}">
+
+  if(official && !isGreen){
+    const phenomenon = esc(alert.phenomenon || String(headline).split('·')[0].trim() || 'Waarschuwing');
+    return `<details class="card alert-card official-kmi kmi-compact ${level.cls}">
+      <summary class="kmi-summary">
+        <span class="kmi-level-rail" aria-hidden="true"></span>
+        <span class="kmi-phenomenon-icon">${icon('wind',true,30)}</span>
+        <span class="kmi-summary-copy">
+          <strong>${phenomenon}</strong>
+          <small>${timing || esc(alert.period || '')}</small>
+        </span>
+        <span class="kmi-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="kmi-expanded">
+        <div class="kmi-expanded-top">
+          <span class="kmi-code-pill">${levelLabel}</span>
+          ${countdown ? `<span class="alert-countdown">${esc(countdown)}</span>` : ''}
+        </div>
+        <div class="alert-title">${esc(headline)}</div>
+        ${alert.description ? `<div class="alert-text">${esc(alert.description)}</div>` : ''}
+        ${alert.source ? `<div class="alert-source">Bron: ${esc(alert.source)}</div>` : ''}
+      </div>
+    </details>`;
+  }
+
+  return `<div class="card alert-card ${level.cls}">
     <div class="alert-head">
       <div>
         <div class="card-title">${icon('gauge',true,13)} ${title}</div>
@@ -3914,7 +3939,6 @@ function alertsCard(){
     ${countdown ? `<div class="alert-countdown">${esc(countdown)}</div>` : ''}
     ${timing ? `<div class="alert-period">${esc(timing)}</div>` : ''}
     ${isGreen ? '' : `<div class="alert-text">${esc(alert.description)}</div>`}
-    ${!isGreen && official && alert.source ? `<div class="alert-source">Bron: ${esc(alert.source)}</div>` : ''}
   </div>`;
 }
 
