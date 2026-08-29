@@ -811,6 +811,19 @@ signal.soon = Math.max(signal.soon, currentTotal);
     signal.pop = Number(state.hourly.precipitation_probability?.[idx]) || 0;
     signal.thunder = signal.thunder || [95,96,99].includes(Number(state.hourly.weather_code?.[idx]));
   }
+  // Verse live radar krijgt voorrang wanneer neerslag echt boven de gebruiker ligt.
+  const rp = state.radar?.proximity;
+  const radarFresh = rp && Date.now() - Number(rp.checkedAt || 0) < 10*60*1000;
+  if(radarFresh){
+    signal.radarDistanceKm = Number(rp.distanceKm);
+    signal.radarLevel = rp.localIntensity || rp.intensity || 'light';
+    signal.radarNow = Boolean(rp.atLocation || (Number.isFinite(signal.radarDistanceKm) && signal.radarDistanceKm <= 4));
+    if(signal.radarNow){
+      const radarMm = signal.radarLevel === 'heavy' ? 3.2 : signal.radarLevel === 'moderate' ? 1.2 : 0.25;
+      signal.now = Math.max(signal.now, radarMm);
+      signal.soon = Math.max(signal.soon, radarMm);
+    }
+  }
   return signal;
 }
 
@@ -821,31 +834,29 @@ function effectiveCurrentWeatherCode(cur=state.current || {}){
   const snowCodes = [71,73,75,77,85,86];
   const p = precipitationSignal(cur);
 
-  // Fenomenen die niet door een gewone regen-intensiteit mogen worden vervangen.
   if([99,96,95].includes(code)) return code;
   if(snowCodes.includes(code)) return code;
+  if([66,67].includes(code)) return code;
   if([45,48].includes(code) && p.now < 0.1) return code;
-  if(drizzleCodes.includes(code)) return code;
-  if([66,67].includes(code)) return code; // ijzel behouden
 
-  // Actuele neerslag heeft voorrang op een achterlopende 'bewolkt'-code.
-  // De grenswaarden zijn bewust eenvoudig zodat achtergrond én label snel
-  // reageren wanneer het lokaal daadwerkelijk begint te regenen.
   if(p.thunder && p.now >= 0.1) return 95;
-  if(p.now >= 3.0) return 65;   // hevige regen
-  if(p.now >= 1.0) return 63;   // regen
-  if(p.now >= 0.1) return 61;   // lichte regen
+  if(p.now >= 3.0) return 65;
+  if(p.now >= 1.0) return 63;
+  if(p.now >= 0.1) return 61;
 
-  // Als de bron zelf een regencode meldt maar de hoeveelheid net op 0 staat,
-  // behoud die regencode; zo verdwijnt regen niet tussen twee meetframes.
-  if(rainCodes.includes(code)) return code;
-
+  if(drizzleCodes.includes(code) || rainCodes.includes(code)) return code;
   return Number.isFinite(code) ? code : 0;
 }
 
 function isNetherlandsLocation(){
   const {lat, lon} = state.loc;
   return lat >= 50.7 && lat <= 53.8 && lon >= 3.1 && lon <= 7.4;
+}
+
+function isBelgiumLocation(){
+  const lat = Number(state.loc?.lat), lon = Number(state.loc?.lon);
+  return Number.isFinite(lat) && Number.isFinite(lon) &&
+    lat >= 49.45 && lat <= 51.60 && lon >= 2.45 && lon <= 6.45;
 }
 
 function shouldUseKnmiWmsRadar(){
@@ -982,16 +993,29 @@ async function fetchKnmiWarnings(){
   return Array.isArray(data.alerts) ? data.alerts : null;
 }
 
+async function fetchKmiWarnings(){
+  if(!isBelgiumLocation()) return null;
+  const qs = new URLSearchParams({lat:String(state.loc.lat), lon:String(state.loc.lon)});
+  const r = await fetch(WHEATERFLOW_API_BASE + '/kmi/warnings?' + qs.toString(), {cache:'no-store'});
+  if(!r.ok) throw new Error('KMI waarschuwingen niet beschikbaar');
+  const data = await r.json();
+  return Array.isArray(data.alerts) ? data.alerts : null;
+}
+
 async function loadAlerts(){
   try{
-    const official = await fetchKnmiWarnings();
+    const official = isBelgiumLocation() ? await fetchKmiWarnings() : await fetchKnmiWarnings();
     if(official && official.length){
-      state.alerts = official;
-      state.alertsMeta = {source:'KNMI Data Platform', official:true, updated:Date.now()};
+      state.alerts = official.sort((a,b)=>(ALERT_LEVELS[b.level]?.rank||0)-(ALERT_LEVELS[a.level]?.rank||0));
+      state.alertsMeta = {
+        source:isBelgiumLocation() ? 'KMI België' : 'KNMI Data Platform',
+        official:true,
+        updated:Date.now()
+      };
       return;
     }
   }catch(e){
-    // Valt hieronder terug op indicatieve code; bijvoorbeeld bij ontbrekende/ongeldige key of CORS.
+    console.warn('Officiële waarschuwingen tijdelijk niet beschikbaar:', e);
   }
   state.alerts = buildIndicativeAlert();
   state.alertsMeta = {
@@ -6705,6 +6729,14 @@ function radarBearingFromPixel(dx,dy){
   // canvas y loopt naar het zuiden; atan2(oost, noord)
   return (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
 }
+function radarColorToIntensity(r,g,b,a=255){
+  if(a < 32) return null;
+  if(r > 180 && g < 150) return 'heavy';
+  if(r > 170 && g > 130 && b < 130) return 'heavy';
+  if(g > 135 && r < 170 && b < 190) return 'moderate';
+  return 'light';
+}
+
 async function refreshRadarProximity(meta=rainviewerMeta){
   try{
     const lat = Number(state.loc?.lat), lon = Number(state.loc?.lon);
@@ -6728,22 +6760,33 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.drawImage(bmp,0,0);
       const data=ctx.getImageData(0,0,256,256).data;
       let local=null;
+      let nearUser=null;
+      const nearRadiusPx=Math.max(3,4000/groundMPerPx);
       for(let py=1;py<256;py+=3){
         for(let px=1;px<256;px+=3){
-          const a=data[(py*256+px)*4+3];
+          const off=(py*256+px)*4;
+          const r=data[off],g=data[off+1],b=data[off+2],a=data[off+3];
           if(a < 32) continue;
           const gx=x*256+px, gy=y*256+py;
           const dx=gx-userPxX, dy=gy-userPxY;
           const distPx=Math.hypot(dx,dy);
-          if(!local || distPx<local.distPx) local={distPx,dx,dy};
+          const intensity=radarColorToIntensity(r,g,b,a);
+          if(!local || distPx<local.distPx) local={distPx,dx,dy,intensity};
+          if(distPx<=nearRadiusPx){
+            const rank={light:1,moderate:2,heavy:3}[intensity]||1;
+            if(!nearUser || rank>nearUser.rank) nearUser={rank,intensity,distPx};
+          }
         }
       }
       bmp.close?.();
-      return local;
+      return {local,nearUser};
     }));
+    let nearUserBest=null;
     for(const res of results){
       if(res.status!=='fulfilled' || !res.value) continue;
-      if(!best || res.value.distPx<best.distPx) best=res.value;
+      const local=res.value.local, near=res.value.nearUser;
+      if(local && (!best || local.distPx<best.distPx)) best=local;
+      if(near && (!nearUserBest || near.rank>nearUserBest.rank)) nearUserBest=near;
     }
     if(!best){ state.radar.proximity=null; return null; }
     const distanceKm=best.distPx*groundMPerPx/1000;
@@ -6753,7 +6796,7 @@ async function refreshRadarProximity(meta=rainviewerMeta){
     const gust=Math.max(Number(state.current?.wind_gusts_10m)||0, Number(state.current?.wind_speed_10m)||0);
     const motionKmh=Math.max(40,Math.min(75,gust*1.15 || 45));
     const etaMinutes=Math.max(1,Math.round(distanceKm/motionKmh*60));
-    const proximity={distanceKm,etaMinutes,bearing,upwind,frameTime:latest.time*1000,checkedAt:Date.now()};
+    const proximity={distanceKm,etaMinutes,bearing,upwind,frameTime:latest.time*1000,checkedAt:Date.now(),intensity:best.intensity||'light',localIntensity:nearUserBest?.intensity||null,atLocation:Boolean(nearUserBest||distanceKm<=4)};
     state.radar.proximity=proximity;
     return proximity;
   }catch(error){
