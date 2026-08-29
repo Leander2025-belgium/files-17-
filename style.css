@@ -8404,3 +8404,22 @@ body.tv-pair-open .tabbar{
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   .searchbox,.tabbar{background:rgba(25,38,58,.24)!important;}
 }
+
+
+/* 2026-08-29 — alleen navigatie-iconen groter; balkafmetingen ongewijzigd */
+.tabbtn .tab-icon-img{
+  width:31px!important;
+  height:31px!important;
+  margin:0 auto 2px!important;
+}
+.tabbtn svg{
+  width:31px!important;
+  height:31px!important;
+}
+@media(max-width:560px){
+  .tabbtn .tab-icon-img,
+  .tabbtn svg{
+    width:31px!important;
+    height:31px!important;
+  }
+}
