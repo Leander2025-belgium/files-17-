@@ -282,18 +282,33 @@ app.post('/api/admin-push',async(req,res)=>{
 app.get('/api/xweather-config',(req,res)=>res.json({configured:Boolean(process.env.XWEATHER_CLIENT_ID&&process.env.XWEATHER_CLIENT_SECRET),clientId:process.env.XWEATHER_CLIENT_ID||null,clientSecret:process.env.XWEATHER_CLIENT_SECRET||null}));
 
 // Officiële KMI-waarschuwingen voor België.
+// KMI publiceert waarschuwingen tot 48 uur vooraf. Wheaterflow toont ze dus
+// zodra ze gepubliceerd zijn, ook als de geldigheidsperiode pas later start.
 const kmiWarningCache={at:0,alerts:[]};
-function stripKmiHtml(text=''){return String(text).replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/\s+/g,' ').trim();}
+function stripKmiHtml(text=''){
+  return String(text)
+    .replace(/<script[\s\S]*?<\/script>/gi,' ')
+    .replace(/<style[\s\S]*?<\/style>/gi,' ')
+    .replace(/<[^>]+>/g,' ')
+    .replace(/&nbsp;|&#160;/gi,' ')
+    .replace(/&amp;/gi,'&')
+    .replace(/&quot;/gi,'"')
+    .replace(/&#39;|&apos;/gi,"'")
+    .replace(/\s+/g,' ')
+    .trim();
+}
 function inferKmiLevel(type,text){
   const t=String(text||'').toLowerCase();
   if(/code\s*rood|\brood\b/.test(t)) return 'red';
   if(/code\s*oranje|\boranje\b/.test(t)) return 'orange';
   if(/code\s*geel|\bgeel\b/.test(t)) return 'yellow';
-  const winds=[...t.matchAll(/(\d{2,3})\s*(?:km\/?h|km\/u)/g)].map(m=>+m[1]);
+  const winds=[...t.matchAll(/(\d{2,3})\s*(?:km\/?h|km\/?u)/g)].map(m=>+m[1]);
   const maxWind=Math.max(0,...winds);
   if(/wind|rukwind|storm/i.test(type+' '+t)){
     const now=new Date(),m=now.getMonth()+1,d=now.getDate();
     const leafy=(m>4&&m<11)||(m===4&&d>=15)||(m===11&&d<=15);
+    // Officiële KMI-drempels: geel vanaf 80 km/u, of 70 km/u tijdens
+    // de periode met bebladerde bomen (15/4 t.e.m. 15/11).
     const y=leafy?70:80,o=leafy?91:101,r=leafy?121:131;
     if(maxWind>=r)return 'red'; if(maxWind>=o)return 'orange'; if(maxWind>=y)return 'yellow';
   }
@@ -303,36 +318,89 @@ function inferKmiLevel(type,text){
     if(maxRain>60)return 'red'; if(maxRain>=41)return 'orange'; if(maxRain>=20)return 'yellow';
     if(/zware windstoten|hagel|wateroverlast|intens/i.test(t))return 'yellow';
   }
+  // Een item op de officiële KMI-waarschuwingspagina is minstens code geel.
   return 'yellow';
 }
+function kmiDateTime(day,month,hour,minute=0){
+  const now=new Date();
+  let year=now.getFullYear();
+  const dt=new Date(year,Number(month)-1,Number(day),Number(hour),Number(minute),0,0);
+  // Rond nieuwjaar kan een waarschuwing voor januari al in december verschijnen.
+  if(dt.getTime()<now.getTime()-45*24*3600*1000) dt.setFullYear(year+1);
+  return dt;
+}
+function parseKmiPeriod(text=''){
+  const m=String(text).match(/Van\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s+(\d{1,2})(?:[:u](\d{2}))?u?\s+tot\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s+(\d{1,2})(?:[:u](\d{2}))?u?/i);
+  if(!m)return {period:null,validFrom:null,validTo:null,status:'published'};
+  let from=kmiDateTime(m[1],m[2],m[4],m[5]||0),to=kmiDateTime(m[6],m[7],m[9],m[10]||0);
+  if(m[3]) from.setFullYear(+m[3]);
+  if(m[8]) to.setFullYear(+m[8]);
+  if(to<=from) to.setFullYear(from.getFullYear()+(Number(m[7])<Number(m[2])?1:0));
+  const now=Date.now();
+  return {
+    period:`Van ${String(m[1]).padStart(2,'0')}/${String(m[2]).padStart(2,'0')} ${String(m[4]).padStart(2,'0')}:${String(m[5]||'00').padStart(2,'0')} tot ${String(m[6]).padStart(2,'0')}/${String(m[7]).padStart(2,'0')} ${String(m[9]).padStart(2,'0')}:${String(m[10]||'00').padStart(2,'0')}`,
+    validFrom:from.toISOString(),validTo:to.toISOString(),
+    status:now<from.getTime()?'upcoming':now<=to.getTime()?'active':'expired'
+  };
+}
+function kmiAlert(type,body){
+  type=stripKmiHtml(type); body=stripKmiHtml(body);
+  if(!type||!body)return null;
+  const level=inferKmiLevel(type,body);
+  const code={yellow:'geel',orange:'oranje',red:'rood'}[level]||level;
+  const time=parseKmiPeriod(body);
+  const description=body.replace(/Van\s+\d{1,2}\/\d{1,2}(?:\/\d{4})?\s+\d{1,2}(?:[:u]\d{2})?u?\s+tot\s+\d{1,2}\/\d{1,2}(?:\/\d{4})?\s+\d{1,2}(?:[:u]\d{2})?u?\s*:?/i,'').trim();
+  return {level,headline:`${type} · Code ${code}`,description:description.slice(0,600),period:time.period,validFrom:time.validFrom,validTo:time.validTo,status:time.status,source:'KMI België',official:true,phenomenon:type};
+}
 function parseKmiWarnings(html){
-  const main=String(html||'').split(/Waarschuwingen voor België/i)[1]||'';
-  const stop=main.split(/Voor waarschuwingen gelinkt|Download onze app|Meer informatie en uitleg/i)[0]||main;
+  const raw=String(html||'');
+  const out=[];
+  // Eerst de semantische HTML-structuur proberen.
+  const section=raw.split(/Waarschuwingen voor België/i)[1]||raw;
+  const stop=section.split(/Voor waarschuwingen gelinkt|Download onze app|Meer informatie en uitleg/i)[0]||section;
   const re=/<h3[^>]*>([\s\S]*?)<\/h3>([\s\S]*?)(?=<h3|$)/gi;
-  const out=[];let m;
+  let m;
   while((m=re.exec(stop))){
     const type=stripKmiHtml(m[1]),body=stripKmiHtml(m[2]);
     if(!type||!body||/kaart|uitleg/i.test(type))continue;
-    const level=inferKmiLevel(type,body);
-    const code={yellow:'geel',orange:'oranje',red:'rood'}[level]||level;
-    const timing=(body.match(/Van\s+[^:]{3,80}\s*:/i)||[])[0]?.replace(/\s*:\s*$/,'')||null;
-    const desc=body.replace(/^.*?\s*:\s*/,'').trim();
-    out.push({level,headline:`${type} · Code ${code}`,description:desc.slice(0,520),period:timing,source:'KMI België',official:true,phenomenon:type});
+    const a=kmiAlert(type,body); if(a&&a.status!=='expired')out.push(a);
+  }
+  // KMI gebruikt op sommige varianten van de site geen h3-blokken. Dan
+  // parseren we de zichtbare tekst. Dit vangt o.a. "Wind Van 29/08 20u ...".
+  const text=stripKmiHtml(stop);
+  const phenomena=['Wind','Regen','Onweer','Gladheid','Mist','Stormtij','Koude','Hitte'];
+  for(const type of phenomena){
+    if(out.some(a=>a.phenomenon.toLowerCase()===type.toLowerCase()))continue;
+    const rx=new RegExp(`(?:^|\\s)${type}\\s+(Van\\s+\\d{1,2}\\/\\d{1,2}(?:\\/\\d{4})?\\s+\\d{1,2}(?:[:u]\\d{2})?u?\\s+tot\\s+\\d{1,2}\\/\\d{1,2}(?:\\/\\d{4})?\\s+\\d{1,2}(?:[:u]\\d{2})?u?[\\s\\S]*?)(?=\\s+(?:${phenomena.join('|')})\\s+Van\\s+|$)`,'i');
+    const hit=text.match(rx);
+    if(hit){const a=kmiAlert(type,hit[1]);if(a&&a.status!=='expired')out.push(a);}
   }
   return out;
 }
 app.get('/api/kmi/warnings',async(req,res)=>{
   try{
-    if(Date.now()-kmiWarningCache.at<5*60*1000)return res.json({alerts:kmiWarningCache.alerts,cached:true});
-    const opts={headers:{'user-agent':'Wheaterflow/1.0 (+https://wheaterflow.be)','accept-language':'nl-BE,nl;q=0.9'}};
+    if(Date.now()-kmiWarningCache.at<3*60*1000)return res.json({alerts:kmiWarningCache.alerts,cached:true,source:'KMI België'});
+    const opts={headers:{'user-agent':'Mozilla/5.0 Wheaterflow/1.0 (+https://wheaterflow.be)','accept-language':'nl-BE,nl;q=0.9','accept':'text/html,application/xhtml+xml'}};
     if(typeof AbortSignal!=='undefined'&&AbortSignal.timeout)opts.signal=AbortSignal.timeout(8000);
-    const r=await fetch('https://www.meteo.be/nl/weer/waarschuwingen/overzichtskaart-belgie',opts);
-    if(!r.ok)throw new Error('KMI HTTP '+r.status);
-    const alerts=parseKmiWarnings(await r.text());
+    const urls=[
+      'https://www.meteo.be/nl/weer/waarschuwingen/overzichtskaart-belgie',
+      'https://nl.meteo.be/nl',
+      'https://app.meteo.be/nl'
+    ];
+    let alerts=[],lastError=null;
+    for(const url of urls){
+      try{
+        const r=await fetch(url,opts);
+        if(!r.ok)throw new Error('KMI HTTP '+r.status);
+        alerts=parseKmiWarnings(await r.text());
+        if(alerts.length)break;
+      }catch(e){lastError=e;}
+    }
+    if(!alerts.length&&lastError)console.warn('KMI fallback URLs zonder resultaat:',lastError.message);
     kmiWarningCache.at=Date.now();kmiWarningCache.alerts=alerts;
-    res.setHeader('Cache-Control','public, max-age=180');
+    res.setHeader('Cache-Control','public, max-age=120');
     res.json({alerts,source:'KMI België',updated:new Date().toISOString()});
-  }catch(e){console.error('KMI warnings:',e);if(kmiWarningCache.alerts.length)return res.json({alerts:kmiWarningCache.alerts,stale:true});res.status(502).json({alerts:[]});}
+  }catch(e){console.error('KMI warnings:',e);if(kmiWarningCache.alerts.length)return res.json({alerts:kmiWarningCache.alerts,stale:true,source:'KMI België'});res.status(502).json({alerts:[]});}
 });
 
 app.get('/api/knmi/warnings',async(req,res)=>{try{if(!process.env.KNMI_OPEN_DATA_API_KEY)return res.status(503).json({alerts:[]});const base='https://api.dataplatform.knmi.nl/open-data/v1/datasets/waarschuwingen_nederland_48h/versions/1.0/files';const headers={Authorization:process.env.KNMI_OPEN_DATA_API_KEY};let r=await fetch(base,{headers});if(!r.ok)throw new Error('KNMI list '+r.status);let data=await r.json();const file=(data.files||[]).map(x=>x.filename||x.name||x).filter(Boolean).filter(x=>/\.(xml|txt)$/i.test(x)).sort().pop();if(!file)return res.json({alerts:[]});r=await fetch(`${base}/${encodeURIComponent(file)}/url`,{headers});data=await r.json();const u=data.temporaryDownloadUrl||data.url||data.href;if(!u)return res.json({alerts:[]});const text=await (await fetch(u)).text();const t=text.toLowerCase();const level=t.includes('code rood')||/\brood\b/.test(t)?'red':t.includes('code oranje')||/\boranje\b/.test(t)?'orange':t.includes('code geel')||/\bgeel\b/.test(t)?'yellow':'green';const title={green:'Geen bijzonder weer',yellow:'Wees alert',orange:'Grote kans op gevaarlijk weer',red:'Zeer gevaarlijk weer'}[level];res.json({alerts:[{level,headline:title,description:text.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,260)||'Officiële KNMI-waarschuwing geladen.',source:'KNMI Data Platform',official:true}]});}catch(e){console.error(e);res.status(502).json({alerts:[]});}});
