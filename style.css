@@ -8006,3 +8006,18 @@ body.tv-pair-open .tabbar{
 @media (max-width:520px){
   #home .daily-row{grid-template-columns:minmax(64px,1fr) 30px 34px 34px minmax(70px,1fr) 36px!important;}
 }
+
+/* KMI official warning timing */
+.alert-card.official-kmi .alert-period{
+  margin-top:6px;
+  margin-bottom:8px;
+  font-size:.86rem;
+  font-weight:800;
+  letter-spacing:.01em;
+  color:rgba(255,255,255,.92);
+}
+.alert-card.official-kmi .alert-source{
+  margin-top:10px;
+  font-size:.76rem;
+  color:rgba(255,255,255,.62);
+}

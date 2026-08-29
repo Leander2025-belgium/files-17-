@@ -1006,7 +1006,7 @@ async function loadAlerts(){
   try{
     const official = isBelgiumLocation() ? await fetchKmiWarnings() : await fetchKnmiWarnings();
     if(official && official.length){
-      state.alerts = official.sort((a,b)=>(ALERT_LEVELS[b.level]?.rank||0)-(ALERT_LEVELS[a.level]?.rank||0));
+      state.alerts = official.sort((a,b)=>{ const rank=(ALERT_LEVELS[b.level]?.rank||0)-(ALERT_LEVELS[a.level]?.rank||0); if(rank) return rank; const ta=a.validFrom?new Date(a.validFrom).getTime():0, tb=b.validFrom?new Date(b.validFrom).getTime():0; return (ta||Infinity)-(tb||Infinity); });
       state.alertsMeta = {
         source:isBelgiumLocation() ? 'KMI België' : 'KNMI Data Platform',
         official:true,
@@ -3851,15 +3851,33 @@ function travelWeatherSection(){
   </div>`;
 }
 
+function formatOfficialAlertPeriod(alert){
+  if(!alert?.validFrom && !alert?.period) return '';
+  const from = alert.validFrom ? new Date(alert.validFrom) : null;
+  const to = alert.validTo ? new Date(alert.validTo) : null;
+  const now = Date.now();
+  const hm = d => d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
+  const day = d => d.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'});
+  if(from && Number.isFinite(from.getTime())){
+    if(now < from.getTime()){
+      const sameDay = new Date().toDateString() === from.toDateString();
+      return `${sameDay ? 'Vandaag' : day(from)} vanaf ${hm(from)}${to && Number.isFinite(to.getTime()) ? ` · tot ${day(to)} ${hm(to)}` : ''}`;
+    }
+    if(to && now <= to.getTime()) return `Nu actief · tot ${day(to)} ${hm(to)}`;
+  }
+  return alert.period || '';
+}
+
 function alertsCard(){
   const alert = (state.alerts && state.alerts[0]) || buildIndicativeAlert()[0];
   const level = ALERT_LEVELS[alert.level] || ALERT_LEVELS.green;
   const isGreen = alert.level === 'green';
   const official = Boolean(alert.official || state.alertsMeta?.official);
-  const title = isGreen ? 'Weermelding' : official ? 'Officiële waarschuwing' : 'Wheaterflow Alerts';
+  const title = isGreen ? 'Weermelding' : official ? 'KMI waarschuwing' : 'Wheaterflow Alerts';
   const headline = isGreen ? 'Geen actieve weermelding' : alert.headline || level.title;
   const levelLabel = isGreen || official ? level.label : 'Slim signaal';
-  return `<div class="card alert-card ${level.cls}">
+  const timing = official ? formatOfficialAlertPeriod(alert) : '';
+  return `<div class="card alert-card ${level.cls} ${official ? 'official-kmi' : ''}">
     <div class="alert-head">
       <div>
         <div class="card-title">${icon('gauge',true,13)} ${title}</div>
@@ -3867,8 +3885,9 @@ function alertsCard(){
       </div>
     </div>
     <div class="alert-title">${esc(headline)}</div>
+    ${timing ? `<div class="alert-period">${esc(timing)}</div>` : ''}
     ${isGreen ? '' : `<div class="alert-text">${esc(alert.description)}</div>`}
-    ${!isGreen && official && alert.source ? `<div class="alert-source">${esc(alert.source)}</div>` : ''}
+    ${!isGreen && official && alert.source ? `<div class="alert-source">Bron: ${esc(alert.source)}</div>` : ''}
   </div>`;
 }
 
