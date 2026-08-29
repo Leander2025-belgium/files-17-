@@ -320,6 +320,120 @@ async function checkBelgianWarnings(
   );
 }
 
+
+function belgiumDateParts() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Brussels',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date());
+
+  const get = type =>
+    parts.find(p => p.type === type)?.value || '';
+
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    hour: Number(get('hour'))
+  };
+}
+
+function weatherDescription(code) {
+  code = Number(code);
+
+  if (code === 0) return 'helder';
+  if ([1, 2].includes(code)) return 'licht bewolkt';
+  if (code === 3) return 'bewolkt';
+  if ([45, 48].includes(code)) return 'mistig';
+  if ([51, 53, 55, 56, 57].includes(code)) return 'motregen';
+  if ([61, 63, 66].includes(code)) return 'regen';
+  if ([65, 67, 80, 81, 82].includes(code)) return 'zware regen';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'sneeuw';
+  if ([95, 96, 99].includes(code)) return 'onweer';
+
+  return 'wisselvallig';
+}
+
+async function checkDailyMorning(
+  row,
+  prefs,
+  location,
+  hourly
+) {
+  if (prefs.dailyMorning !== true) {
+    return;
+  }
+
+  const now = belgiumDateParts();
+
+  // Alleen 's morgens versturen.
+  if (now.hour < 7 || now.hour >= 9) {
+    return;
+  }
+
+  const temperatures =
+    (hourly.temperature_2m || [])
+      .map(Number)
+      .filter(Number.isFinite);
+
+  const rainProbability =
+    (hourly.precipitation_probability || [])
+      .map(Number)
+      .filter(Number.isFinite);
+
+  const gusts =
+    (hourly.wind_gusts_10m || [])
+      .map(Number)
+      .filter(Number.isFinite);
+
+  const codes =
+    (hourly.weather_code || [])
+      .map(Number)
+      .filter(Number.isFinite);
+
+  if (!temperatures.length) {
+    return;
+  }
+
+  const low = Math.round(Math.min(...temperatures));
+  const high = Math.round(Math.max(...temperatures));
+
+  const maxRainProbability =
+    rainProbability.length
+      ? Math.round(Math.max(...rainProbability))
+      : 0;
+
+  const maxWind =
+    gusts.length
+      ? Math.round(Math.max(...gusts))
+      : 0;
+
+  const description =
+    weatherDescription(codes[0]);
+
+  const place =
+    location.name || 'jouw locatie';
+
+  let body =
+    `${place}: ${description}. ` +
+    `${low}–${high}°C. ` +
+    `Regenkans tot ${maxRainProbability}%.`;
+
+  if (maxWind >= 40) {
+    body += ` Windstoten tot ${maxWind} km/u.`;
+  }
+
+  await push(
+    row,
+    'daily-morning',
+    `daily-morning-${now.date}`,
+    '☀️ Goedemorgen – Wheaterflow',
+    body
+  );
+}
+
 async function checkSubscription(row) {
   const prefs =
     json(row.preferences);
@@ -351,6 +465,13 @@ async function checkSubscription(row) {
 
   const locationName =
     location.name || 'jouw locatie';
+
+  await checkDailyMorning(
+    row,
+    prefs,
+    location,
+    hourly
+  );
 
   const temps =
     hourly.temperature_2m || [];

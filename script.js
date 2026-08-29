@@ -239,6 +239,7 @@ async function loadStoredClimate(){
 
 async function saveClimateSettings(){
   try{ await window.storage.set('weerscoop:climateSettings', JSON.stringify(state.climate.settings)); }catch(e){}
+  syncProfileSettingsToCloud();
 }
 
 async function saveLocalClimateRecords(){
@@ -327,8 +328,10 @@ function mapProfileToUnits(profile){
 
   const cloudPrefs = parseProfileJsonSetting(profile.notification_preferences ?? profile.push_preferences, null);
   const cloudThresholds = parseProfileJsonSetting(profile.notification_thresholds ?? profile.push_thresholds, null);
+  const cloudClimateSettings = parseProfileJsonSetting(profile.climate_settings, null);
   if(cloudPrefs) state.push.preferences = {...defaultPushPreferences(), ...state.push.preferences, ...cloudPrefs};
   if(cloudThresholds) state.push.thresholds = {...defaultPushThresholds(), ...state.push.thresholds, ...cloudThresholds};
+  if(cloudClimateSettings) state.climate.settings = {...state.climate.settings, ...cloudClimateSettings};
 }
 
 function profilePayload(){
@@ -350,7 +353,8 @@ function profilePayload(){
     notifications_enabled:state.push.status === 'Ingeschakeld',
     // Nieuwe servers kunnen deze JSON-instellingen accountbreed bewaren.
     notification_preferences:state.push.preferences,
-    notification_thresholds:state.push.thresholds
+    notification_thresholds:state.push.thresholds,
+    climate_settings:state.climate.settings
   };
 }
 
@@ -379,17 +383,10 @@ async function syncProfileSettingsToCloud(){
   state.auth.syncing = true;
   try{
     const payload = profilePayload();
-    let data;
-    try{
-      data = await apiJson('/profile', {method:'PUT', body:JSON.stringify(payload)});
-    }catch(error){
-      // Compatibiliteit met een oudere API die de twee nieuwe JSON-velden nog niet kent.
-      const legacyPayload = {...payload};
-      delete legacyPayload.notification_preferences;
-      delete legacyPayload.notification_thresholds;
-      data = await apiJson('/profile', {method:'PUT', body:JSON.stringify(legacyPayload)});
-      console.info('Profielserver gebruikt nog het oude schema; meldingsvoorkeuren blijven lokaal bewaard.', error?.message || error);
-    }
+    const data = await apiJson('/profile', {
+      method:'PUT',
+      body:JSON.stringify(payload)
+    });
     state.auth.profile = data.profile || state.auth.profile;
     updateAuthInterface(state.auth.session);
   }catch(e){
@@ -5687,14 +5684,76 @@ function urlBase64ToUint8Array(base64String){
   return outputArray;
 }
 
-function collectPushPayload(subscription){
+function collectPushPayload(subscription, pushLocation=state.loc){
   return {
     installationId: state.push.installationId,
     subscription: subscription.toJSON ? subscription.toJSON() : subscription,
-    location: state.loc,
+    location: pushLocation,
     preferences: state.push.preferences,
     thresholds: state.push.thresholds
   };
+}
+
+async function currentPushLocation(){
+  try{
+    const p = await getBrowserLocation();
+    if(p){
+      const g = await reverseGeocode(p.lat, p.lon);
+      return {
+        lat:Number(p.lat),
+        lon:Number(p.lon),
+        name:cleanLocationName(g.name, 'Huidige locatie'),
+        admin:g.admin || '',
+        country:g.country || ''
+      };
+    }
+  }catch(e){
+    console.warn('Pushlocatie kon niet via GPS worden bijgewerkt:', e?.message || e);
+  }
+
+  // Alleen terugvallen op state.loc wanneer die zelf uit GPS kwam.
+  if(state.locationStatus === 'gps'){
+    return {...state.loc};
+  }
+
+  return null;
+}
+
+async function syncPushSubscriptionToServer(){
+  if(!supportsPushNotifications()) return false;
+  if(Notification.permission !== 'granted') return false;
+
+  try{
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration?.pushManager.getSubscription();
+    if(!subscription) return false;
+
+    const pushLocation = await currentPushLocation();
+    if(!pushLocation){
+      console.warn('Pushsubscription niet bijgewerkt: geen actuele GPS-locatie beschikbaar.');
+      return false;
+    }
+
+    const r = await fetch(PUSH_FUNCTION_BASE + 'push-subscribe', {
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        ...(state.auth.session?.access_token
+          ? {authorization:`Bearer ${state.auth.session.access_token}`}
+          : {})
+      },
+      body:JSON.stringify(collectPushPayload(subscription, pushLocation))
+    });
+
+    if(!r.ok){
+      throw new Error(await pushErrorText(r, 'Pushsubscription kon niet worden bijgewerkt.'));
+    }
+
+    return true;
+  }catch(e){
+    console.warn('Pushsubscription synchroniseren mislukt:', e?.message || e);
+    return false;
+  }
 }
 
 async function enablePushNotifications(){
@@ -5734,7 +5793,12 @@ async function enablePushNotifications(){
       'content-type':'application/json',
       ...(state.auth.session?.access_token ? {authorization:`Bearer ${state.auth.session.access_token}`} : {})
     },
-    body:JSON.stringify(collectPushPayload(subscription))
+    body:JSON.stringify(
+      collectPushPayload(
+        subscription,
+        await currentPushLocation() || state.loc
+      )
+    )
   });
   if(!r.ok) throw new Error(await pushErrorText(r, 'Meldingen konden niet worden ingesteld. Controleer de Wheaterflow-server.'));
   updatePushUi('Ingeschakeld');
@@ -5844,6 +5908,7 @@ function wirePushSettings(){
       state.push.preferences[input.dataset.pref] = input.checked;
       savePushSettings();
       syncProfileSettingsToCloud();
+      syncPushSubscriptionToServer();
     });
   });
   const map = [
@@ -5860,6 +5925,7 @@ function wirePushSettings(){
       state.push.thresholds[key] = Number(el.value);
       savePushSettings();
       syncProfileSettingsToCloud();
+      syncPushSubscriptionToServer();
     });
   });
   $('#enablePushBtn')?.addEventListener('click', ()=>enablePushNotifications().catch(e=>{ console.warn(e); updatePushUi('Tijdelijk offline'); toast('Meldingen konden niet worden ingesteld. Probeer het later opnieuw.'); }));
@@ -7783,6 +7849,7 @@ async function init(){
       const g = await reverseGeocode(p.lat, p.lon);
       state.loc = {lat:p.lat, lon:p.lon, name:g.name, admin:g.admin, country:g.country};
       state.locationStatus = 'gps';
+      await syncPushSubscriptionToServer();
     }else{
       state.locationStatus = 'denied';
     }

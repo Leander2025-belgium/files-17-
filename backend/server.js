@@ -118,7 +118,65 @@ app.post('/api/auth/password-reset/confirm', async(req,res)=>{try{const raw=Stri
 
 app.get('/api/profile',auth,async(req,res)=>{try{let p=(await DB.query('SELECT * FROM profiles WHERE user_id=$1',[req.auth.userId])).rows[0]; if(!p){const u=(await DB.query('SELECT display_name FROM users WHERE id=$1',[req.auth.userId])).rows[0]; p=(await DB.query('INSERT INTO profiles(user_id,display_name) VALUES($1,$2) RETURNING *',[req.auth.userId,u?.display_name||'Wheaterflow gebruiker'])).rows[0];} const f=(await DB.query('SELECT id,name,latitude,longitude,country,sort_order FROM favorite_locations WHERE user_id=$1 ORDER BY sort_order,created_at',[req.auth.userId])).rows; res.json({profile:p,favorites:f});}catch(e){console.error(e);res.status(500).json({error:'Profiel kon niet worden geladen'});}});
 
-app.put('/api/profile',auth,async(req,res)=>{try{const b=req.body||{}; const r=await DB.query(`INSERT INTO profiles(user_id,display_name,home_location_name,home_latitude,home_longitude,language,temperature_unit,wind_unit,pressure_unit,precipitation_unit,forecast_days,weather_model,notifications_enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name,home_location_name=excluded.home_location_name,home_latitude=excluded.home_latitude,home_longitude=excluded.home_longitude,language=excluded.language,temperature_unit=excluded.temperature_unit,wind_unit=excluded.wind_unit,pressure_unit=excluded.pressure_unit,precipitation_unit=excluded.precipitation_unit,forecast_days=excluded.forecast_days,weather_model=excluded.weather_model,notifications_enabled=excluded.notifications_enabled,updated_at=now() RETURNING *`,[req.auth.userId,b.display_name,b.home_location_name,n(b.home_latitude),n(b.home_longitude),b.language||'nl',b.temperature_unit,b.wind_unit,b.pressure_unit,b.precipitation_unit,n(b.forecast_days),b.weather_model,b.notifications_enabled===true]); await DB.query('UPDATE users SET display_name=$1,updated_at=now() WHERE id=$2',[b.display_name,req.auth.userId]); res.json({profile:r.rows[0]});}catch(e){console.error(e);res.status(500).json({error:'Profiel kon niet worden opgeslagen'});}});
+app.put('/api/profile',auth,async(req,res)=>{try{
+  const b=req.body||{};
+  const r=await DB.query(
+    `INSERT INTO profiles(
+      user_id,display_name,home_location_name,home_latitude,home_longitude,
+      language,temperature_unit,wind_unit,pressure_unit,precipitation_unit,
+      forecast_days,weather_model,notifications_enabled,
+      notification_preferences,notification_thresholds,climate_settings
+    ) VALUES(
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
+    )
+    ON CONFLICT(user_id) DO UPDATE SET
+      display_name=excluded.display_name,
+      home_location_name=excluded.home_location_name,
+      home_latitude=excluded.home_latitude,
+      home_longitude=excluded.home_longitude,
+      language=excluded.language,
+      temperature_unit=excluded.temperature_unit,
+      wind_unit=excluded.wind_unit,
+      pressure_unit=excluded.pressure_unit,
+      precipitation_unit=excluded.precipitation_unit,
+      forecast_days=excluded.forecast_days,
+      weather_model=excluded.weather_model,
+      notifications_enabled=excluded.notifications_enabled,
+      notification_preferences=excluded.notification_preferences,
+      notification_thresholds=excluded.notification_thresholds,
+      climate_settings=excluded.climate_settings,
+      updated_at=now()
+    RETURNING *`,
+    [
+      req.auth.userId,
+      b.display_name,
+      b.home_location_name,
+      n(b.home_latitude),
+      n(b.home_longitude),
+      b.language||'nl',
+      b.temperature_unit,
+      b.wind_unit,
+      b.pressure_unit,
+      b.precipitation_unit,
+      n(b.forecast_days),
+      b.weather_model,
+      b.notifications_enabled===true,
+      b.notification_preferences||{},
+      b.notification_thresholds||{},
+      b.climate_settings||{}
+    ]
+  );
+
+  await DB.query(
+    'UPDATE users SET display_name=$1,updated_at=now() WHERE id=$2',
+    [b.display_name,req.auth.userId]
+  );
+
+  res.json({profile:r.rows[0]});
+}catch(e){
+  console.error(e);
+  res.status(500).json({error:'Profiel kon niet worden opgeslagen'});
+}});
 
 app.post('/api/profile/avatar',auth,upload.single('avatar'),async(req,res)=>{try{if(!req.file)return res.status(400).json({error:'Geen geldige afbeelding'}); const url=`${PUBLIC_API_URL}/uploads/avatars/${req.file.filename}`; const r=await DB.query(`INSERT INTO profiles(user_id,display_name,avatar_url) SELECT id,display_name,$2 FROM users WHERE id=$1 ON CONFLICT(user_id) DO UPDATE SET avatar_url=$2,updated_at=now() RETURNING *`,[req.auth.userId,url]); res.json({profile:r.rows[0]});}catch(e){console.error(e);res.status(500).json({error:'Avatar kon niet worden opgeslagen'});}});
 
