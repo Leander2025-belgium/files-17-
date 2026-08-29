@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260829-apple-liquid-glass-v4";
+const CACHE_VERSION = "wheaterflow-v20260829-liquid-glass-v5-clear";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
