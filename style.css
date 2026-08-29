@@ -8021,3 +8021,25 @@ body.tv-pair-open .tabbar{
   font-size:.76rem;
   color:rgba(255,255,255,.62);
 }
+
+/* 2026-08-29 — bottom navigation altijd vast aan viewport */
+.tabbar{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:max(4px, env(safe-area-inset-bottom, 0px))!important;
+  transform:translateX(-50%)!important;
+  z-index:10000!important;
+  margin:0!important;
+  will-change:auto!important;
+}
+/* Navigatie blijft als transparante overlay boven de kaarten.
+   De content mag er bewust onderdoor zichtbaar blijven tijdens het scrollen. */
+.screen{
+  padding-bottom:18px!important;
+  scroll-padding-bottom:0!important;
+}
+#radarscreen.active{
+  padding-bottom:0!important;
+}

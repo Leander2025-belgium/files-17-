@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260829-kmi-upcoming-v2";
+const CACHE_VERSION = "wheaterflow-v20260829-fixed-nav-overlay";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
