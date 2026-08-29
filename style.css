@@ -8423,3 +8423,29 @@ body.tv-pair-open .tabbar{
     height:31px!important;
   }
 }
+
+
+/* 2026-08-29 — grotere weericonen in 7/14-daagse verwachting */
+#home .daily-row .dicon,
+#forecastscreen .daily-row .dicon,
+.daily-row .dicon{
+  width:30px!important;
+  height:30px!important;
+  max-width:30px!important;
+  max-height:30px!important;
+  overflow:visible!important;
+  align-self:center!important;
+  justify-self:center!important;
+}
+#home .daily-row .dicon svg,
+#forecastscreen .daily-row .dicon svg,
+.daily-row .dicon svg{
+  width:30px!important;
+  height:30px!important;
+  overflow:visible!important;
+}
+@media(max-width:520px){
+  #home .daily-row{
+    grid-template-columns:minmax(64px,1fr) 34px 34px 34px minmax(70px,1fr) 36px!important;
+  }
+}

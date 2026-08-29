@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260829-nav-icons-31";
+const CACHE_VERSION = "wheaterflow-v20260829-nav-forecast-icons";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
