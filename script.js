@@ -239,7 +239,6 @@ async function loadStoredClimate(){
 
 async function saveClimateSettings(){
   try{ await window.storage.set('weerscoop:climateSettings', JSON.stringify(state.climate.settings)); }catch(e){}
-  syncProfileSettingsToCloud();
 }
 
 async function saveLocalClimateRecords(){
@@ -328,10 +327,8 @@ function mapProfileToUnits(profile){
 
   const cloudPrefs = parseProfileJsonSetting(profile.notification_preferences ?? profile.push_preferences, null);
   const cloudThresholds = parseProfileJsonSetting(profile.notification_thresholds ?? profile.push_thresholds, null);
-  const cloudClimateSettings = parseProfileJsonSetting(profile.climate_settings, null);
   if(cloudPrefs) state.push.preferences = {...defaultPushPreferences(), ...state.push.preferences, ...cloudPrefs};
   if(cloudThresholds) state.push.thresholds = {...defaultPushThresholds(), ...state.push.thresholds, ...cloudThresholds};
-  if(cloudClimateSettings) state.climate.settings = {...state.climate.settings, ...cloudClimateSettings};
 }
 
 function profilePayload(){
@@ -353,8 +350,7 @@ function profilePayload(){
     notifications_enabled:state.push.status === 'Ingeschakeld',
     // Nieuwe servers kunnen deze JSON-instellingen accountbreed bewaren.
     notification_preferences:state.push.preferences,
-    notification_thresholds:state.push.thresholds,
-    climate_settings:state.climate.settings
+    notification_thresholds:state.push.thresholds
   };
 }
 
@@ -383,10 +379,17 @@ async function syncProfileSettingsToCloud(){
   state.auth.syncing = true;
   try{
     const payload = profilePayload();
-    const data = await apiJson('/profile', {
-      method:'PUT',
-      body:JSON.stringify(payload)
-    });
+    let data;
+    try{
+      data = await apiJson('/profile', {method:'PUT', body:JSON.stringify(payload)});
+    }catch(error){
+      // Compatibiliteit met een oudere API die de twee nieuwe JSON-velden nog niet kent.
+      const legacyPayload = {...payload};
+      delete legacyPayload.notification_preferences;
+      delete legacyPayload.notification_thresholds;
+      data = await apiJson('/profile', {method:'PUT', body:JSON.stringify(legacyPayload)});
+      console.info('Profielserver gebruikt nog het oude schema; meldingsvoorkeuren blijven lokaal bewaard.', error?.message || error);
+    }
     state.auth.profile = data.profile || state.auth.profile;
     updateAuthInterface(state.auth.session);
   }catch(e){
@@ -789,7 +792,9 @@ signal.soon = Math.max(signal.soon, currentTotal);
     const idx = closestIndex(state.minutely.time, targetMs);
     const minuteAge = Math.abs(new Date(state.minutely.time[idx]).getTime() - targetMs) / 60000;
     if(minuteAge <= 35){
-      const slots = state.minutely.precipitation.slice(idx, idx + 4).map(v=>Number(v) || 0);
+      // Open-Meteo minutely_15 is een hoeveelheid per 15 minuten. Zet om naar
+      // een mm/u-intensiteit voordat we lichte/gewone/zware regen bepalen.
+      const slots = state.minutely.precipitation.slice(idx, idx + 4).map(v=>(Number(v) || 0) * 4);
       const minuteNow = slots[0] || 0;
       signal.now = Math.max(signal.now, minuteNow);
       signal.soon = Math.max(signal.soon, ...slots);
@@ -816,7 +821,10 @@ signal.soon = Math.max(signal.soon, currentTotal);
     signal.radarLevel = rp.localIntensity || rp.intensity || 'light';
     signal.radarNow = Boolean(rp.atLocation || (Number.isFinite(signal.radarDistanceKm) && signal.radarDistanceKm <= 4));
     if(signal.radarNow){
-      const radarMm = signal.radarLevel === 'heavy' ? 3.2 : signal.radarLevel === 'moderate' ? 1.2 : 0.25;
+      // Radar bepaalt vooral OF het regent. De kleur van RainViewer is niet betrouwbaar
+      // genoeg om rechtstreeks 'zware regen' te forceren; daarvoor gebruiken we de
+      // gemeten/verwachte hoeveelheid van Open-Meteo.
+      const radarMm = 0.2;
       signal.now = Math.max(signal.now, radarMm);
       signal.soon = Math.max(signal.soon, radarMm);
     }
@@ -837,8 +845,8 @@ function effectiveCurrentWeatherCode(cur=state.current || {}){
   if([45,48].includes(code) && p.now < 0.1) return code;
 
   if(p.thunder && p.now >= 0.1) return 95;
-  if(p.now >= 3.0) return 65;
-  if(p.now >= 1.0) return 63;
+  if(p.now >= 7.5) return 65;
+  if(p.now >= 2.0) return 63;
   if(p.now >= 0.1) return 61;
 
   if(drizzleCodes.includes(code) || rainCodes.includes(code)) return code;
@@ -1840,13 +1848,16 @@ if (rainingNow) {
 /*
  * Neem ook de actuele hoeveelheid mee voor de intensiteit.
  */
+// minutely_15 bevat mm per kwartier; voor intensiteitslabels vergelijken we
+// alles als mm/u. Een losse WMO-code mag niet langer op zichzelf 'zware regen'
+// forceren wanneer de berekende hoeveelheid slechts licht is.
 const maxRain = Math.max(
   currentSignal.now || 0,
   0,
-  ...slots.map(s => Number(s.precipitation) || 0)
+  ...slots.map(s => (Number(s.precipitation) || 0) * 4)
 );
   const thunderPossible = slots.some(s=>[95,96,99].includes(Number(s.weatherCode))) || stormEngine().relevant;
-  const heavyShower = maxRain >= 3 || slots.some(s=>[65,82,95,96,99].includes(Number(s.weatherCode)));
+  const heavyShower = maxRain >= 7.5;
   const intensity = rainIntensity(maxRain);
   let confidence = nowcastConfidence(slots, maxRain);
 
@@ -1922,8 +1933,8 @@ function rainIntensity(mm){
 
 function rainIntensityToLevel(value){
   const mm = Math.max(0, Number(value) || 0);
-  if(mm >= 3) return {id:'heavy', label:'Zware regen'};
-  if(mm >= 1) return {id:'moderate', label:'Regen'};
+  if(mm >= 7.5) return {id:'heavy', label:'Zware regen'};
+  if(mm >= 2) return {id:'moderate', label:'Regen'};
   if(mm >= .1) return {id:'light', label:'Lichte regen'};
   return {id:'none', label:'Droog'};
 }
@@ -5684,76 +5695,14 @@ function urlBase64ToUint8Array(base64String){
   return outputArray;
 }
 
-function collectPushPayload(subscription, pushLocation=state.loc){
+function collectPushPayload(subscription){
   return {
     installationId: state.push.installationId,
     subscription: subscription.toJSON ? subscription.toJSON() : subscription,
-    location: pushLocation,
+    location: state.loc,
     preferences: state.push.preferences,
     thresholds: state.push.thresholds
   };
-}
-
-async function currentPushLocation(){
-  try{
-    const p = await getBrowserLocation();
-    if(p){
-      const g = await reverseGeocode(p.lat, p.lon);
-      return {
-        lat:Number(p.lat),
-        lon:Number(p.lon),
-        name:cleanLocationName(g.name, 'Huidige locatie'),
-        admin:g.admin || '',
-        country:g.country || ''
-      };
-    }
-  }catch(e){
-    console.warn('Pushlocatie kon niet via GPS worden bijgewerkt:', e?.message || e);
-  }
-
-  // Alleen terugvallen op state.loc wanneer die zelf uit GPS kwam.
-  if(state.locationStatus === 'gps'){
-    return {...state.loc};
-  }
-
-  return null;
-}
-
-async function syncPushSubscriptionToServer(){
-  if(!supportsPushNotifications()) return false;
-  if(Notification.permission !== 'granted') return false;
-
-  try{
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration?.pushManager.getSubscription();
-    if(!subscription) return false;
-
-    const pushLocation = await currentPushLocation();
-    if(!pushLocation){
-      console.warn('Pushsubscription niet bijgewerkt: geen actuele GPS-locatie beschikbaar.');
-      return false;
-    }
-
-    const r = await fetch(PUSH_FUNCTION_BASE + 'push-subscribe', {
-      method:'POST',
-      headers:{
-        'content-type':'application/json',
-        ...(state.auth.session?.access_token
-          ? {authorization:`Bearer ${state.auth.session.access_token}`}
-          : {})
-      },
-      body:JSON.stringify(collectPushPayload(subscription, pushLocation))
-    });
-
-    if(!r.ok){
-      throw new Error(await pushErrorText(r, 'Pushsubscription kon niet worden bijgewerkt.'));
-    }
-
-    return true;
-  }catch(e){
-    console.warn('Pushsubscription synchroniseren mislukt:', e?.message || e);
-    return false;
-  }
 }
 
 async function enablePushNotifications(){
@@ -5793,12 +5742,7 @@ async function enablePushNotifications(){
       'content-type':'application/json',
       ...(state.auth.session?.access_token ? {authorization:`Bearer ${state.auth.session.access_token}`} : {})
     },
-    body:JSON.stringify(
-      collectPushPayload(
-        subscription,
-        await currentPushLocation() || state.loc
-      )
-    )
+    body:JSON.stringify(collectPushPayload(subscription))
   });
   if(!r.ok) throw new Error(await pushErrorText(r, 'Meldingen konden niet worden ingesteld. Controleer de Wheaterflow-server.'));
   updatePushUi('Ingeschakeld');
@@ -5908,7 +5852,6 @@ function wirePushSettings(){
       state.push.preferences[input.dataset.pref] = input.checked;
       savePushSettings();
       syncProfileSettingsToCloud();
-      syncPushSubscriptionToServer();
     });
   });
   const map = [
@@ -5925,7 +5868,6 @@ function wirePushSettings(){
       state.push.thresholds[key] = Number(el.value);
       savePushSettings();
       syncProfileSettingsToCloud();
-      syncPushSubscriptionToServer();
     });
   });
   $('#enablePushBtn')?.addEventListener('click', ()=>enablePushNotifications().catch(e=>{ console.warn(e); updatePushUi('Tijdelijk offline'); toast('Meldingen konden niet worden ingesteld. Probeer het later opnieuw.'); }));
@@ -7849,7 +7791,6 @@ async function init(){
       const g = await reverseGeocode(p.lat, p.lon);
       state.loc = {lat:p.lat, lon:p.lon, name:g.name, admin:g.admin, country:g.country};
       state.locationStatus = 'gps';
-      await syncPushSubscriptionToServer();
     }else{
       state.locationStatus = 'denied';
     }
@@ -8173,3 +8114,19 @@ document.getElementById('replayOnboardingBtn')?.addEventListener('click',()=>{
   try{ closeSheet(); }catch(e){}
   window.setTimeout(()=>window.location.reload(),120);
 });
+
+// Apple-style Liquid Glass specular highlight for the search field.
+(() => {
+  const glass = document.querySelector('.searchbox');
+  if (!glass || glass.dataset.liquidSearchBound === '1') return;
+  glass.dataset.liquidSearchBound = '1';
+  const move = (event) => {
+    const r = glass.getBoundingClientRect();
+    const x = Math.max(0, Math.min(r.width, event.clientX - r.left));
+    glass.style.setProperty('--search-glass-x', `${x}px`);
+  };
+  glass.addEventListener('pointerdown', move, {passive:true});
+  glass.addEventListener('pointermove', (e) => { if (e.buttons) move(e); }, {passive:true});
+  glass.addEventListener('pointerup', () => setTimeout(() => glass.style.setProperty('--search-glass-x','22%'), 140), {passive:true});
+  glass.addEventListener('pointercancel', () => glass.style.setProperty('--search-glass-x','22%'), {passive:true});
+})();
