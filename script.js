@@ -2806,7 +2806,10 @@ function renderHome(){
 
 html += wheaterflowAdminAlertsCard();
 // Officiële waarschuwingen horen boven gewone intelligence wanneer ze relevant zijn.
-if(state.alertsMeta?.official && state.alerts?.some(a => a.level !== 'green')) html += alertsCard();
+if(state.alertsMeta?.official && state.alerts?.some(a => a.level !== 'green')) {
+  html += `<div class="hero-kmi-spacer" aria-hidden="true"></div>`;
+  html += alertsCard();
+}
 html += weatherSummaryCard();
 if(!(state.alertsMeta?.official && state.alerts?.some(a => a.level !== 'green'))) html += alertsCard();
 html += rainNowcastCard();

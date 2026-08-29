@@ -8614,3 +8614,35 @@ body.tv-pair-open .tabbar{
 #home .hero ~ .official-kmi:first-of-type{
   margin-top:0!important;
 }
+
+
+/* 2026-08-29 v2 — gegarandeerde grote ruimte tussen huidig weer en KMI */
+#home .hero-kmi-spacer{
+  display:block!important;
+  width:100%!important;
+  height:128px!important;
+  min-height:128px!important;
+  flex:0 0 128px!important;
+  pointer-events:none!important;
+}
+@media(max-width:560px){
+  #home .hero-kmi-spacer{
+    height:145px!important;
+    min-height:145px!important;
+    flex-basis:145px!important;
+  }
+}
+
+/* Spacer bepaalt nu de afstand exact. */
+#home .hero{
+  margin-bottom:0!important;
+}
+
+/* Officiële KMI-kaart standaard compact ingeklapt. */
+#home details.official-kmi.kmi-compact{
+  margin-top:0!important;
+  min-height:0!important;
+}
+#home details.official-kmi.kmi-compact:not([open]) .kmi-expanded{
+  display:none!important;
+}

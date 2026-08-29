@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260829-kmi-compact-spacing";
+const CACHE_VERSION = "wheaterflow-v20260829-kmi-v2-2358";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
