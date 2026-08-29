@@ -2379,6 +2379,11 @@ function rainNowcastCard(){
     <div class="rain-now-top"><span>Wheaterflow Rain</span><b>${esc(meta)}</b></div>
     <h3>${esc(rain.title)}</h3>
     <p>${esc(rain.summary)}</p>
+    <div class="rain-now-facts">
+      <span><b>${esc(rain.intensityLabel || 'Droog')}</b><small>intensiteit</small></span>
+      <span><b>${rain.status==='raining' ? (rain.endsInMinutes!=null ? '~'+rain.endsInMinutes+' min' : 'onzeker') : (rain.startsInMinutes!=null ? '~'+rain.startsInMinutes+' min' : '120+ min')}</b><small>${rain.status==='raining'?'tot droger':'tot regen'}</small></span>
+      <span><b>${Math.round(rain.confidence*100)}%</b><small>zekerheid</small></span>
+    </div>
     <div class="rain-now-plot">
       <div class="rain-now-scale" aria-hidden="true"><span>Zwaar</span><span>Matig</span><span>Licht</span></div>
       <div class="rain-now-chart">${bars}</div>
@@ -2800,8 +2805,10 @@ function renderHome(){
   </div>`;
 
 html += wheaterflowAdminAlertsCard();
+// Officiële waarschuwingen horen boven gewone intelligence wanneer ze relevant zijn.
+if(state.alertsMeta?.official && state.alerts?.some(a => a.level !== 'green')) html += alertsCard();
 html += weatherSummaryCard();
-html += alertsCard();
+if(!(state.alertsMeta?.official && state.alerts?.some(a => a.level !== 'green'))) html += alertsCard();
 html += rainNowcastCard();
 
   // hourly
@@ -2832,7 +2839,7 @@ html += rainNowcastCard();
     const lo = daily.temperature_2m_min[i], hi = daily.temperature_2m_max[i];
     const left = ((lo-gMin)/(gMax-gMin||1))*100;
     const width = ((hi-lo)/(gMax-gMin||1))*100;
-    html += `<div class="daily-row">
+    html += `<div class="daily-row" data-day-index="${i}" role="button" tabindex="0" aria-label="Details voor ${dayName}">
       <div class="dname ${i===0?'today':''}">${dayName}</div>
       ${icon(dwc.ic,true,26,'dicon')}
       <div class="dpop">${daily.precipitation_probability_max[i]>10?daily.precipitation_probability_max[i]+'%':''}</div>
@@ -3876,6 +3883,16 @@ function formatOfficialAlertPeriod(alert){
   return alert.period || '';
 }
 
+function officialAlertCountdown(alert){
+  const now=Date.now();
+  const from=alert?.validFrom ? new Date(alert.validFrom).getTime() : NaN;
+  const to=alert?.validTo ? new Date(alert.validTo).getTime() : NaN;
+  const human=(ms)=>{ const m=Math.max(0,Math.round(ms/60000)); if(m<60) return `${m} min`; const h=Math.floor(m/60), r=m%60; return r ? `${h} u ${r} min` : `${h} u`; };
+  if(Number.isFinite(from) && now<from) return `Begint over ${human(from-now)}`;
+  if(Number.isFinite(to) && now<=to) return `Nog ${human(to-now)} actief`;
+  return '';
+}
+
 function alertsCard(){
   const alert = (state.alerts && state.alerts[0]) || buildIndicativeAlert()[0];
   const level = ALERT_LEVELS[alert.level] || ALERT_LEVELS.green;
@@ -3885,6 +3902,7 @@ function alertsCard(){
   const headline = isGreen ? 'Geen actieve weermelding' : alert.headline || level.title;
   const levelLabel = isGreen || official ? level.label : 'Slim signaal';
   const timing = official ? formatOfficialAlertPeriod(alert) : '';
+  const countdown = official ? officialAlertCountdown(alert) : '';
   return `<div class="card alert-card ${level.cls} ${official ? 'official-kmi' : ''}">
     <div class="alert-head">
       <div>
@@ -3893,6 +3911,7 @@ function alertsCard(){
       </div>
     </div>
     <div class="alert-title">${esc(headline)}</div>
+    ${countdown ? `<div class="alert-countdown">${esc(countdown)}</div>` : ''}
     ${timing ? `<div class="alert-period">${esc(timing)}</div>` : ''}
     ${isGreen ? '' : `<div class="alert-text">${esc(alert.description)}</div>`}
     ${!isGreen && official && alert.source ? `<div class="alert-source">Bron: ${esc(alert.source)}</div>` : ''}
@@ -8130,3 +8149,19 @@ document.getElementById('replayOnboardingBtn')?.addEventListener('click',()=>{
   glass.addEventListener('pointerup', () => setTimeout(() => glass.style.setProperty('--search-glass-x','22%'), 140), {passive:true});
   glass.addEventListener('pointercancel', () => glass.style.setProperty('--search-glass-x','22%'), {passive:true});
 })();
+
+
+/* ===== Wheaterflow forecast detail v1 ===== */
+function forecastDayDetailCard(i){
+  const d=state.daily; if(!d?.time?.[i]) return '';
+  const date=new Date(d.time[i]); const wc=wcInfo(d.weather_code?.[i]);
+  const name=i===0?'Vandaag':date.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
+  const pop=Number(d.precipitation_probability_max?.[i]||0);
+  const rain=Number(d.precipitation_sum?.[i]||0);
+  const gust=Number(d.wind_gusts_10m_max?.[i]||0);
+  const uv=Number(d.uv_index_max?.[i]||0);
+  return `<div class="forecast-day-sheet-backdrop" data-close-day-detail><section class="forecast-day-sheet liquid-panel" role="dialog" aria-modal="true"><button class="forecast-day-close" data-close-day-detail aria-label="Sluiten">×</button><div class="forecast-day-kicker">${esc(name)}</div><div class="forecast-day-main">${icon(wc.ic,true,54)}<div><strong>${esc(wc.l)}</strong><span>${fmtTemp(d.temperature_2m_min?.[i])} – ${fmtTemp(d.temperature_2m_max?.[i])}</span></div></div><div class="forecast-day-grid"><div><b>${pop}%</b><span>neerslagkans</span></div><div><b>${rain.toFixed(1)} mm</b><span>neerslag</span></div><div><b>${Math.round(gust)} km/u</b><span>windstoten</span></div><div><b>${uv.toFixed(1)}</b><span>UV-index</span></div></div><p>Tik buiten dit venster om terug te gaan naar de verwachting.</p></section></div>`;
+}
+function openForecastDayDetail(i){ document.querySelector('.forecast-day-sheet-backdrop')?.remove(); document.body.insertAdjacentHTML('beforeend',forecastDayDetailCard(i)); }
+document.addEventListener('click',e=>{ const row=e.target.closest?.('.daily-row[data-day-index]'); if(row){ openForecastDayDetail(Number(row.dataset.dayIndex)); return; } if(e.target.matches?.('[data-close-day-detail]')) document.querySelector('.forecast-day-sheet-backdrop')?.remove(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelector('.forecast-day-sheet-backdrop')?.remove(); if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('.daily-row[data-day-index]')){e.preventDefault();openForecastDayDetail(Number(e.target.dataset.dayIndex));} });

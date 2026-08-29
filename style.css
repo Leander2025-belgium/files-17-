@@ -8449,3 +8449,29 @@ body.tv-pair-open .tabbar{
     grid-template-columns:minmax(64px,1fr) 34px 34px 34px minmax(70px,1fr) 36px!important;
   }
 }
+
+/* ===== Wheaterflow polish pack 2026-08-29 ===== */
+/* Eén consistente Liquid Glass-taal voor interactieve oppervlakken. */
+#home .card,.detail-card,.forecast-day-sheet,.community-search-v2,.profile-favorite-search-wrap{
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.105),rgba(255,255,255,.028) 42%,rgba(8,22,42,.12) 100%)!important;
+  border:1px solid rgba(255,255,255,.24)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 0 -1px 0 rgba(255,255,255,.055),0 12px 32px rgba(0,8,22,.13)!important;
+  -webkit-backdrop-filter:blur(14px) saturate(145%)!important;
+  backdrop-filter:blur(14px) saturate(145%)!important;
+}
+.daily-row[data-day-index]{cursor:pointer;transition:background .18s ease,transform .18s ease;border-radius:14px;padding-inline:5px;}
+.daily-row[data-day-index]:active{transform:scale(.992);background:rgba(255,255,255,.08);}
+.rain-now-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:13px 0 7px;}
+.rain-now-facts span{min-width:0;padding:9px 7px;border-radius:13px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.10);text-align:center;}
+.rain-now-facts b{display:block;font-size:13px;color:#fff;white-space:nowrap;}
+.rain-now-facts small{display:block;margin-top:2px;font-size:9px;color:rgba(225,236,250,.62);text-transform:uppercase;letter-spacing:.05em;}
+.alert-countdown{display:inline-flex;margin:8px 0 4px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.15);font-size:12px;font-weight:800;color:#fff;}
+.official-kmi.yellow{box-shadow:inset 4px 0 0 #ffd31a,inset 0 1px 0 rgba(255,255,255,.25),0 12px 32px rgba(0,8,22,.13)!important;}
+.official-kmi.orange{box-shadow:inset 4px 0 0 #ff8a1f,inset 0 1px 0 rgba(255,255,255,.25),0 12px 32px rgba(0,8,22,.13)!important;}
+.official-kmi.red{box-shadow:inset 4px 0 0 #ff453a,inset 0 1px 0 rgba(255,255,255,.25),0 12px 32px rgba(0,8,22,.13)!important;}
+.forecast-day-sheet-backdrop{position:fixed;inset:0;z-index:10050;background:rgba(2,8,18,.18);display:flex;align-items:flex-end;justify-content:center;padding:18px 14px calc(18px + env(safe-area-inset-bottom));-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
+.forecast-day-sheet{position:relative;width:min(520px,100%);border-radius:30px!important;padding:22px 18px 20px;color:#fff;}
+.forecast-day-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.10);color:#fff;font-size:24px;line-height:30px;}
+.forecast-day-kicker{text-transform:capitalize;font-weight:800;font-size:14px;letter-spacing:.03em;color:rgba(235,244,255,.72);padding-right:42px;}
+.forecast-day-main{display:flex;align-items:center;gap:14px;margin:16px 0;}.forecast-day-main strong{display:block;font-size:24px}.forecast-day-main span{display:block;margin-top:2px;color:rgba(235,244,255,.7);font-size:16px}.forecast-day-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.forecast-day-grid div{padding:12px;border-radius:16px;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.10)}.forecast-day-grid b{display:block;font-size:17px}.forecast-day-grid span{font-size:11px;color:rgba(235,244,255,.62)}.forecast-day-sheet p{margin:14px 2px 0;color:rgba(235,244,255,.48);font-size:11px}
