@@ -3125,18 +3125,20 @@ html += rainNowcastCard();
       const width=lo==null||hi==null?0:((hi-lo)/(gMax-gMin||1))*100;
       const pop=validNumber(daily.precipitation_probability_max?.[i]);
       const gust=validNumber(daily.wind_gusts_10m_max?.[i]);
-      html += `<div class="daily-row daily-row-compact" data-day-index="${i}" role="button" tabindex="0" aria-label="Details voor ${esc(dayName)} ${esc(dateLabel)}">
-        <div class="dname ${i===0?'today':''}"><b>${esc(dayName)}</b><small>${esc(dateLabel)}</small></div>
+      html += `<div class="daily-row daily-row-compact ${i===0?'is-today':''}" data-day-index="${i}" role="button" tabindex="0" aria-label="Details voor ${esc(dayName)} ${esc(dateLabel)}">
+        <div class="dname"><b>${esc(dayName)}</b><small>${esc(dateLabel)}</small></div>
         <div class="daily-icon-wrap">${icon(dwc.ic,true,32,'dicon')}</div>
-        <div class="dpop">${pop!=null && pop>0 ? Math.round(pop)+'%' : ''}</div>
+        <div class="daily-weather-data">
+          <div class="dpop">${pop!=null && pop>0 ? Math.round(pop)+'%' : ''}</div>
+          <div class="daily-wind-alert">${gust!=null && gust>=60 ? `stoten ${fmtWind(gust)}` : ''}</div>
+        </div>
         <div class="dlow">${lo==null?'':fmtTemp(lo)}</div>
         <div class="bar-track">${lo!=null&&hi!=null?`<div class="bar-fill" style="left:${left}%;width:${Math.max(width,6)}%;"></div>`:''}</div>
         <div class="dhigh">${hi==null?'':fmtTemp(hi)}</div>
-        ${gust!=null && gust>=60 ? `<div class="daily-wind-alert">stoten ${fmtWind(gust)}</div>`:''}
       </div>`;
     }
   }
-  html += `<button class="forecast-14-button" id="openFull14" type="button">Bekijk alle 14 dagen <span>›</span></button></div>`;
+  html += `<button class="forecast-14-button" id="openFull14" type="button"><span class="forecast-14-label"><svg class="forecast-calendar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bekijk alle 14 dagen</span></span><span class="forecast-14-chevron">›</span></button></div>`;
   // details grid
   const moon = moonPhase(new Date());
   html += `<div class="detail-grid">`;

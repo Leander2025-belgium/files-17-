@@ -9673,3 +9673,291 @@ body.tv-pair-open .tabbar{
   #home .rain-reference-layout .rain-bottom-stats{width:100%!important;flex-direction:column!important;}
   #home .rain-reference-layout .rain-bottom-stat{width:100%!important;}
 }
+
+
+/* =====================================================================
+   2026-08-30 — 7-DAAGSE VERWACHTING visual refinement
+   Alleen dit bestaande blok wordt aangepast.
+   ===================================================================== */
+#home .compact-forecast-card{
+  --fc7-gap:7px;
+  --fc7-row-h:58px;
+  padding:15px!important;
+  border-radius:26px!important;
+  overflow:hidden!important;
+  background:linear-gradient(145deg,rgba(82,112,142,.48),rgba(57,88,120,.38))!important;
+  border:1px solid rgba(235,246,255,.20)!important;
+  box-shadow:0 8px 22px rgba(7,20,38,.10)!important;
+  -webkit-backdrop-filter:blur(10px) saturate(116%)!important;
+  backdrop-filter:blur(10px) saturate(116%)!important;
+}
+#home .compact-forecast-card>.card-title{
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  min-height:20px!important;
+  margin:0 0 11px!important;
+  padding:0 2px!important;
+  background:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:#fff!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:760!important;
+  letter-spacing:.085em!important;
+  text-transform:uppercase!important;
+}
+#home .compact-forecast-card>.card-title svg{
+  width:16px!important;
+  height:16px!important;
+  flex:0 0 16px!important;
+  color:#75e7ff!important;
+}
+
+/* Eén vaste grid voor alle zeven dagen:
+   dag/datum | icoon | neerslag+wind | min | range | max */
+#home .compact-forecast-card .daily-row-compact{
+  display:grid!important;
+  grid-template-columns:
+    minmax(61px,1.08fr)
+    34px
+    minmax(57px,.90fr)
+    34px
+    minmax(58px,1.28fr)
+    35px!important;
+  column-gap:clamp(4px,1.25vw,8px)!important;
+  align-items:center!important;
+  width:100%!important;
+  height:var(--fc7-row-h)!important;
+  min-height:var(--fc7-row-h)!important;
+  max-height:var(--fc7-row-h)!important;
+  margin:0 0 var(--fc7-gap)!important;
+  padding:7px 9px!important;
+  border-radius:17px!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+  background:linear-gradient(145deg,rgba(151,180,204,.18),rgba(93,132,166,.13))!important;
+  border:1px solid rgba(235,247,255,.14)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035)!important;
+  -webkit-backdrop-filter:blur(7px) saturate(112%)!important;
+  backdrop-filter:blur(7px) saturate(112%)!important;
+}
+#home .compact-forecast-card .daily-row-compact:last-of-type{
+  margin-bottom:0!important;
+}
+#home .compact-forecast-card .daily-row-compact.is-today{
+  background:linear-gradient(145deg,rgba(170,199,220,.22),rgba(99,142,177,.16))!important;
+  border-color:rgba(219,244,255,.22)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055)!important;
+}
+
+/* Dag en datum */
+#home .compact-forecast-card .daily-row-compact .dname{
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  justify-content:center!important;
+  gap:2px!important;
+  overflow:hidden!important;
+}
+#home .compact-forecast-card .daily-row-compact .dname b{
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  color:#fff!important;
+  font-size:13px!important;
+  line-height:1.05!important;
+  font-weight:750!important;
+}
+#home .compact-forecast-card .daily-row-compact.is-today .dname b{
+  font-weight:820!important;
+}
+#home .compact-forecast-card .daily-row-compact .dname small{
+  color:rgba(229,241,251,.63)!important;
+  font-size:9px!important;
+  line-height:1!important;
+  font-weight:500!important;
+}
+
+/* Dynamisch dagicoon */
+#home .compact-forecast-card .daily-icon-wrap{
+  width:34px!important;
+  height:38px!important;
+  min-width:0!important;
+  display:grid!important;
+  place-items:center!important;
+  overflow:visible!important;
+}
+#home .compact-forecast-card .daily-icon-wrap svg,
+#home .compact-forecast-card .daily-icon-wrap .dicon{
+  width:30px!important;
+  height:30px!important;
+  max-width:30px!important;
+  max-height:30px!important;
+  display:block!important;
+  overflow:visible!important;
+  transform:none!important;
+}
+
+/* Neerslag + gereserveerde tweede regel voor relevante windstoten */
+#home .compact-forecast-card .daily-weather-data{
+  min-width:0!important;
+  height:34px!important;
+  display:grid!important;
+  grid-template-rows:17px 13px!important;
+  align-content:center!important;
+  justify-items:start!important;
+  overflow:visible!important;
+}
+#home .compact-forecast-card .daily-row-compact .dpop{
+  min-width:0!important;
+  color:#6ee6e1!important;
+  font-size:12px!important;
+  line-height:17px!important;
+  font-weight:700!important;
+  white-space:nowrap!important;
+}
+#home .compact-forecast-card .daily-row-compact .daily-wind-alert{
+  grid-column:auto!important;
+  min-width:0!important;
+  height:13px!important;
+  margin:0!important;
+  padding:0!important;
+  color:#f3bd62!important;
+  font-size:8px!important;
+  line-height:13px!important;
+  font-weight:650!important;
+  letter-spacing:-.01em!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+}
+
+/* Temperaturen */
+#home .compact-forecast-card .daily-row-compact .dlow,
+#home .compact-forecast-card .daily-row-compact .dhigh{
+  min-width:0!important;
+  font-variant-numeric:tabular-nums!important;
+  white-space:nowrap!important;
+}
+#home .compact-forecast-card .daily-row-compact .dlow{
+  color:rgba(225,239,250,.72)!important;
+  font-size:12px!important;
+  font-weight:550!important;
+  text-align:right!important;
+}
+#home .compact-forecast-card .daily-row-compact .dhigh{
+  color:#fff!important;
+  font-size:13px!important;
+  font-weight:760!important;
+  text-align:right!important;
+}
+
+/* Relatieve 7-daagse temperatuur-range: bestaande left/width blijven leidend. */
+#home .compact-forecast-card .daily-row-compact .bar-track{
+  position:relative!important;
+  width:100%!important;
+  height:5px!important;
+  min-width:0!important;
+  border-radius:999px!important;
+  overflow:hidden!important;
+  background:rgba(28,55,83,.34)!important;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.08)!important;
+}
+#home .compact-forecast-card .daily-row-compact .bar-fill{
+  position:absolute!important;
+  top:0!important;
+  bottom:0!important;
+  border-radius:999px!important;
+  background:linear-gradient(90deg,#4fd8df 0%,#72d7a2 52%,#e7bf64 100%)!important;
+  box-shadow:none!important;
+  opacity:.88!important;
+}
+
+/* Bestaande navigatie naar 14 dagen, alleen visueel verfijnd. */
+#home .compact-forecast-card .forecast-14-button{
+  width:100%!important;
+  min-height:45px!important;
+  margin:11px 0 0!important;
+  padding:0 13px!important;
+  border-radius:16px!important;
+  border:1px solid rgba(235,247,255,.15)!important;
+  background:linear-gradient(145deg,rgba(148,179,203,.17),rgba(91,132,165,.13))!important;
+  color:#fff!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  font-size:12px!important;
+  line-height:1!important;
+  font-weight:700!important;
+  -webkit-backdrop-filter:blur(7px) saturate(112%)!important;
+  backdrop-filter:blur(7px) saturate(112%)!important;
+  transition:background .16s ease,transform .16s ease!important;
+}
+#home .compact-forecast-card .forecast-14-button:active{
+  transform:scale(.992)!important;
+  background:rgba(151,188,215,.21)!important;
+}
+#home .compact-forecast-card .forecast-14-label{
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  min-width:0!important;
+}
+#home .compact-forecast-card .forecast-calendar-icon{
+  flex:0 0 18px!important;
+  color:#6ee6e1!important;
+}
+#home .compact-forecast-card .forecast-14-chevron{
+  flex:0 0 auto!important;
+  color:rgba(242,248,255,.78)!important;
+  font-size:22px!important;
+  line-height:1!important;
+  font-weight:400!important;
+}
+
+/* iPhone/smalle schermen: dezelfde zes kolommen blijven behouden. */
+@media(max-width:390px){
+  #home .compact-forecast-card{
+    --fc7-row-h:56px;
+    padding:13px!important;
+  }
+  #home .compact-forecast-card .daily-row-compact{
+    grid-template-columns:
+      minmax(55px,1.03fr)
+      31px
+      minmax(52px,.92fr)
+      31px
+      minmax(45px,1.18fr)
+      32px!important;
+    column-gap:4px!important;
+    padding:6px 7px!important;
+  }
+  #home .compact-forecast-card .daily-row-compact .dname b{font-size:12px!important;}
+  #home .compact-forecast-card .daily-row-compact .dname small{font-size:8px!important;}
+  #home .compact-forecast-card .daily-icon-wrap{width:31px!important;height:35px!important;}
+  #home .compact-forecast-card .daily-icon-wrap svg,
+  #home .compact-forecast-card .daily-icon-wrap .dicon{width:27px!important;height:27px!important;}
+  #home .compact-forecast-card .daily-row-compact .dpop{font-size:11px!important;}
+  #home .compact-forecast-card .daily-row-compact .daily-wind-alert{font-size:7px!important;}
+  #home .compact-forecast-card .daily-row-compact .dlow{font-size:11px!important;}
+  #home .compact-forecast-card .daily-row-compact .dhigh{font-size:12px!important;}
+  #home .compact-forecast-card .daily-row-compact .bar-track{height:4px!important;}
+}
+@media(max-width:340px){
+  #home .compact-forecast-card{padding:11px!important;}
+  #home .compact-forecast-card .daily-row-compact{
+    grid-template-columns:52px 28px 49px 29px minmax(39px,1fr) 30px!important;
+    column-gap:3px!important;
+    padding-inline:6px!important;
+  }
+  #home .compact-forecast-card .daily-row-compact .dname b{font-size:11px!important;}
+  #home .compact-forecast-card .daily-row-compact .dpop{font-size:10px!important;}
+  #home .compact-forecast-card .daily-row-compact .daily-wind-alert{font-size:6.5px!important;}
+  #home .compact-forecast-card .daily-icon-wrap svg,
+  #home .compact-forecast-card .daily-icon-wrap .dicon{width:25px!important;height:25px!important;}
+}
