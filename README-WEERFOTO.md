@@ -15,6 +15,8 @@ Deze versie vernieuwt het scherm **Weerfoto delen** zonder de bestaande communit
 - verzendknop blijft uitgeschakeld totdat de invoer geldig is;
 - navigatie verdwijnt tijdelijk tijdens het delen, zodat zij niets bedekt;
 - foto's worden vóór upload verkleind tot maximaal 1800 pixels en gecomprimeerd.
+- de mobiele Community-composer blijft altijd binnen de schermbreedte en kan niet meer horizontaal uitzoomen of afsnijden;
+- de bestaande lichte profielpagina is bewust ongewijzigd behouden.
 
 ## Bestanden
 
