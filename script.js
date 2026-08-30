@@ -3090,17 +3090,18 @@ if(validOfficialHomeAlert) {
 html += weatherSummaryCard();
 html += rainNowcastCard();
 
-  // hourly
-  html += `<div class="card"><div class="card-title">${icon('gauge',true,13)} Komende 24 uur</div><div class="hourly-scroll">`;
+  // hourly — bestaande 24-uursdata, alleen gerichte markup voor vaste uitlijning
+  html += `<div class="card hourly-24-card"><div class="card-title">${icon('gauge',true,13)} Komende 24 uur</div><div class="hourly-scroll" aria-label="Komende 24 uur">`;
   for(let i=nowIdx; i<Math.min(nowIdx+24, hourly.time.length); i++){
     const t = new Date(hourly.time[i]);
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
     const hwc = wcInfo(hourly.weather_code[i]);
     const hIsDay = isDayForTime(hourly.time[i]);
+    const pop = validNumber(hourly.precipitation_probability?.[i]);
     html += `<div class="hour-item ${i===nowIdx?'now':''}">
-      <div class="t">${label}</div>
-      ${icon(hwc.ic, hIsDay, 26)}
-      <div class="pop">${hourly.precipitation_probability[i]>10 ? hourly.precipitation_probability[i]+'%':''}</div>
+      <div class="t">${esc(label)}</div>
+      <div class="hour-icon-wrap">${icon(hwc.ic, hIsDay, 26)}</div>
+      <div class="pop">${pop==null?'':Math.round(Math.max(0,Math.min(100,pop)))+'%'}</div>
       <div class="v">${fmtTemp(hourly.temperature_2m[i])}</div>
     </div>`;
   }

@@ -9961,3 +9961,185 @@ body.tv-pair-open .tabbar{
   #home .compact-forecast-card .daily-icon-wrap svg,
   #home .compact-forecast-card .daily-icon-wrap .dicon{width:25px!important;height:25px!important;}
 }
+
+
+/* =====================================================================
+   2026-08-30 — KOMENDE 24 UUR production refinement
+   Uitsluitend het bestaande 24-uursblok.
+   ===================================================================== */
+#home .hourly-24-card{
+  --h24-card-w:76px;
+  --h24-card-h:126px;
+  --h24-gap:8px;
+  position:relative!important;
+  padding:15px 14px 14px!important;
+  border-radius:26px!important;
+  overflow:hidden!important;
+  background:linear-gradient(145deg,rgba(82,112,142,.48),rgba(57,88,120,.38))!important;
+  border:1px solid rgba(235,246,255,.20)!important;
+  box-shadow:0 8px 22px rgba(7,20,38,.10),inset 0 1px 0 rgba(255,255,255,.025)!important;
+  -webkit-backdrop-filter:blur(10px) saturate(116%)!important;
+  backdrop-filter:blur(10px) saturate(116%)!important;
+}
+#home .hourly-24-card>.card-title{
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  min-height:20px!important;
+  margin:0 0 11px!important;
+  padding:0 2px!important;
+  background:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:#fff!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:760!important;
+  letter-spacing:.085em!important;
+  text-transform:uppercase!important;
+}
+#home .hourly-24-card>.card-title svg{
+  width:16px!important;
+  height:16px!important;
+  flex:0 0 16px!important;
+  color:#75e7ff!important;
+}
+#home .hourly-24-card .hourly-scroll{
+  display:flex!important;
+  align-items:stretch!important;
+  gap:var(--h24-gap)!important;
+  width:auto!important;
+  margin:0 -14px 0 0!important;
+  padding:0 23px 3px 0!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  overscroll-behavior-x:contain!important;
+  scroll-snap-type:x proximity!important;
+  -webkit-overflow-scrolling:touch!important;
+  scrollbar-width:none!important;
+  touch-action:pan-x!important;
+}
+#home .hourly-24-card .hourly-scroll::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;}
+#home .hourly-24-card .hour-item{
+  flex:0 0 var(--h24-card-w)!important;
+  width:var(--h24-card-w)!important;
+  min-width:var(--h24-card-w)!important;
+  max-width:var(--h24-card-w)!important;
+  height:var(--h24-card-h)!important;
+  min-height:var(--h24-card-h)!important;
+  max-height:var(--h24-card-h)!important;
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-rows:20px 45px 18px 24px!important;
+  align-items:center!important;
+  justify-items:center!important;
+  row-gap:3px!important;
+  padding:9px 7px 8px!important;
+  border-radius:18px!important;
+  scroll-snap-align:start!important;
+  scroll-snap-stop:normal!important;
+  overflow:hidden!important;
+  text-align:center!important;
+  background:linear-gradient(145deg,rgba(151,180,204,.18),rgba(93,132,166,.13))!important;
+  border:1px solid rgba(235,247,255,.14)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035)!important;
+  -webkit-backdrop-filter:blur(7px) saturate(112%)!important;
+  backdrop-filter:blur(7px) saturate(112%)!important;
+}
+#home .hourly-24-card .hour-item.now{
+  background:linear-gradient(145deg,rgba(170,199,220,.22),rgba(99,142,177,.16))!important;
+  border-color:rgba(219,244,255,.22)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055)!important;
+}
+#home .hourly-24-card .hour-item .t{
+  width:100%!important;
+  color:rgba(231,243,252,.76)!important;
+  font-size:12px!important;
+  line-height:20px!important;
+  font-weight:550!important;
+  font-variant-numeric:tabular-nums!important;
+  white-space:nowrap!important;
+}
+#home .hourly-24-card .hour-item.now .t{color:#fff!important;font-weight:760!important;}
+#home .hourly-24-card .hour-icon-wrap{
+  width:42px!important;
+  height:45px!important;
+  display:grid!important;
+  place-items:center!important;
+  overflow:visible!important;
+}
+#home .hourly-24-card .hour-icon-wrap svg{
+  width:31px!important;
+  height:31px!important;
+  max-width:31px!important;
+  max-height:31px!important;
+  display:block!important;
+  overflow:visible!important;
+  transform:none!important;
+}
+#home .hourly-24-card .hour-item .pop{
+  width:100%!important;
+  height:18px!important;
+  min-height:18px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  color:#6ee6e1!important;
+  font-size:11px!important;
+  line-height:18px!important;
+  font-weight:680!important;
+  font-variant-numeric:tabular-nums!important;
+  white-space:nowrap!important;
+}
+#home .hourly-24-card .hour-item .v{
+  width:100%!important;
+  height:24px!important;
+  display:flex!important;
+  align-items:flex-end!important;
+  justify-content:center!important;
+  color:#fff!important;
+  font-size:18px!important;
+  line-height:22px!important;
+  font-weight:780!important;
+  font-variant-numeric:tabular-nums!important;
+  white-space:nowrap!important;
+}
+#home .hourly-24-card::after{
+  content:""!important;
+  position:absolute!important;
+  z-index:3!important;
+  right:0!important;
+  bottom:13px!important;
+  width:15px!important;
+  height:var(--h24-card-h)!important;
+  pointer-events:none!important;
+  background:linear-gradient(90deg,transparent,rgba(57,88,120,.18))!important;
+  border-radius:0 24px 24px 0!important;
+}
+@media(min-width:600px){
+  #home .hourly-24-card{--h24-card-w:82px;--h24-card-h:130px;--h24-gap:9px;padding-inline:16px!important;}
+  #home .hourly-24-card .hourly-scroll{margin-right:-16px!important;padding-right:28px!important;}
+  #home .hourly-24-card .hour-icon-wrap svg{width:32px!important;height:32px!important;}
+}
+@media(max-width:390px){
+  #home .hourly-24-card{--h24-card-w:72px;--h24-card-h:121px;--h24-gap:7px;padding:13px 12px 12px!important;}
+  #home .hourly-24-card>.card-title{margin-bottom:10px!important;font-size:10.5px!important;}
+  #home .hourly-24-card .hourly-scroll{margin-right:-12px!important;padding-right:21px!important;}
+  #home .hourly-24-card .hour-item{grid-template-rows:19px 42px 17px 22px!important;row-gap:3px!important;padding:8px 6px 7px!important;border-radius:17px!important;}
+  #home .hourly-24-card .hour-item .t{font-size:11px!important;line-height:19px!important;}
+  #home .hourly-24-card .hour-icon-wrap{width:39px!important;height:42px!important;}
+  #home .hourly-24-card .hour-icon-wrap svg{width:28px!important;height:28px!important;}
+  #home .hourly-24-card .hour-item .pop{height:17px!important;min-height:17px!important;font-size:10px!important;line-height:17px!important;}
+  #home .hourly-24-card .hour-item .v{height:22px!important;font-size:17px!important;line-height:21px!important;}
+  #home .hourly-24-card::after{bottom:11px!important;width:12px!important;}
+}
+@media(max-width:340px){
+  #home .hourly-24-card{--h24-card-w:68px;--h24-card-h:117px;--h24-gap:6px;padding-inline:11px!important;}
+  #home .hourly-24-card .hourly-scroll{margin-right:-11px!important;padding-right:19px!important;}
+  #home .hourly-24-card .hour-item{grid-template-rows:18px 40px 16px 21px!important;padding-inline:5px!important;}
+  #home .hourly-24-card .hour-item .t{font-size:10.5px!important;}
+  #home .hourly-24-card .hour-icon-wrap{height:40px!important;}
+  #home .hourly-24-card .hour-icon-wrap svg{width:27px!important;height:27px!important;}
+  #home .hourly-24-card .hour-item .pop{font-size:9.5px!important;}
+  #home .hourly-24-card .hour-item .v{font-size:16px!important;}
+}
