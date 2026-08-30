@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260830-accountbeheer-refined-v1";
+const CACHE_VERSION = "wheaterflow-v20260830-accountbeheer-cascade-fix-v2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
