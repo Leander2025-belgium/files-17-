@@ -8646,3 +8646,26 @@ body.tv-pair-open .tabbar{
 #home details.official-kmi.kmi-compact:not([open]) .kmi-expanded{
   display:none!important;
 }
+
+
+/* 2026-08-30 — KMI final: compactere afstand zoals gewenst */
+#home .hero-kmi-spacer{
+  display:block!important;
+  width:100%!important;
+  height:38px!important;
+  min-height:38px!important;
+  flex:0 0 38px!important;
+}
+@media(max-width:560px){
+  #home .hero-kmi-spacer{
+    height:38px!important;
+    min-height:38px!important;
+    flex-basis:38px!important;
+  }
+}
+
+/* Geen lege waarschuwing: zonder geldige officiële code bestaat de KMI-kaart niet. */
+#home .official-kmi[hidden],
+#home .official-kmi:empty{
+  display:none!important;
+}

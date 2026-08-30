@@ -998,6 +998,31 @@ async function fetchKnmiWarnings(){
   return Array.isArray(data.alerts) ? data.alerts : null;
 }
 
+
+function isValidOfficialKmiAlert(alert){
+  if(!alert || alert.official !== true) return false;
+  if(!['yellow','orange','red'].includes(String(alert.level||'').toLowerCase())) return false;
+
+  const phenomenon = String(alert.phenomenon || '').trim().toLowerCase();
+  const headline = String(alert.headline || '').trim().toLowerCase();
+  const description = String(alert.description || '').trim().toLowerCase();
+  const combined = `${phenomenon} ${headline} ${description}`;
+
+  const allowed = ['wind','regen','onweer','gladheid','mist','stormtij','koude','hitte'];
+  if(!allowed.some(x => phenomenon === x || headline.startsWith(x + ' ') || headline.startsWith(x + '·'))) return false;
+
+  // Nooit browser-/fallbackteksten als weerwaarschuwing tonen.
+  if(/browser|upgrade|inhoud kan verloren|niet correct weergegeven|algemene voorwaarden|nieuwsoverzicht|podcasts|management|gender equality/i.test(combined)) return false;
+
+  // Een echte KMI-waarschuwing moet een geldigheidsperiode hebben.
+  const from = alert.validFrom ? new Date(alert.validFrom).getTime() : NaN;
+  const to = alert.validTo ? new Date(alert.validTo).getTime() : NaN;
+  if(!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return false;
+  if(to < Date.now()) return false;
+
+  return true;
+}
+
 async function fetchKmiWarnings(){
   if(!isBelgiumLocation()) return null;
   const qs = new URLSearchParams({lat:String(state.loc.lat), lon:String(state.loc.lon)});
@@ -1011,13 +1036,18 @@ async function loadAlerts(){
   try{
     const official = isBelgiumLocation() ? await fetchKmiWarnings() : await fetchKnmiWarnings();
     if(official && official.length){
-      state.alerts = official.sort((a,b)=>{ const rank=(ALERT_LEVELS[b.level]?.rank||0)-(ALERT_LEVELS[a.level]?.rank||0); if(rank) return rank; const ta=a.validFrom?new Date(a.validFrom).getTime():0, tb=b.validFrom?new Date(b.validFrom).getTime():0; return (ta||Infinity)-(tb||Infinity); });
-      state.alertsMeta = {
-        source:isBelgiumLocation() ? 'KMI België' : 'KNMI Data Platform',
-        official:true,
-        updated:Date.now()
-      };
-      return;
+      const cleaned = isBelgiumLocation()
+        ? official.filter(isValidOfficialKmiAlert)
+        : official;
+      if(cleaned.length){
+        state.alerts = cleaned.sort((a,b)=>{ const rank=(ALERT_LEVELS[b.level]?.rank||0)-(ALERT_LEVELS[a.level]?.rank||0); if(rank) return rank; const ta=a.validFrom?new Date(a.validFrom).getTime():0, tb=b.validFrom?new Date(b.validFrom).getTime():0; return (ta||Infinity)-(tb||Infinity); });
+        state.alertsMeta = {
+          source:isBelgiumLocation() ? 'KMI België' : 'KNMI Data Platform',
+          official:true,
+          updated:Date.now()
+        };
+        return;
+      }
     }
   }catch(e){
     console.warn('Officiële waarschuwingen tijdelijk niet beschikbaar:', e);
@@ -2806,12 +2836,12 @@ function renderHome(){
 
 html += wheaterflowAdminAlertsCard();
 // Officiële waarschuwingen horen boven gewone intelligence wanneer ze relevant zijn.
-if(state.alertsMeta?.official && state.alerts?.some(a => a.level !== 'green')) {
+const validOfficialHomeAlert = state.alertsMeta?.official && state.alerts?.some(a => isBelgiumLocation() ? isValidOfficialKmiAlert(a) : (a.level && a.level !== 'green'));
+if(validOfficialHomeAlert) {
   html += `<div class="hero-kmi-spacer" aria-hidden="true"></div>`;
   html += alertsCard();
 }
 html += weatherSummaryCard();
-if(!(state.alertsMeta?.official && state.alerts?.some(a => a.level !== 'green'))) html += alertsCard();
 html += rainNowcastCard();
 
   // hourly
