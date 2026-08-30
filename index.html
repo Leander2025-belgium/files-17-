@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260830-quality-pass-v1" rel="stylesheet"/>
+<link href="style.css?v=20260830-refine-v2" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -326,7 +326,7 @@
 <div class="chip-row radar-duration-row" id="durationRow">
 <button class="chip active" data-dur="1">1 uur</button><button class="chip" data-dur="6">6 uur</button><button class="chip" data-dur="12">12 uur</button><button class="chip" data-dur="24">24 uur</button>
 </div>
-<div class="radar-utility-row"><button class="chip radar-compat-hidden" id="chipScheme" type="button"><span id="schemeLabel">Helder</span></button><button class="chip" id="chipLocate" type="button">Mijn locatie</button><button class="chip" id="radarFullscreen" type="button">Volledig</button></div>
+<div class="radar-utility-row"><button class="chip radar-compat-hidden" id="chipScheme" type="button"><span id="schemeLabel">Helder</span></button><button class="chip" id="chipLocate" type="button">Mijn locatie</button><button class="chip" id="radarFullscreen" type="button">Volledig scherm</button></div>
 <div aria-label="Professionele weerlagen" class="xweather-layerbar radar-hidden-layerbar" id="xweatherLayerBar"></div>
 </div>
 <div class="radar-info" id="radarInfo"></div>
@@ -1001,7 +1001,7 @@
 </button>
 </div>
 <div class="profile-menu-list profile-main-menu">
-<button class="profile-menu-row" id="profileFavoritesMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/location.png"/><b>Mijn locaties</b></span><strong>›</strong></button>
+<button class="profile-menu-row" id="profileFavoritesMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/location.png"/><b>Favoriete locaties</b></span><strong>›</strong></button>
 <button class="profile-menu-row" id="profileNotificationsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/notifications.png"/><b>Meldingen</b></span><strong>›</strong></button>
 <button class="profile-menu-row" id="profileWeatherPrefsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/preferences.png"/><b>Weervoorkeuren</b></span><strong>›</strong></button>
 <button class="profile-menu-row" id="profileCommunityMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/community.png"/><b>Community</b></span><strong>›</strong></button>
@@ -1026,7 +1026,7 @@
 </label>
 <button class="profile-action-row" id="profileUseCurrentLocation" type="button">
 <span>
-              Huidige locatie gebruiken
+              Actuele gps-locatie gebruiken
             </span>
 <b id="profileCurrentLocationName">
               Locatie bepalen…
@@ -1039,7 +1039,7 @@
 </div>
 <div class="profile-favorites" id="profileFavoritesSection">
 <div class="settings-section-head">
-<span>Favoriete plaatsen</span>
+<span>Favoriete locaties</span>
 <strong id="profileFavoritesHint">Op je account</strong>
 </div>
 <div class="profile-favorite-add">
@@ -1519,6 +1519,6 @@
 <!-- Wheaterflow scripts -->
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260830-quality-pass-v1"></script>
+<script src="script.js?v=20260830-refine-v2"></script>
 </body>
 </html>

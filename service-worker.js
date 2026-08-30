@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260830-quality-pass-v1";
+const CACHE_VERSION = "wheaterflow-v20260830-refine-v2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

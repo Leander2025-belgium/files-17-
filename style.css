@@ -8877,3 +8877,133 @@ body.tv-pair-open .tabbar{
 .radar-compat-hidden{display:none!important;}
 
 .profile-edit-panel .profile-edit-row{margin-bottom:10px}.profile-edit-panel .profile-save-btn{margin-top:8px}.profile-menu-row#profileCommunityMenu{display:flex}.community-empty .wf-data-status{min-height:130px}.radar-info:empty{display:none!important}
+
+
+/* =====================================================================
+   2026-08-30 readability & iPhone refinement
+   ===================================================================== */
+:root{
+  --wf-card-primary:rgba(7,23,43,.88);
+  --wf-card-secondary:rgba(10,29,51,.79);
+  --wf-card-soft:rgba(13,34,57,.74);
+  --wf-card-border:rgba(210,232,255,.16);
+  --wf-text:#f6f9ff;
+  --wf-text-secondary:rgba(229,239,252,.76);
+  --wf-card-blur:7px;
+  --wf-card-shadow:0 10px 26px rgba(0,8,20,.18);
+  --wf-nav-h:88px;
+}
+
+/* Data cards are dark and readable; Liquid Glass remains strongest in navigation/controls. */
+.card,.detail-card,.weather-summary-card,.rain-now-card,.compact-forecast-card,
+.sea-mode-card,.seaspark-panel,.travel-weather-card,.air-quality-card,
+.community-post,.profile-weather-card,.profile-stat-card,.profile-pro-card,
+.profile-menu-list,.profile-edit-panel,.profile-favorites,.account-actions,
+.chart-card,.graph-card{
+  background:var(--wf-card-primary)!important;
+  border:1px solid var(--wf-card-border)!important;
+  color:var(--wf-text)!important;
+  box-shadow:var(--wf-card-shadow)!important;
+  -webkit-backdrop-filter:blur(var(--wf-card-blur)) saturate(112%)!important;
+  backdrop-filter:blur(var(--wf-card-blur)) saturate(112%)!important;
+}
+.detail-card,.hour-item,.sea-compact-grid>div,.sea-score-grid>div,.travel-result-card,
+.community-observation-main,.seaspark-shared-grid>span,.rain-now-facts>span{
+  background:var(--wf-card-secondary)!important;
+  border-color:rgba(210,232,255,.11)!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:blur(4px)!important;
+  backdrop-filter:blur(4px)!important;
+}
+.card-title,.dt-title,.subtle,.updated,.dt-sub,.hour-item .pop,.sea-compact-grid small,
+.seaspark-shared-grid small,.travel-validation,.travel-result-card small,.travel-result-card p,
+.community-post-place,.community-caption,.profile-home-line,.profile-menu-row span{
+  color:var(--wf-text-secondary)!important;
+}
+.card h2,.card h3,.card b,.card strong,.detail-card .dt-val,.sea-compact-grid b,.sea-score-grid b,
+.community-post-name,.profile-menu-row b{color:var(--wf-text)!important;}
+
+/* Sea Mode: compact but darker and more legible. */
+.sea-score-grid>div{background:rgba(7,27,49,.90)!important;}
+.sea-compact-grid>div{background:rgba(10,31,54,.82)!important;min-height:76px!important;}
+.sea-compact-grid small{font-weight:700!important;opacity:1!important;}
+.sea-advice-compact{background:rgba(7,27,49,.86)!important;border:1px solid var(--wf-card-border)!important;color:var(--wf-text)!important;}
+.sea-advice-compact span{color:var(--wf-text-secondary)!important;line-height:1.45!important;}
+
+/* Zeevonk score: score only inside circle; label outside, never overlapping. */
+.seaspark-score-wrap{display:grid;justify-items:center;gap:7px;flex:0 0 auto;}
+.seaspark-score-wrap small{font-size:10px;font-weight:750;color:var(--wf-text-secondary);white-space:nowrap;}
+.seaspark-ring{min-width:86px!important;width:86px!important;height:86px!important;display:grid!important;place-items:center!important;}
+.seaspark-ring b{font-size:17px!important;line-height:1!important;white-space:nowrap!important;}
+.seaspark-ring span{display:none!important;}
+.seaspark-panel p{color:var(--wf-text-secondary)!important;}
+
+/* Interactive map can never look like an unexplained empty black rectangle. */
+.map-preview{background:rgba(7,23,43,.92)!important;min-height:250px!important;}
+.map-preview-status{background:rgba(7,23,43,.90)!important;color:#f6f9ff!important;}
+.map-tabs button:disabled{opacity:.38!important;cursor:not-allowed!important;filter:saturate(.35)!important;}
+.legend-row.hidden{display:none!important;}
+.home-weather-map{background:rgba(10,29,51,.82)!important;}
+
+/* Radar: exactly three left-aligned horizontally scrollable rows. */
+.radar-top{left:0!important;right:0!important;top:calc(env(safe-area-inset-top) + 10px)!important;padding:0 12px!important;display:grid!important;gap:7px!important;pointer-events:none;}
+.radar-top>*{pointer-events:auto;}
+.radar-primary-layers,.radar-duration-row,.radar-utility-row{
+  position:static!important;inset:auto!important;width:100%!important;display:flex!important;gap:7px!important;
+  overflow-x:auto!important;overflow-y:hidden!important;scroll-padding-left:0!important;padding:0 0 2px!important;
+  margin:0!important;white-space:nowrap!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important;
+}
+.radar-primary-layers::-webkit-scrollbar,.radar-duration-row::-webkit-scrollbar,.radar-utility-row::-webkit-scrollbar{display:none!important;}
+.radar-primary-layers .chip,.radar-duration-row .chip,.radar-utility-row .chip{flex:0 0 auto!important;margin:0!important;white-space:nowrap!important;}
+.radar-eta-line{top:calc(env(safe-area-inset-top) + 156px)!important;right:12px!important;left:auto!important;max-width:min(78vw,320px)!important;background:rgba(7,23,43,.90)!important;backdrop-filter:blur(6px)!important;}
+.radar-bottom{padding-bottom:calc(var(--wf-nav-h) + env(safe-area-inset-bottom) + 28px)!important;}
+.xweather-timeline{margin-bottom:8px!important;}
+
+/* Reisweer: one calm vertical form, equal control sizes. */
+.travel-form-v2{display:flex!important;flex-direction:column!important;gap:12px!important;align-items:stretch!important;}
+.travel-form-v2 label{display:grid!important;gap:7px!important;width:100%!important;}
+.travel-form-v2 input,.travel-time-row,.travel-calc{width:100%!important;min-height:48px!important;box-sizing:border-box!important;}
+.travel-form-v2 input{height:48px!important;}
+.travel-swap{align-self:center!important;width:auto!important;height:38px!important;padding:0 14px!important;border-radius:999px!important;display:flex!important;align-items:center!important;gap:6px!important;background:var(--wf-card-secondary)!important;}
+.travel-swap span{font-size:12px!important;font-weight:700!important;}
+.travel-time-row{display:grid!important;grid-template-columns:minmax(0,1fr) 54px!important;gap:8px!important;}
+.travel-time-row button{height:48px!important;border-radius:13px!important;border:1px solid var(--wf-card-border)!important;background:rgba(35,111,215,.34)!important;color:#fff!important;font-weight:750!important;}
+.travel-modes{width:100%!important;display:flex!important;overflow-x:auto!important;gap:7px!important;padding-bottom:2px!important;}
+.travel-validation{width:100%!important;font-size:12px!important;}
+.travel-calc{height:50px!important;font-weight:800!important;}
+
+/* Community: always below iPhone status bar and horizontally scrollable filters. */
+.community-inner{padding-top:calc(env(safe-area-inset-top) + 24px)!important;}
+.community-head-v2{align-items:flex-start!important;gap:12px!important;flex-wrap:wrap!important;}
+.community-create-actions{width:100%!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;}
+.community-share-photo,.community-observation-btn{min-height:44px!important;white-space:nowrap!important;}
+.community-quick-filters{display:flex!important;overflow-x:auto!important;gap:7px!important;padding:2px 2px 7px!important;scroll-padding-left:2px!important;}
+.community-quick-filters button{flex:0 0 auto!important;}
+.community-feed{padding-bottom:calc(var(--wf-nav-h) + env(safe-area-inset-bottom) + 28px)!important;}
+
+/* Every scrollable screen can clear the fixed bottom navigation. */
+.screen-inner,.auth-scroll,.community-inner,.radar-wrap,.more-weather-scroll,.sea-mode-scroll,.travel-scroll{
+  padding-bottom:calc(var(--wf-nav-h) + env(safe-area-inset-bottom) + 24px)!important;
+  box-sizing:border-box!important;
+}
+#home .screen-inner{padding-bottom:calc(var(--wf-nav-h) + env(safe-area-inset-bottom) + 24px)!important;}
+
+/* Detail headings and anchors must clear the iPhone status bar. */
+.screen:not(#home):not(#radarscreen)>.screen-inner{padding-top:calc(env(safe-area-inset-top) + 22px)!important;}
+.section-h,.card-title,[id^="section"],#moreWeatherRoot>*,.forecast-day-sheet,.sea-mode-card,.travel-weather-card{
+  scroll-margin-top:calc(env(safe-area-inset-top) + 24px)!important;
+}
+
+/* Profile: same darker card language and a quieter danger zone. */
+.profile-menu-list,.profile-edit-panel,.profile-favorites,.profile-pro-card{background:var(--wf-card-primary)!important;}
+.profile-delete-account{color:rgba(255,115,115,.86)!important;font-size:12px!important;padding:9px 11px!important;}
+.account-actions:last-of-type{background:rgba(64,12,18,.34)!important;border:1px solid rgba(255,91,91,.12)!important;border-radius:16px!important;padding:7px!important;}
+
+@media(max-width:390px){
+  :root{--wf-nav-h:84px;}
+  .community-create-actions{grid-template-columns:1fr!important;}
+  .seaspark-head{align-items:flex-start!important;}
+  .seaspark-ring{width:78px!important;height:78px!important;min-width:78px!important;}
+  .radar-top{padding-left:10px!important;padding-right:10px!important;}
+  .screen:not(#home):not(#radarscreen)>.screen-inner{padding-top:calc(env(safe-area-inset-top) + 18px)!important;}
+}

@@ -2029,21 +2029,74 @@ output.endsInMinutes =
 }
 
 
+function computeRainEtaReliability(eta){
+  const slots=Array.isArray(eta?.slots)?eta.slots:[];
+  const radar=state.radar?.proximity;
+  const now=Date.now();
+  const radarAgeMin=radar?.frameTime ? Math.max(0,(now-radar.frameTime)/60000) : Infinity;
+  const radarFresh=Boolean(radar && radarAgeMin<=RADAR_MAX_AGE_MINUTES);
+  const radarFrames=Array.isArray(state.radar?.frames) ? state.radar.frames.length : 0;
+  const enoughLocal=slots.length>=4;
+  const concreteEta=eta?.status==='rain_soon' && Number.isFinite(Number(eta?.startsInMinutes));
+
+  // Geen schijnprecisie wanneer we geen verse radar + voldoende korte-termijndata hebben.
+  if(!radarFresh || !enoughLocal || !concreteEta){
+    const qualitative = radarFresh && enoughLocal ? 'Redelijke betrouwbaarheid' : enoughLocal ? 'Lage betrouwbaarheid' : null;
+    return {pct:null,label:qualitative};
+  }
+
+  let score=52;
+  score += Math.min(12, slots.length*1.25);
+  score += Math.max(0, 12-radarAgeMin*.8);
+  score += Math.min(8, radarFrames*.8);
+  if(radar.upwind) score += 7;
+  if(Number.isFinite(radar.distanceKm)) score += radar.distanceKm<=15 ? 8 : radar.distanceKm<=35 ? 5 : radar.distanceKm<=55 ? 2 : -4;
+
+  const modelWetSoon=slots.some(s=>s.wet && s.minutes<=70);
+  const radarWetSoon=Boolean(radar.upwind && radar.distanceKm<=55 && radar.etaMinutes<=80);
+  score += modelWetSoon===radarWetSoon ? 8 : -12;
+
+  // Stabiliteit van de korte-termijnreeks: grote sprongen maken exacte aankomst minder zeker.
+  const vals=slots.map(s=>Number(s.precipitation)).filter(Number.isFinite);
+  if(vals.length>2){
+    const movement=vals.slice(1).reduce((sum,v,i)=>sum+Math.abs(v-vals[i]),0)/(vals.length-1);
+    score -= Math.min(10,movement*18);
+  }
+
+  // Vergelijk met de vorige ETA voor dezelfde locatie. Grote verschuiving => lagere betrouwbaarheid.
+  const previous=state.rainEtaHistory;
+  if(previous && previous.locKey===`${state.loc?.lat}:${state.loc?.lon}` && Number.isFinite(previous.startsInMinutes)){
+    const diff=Math.abs(previous.startsInMinutes-Number(eta.startsInMinutes));
+    score += diff<=5 ? 7 : diff<=12 ? 3 : diff>=25 ? -10 : -3;
+  }
+  const pct=Math.max(35,Math.min(96,Math.round(score)));
+  const label=pct>=78?'Hoge betrouwbaarheid':pct>=58?'Redelijke betrouwbaarheid':'Lage betrouwbaarheid';
+  return {pct,label};
+}
+
+function rainEtaReliabilityText(rain=nowcastEngine()){
+  if(!rain || rain.status!=='rain_soon') return '';
+  return Number.isFinite(rain.reliabilityPct) ? `Betrouwbaarheid: ${rain.reliabilityPct}%` : (rain.reliabilityLabel||'');
+}
+
 function nowcastEngine(){
   const radarStamp=Number(state.radar?.proximity?.checkedAt||0);
   const key=`${state.lastUpdated||0}:${radarStamp}:${state.loc?.lat}:${state.loc?.lon}`;
   if(state.rainEta?.cacheKey===key) return state.rainEta;
   const eta=calculateRainEtaRaw();
   eta.cacheKey=key;
-  eta.confidencePct=Math.max(0,Math.min(100,Math.round((Number(eta.confidence)||0)*100)));
+  const reliability=computeRainEtaReliability(eta);
+  eta.reliabilityPct=reliability.pct;
+  eta.reliabilityLabel=reliability.label;
   if(eta.status==='rain_soon' && eta.startTime){
-    const uncertainty=etaUncertaintyMinutes(eta);
+    const uncertainty=etaUncertaintyMinutes({...eta, confidence:Number.isFinite(eta.reliabilityPct)?eta.reliabilityPct/100:eta.confidence});
     const center=new Date(eta.startTime).getTime();
     eta.windowStart=new Date(center-uncertainty*60000).toISOString();
     eta.windowEnd=new Date(center+uncertainty*60000).toISOString();
   }else{
     eta.windowStart=eta.windowEnd=null;
   }
+  state.rainEtaHistory={locKey:`${state.loc?.lat}:${state.loc?.lon}`,startsInMinutes:Number.isFinite(Number(eta.startsInMinutes))?Number(eta.startsInMinutes):null,at:Date.now()};
   state.rainEta=eta;
   return eta;
 }
@@ -2058,7 +2111,7 @@ function centralRainEtaText(rain=nowcastEngine(), {short=false}={}){
   return 'Geen regen verwacht binnen 2 uur';
 }
 function centralRainEtaDetail(rain=nowcastEngine()){
-  return `${centralRainEtaText(rain)} · ${rain.confidencePct ?? Math.round((rain.confidence||0)*100)}% zekerheid`;
+  return [centralRainEtaText(rain), rainEtaReliabilityText(rain)].filter(Boolean).join(' · ');
 }
 
 function rainIntensity(mm){
@@ -2496,7 +2549,7 @@ function nowcastText(){
 
 function rainNowcastCard(){
   const rain = nowcastEngine();
-  if(!rain || rain.status==='unavailable') return wheaterflowStatus('empty','Geen regen verwacht binnen 2 uur');
+  if(!rain || rain.status==='unavailable' || rain.status==='dry') return `<div class="card rain-now-card dry"><div class="rain-now-top"><span>Wheaterflow Rain</span></div><h3>Geen regen verwacht binnen 2 uur</h3></div>`;
   const slots=(rain.slots||[]).filter(slot=>slot && Number.isFinite(Number(slot.precipitation)));
   const bars = slots.map((slot,i)=>{
     const hourlyMm=(Number(slot.precipitation)||0)*4;
@@ -2504,15 +2557,15 @@ function rainNowcastCard(){
     const height = rainIntensityToHeight(hourlyMm);
     return `<i class="${i===0?'now':''} ${slot.wet?'wet':'dry'} ${level.id}" title="${slot.minutes} min: ${hourlyMm.toFixed(1)} mm/u · ${level.label}" style="height:${height}px"></i>`;
   }).join('');
+  const reliability=rain.status==='rain_soon' ? rainEtaReliabilityText(rain) : '';
   return `<div class="card rain-now-card ${rain.status} ${rain.heavyShower?'heavy':''}">
-    <div class="rain-now-top"><span>Wheaterflow Rain</span><b>${rain.confidencePct}% zekerheid</b></div>
+    <div class="rain-now-top"><span>Wheaterflow Rain</span>${reliability?`<b>${esc(reliability)}</b>`:''}</div>
     <h3>${esc(centralRainEtaText(rain))}</h3>
     ${rain.intensityLabel && rain.intensity!=='none' ? `<p>${esc(rain.intensityLabel)}${rain.thunderPossible?' · onweer mogelijk':''}</p>` : ''}
     <div class="rain-now-facts">
       ${rain.intensityLabel ? `<span><b>${esc(rain.intensityLabel)}</b><small>intensiteit</small></span>`:''}
       ${rain.status==='raining' && rain.endsInMinutes!=null ? `<span><b>~${rain.endsInMinutes} min</b><small>tot droger</small></span>`:''}
       ${rain.status==='rain_soon' && rain.startsInMinutes!=null ? `<span><b>~${rain.startsInMinutes} min</b><small>tot regen</small></span>`:''}
-      <span><b>${rain.confidencePct}%</b><small>zekerheid</small></span>
     </div>
     ${bars ? `<div class="rain-now-plot"><div class="rain-now-scale" aria-hidden="true"><span>Zwaar</span><span>Matig</span><span>Licht</span></div><div class="rain-now-chart">${bars}</div></div><div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 u</span></div>`:''}
   </div>`;
@@ -2549,9 +2602,26 @@ function tvLaterRainTrend(){
   };
 }
 
+function modelRainSignalWithin(hours=2){
+  const h=state.hourly||{};
+  const idx=nowIndexInHourly();
+  const until=Date.now()+hours*3600000;
+  let maxPop=null,maxRain=null;
+  for(let i=idx;i<(h.time?.length||0);i++){
+    const t=new Date(h.time[i]).getTime(); if(!Number.isFinite(t)||t>until) break;
+    const pop=validNumber(h.precipitation_probability?.[i]);
+    const mm=validNumber(h.precipitation?.[i]);
+    if(pop!=null) maxPop=maxPop==null?pop:Math.max(maxPop,pop);
+    if(mm!=null) maxRain=maxRain==null?mm:Math.max(maxRain,mm);
+  }
+  return {maxPop,maxRain,elevated:(maxPop!=null&&maxPop>=45)||(maxRain!=null&&maxRain>=0.2)};
+}
+
 function radarEtaText(rain=nowcastEngine()){
   const place=locationDisplayName('je locatie');
-  return `${centralRainEtaText(rain)} · ${rain?.confidencePct ?? 0}% zekerheid · ${place}`;
+  if(!rain || rain.status==='dry' || rain.status==='unavailable') return `Geen regen verwacht binnen 2 uur · ${place}`;
+  const reliability=rain.status==='rain_soon' ? rainEtaReliabilityText(rain) : '';
+  return [centralRainEtaText(rain),reliability,place].filter(Boolean).join(' · ');
 }
 
 function weatherTrendSummary(){
@@ -2560,7 +2630,13 @@ function weatherTrendSummary(){
   const rain=nowcastEngine();
   const place=locationDisplayName('jouw locatie');
   const wind=formatWindPair(cur.wind_speed_10m,cur.wind_gusts_10m);
-  return `Nu ${String(wc.l||'weer').toLowerCase()} in ${place}. ${centralRainEtaText(rain)} (${rain.confidencePct}% zekerheid).${wind?` ${wind}.`:''}`;
+  const model=modelRainSignalWithin(2);
+  let rainSentence='';
+  if(rain?.status==='raining') rainSentence=centralRainEtaText(rain)+'.';
+  else if(rain?.status==='rain_soon') rainSentence=centralRainEtaText(rain)+'.';
+  else if(model.elevated) rainSentence='Momenteel geen regen op de radar, maar later is regen mogelijk.';
+  else rainSentence='Op de actuele radar wordt binnen 2 uur geen regen verwacht.';
+  return `Nu ${String(wc.l||'weer').toLowerCase()} in ${place}. ${rainSentence}${wind?` ${wind}.`:''}`;
 }
 
 async function loadWheaterflowAdminAlerts(){
@@ -3205,7 +3281,7 @@ function smartMessages(){
   const h = state.hourly, d = state.daily, idx = nowIndexInHourly();
   const msgs = [];
   const centralRain=nowcastEngine();
-  if(centralRain.status==='rain_soon') msgs.push(`${centralRainEtaText(centralRain)} (${centralRain.confidencePct}% zekerheid).`);
+  if(centralRain.status==='rain_soon') msgs.push(`${centralRainEtaText(centralRain)} (${rainEtaReliabilityText(centralRain)}).`);
   else if(centralRain.status==='raining') msgs.push(centralRainEtaText(centralRain));
   for(let i=idx;i<Math.min(idx+24,h.time.length);i++){
     if([95,96,99].includes(h.weather_code[i])){ msgs.push(`Kans op onweer rond ${new Date(h.time[i]).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}.`); break; }
@@ -3251,8 +3327,10 @@ function wireHomeMapLayers(){
     $('#homeMapRetry')?.addEventListener('click', ()=>{ if(window.L){ initHomeWeatherMap(); setHomeMapLayer(state.homeMap.activeLayer||'radar'); } else setHomeMapStatus('Radargegevens tijdelijk niet beschikbaar','radar'); });
     return;
   }
+  updateHomeMapLayerAvailability();
   $$('.map-tabs [data-home-layer]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
+      if(btn.disabled) return;
       $$('.map-tabs [data-home-layer]').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       setHomeMapLayer(btn.dataset.homeLayer);
@@ -3270,8 +3348,32 @@ function wireHomeMapLayers(){
   }, 9000);
 }
 
+async function updateHomeMapLayerAvailability(){
+  const buttons=$$('.map-tabs [data-home-layer]');
+  buttons.forEach(btn=>{ const id=btn.dataset.homeLayer; if(!['radar','satellite'].includes(id)){ btn.disabled=true; btn.title='Kaartlaag controleren…'; } });
+  try{
+    const config=await fetchXweatherConfig();
+    if(!config?.configured) return;
+    const defs=availableXweatherLayerDefinitions?.() || [];
+    const ids=new Set(defs.map(d=>d.id));
+    buttons.forEach(btn=>{
+      const id=btn.dataset.homeLayer;
+      if(['radar','satellite'].includes(id)){ btn.disabled=false; return; }
+      const ok=ids.has(id); btn.disabled=!ok; btn.title=ok?'': 'Deze kaartlaag is momenteel niet beschikbaar';
+    });
+  }catch(e){ console.warn('Beschikbare kaartlagen konden niet worden gecontroleerd',e); }
+}
+
 function initHomeWeatherMap(){
-  if(state.homeMap.map || !$('#homeWeatherMap') || !window.L) return;
+  const target=$('#homeWeatherMap');
+  if(!target || !window.L) return;
+  // renderHome vervangt de DOM. Een Leaflet-instance die nog naar het oude element wijst
+  // moet dan worden verwijderd, anders blijft op iPhone een leeg donker vlak achter.
+  if(state.homeMap.map && state.homeMap.map.getContainer?.()!==target){
+    try{ state.homeMap.map.remove(); }catch(e){}
+    state.homeMap.map=null; state.homeMap.base=null; state.homeMap.overlay=null; state.homeMap.locationMarker=null;
+  }
+  if(state.homeMap.map){ refreshHomeMapLayout(); return; }
   const rv = radarView();
   const map = L.map('homeWeatherMap', {
     zoomControl:false,
@@ -3409,6 +3511,7 @@ async function setHomeXweatherLayer(layerId){
 function setHomeMapStatus(text, kind='loading'){
   const el=$('#homeMapStatus');
   const retry=$('#homeMapRetry');
+  const legend=$('.legend-row', el?.closest('.card') || document);
   if(!el) return;
   if(!text){
     el.innerHTML=''; el.classList.remove('show'); retry?.classList.add('hidden');
@@ -3910,6 +4013,17 @@ function airSummary(aqi, pollen){
   return `De luchtkwaliteit is ${status}.${pollen>50?' De pollenconcentratie is verhoogd.':' Buitenactiviteiten zijn normaal mogelijk.'}`;
 }
 
+function seaModePracticalAdvice(sea){
+  const parts=[];
+  const wind=validNumber(sea?.wind), gust=validNumber(sea?.gust), wave=validNumber(sea?.waveHeight), rain=validNumber(sea?.rain);
+  if(wave!=null) parts.push(wave>=1.5?'De zee is ruw':wave>=0.8?'De zee is vrij onrustig':'De zee is relatief rustig');
+  if(wind!=null) parts.push(wind>=35?'er staat stevige wind':wind>=20?'er staat matige wind':'de wind blijft beperkt');
+  if(gust!=null && wind!=null && gust>=wind+15) parts.push(`met stoten tot ${Math.round(gust)} km/u`);
+  if(rain!=null && rain>=0.2) parts.push('regen kan het zicht en comfort verminderen');
+  const caution=(wave!=null&&wave>=1)||(wind!=null&&wind>=30)||(gust!=null&&gust>=45);
+  return `${parts.length?parts.join(', '):'De actuele kustgegevens zijn beperkt'}. ${caution?'Voorzichtigheid bij het zwemmen is aangeraden.':'De omstandigheden zijn redelijk voor een bezoek aan het strand.'}`;
+}
+
 function coastSection(){
   const sea=seaEngine();
   if(!sea.available) return `<div class="card sea-mode-card"><div class="card-title">${icon('drop',true,13)} Sea Mode</div>${wheaterflowStatus('empty',sea.reason||'Momenteel geen gegevens beschikbaar')}</div>`;
@@ -3928,7 +4042,7 @@ function coastSection(){
       ${item('UV-index',validNumber(sea.uv)==null?null:String(Math.round(sea.uv)),'uv')}
       ${item('Zicht',validNumber(sea.visibility)==null?null:`${(sea.visibility/1000).toFixed(1)} km`,'eye')}
     </div>
-    <div class="sea-advice-compact"><b>Advies</b><span>Strandscore combineert weer en wind; zwemcomfort gebruikt dezelfde actuele zee- en golfdata.</span></div>
+    <div class="sea-advice-compact"><b>Advies</b><span>${esc(seaModePracticalAdvice(sea))}</span></div>
     ${seaSparkCoastPanel()}
   </div>`;
 }
@@ -3939,7 +4053,7 @@ function seaSparkDetailCard(){
   return `<div class="detail-card wide seaspark-card">
     <div class="dt-title">${icon('drop',true,12)} Zeevonk</div>
     <div class="seaspark-main">
-      <div class="seaspark-ring" style="--score:${s.score}"><b>${s.score}%</b><span>${esc(s.level)}</span></div>
+      <div class="seaspark-ring" style="--score:${s.score}"><b>${Math.round(s.score)}/100</b></div>
       <div>
         <div class="dt-val mono">${esc(s.level)} kans</div>
         <div class="dt-sub">${seaSparkBestTimeText(s)} - ${esc(s.place)}</div>
@@ -3959,9 +4073,9 @@ function seaSparkCoastPanel(){
   const best=s.bestTime ? new Date(s.bestTime) : null;
   const bestWindow=best&&Number.isFinite(best.getTime()) ? `${new Date(best.getTime()-30*60000).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}–${new Date(best.getTime()+60*60000).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}` : 'Na volledige duisternis';
   return `<div class="seaspark-panel seaspark-v2">
-    <div class="seaspark-head"><div><div class="card-title">${icon('drop',true,13)} Zeevonk</div><h3>${level} kans op zeevonk</h3></div><div class="seaspark-ring" style="--score:${score}"><b>${score}%</b><span>Indicatieve score</span></div></div>
+    <div class="seaspark-head"><div><div class="card-title">${icon('drop',true,13)} Zeevonk</div><h3>${level} kans op zeevonk</h3></div><div class="seaspark-score-wrap"><div class="seaspark-ring" style="--score:${score}"><b>${score}/100</b></div><small>Indicatieve score</small></div></div>
     <div class="seaspark-shared-grid"><span><small>Beste tijdvenster</small><b>${esc(bestWindow)}</b></span><span><small>Locatie</small><b>${esc(sea.place)}</b></span>${cloud!=null?`<span><small>Bewolking</small><b>${Math.round(cloud)}%</b></span>`:''}<span><small>Laatste update</small><b>${new Date(state.lastUpdated||Date.now()).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</b></span></div>
-    <p>${esc(`Zelfde basis als Sea Mode: zeewater ${sea.seaTemperature.toFixed(1)} °C${validNumber(sea.waveHeight)!=null?`, golven ${sea.waveHeight.toFixed(1)} m`:''}${validNumber(sea.wind)!=null?`, wind ${fmtWind(sea.wind)}`:''}.`)}</p>
+    <p>${esc(seaModePracticalAdvice(sea))}</p>
     <div class="sea-safety">Blijf uit gevaarlijke branding en ga niet alleen het water in in het donker.</div>
     <div class="subtle">Indicatief, geen officiële voorspelling.</div>
   </div>`;
@@ -3985,12 +4099,12 @@ function travelWeatherSection(){
   return `<div class="card travel-weather-card"><div class="card-title">${icon('wind',true,13)} Reisweer</div>
     <div class="travel-form travel-form-v2">
       <label><span>${icon('gauge',true,16)} Vertrekpunt</span><input id="travelFrom" autocomplete="off" placeholder="Bijv. Oostende"></label>
-      <button class="travel-swap" id="travelSwap" type="button" aria-label="Vertrekpunt en bestemming omwisselen">⇅</button>
+      <button class="travel-swap" id="travelSwap" type="button" aria-label="Vertrekpunt en bestemming omwisselen">⇅ <span>Wissel</span></button>
       <label><span>${icon('gauge',true,16)} Bestemming</span><input id="travelTo" autocomplete="off" placeholder="Bijv. Antwerpen"></label>
-      <label class="travel-time"><span>${icon('gauge',true,16)} Vertrektijd</span><input id="travelTime" type="datetime-local"><small>Leeg = nu</small></label>
-      <div class="travel-modes" role="group" aria-label="Vervoer"><button class="active" data-travel-mode="car" type="button">Auto</button><button data-travel-mode="bike" type="button">Fiets</button><button data-travel-mode="walk" type="button">Wandelen</button><button data-travel-mode="transit" type="button">OV</button></div>
+      <label class="travel-time"><span>${icon('gauge',true,16)} Vertrektijd</span><div class="travel-time-row"><input id="travelTime" type="datetime-local"><button id="travelNow" type="button">Nu</button></div></label>
+      <div class="travel-modes" role="group" aria-label="Vervoer"><button class="active" data-travel-mode="car" type="button">Auto</button><button data-travel-mode="bike" type="button">Fiets</button><button data-travel-mode="walk" type="button">Wandelen</button><button data-travel-mode="transit" type="button">Openbaar vervoer</button></div>
       <div class="travel-validation" id="travelValidation">Vul vertrekpunt en bestemming in.</div>
-      <button class="smallbtn travel-calc" id="travelCalculate" type="button" disabled>Bereken</button>
+      <button class="smallbtn travel-calc" id="travelCalculate" type="button" disabled>Routeweer berekenen</button>
     </div>
     <div id="travelResult"></div>
   </div>`;
@@ -4014,12 +4128,28 @@ function travelResultCard(label,w){
 }
 function wireTravelWeather(){
   const from=$('#travelFrom'),to=$('#travelTo'),time=$('#travelTime'),calc=$('#travelCalculate'),msg=$('#travelValidation'); if(!from||!to||!calc) return;
-  let mode='car';
-  const validate=()=>{ const ok=from.value.trim().length>=2&&to.value.trim().length>=2; calc.disabled=!ok; msg.textContent=ok?'Klaar om routeweer te berekenen.':'Vul vertrekpunt en bestemming in.'; };
+  let mode='car', validationTimer=null, validationSeq=0, fromPoint=null, toPoint=null;
+  const localNowValue=()=>{ const d=new Date(Date.now()-new Date().getTimezoneOffset()*60000); return d.toISOString().slice(0,16); };
+  if(time && !time.value) time.value=localNowValue();
+  $('#travelNow')?.addEventListener('click',()=>{ if(time) time.value=localNowValue(); });
+  const validate=()=>{
+    clearTimeout(validationTimer); fromPoint=null; toPoint=null; calc.disabled=true;
+    const a=from.value.trim(), b=to.value.trim();
+    if(a.length<2||b.length<2){ msg.textContent='Vul vertrekpunt en bestemming in.'; return; }
+    msg.textContent='Plaatsen controleren…';
+    const seq=++validationSeq;
+    validationTimer=setTimeout(async()=>{
+      try{
+        const [pa,pb]=await Promise.all([travelGeocode(a),travelGeocode(b)]);
+        if(seq!==validationSeq) return;
+        fromPoint=pa; toPoint=pb; calc.disabled=false; msg.textContent='Klaar om routeweer te berekenen.';
+      }catch(e){ if(seq!==validationSeq) return; calc.disabled=true; msg.textContent='Controleer vertrekpunt en bestemming.'; }
+    },350);
+  };
   from.addEventListener('input',validate); to.addEventListener('input',validate);
   $('#travelSwap')?.addEventListener('click',()=>{[from.value,to.value]=[to.value,from.value];validate();});
   $$('.travel-modes [data-travel-mode]').forEach(b=>b.addEventListener('click',()=>{$$('.travel-modes [data-travel-mode]').forEach(x=>x.classList.remove('active'));b.classList.add('active');mode=b.dataset.travelMode;}));
-  calc.addEventListener('click',async()=>{ const result=$('#travelResult'); result.innerHTML=wheaterflowStatus('loading','Gegevens worden geladen…'); calc.disabled=true; try{ const [a,b]=await Promise.all([travelGeocode(from.value.trim()),travelGeocode(to.value.trim())]); const start=time.value?new Date(time.value):new Date(); if(!Number.isFinite(start.getTime())) throw new Error('Vertrektijd is ongeldig'); const km=kmDistance(a.lat,a.lon,b.lat,b.lon); const speeds={car:65,bike:17,walk:4.5,transit:45}; const minutes=Math.max(10,Math.round(km/(speeds[mode]||45)*60)); const mid={name:'Onderweg',lat:(a.lat+b.lat)/2,lon:(a.lon+b.lon)/2}; const [wa,wm,wb]=await Promise.all([travelPointWeather(a,start),travelPointWeather(mid,new Date(start.getTime()+minutes*30000)),travelPointWeather(b,new Date(start.getTime()+minutes*60000))]); result.innerHTML=`<div class="travel-result-grid">${travelResultCard('Vertrek',wa)}${travelResultCard('Onderweg',wm)}${travelResultCard('Aankomst',wb)}</div>`; }catch(e){ result.innerHTML=wheaterflowStatus('error',e.message||'Momenteel geen gegevens beschikbaar',{retryId:null}); }finally{calc.disabled=false;} }); validate();
+  calc.addEventListener('click',async()=>{ const result=$('#travelResult'); result.innerHTML=wheaterflowStatus('loading','Gegevens worden geladen…'); calc.disabled=true; try{ const [a,b]=fromPoint&&toPoint?[fromPoint,toPoint]:await Promise.all([travelGeocode(from.value.trim()),travelGeocode(to.value.trim())]); const start=time.value?new Date(time.value):new Date(); if(!Number.isFinite(start.getTime())) throw new Error('Vertrektijd is ongeldig'); const km=kmDistance(a.lat,a.lon,b.lat,b.lon); const speeds={car:65,bike:17,walk:4.5,transit:45}; const minutes=Math.max(10,Math.round(km/(speeds[mode]||45)*60)); const mid={name:'Onderweg',lat:(a.lat+b.lat)/2,lon:(a.lon+b.lon)/2}; const [wa,wm,wb]=await Promise.all([travelPointWeather(a,start),travelPointWeather(mid,new Date(start.getTime()+minutes*30000)),travelPointWeather(b,new Date(start.getTime()+minutes*60000))]); result.innerHTML=`<div class="travel-result-grid">${travelResultCard('Vertrek',wa)}${travelResultCard('Onderweg',wm)}${travelResultCard('Aankomst',wb)}</div>`; }catch(e){ result.innerHTML=wheaterflowStatus('error',e.message||'Momenteel geen gegevens beschikbaar',{retryId:null}); }finally{calc.disabled=false;} }); validate();
 }
 
 function formatOfficialAlertPeriod(alert){
@@ -4507,7 +4637,7 @@ function updateAuthInterface(session){
   const tvStatus = state.tvPairing.connected ? 'Gekoppeld' : 'Niet gekoppeld';
   if($('#profileTvStatus')) $('#profileTvStatus').textContent = tvStatus;
   if($('#profileTvRowStatus')) $('#profileTvRowStatus').textContent = `${tvStatus} ›`;
-  if($('#profileCurrentLocationName')) $('#profileCurrentLocationName').textContent = locationDisplayName('Locatie bepalen…');
+  if($('#profileCurrentLocationName')) $('#profileCurrentLocationName').textContent = 'Tik om GPS te bepalen';
   if($('#profileSyncStatus')) $('#profileSyncStatus').textContent = loggedIn ? 'Actief' : 'Gast';
   renderProfileWeatherToday();
   renderProfileFavorites();
@@ -4736,20 +4866,15 @@ function wireAuthUi(){
   $('#profileUseCurrentLocation')?.addEventListener('click', async ()=>{
     const input = $('#profileHomeLocation');
     if(!input) return;
-    const name = state.loc?.name && !/locatie bepalen/i.test(state.loc.name) ? state.loc.name : '';
-    const lat = Number(state.loc?.lat);
-    const lon = Number(state.loc?.lon);
-    if(!name || !Number.isFinite(lat) || !Number.isFinite(lon)){
-      updateProfileMessage('Geef eerst locatietoegang zodat Wheaterflow je thuislocatie kan opslaan.', 'error');
-      return;
-    }
-    input.value = name;
-    state.auth.profile = {
-      ...(state.auth.profile || {}),
-      home_location_name:name,
-      home_latitude:lat,
-      home_longitude:lon
-    };
+    updateProfileMessage('Actuele gps-locatie bepalen...');
+    const gps=await getBrowserLocation();
+    if(!gps){ updateProfileMessage('Gps-locatie kon niet worden opgehaald. Controleer je locatietoegang.', 'error'); return; }
+    const resolved=await reverseGeocode(gps.lat,gps.lon);
+    const name=cleanLocationName(resolved.name,'');
+    if(!name){ updateProfileMessage('Plaatsnaam van je gps-locatie kon niet worden bepaald.', 'error'); return; }
+    input.value=name;
+    if($('#profileCurrentLocationName')) $('#profileCurrentLocationName').textContent=name;
+    state.auth.profile={...(state.auth.profile||{}),home_location_name:name,home_latitude:gps.lat,home_longitude:gps.lon};
     updateProfileMessage(`Thuislocatie ${name} opslaan...`);
     await syncProfileSettingsToCloud(true);
     updateAuthInterface(state.auth.session);
@@ -7617,7 +7742,7 @@ function tvMarineCard(){
     ? tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})
     : '--:--';
   const wave = state.marine.waveHeight != null ? `${state.marine.waveHeight.toFixed(1)} m` : 'n.b.';
-  const spark = state.seaspark ? ` - zeevonk ${state.seaspark.score}%` : '';
+  const spark = state.seaspark ? ` - zeevonk ${Math.round(state.seaspark.score)}/100` : '';
   return `<div class="dcard tv-marine">${icon('drop',true,18)}<div><div class="dt-title">Kust</div><div class="dt-val">${esc(tide.state || 'Kust')}</div><div class="dt-sub">Volgende ${nextLabel} ${nextTime} - golfhoogte ${wave}${spark}</div></div></div>`;
 }
 
