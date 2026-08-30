@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260830-photo-composer-v2";
+const CACHE_VERSION = "wheaterflow-v20260830-photo-composer-v3-mobile-fit";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

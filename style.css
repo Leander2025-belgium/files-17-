@@ -9288,9 +9288,53 @@ body.tv-pair-open .tabbar{
 
 @media(max-width:760px){
   .community-composer{
-    inset:0!important;width:100%!important;max-width:none!important;max-height:none!important;margin:0!important;
+    inset:0!important;
+    left:0!important;right:0!important;
+    width:100vw!important;min-width:0!important;max-width:100vw!important;
+    height:100dvh!important;max-height:100dvh!important;margin:0!important;
     border:0!important;border-radius:0!important;padding-top:env(safe-area-inset-top);
+    overflow:hidden!important;contain:layout paint;
   }
-  .community-composer-head{min-height:72px}
-  .community-composer-body{max-height:none;height:calc(100dvh - 72px - env(safe-area-inset-top) - 78px);padding-bottom:18px}
+  .community-composer-head{
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    min-height:68px;padding:8px 16px;
+  }
+  .community-composer-body{
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    max-height:none;height:calc(100dvh - 68px - env(safe-area-inset-top) - 76px);
+    padding:14px 16px 18px;overflow-x:hidden!important;overscroll-behavior-x:none;
+  }
+  .community-composer-body>*{
+    width:100%!important;min-width:0!important;max-width:100%!important;
+  }
+  .community-photo-picker{min-height:238px!important}
+  .community-photo-empty{
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    min-height:238px!important;padding:22px 16px 16px!important;
+  }
+  .community-photo-source-actions{
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:8px!important;margin-top:14px!important;
+  }
+  .community-photo-source-actions label{
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    padding:0 8px!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .community-photo-preview-wrap,.community-form-card,.community-weather-toggle,.community-captured-weather{
+    min-width:0!important;max-width:100%!important;overflow-x:hidden;
+  }
+  .community-description-field textarea{min-width:0!important;max-width:100%!important;min-height:92px!important}
+  .community-weather-chips,.community-privacy-options{width:100%!important;min-width:0!important;max-width:100%!important}
+  .community-composer-footer{
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    flex:0 0 auto;padding:10px 16px calc(10px + env(safe-area-inset-bottom));overflow:hidden;
+  }
+  .community-submit-button{width:100%!important;min-width:0!important;max-width:100%!important}
+}
+
+@media(max-width:380px){
+  .community-composer-head h3{font-size:19px}
+  .community-photo-empty strong{font-size:18px}
+  .community-photo-empty small{font-size:12px;text-align:center}
+  .community-photo-source-actions label{font-size:12px!important}
 }
