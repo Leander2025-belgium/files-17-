@@ -1177,10 +1177,26 @@ $('#clearSearch').addEventListener('click', ()=>{
   $('#searchInput').value=''; $('#clearSearch').style.display='none'; showLocationSuggestion();
 });
 
+$('#searchLocationBtn')?.addEventListener('click', async (e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  await useCurrentBrowserLocation();
+});
+
 function locationSuggestionHtml(){
   return `<div class="sugg-item sugg-location" data-use-current-location="true">
-    <span class="sugg-location-icon">${icon('gauge',true,18)}</span>
-    <span class="sugg-main"><span class="sugg-name">Gebruik mijn locatie</span><span class="sugg-sub">Laat Wheaterflow je huidige positie bepalen</span></span>
+    <span class="sugg-location-icon" aria-hidden="true">
+      <svg class="location-arrow-icon" viewBox="0 0 24 24">
+        <path d="M20.7 3.4 4.7 9.8c-1.2.5-1.2 2.2.1 2.6l6.2 1.9 1.9 6.2c.4 1.3 2.1 1.3 2.6.1l6.4-16c.4-1.1-.1-1.7-1.2-1.2Z"/>
+      </svg>
+    </span>
+    <span class="sugg-main">
+      <span class="sugg-location-title-row">
+        <span class="sugg-name">Huidige locatie</span>
+        <span class="sugg-current-badge">Actueel</span>
+      </span>
+      <span class="sugg-sub">Tik om je huidige positie te gebruiken</span>
+    </span>
   </div>`;
 }
 

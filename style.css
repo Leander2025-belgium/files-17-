@@ -8669,3 +8669,169 @@ body.tv-pair-open .tabbar{
 #home .official-kmi:empty{
   display:none!important;
 }
+
+
+/* 2026-08-30 — echte huidige-locatieknop zoals referentie */
+.searchbox{
+  gap:12px!important;
+  padding-left:22px!important;
+  padding-right:10px!important;
+}
+.searchbox:focus-within{
+  /* geen blauwe/turquoise rechthoekige focusomlijning meer */
+  outline:none!important;
+  box-shadow:
+    0 15px 38px rgba(0,0,0,.16),
+    inset 0 1.2px 0 rgba(255,255,255,.78),
+    inset 0 -1.2px 0 rgba(0,0,0,.18)!important;
+  border-color:rgba(255,255,255,.50)!important;
+}
+.searchbox input{
+  min-width:0!important;
+}
+.searchbox .clearbtn{
+  margin-left:auto!important;
+}
+
+/* Ronde blauwe huidige-locatieknop rechts in de zoekbalk */
+.search-location-btn{
+  width:46px!important;
+  height:46px!important;
+  flex:0 0 46px!important;
+  border:1px solid rgba(255,255,255,.34)!important;
+  border-radius:50%!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  margin-left:2px!important;
+  color:#fff!important;
+  background:
+    linear-gradient(145deg,#2e86ff 0%,#1164e8 72%,#0758d4 100%)!important;
+  box-shadow:
+    0 0 0 7px rgba(44,132,255,.12),
+    0 8px 22px rgba(0,76,194,.26),
+    inset 0 1px 0 rgba(255,255,255,.38)!important;
+  -webkit-tap-highlight-color:transparent;
+  cursor:pointer;
+  transition:transform .16s ease,filter .16s ease;
+}
+.search-location-btn:active{
+  transform:scale(.94);
+  filter:brightness(.95);
+}
+.search-location-btn .location-arrow-icon{
+  width:25px!important;
+  height:25px!important;
+  display:block!important;
+  fill:#fff!important;
+  stroke:none!important;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.13));
+}
+
+/* Suggestiespaneel wordt een afzonderlijke donkere Wheaterflow-kaart */
+.suggestions{
+  top:calc(100% + 12px)!important;
+  background:transparent!important;
+  border:0!important;
+  border-radius:22px!important;
+  overflow:visible!important;
+  box-shadow:none!important;
+}
+.sugg-item.sugg-location{
+  min-height:88px!important;
+  padding:14px 16px!important;
+  gap:15px!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+  border-radius:22px!important;
+  background:
+    linear-gradient(145deg,rgba(9,31,54,.93),rgba(10,27,49,.86))!important;
+  box-shadow:
+    0 14px 34px rgba(0,0,0,.20),
+    inset 0 1px 0 rgba(255,255,255,.055)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(135%)!important;
+  backdrop-filter:blur(18px) saturate(135%)!important;
+}
+.sugg-item.sugg-location:hover,
+.sugg-item.sugg-location:active{
+  background:
+    linear-gradient(145deg,rgba(12,39,67,.96),rgba(11,31,55,.92))!important;
+}
+
+/* Exact hetzelfde blauwe locatiepijltje als in de ronde knop */
+.sugg-location-icon{
+  width:54px!important;
+  height:54px!important;
+  flex:0 0 54px!important;
+  border-radius:50%!important;
+  display:grid!important;
+  place-items:center!important;
+  color:#fff!important;
+  background:
+    linear-gradient(145deg,#2e86ff 0%,#1164e8 72%,#0758d4 100%)!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+  box-shadow:
+    0 8px 22px rgba(0,76,194,.24),
+    inset 0 1px 0 rgba(255,255,255,.36)!important;
+}
+.sugg-location-icon .location-arrow-icon{
+  width:29px!important;
+  height:29px!important;
+  fill:#fff!important;
+  stroke:none!important;
+}
+
+.sugg-main{
+  flex:1!important;
+  gap:5px!important;
+}
+.sugg-location-title-row{
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  gap:9px!important;
+}
+.sugg-location .sugg-name{
+  color:#fff!important;
+  font-size:19px!important;
+  line-height:1.1!important;
+  font-weight:760!important;
+  letter-spacing:-.02em!important;
+}
+.sugg-current-badge{
+  display:inline-flex!important;
+  align-items:center!important;
+  min-height:25px!important;
+  padding:4px 9px!important;
+  border-radius:999px!important;
+  color:#fff!important;
+  font-size:11.5px!important;
+  line-height:1!important;
+  font-weight:800!important;
+  background:linear-gradient(180deg,#2f7be4,#1a5fc5)!important;
+  border:1px solid rgba(255,255,255,.15)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18)!important;
+}
+.sugg-location .sugg-sub{
+  color:rgba(199,214,245,.68)!important;
+  font-size:14px!important;
+  line-height:1.25!important;
+  font-weight:500!important;
+  text-align:left!important;
+}
+
+@media(max-width:560px){
+  .search-location-btn{
+    width:44px!important;
+    height:44px!important;
+    flex-basis:44px!important;
+  }
+  .sugg-item.sugg-location{
+    min-height:84px!important;
+    padding:13px 14px!important;
+  }
+  .sugg-location-icon{
+    width:52px!important;
+    height:52px!important;
+    flex-basis:52px!important;
+  }
+}
