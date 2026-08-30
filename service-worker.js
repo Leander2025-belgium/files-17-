@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260830-light-glass-restore";
+const CACHE_VERSION = "wheaterflow-v20260830-photo-composer-v2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
