@@ -2578,22 +2578,37 @@ function rainNowcastCard(){
   const change = (()=>{
     if(rainingNow){
       if(Number.isFinite(Number(rain?.endsInMinutes)) && rain?.endTime){
-        return {label:'DROGER ROND', main:`~${Math.max(0,Math.round(Number(rain.endsInMinutes)))} min`, sub:`Rond ${formatShortTime(rain.endTime)}`};
+        return {
+          label:'DROGER ROND',
+          main:`~${Math.max(0,Math.round(Number(rain.endsInMinutes)))} min`,
+          sub:`Rond ${formatShortTime(rain.endTime)}`
+        };
       }
-      return {label:'VERWACHTING', main:'Blijft regenen', sub:'Binnen 2 uur'};
+      return {label:'REGEN HOUDT AAN', main:'Langer dan 2 uur', sub:''};
     }
     if(rain?.status === 'rain_soon' && Number.isFinite(Number(rain?.startsInMinutes)) && rain?.startTime){
-      return {label:'REGEN ROND', main:`~${Math.max(0,Math.round(Number(rain.startsInMinutes)))} min`, sub:`Rond ${formatShortTime(rain.startTime)}`};
+      return {
+        label:'REGEN ROND',
+        main:`~${Math.max(0,Math.round(Number(rain.startsInMinutes)))} min`,
+        sub:`Rond ${formatShortTime(rain.startTime)}`
+      };
     }
-    return {label:'VERWACHTING', main:'Geen regen', sub:'Binnen 2 uur'};
+    return {label:'GEEN REGEN VERWACHT', main:'Komende 2 uur', sub:''};
   })();
 
-  const bars = slots.map((slot,i)=>{
+  // Gebruik uitsluitend de fijnste bestaande nowcast-resolutie. Lege slots blijven
+  // ruimtelijk bestaan zodat de tijdas klopt, maar krijgen bewust géén regenbalk.
+  const barSlots = slots.map((slot,i)=>{
     const hourlyMm = Math.max(0,(Number(slot.precipitation)||0)*4);
     const level = rainIntensityToLevel(hourlyMm);
-    const height = hourlyMm <= 0 ? 0 : Math.max(7, Math.min(96, Math.round(rainIntensityToHeight(hourlyMm)*1.38)));
     const current = Number(slot.minutes) === 0 || i === 0;
-    return `<i class="${current?'now':''} ${slot.wet?'wet':'dry'} ${level.id}" title="${Math.round(Number(slot.minutes)||0)} min: ${hourlyMm.toFixed(1)} mm/u · ${level.label}" style="height:${height}px"></i>`;
+    const barHeight = hourlyMm > 0
+      ? Math.min(96, Math.max(6, Math.round(rainIntensityToHeight(hourlyMm)*1.32)))
+      : 0;
+    const bar = hourlyMm > 0
+      ? `<i class="${current?'now':''} ${level.id}" title="${Math.round(Number(slot.minutes)||0)} min: ${hourlyMm.toFixed(1)} mm/u · ${level.label}" style="height:${barHeight}px"></i>`
+      : '';
+    return `<span class="rain-slot ${hourlyMm>0?'has-rain':'is-dry'}">${bar}</span>`;
   }).join('');
 
   const hourly = state.hourly || {};
@@ -2620,21 +2635,21 @@ function rainNowcastCard(){
     precipAmount = values.length ? values.reduce((a,b)=>a+Math.max(0,b),0) : null;
   }
 
-  const statusIcon = rainingNow ? icon('rain',true,34,'rain-status-icon') : icon('sun',true,32,'rain-status-icon');
+  const statusIcon = rainingNow ? icon('rain',true,29,'rain-status-icon') : icon('sun',true,28,'rain-status-icon');
   const statusText = rainingNow ? 'Het regent nu' : 'Droog';
-  const intensityIcon = rainingNow ? icon('rain',true,29,'rain-metric-icon') : icon('drop',true,29,'rain-metric-icon');
+  const intensityIcon = rainingNow ? icon('rain',true,27,'rain-metric-icon') : icon('drop',true,27,'rain-metric-icon');
 
   if(!rain || rain.status === 'unavailable'){
     return `<div class="card rain-now-card rain-reference-layout unavailable">
-      <div class="rain-now-top"><span class="rain-brand">${icon('rain',true,19)}<strong>WHEATERFLOW RAIN</strong></span><span class="rain-updated">${icon('gauge',true,16)}${esc(updateLabel)}</span></div>
-      <div class="rain-status-line">${icon('drop',true,32,'rain-status-icon')}<h3>Regengegevens niet beschikbaar</h3></div>
+      <div class="rain-now-top"><span class="rain-brand">${icon('rain',true,19)}<strong>WHEATERFLOW RAIN</strong></span><span class="rain-updated">${icon('gauge',true,15)}${esc(updateLabel)}</span></div>
+      <div class="rain-status-line">${icon('drop',true,28,'rain-status-icon')}<h3>Regengegevens niet beschikbaar</h3></div>
     </div>`;
   }
 
   return `<div class="card rain-now-card rain-reference-layout ${rain.status} ${rain.heavyShower?'heavy':''}">
     <div class="rain-now-top">
       <span class="rain-brand">${icon('rain',true,19)}<strong>WHEATERFLOW RAIN</strong></span>
-      <span class="rain-updated">${icon('gauge',true,16)}${esc(updateLabel)}</span>
+      <span class="rain-updated">${icon('gauge',true,15)}${esc(updateLabel)}</span>
     </div>
 
     <div class="rain-status-line">${statusIcon}<h3>${esc(statusText)}</h3></div>
@@ -2642,17 +2657,25 @@ function rainNowcastCard(){
     <div class="rain-main-grid">
       <div class="rain-main-card intensity-card">
         <div class="rain-main-card-icon">${intensityIcon}</div>
-        <div class="rain-main-card-copy"><small>INTENSITEIT</small><strong>${esc(intensity.label)}</strong>${rainingNow?`<span>${currentMm.toFixed(1)} mm/u</span>`:''}</div>
+        <div class="rain-main-card-copy">
+          <small>INTENSITEIT</small>
+          <strong>${esc(intensity.label)}</strong>
+          <span>${currentMm.toFixed(1)} mm/u</span>
+        </div>
       </div>
       <div class="rain-main-card change-card">
-        <div class="rain-main-card-icon">${icon('gauge',true,28,'rain-metric-icon')}</div>
-        <div class="rain-main-card-copy"><small>${esc(change.label)}</small><strong>${esc(change.main)}</strong><span>${esc(change.sub)}</span></div>
+        <div class="rain-main-card-icon">${icon('gauge',true,26,'rain-metric-icon')}</div>
+        <div class="rain-main-card-copy">
+          <small>${esc(change.label)}</small>
+          <strong>${esc(change.main)}</strong>
+          ${change.sub?`<span>${esc(change.sub)}</span>`:''}
+        </div>
       </div>
     </div>
 
     <div class="rain-forecast-card">
       <div class="rain-forecast-title">VERWACHTE REGENINTENSITEIT</div>
-      ${bars ? `<div class="rain-now-plot"><div class="rain-now-scale" aria-hidden="true"><span>ZWAAR</span><span>MATIG</span><span>LICHT</span><span>ZEER LICHT</span></div><div class="rain-now-chart">${bars}</div></div><div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 uur</span></div>` : `<div class="rain-chart-empty">Geen korte-termijnframes beschikbaar</div>`}
+      ${slots.length ? `<div class="rain-now-plot"><div class="rain-now-scale" aria-hidden="true"><span>ZWAAR</span><span>MATIG</span><span>LICHT</span><span>ZEER LICHT</span></div><div class="rain-now-chart" style="--rain-slot-count:${Math.max(1,slots.length)}">${barSlots}</div></div><div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 uur</span></div>` : `<div class="rain-chart-empty">Geen korte-termijnframes beschikbaar</div>`}
     </div>
 
     <div class="rain-bottom-stats">
