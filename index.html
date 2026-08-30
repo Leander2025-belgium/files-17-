@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260830-current-location-v1" rel="stylesheet"/>
+<link href="style.css?v=20260830-quality-pass-v1" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -316,45 +316,18 @@
 <div class="radar-wrap">
 <div id="map"></div>
 <div class="radar-top">
-<div class="chip-row">
-<button class="chip active" data-layer="precip" id="chipPrecip">
-<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<path d="M16 13v8M8 13v8M12 15v8M20 16.58A5 5 0 0018 7h-1.26A8 8 0 104 15.25"></path>
-</svg>
-            Buienradar
-          </button>
-<button class="chip" data-layer="satellite" id="chipSat">
-<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<circle cx="12" cy="12" r="10"></circle>
-<path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"></path>
-</svg>
-            Satelliet
-          </button>
-<button class="chip" id="chipScheme">
-            Kleur:
-            <span id="schemeLabel">Helder</span>
-</button>
-<button class="chip" id="chipLocate">
-<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<circle cx="12" cy="12" r="3"></circle>
-<path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
-</svg>
-            Mijn locatie
-          </button>
-<button class="chip" id="xweatherLayersBtn" type="button">
-            Lagen
-          </button>
-<button class="chip" id="radarFullscreen" type="button">
-            Volledig
-          </button>
+<div class="chip-row radar-primary-layers" aria-label="Radar lagen">
+<button class="chip active" id="chipPrecip" type="button">Buienradar</button>
+<button class="chip" id="chipSat" type="button">Satelliet</button>
+<button class="chip" id="radarQuickTemp" type="button">Temperatuur</button>
+<button class="chip" id="radarQuickWind" type="button">Wind</button>
+<button class="chip" id="radarQuickCloud" type="button">Bewolking</button>
 </div>
-<div class="chip-row" id="durationRow">
-<button class="chip active" data-dur="1">1 uur</button>
-<button class="chip" data-dur="6">6 uur</button>
-<button class="chip" data-dur="12">12 uur</button>
-<button class="chip" data-dur="24">24 uur</button>
+<div class="chip-row radar-duration-row" id="durationRow">
+<button class="chip active" data-dur="1">1 uur</button><button class="chip" data-dur="6">6 uur</button><button class="chip" data-dur="12">12 uur</button><button class="chip" data-dur="24">24 uur</button>
 </div>
-<div aria-label="Professionele weerlagen" class="xweather-layerbar" id="xweatherLayerBar"></div>
+<div class="radar-utility-row"><button class="chip radar-compat-hidden" id="chipScheme" type="button"><span id="schemeLabel">Helder</span></button><button class="chip" id="chipLocate" type="button">Mijn locatie</button><button class="chip" id="radarFullscreen" type="button">Volledig</button></div>
+<div aria-label="Professionele weerlagen" class="xweather-layerbar radar-hidden-layerbar" id="xweatherLayerBar"></div>
 </div>
 <div class="radar-info" id="radarInfo"></div>
 <div class="radar-bottom">
@@ -487,7 +460,7 @@
         <h2>Community</h2>
         <p>Live weer, gezien door jou</p>
       </div>
-      <button class="community-share-photo" id="communityUploadOpen" type="button"><span>＋</span> Deel foto</button>
+      <div class="community-create-actions"><button class="community-share-photo" id="communityUploadOpen" type="button"><span>＋</span> Deel foto</button><button class="community-observation-btn" id="communityObservationOpen" type="button">Waarneming melden</button></div>
     </div>
 
     <div class="community-search-v2">
@@ -851,8 +824,8 @@
         Plaatsen
       </button>
 </header>
-<div class="community-composer-body">
-<label class="community-photo-picker">
+<div class="community-composer-body"><div class="community-composer-modes" id="communityComposerModes"><button class="active" data-community-mode="photo" type="button">Weerfoto</button><button data-community-mode="observation" type="button">Waarneming</button></div>
+<label class="community-photo-picker" id="communityPhotoPicker">
 <input accept="image/png,image/jpeg,image/webp" capture="environment" id="communityPhotoInput" type="file"/>
 <span>
           Camera openen of foto kiezen
@@ -896,8 +869,8 @@
 <div aria-labelledby="daySheetTitle" aria-modal="true" class="day-sheet" id="daySheet" role="dialog"></div>
 <div aria-labelledby="profileSheetTitle" aria-modal="true" class="auth-sheet" id="authSheet" role="dialog">
 <header class="profile-header">
-<button aria-label="Profiel sluiten" class="profile-close-button" id="closeAuthSheet" type="button">
-        ×
+<button aria-label="Terug" class="profile-close-button profile-back-button" id="closeAuthSheet" type="button">
+        ←
       </button>
 <h1 id="profileSheetTitle">
         Profiel
@@ -1031,7 +1004,8 @@
 <button class="profile-menu-row" id="profileFavoritesMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/location.png"/><b>Mijn locaties</b></span><strong>›</strong></button>
 <button class="profile-menu-row" id="profileNotificationsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/notifications.png"/><b>Meldingen</b></span><strong>›</strong></button>
 <button class="profile-menu-row" id="profileWeatherPrefsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/preferences.png"/><b>Weervoorkeuren</b></span><strong>›</strong></button>
-<button class="profile-menu-row profile-pro-row" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon profile-menu-icon-pro" src="./assets/ui/profile/pro.png"/><b>Wheaterflow Pro</b></span><em>In de maak</em><strong>›</strong></button>
+<button class="profile-menu-row" id="profileCommunityMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/community.png"/><b>Community</b></span><strong>›</strong></button>
+
 </div>
 <div class="profile-pro-card">
 <div><b><img alt="" aria-hidden="true" class="profile-pro-icon" src="./assets/ui/profile/pro.png"/>Wheaterflow Pro</b><span>Binnenkort beschikbaar</span></div>
@@ -1058,27 +1032,6 @@
               Locatie bepalen…
             </b>
 </button>
-<div class="profile-section-title">
-            Mijn Wheaterflow
-          </div>
-<div class="profile-menu-list">
-<button class="profile-menu-row" id="profileClimateBtn" type="button">
-<span>Persoonlijk klimaat</span>
-<b>Openen ›</b>
-</button>
-<button class="profile-menu-row" id="profileTvDevicesBtn" type="button">
-<span>TV &amp; apparaten</span>
-<b id="profileTvRowStatus">
-                Niet gekoppeld ›
-              </b>
-</button>
-<button class="profile-menu-row" id="profileNotificationsRow" type="button">
-<span>Meldingen</span>
-<b id="profileNotificationsRowStatus">
-                Uit ›
-              </b>
-</button>
-</div>
 <button class="smallbtn primary-auth profile-save-btn" id="profileSaveBtn" type="submit">
             Wijzigingen opslaan
           </button>
@@ -1099,17 +1052,15 @@
 </div>
 <div class="profile-favorites-list" id="profileFavoritesList"></div>
 </div>
-<div class="profile-section-title">
-          Synchronisatie
+<div class="profile-section-title account-management-title">
+          Accountbeheer
         </div>
 <div class="account-actions">
 <button class="smallbtn" id="syncLocalBtn" type="button">
             Lokale gegevens naar account kopiëren
           </button>
 </div>
-<div class="profile-section-title">
-          Beveiliging
-        </div>
+
 <div class="account-actions">
 <button class="smallbtn" id="resetPasswordLoggedInBtn" type="button">
             Wachtwoord wijzigen
@@ -1118,11 +1069,9 @@
             Uitloggen
           </button>
 </div>
-<div class="profile-section-title">
-          Account
-        </div>
+
 <div class="account-actions">
-<button class="smallbtn danger" id="deleteAccountBtn" type="button">
+<button class="linkbtn profile-delete-account" id="deleteAccountBtn" type="button">
             Account verwijderen
           </button>
 </div>
@@ -1570,6 +1519,6 @@
 <!-- Wheaterflow scripts -->
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260830-current-location-v1"></script>
+<script src="script.js?v=20260830-quality-pass-v1"></script>
 </body>
 </html>
