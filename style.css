@@ -9007,3 +9007,161 @@ body.tv-pair-open .tabbar{
   .radar-top{padding-left:10px!important;padding-right:10px!important;}
   .screen:not(#home):not(#radarscreen)>.screen-inner{padding-top:calc(env(safe-area-inset-top) + 18px)!important;}
 }
+
+
+/* =====================================================================
+   2026-08-30 — Restore lighter Wheaterflow Liquid Glass cards
+   Functional logic from the refinement pass is preserved.
+   ===================================================================== */
+:root{
+  --wf-card-primary:rgba(78,104,132,.44);
+  --wf-card-secondary:rgba(88,112,138,.36);
+  --wf-card-soft:rgba(98,121,146,.30);
+  --wf-card-border:rgba(230,241,255,.22);
+  --wf-text:#f8fbff;
+  --wf-text-secondary:rgba(236,244,255,.82);
+  --wf-card-blur:9px;
+  --wf-card-shadow:0 8px 22px rgba(8,20,38,.13);
+}
+
+.card,.detail-card,.weather-summary-card,.rain-now-card,.compact-forecast-card,
+.sea-mode-card,.seaspark-panel,.travel-weather-card,.air-quality-card,
+.community-post,.profile-weather-card,.profile-stat-card,.profile-pro-card,
+.profile-menu-list,.profile-edit-panel,.profile-favorites,.account-actions,
+.chart-card,.graph-card,.wf-data-status{
+  background:linear-gradient(145deg,rgba(118,143,168,.46),rgba(72,101,132,.38))!important;
+  border:1px solid var(--wf-card-border)!important;
+  color:var(--wf-text)!important;
+  box-shadow:var(--wf-card-shadow)!important;
+  -webkit-backdrop-filter:blur(var(--wf-card-blur)) saturate(118%)!important;
+  backdrop-filter:blur(var(--wf-card-blur)) saturate(118%)!important;
+}
+
+.detail-card,.hour-item,.hour-card,.daily-row,.daily-row-compact,
+.sea-compact-grid>div,.sea-score-grid>div,.travel-result-card,
+.community-observation-main,.seaspark-shared-grid>span,.rain-now-facts>span,
+.profile-menu-row,.profile-location-row,.profile-favorite-row{
+  background:linear-gradient(145deg,rgba(128,151,174,.39),rgba(83,111,139,.30))!important;
+  border:1px solid rgba(235,244,255,.16)!important;
+  box-shadow:0 5px 14px rgba(5,18,34,.08)!important;
+  -webkit-backdrop-filter:blur(7px) saturate(115%)!important;
+  backdrop-filter:blur(7px) saturate(115%)!important;
+}
+
+.hour-item,.hour-card{
+  background:linear-gradient(180deg,rgba(135,158,181,.40),rgba(75,105,136,.31))!important;
+}
+.hour-item.active,.hour-card.active{
+  background:linear-gradient(180deg,rgba(75,154,220,.46),rgba(57,117,177,.34))!important;
+  border-color:rgba(149,210,255,.38)!important;
+}
+
+.card-title,.dt-title,.subtle,.updated,.dt-sub,.hour-item .pop,.sea-compact-grid small,
+.seaspark-shared-grid small,.travel-validation,.travel-result-card small,.travel-result-card p,
+.community-post-place,.community-caption,.profile-home-line,.profile-menu-row span,
+.daily-row-compact .dname small,.forecast-day small{
+  color:var(--wf-text-secondary)!important;
+  opacity:1!important;
+}
+.card h2,.card h3,.card b,.card strong,.detail-card .dt-val,.sea-compact-grid b,.sea-score-grid b,
+.community-post-name,.profile-menu-row b,.hour-item strong,.hour-item b{
+  color:var(--wf-text)!important;
+}
+
+.weather-summary-card,.intelligence-card,[class*="intelligence"]{
+  background:linear-gradient(145deg,rgba(100,139,163,.46),rgba(61,104,132,.36))!important;
+}
+.rain-now-card,[class*="rain-now"],[class*="rain-card"]{
+  background:linear-gradient(145deg,rgba(92,135,168,.45),rgba(59,99,133,.34))!important;
+}
+
+.compact-forecast-card,.forecast-card,.daily-card{
+  background:linear-gradient(145deg,rgba(118,143,168,.43),rgba(75,104,134,.34))!important;
+}
+.forecast-14-button{
+  background:rgba(139,164,188,.22)!important;
+  border-color:rgba(239,247,255,.18)!important;
+  box-shadow:none!important;
+}
+
+.sea-mode-card,.seaspark-panel{
+  background:linear-gradient(145deg,rgba(79,126,151,.46),rgba(55,94,124,.36))!important;
+}
+.sea-score-grid>div{
+  background:linear-gradient(145deg,rgba(118,155,177,.42),rgba(71,114,143,.33))!important;
+}
+.sea-compact-grid>div,.sea-advice-compact,.seaspark-shared-grid>span{
+  background:linear-gradient(145deg,rgba(123,151,174,.34),rgba(77,108,137,.27))!important;
+  border:1px solid rgba(235,245,255,.14)!important;
+}
+.sea-score-grid span,.sea-compact-grid span,.sea-compact-grid small,
+.seaspark-shared-grid small,.seaspark-panel p{
+  color:rgba(241,247,255,.84)!important;
+}
+.sea-safety{
+  background:rgba(176,143,61,.16)!important;
+  border:1px solid rgba(255,225,160,.14)!important;
+}
+
+.travel-weather-card,.travel-result-card{
+  background:linear-gradient(145deg,rgba(115,145,172,.42),rgba(72,104,135,.31))!important;
+}
+.travel-swap{background:rgba(125,151,177,.28)!important;}
+
+.community-post,.community-observation-main{
+  background:linear-gradient(145deg,rgba(112,140,166,.43),rgba(70,99,130,.33))!important;
+}
+.community-empty .wf-data-status{
+  background:linear-gradient(145deg,rgba(115,143,169,.40),rgba(73,102,133,.31))!important;
+}
+
+.profile-weather-card,.profile-menu-list,.profile-edit-panel,.profile-favorites,.profile-pro-card,
+.account-actions{
+  background:linear-gradient(145deg,rgba(115,142,168,.44),rgba(72,101,132,.34))!important;
+}
+.account-actions:last-of-type{
+  background:rgba(118,70,78,.22)!important;
+  border-color:rgba(255,133,143,.13)!important;
+}
+
+.chart-card,.graph-card,.air-quality-card{
+  background:linear-gradient(145deg,rgba(118,144,169,.43),rgba(74,103,133,.33))!important;
+}
+
+.wf-data-status{
+  background:linear-gradient(145deg,rgba(101,129,157,.46),rgba(63,93,124,.37))!important;
+}
+.wf-data-status small{color:rgba(238,246,255,.80)!important;}
+
+.map-preview,.home-weather-map{
+  background:linear-gradient(180deg,rgba(85,110,137,.37),rgba(54,82,111,.34))!important;
+}
+.map-preview-status{
+  background:linear-gradient(180deg,rgba(68,94,122,.68),rgba(45,71,100,.70))!important;
+  -webkit-backdrop-filter:blur(7px)!important;
+  backdrop-filter:blur(7px)!important;
+}
+.map-preview-status .wf-data-status{background:rgba(76,103,132,.70)!important;}
+
+.radar-eta-line{
+  background:rgba(73,101,130,.70)!important;
+  border-color:rgba(235,245,255,.20)!important;
+  -webkit-backdrop-filter:blur(9px)!important;
+  backdrop-filter:blur(9px)!important;
+  box-shadow:0 7px 18px rgba(5,17,31,.12)!important;
+}
+
+.sugg-item.sugg-location,
+.sugg-item.sugg-location:hover,
+.sugg-item.sugg-location:active{
+  background:linear-gradient(145deg,rgba(111,139,166,.56),rgba(68,99,131,.48))!important;
+  border-color:rgba(239,247,255,.18)!important;
+  box-shadow:0 10px 26px rgba(7,19,34,.14)!important;
+  -webkit-backdrop-filter:blur(10px) saturate(118%)!important;
+  backdrop-filter:blur(10px) saturate(118%)!important;
+}
+.sugg-location .sugg-sub{color:rgba(239,246,255,.78)!important;}
+
+.card[style*="background"],.detail-card[style*="background"]{
+  background:linear-gradient(145deg,rgba(118,143,168,.46),rgba(72,101,132,.38))!important;
+}
