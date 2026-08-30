@@ -129,7 +129,7 @@ const state = {
   lastUpdated: null,
   favorites: [],
   auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
-  community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', quickFilter: 'foryou', map: null, markers: null, selectedFile: null, photoObjectUrl: '', photoRotation: 0, photoCrop: 'original', composerMode: 'photo', realtimeChannel: null },
+  community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', quickFilter: 'foryou', map: null, markers: null, selectedFile: null, realtimeChannel: null },
   climate: { records: [], settings: {mode:'off'}, period:'month', location:'all', chart:null, loaded:false },
   xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
@@ -2549,25 +2549,116 @@ function nowcastText(){
 
 function rainNowcastCard(){
   const rain = nowcastEngine();
-  if(!rain || rain.status==='unavailable' || rain.status==='dry') return `<div class="card rain-now-card dry"><div class="rain-now-top"><span>Wheaterflow Rain</span></div><h3>Geen regen verwacht binnen 2 uur</h3></div>`;
-  const slots=(rain.slots||[]).filter(slot=>slot && Number.isFinite(Number(slot.precipitation)));
+  const slots = Array.isArray(rain?.slots)
+    ? rain.slots.filter(slot=>slot && Number.isFinite(Number(slot.precipitation)) && Number(slot.minutes) <= 120)
+    : [];
+
+  const updateLabel = (()=>{
+    if(!state.lastUpdated) return 'Zojuist bijgewerkt';
+    const sec = Math.max(0, Math.round((Date.now()-state.lastUpdated)/1000));
+    if(sec < 60) return 'Zojuist bijgewerkt';
+    if(sec < 120) return '1 min geleden';
+    if(sec < 3600) return `${Math.round(sec/60)} min geleden`;
+    return `Om ${new Date(state.lastUpdated).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}`;
+  })();
+
+  const currentSignal = precipitationSignal(liveWeatherSnapshot());
+  const slotNowMm = slots.length ? Math.max(0, Number(slots[0].precipitation)||0) * 4 : 0;
+  const rainingNow = rain?.status === 'raining';
+  const currentMm = rainingNow ? Math.max(0, Number(currentSignal?.now)||0, slotNowMm) : 0;
+
+  const intensity = (()=>{
+    if(!rainingNow || currentMm < 0.05) return {id:'none', label:'Geen regen'};
+    if(currentMm < 0.30) return {id:'very-light', label:'Zeer lichte regen'};
+    if(currentMm < 2.0) return {id:'light', label:'Lichte regen'};
+    if(currentMm < 7.5) return {id:'moderate', label:'Matige regen'};
+    return {id:'heavy', label:'Zware regen'};
+  })();
+
+  const change = (()=>{
+    if(rainingNow){
+      if(Number.isFinite(Number(rain?.endsInMinutes)) && rain?.endTime){
+        return {label:'DROGER ROND', main:`~${Math.max(0,Math.round(Number(rain.endsInMinutes)))} min`, sub:`Rond ${formatShortTime(rain.endTime)}`};
+      }
+      return {label:'VERWACHTING', main:'Blijft regenen', sub:'Binnen 2 uur'};
+    }
+    if(rain?.status === 'rain_soon' && Number.isFinite(Number(rain?.startsInMinutes)) && rain?.startTime){
+      return {label:'REGEN ROND', main:`~${Math.max(0,Math.round(Number(rain.startsInMinutes)))} min`, sub:`Rond ${formatShortTime(rain.startTime)}`};
+    }
+    return {label:'VERWACHTING', main:'Geen regen', sub:'Binnen 2 uur'};
+  })();
+
   const bars = slots.map((slot,i)=>{
-    const hourlyMm=(Number(slot.precipitation)||0)*4;
+    const hourlyMm = Math.max(0,(Number(slot.precipitation)||0)*4);
     const level = rainIntensityToLevel(hourlyMm);
-    const height = rainIntensityToHeight(hourlyMm);
-    return `<i class="${i===0?'now':''} ${slot.wet?'wet':'dry'} ${level.id}" title="${slot.minutes} min: ${hourlyMm.toFixed(1)} mm/u · ${level.label}" style="height:${height}px"></i>`;
+    const height = hourlyMm <= 0 ? 0 : Math.max(7, Math.min(96, Math.round(rainIntensityToHeight(hourlyMm)*1.38)));
+    const current = Number(slot.minutes) === 0 || i === 0;
+    return `<i class="${current?'now':''} ${slot.wet?'wet':'dry'} ${level.id}" title="${Math.round(Number(slot.minutes)||0)} min: ${hourlyMm.toFixed(1)} mm/u · ${level.label}" style="height:${height}px"></i>`;
   }).join('');
-  const reliability=rain.status==='rain_soon' ? rainEtaReliabilityText(rain) : '';
-  return `<div class="card rain-now-card ${rain.status} ${rain.heavyShower?'heavy':''}">
-    <div class="rain-now-top"><span>Wheaterflow Rain</span>${reliability?`<b>${esc(reliability)}</b>`:''}</div>
-    <h3>${esc(centralRainEtaText(rain))}</h3>
-    ${rain.intensityLabel && rain.intensity!=='none' ? `<p>${esc(rain.intensityLabel)}${rain.thunderPossible?' · onweer mogelijk':''}</p>` : ''}
-    <div class="rain-now-facts">
-      ${rain.intensityLabel ? `<span><b>${esc(rain.intensityLabel)}</b><small>intensiteit</small></span>`:''}
-      ${rain.status==='raining' && rain.endsInMinutes!=null ? `<span><b>~${rain.endsInMinutes} min</b><small>tot droger</small></span>`:''}
-      ${rain.status==='rain_soon' && rain.startsInMinutes!=null ? `<span><b>~${rain.startsInMinutes} min</b><small>tot regen</small></span>`:''}
+
+  const hourly = state.hourly || {};
+  const nowIdx = nowIndexInHourly();
+  const hourIndexes = [];
+  if(Array.isArray(hourly.time)){
+    const nowMs = Date.now();
+    for(let i=Math.max(0,nowIdx); i<hourly.time.length; i++){
+      const t = new Date(hourly.time[i]).getTime();
+      if(!Number.isFinite(t)) continue;
+      if(t < nowMs-35*60*1000) continue;
+      if(t > nowMs+120*60*1000) break;
+      hourIndexes.push(i);
+    }
+  }
+  const popValues = hourIndexes.map(i=>Number(hourly.precipitation_probability?.[i])).filter(Number.isFinite);
+  const precipChance = popValues.length ? Math.max(...popValues.map(v=>Math.max(0,Math.min(100,v)))) : null;
+
+  let precipAmount = slots.length
+    ? slots.reduce((sum,slot)=>sum+Math.max(0,Number(slot.precipitation)||0),0)
+    : null;
+  if(precipAmount == null && hourIndexes.length){
+    const values = hourIndexes.map(i=>Number(hourly.precipitation?.[i])).filter(Number.isFinite);
+    precipAmount = values.length ? values.reduce((a,b)=>a+Math.max(0,b),0) : null;
+  }
+
+  const statusIcon = rainingNow ? icon('rain',true,34,'rain-status-icon') : icon('sun',true,32,'rain-status-icon');
+  const statusText = rainingNow ? 'Het regent nu' : 'Droog';
+  const intensityIcon = rainingNow ? icon('rain',true,29,'rain-metric-icon') : icon('drop',true,29,'rain-metric-icon');
+
+  if(!rain || rain.status === 'unavailable'){
+    return `<div class="card rain-now-card rain-reference-layout unavailable">
+      <div class="rain-now-top"><span class="rain-brand">${icon('rain',true,19)}<strong>WHEATERFLOW RAIN</strong></span><span class="rain-updated">${icon('gauge',true,16)}${esc(updateLabel)}</span></div>
+      <div class="rain-status-line">${icon('drop',true,32,'rain-status-icon')}<h3>Regengegevens niet beschikbaar</h3></div>
+    </div>`;
+  }
+
+  return `<div class="card rain-now-card rain-reference-layout ${rain.status} ${rain.heavyShower?'heavy':''}">
+    <div class="rain-now-top">
+      <span class="rain-brand">${icon('rain',true,19)}<strong>WHEATERFLOW RAIN</strong></span>
+      <span class="rain-updated">${icon('gauge',true,16)}${esc(updateLabel)}</span>
     </div>
-    ${bars ? `<div class="rain-now-plot"><div class="rain-now-scale" aria-hidden="true"><span>Zwaar</span><span>Matig</span><span>Licht</span></div><div class="rain-now-chart">${bars}</div></div><div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 u</span></div>`:''}
+
+    <div class="rain-status-line">${statusIcon}<h3>${esc(statusText)}</h3></div>
+
+    <div class="rain-main-grid">
+      <div class="rain-main-card intensity-card">
+        <div class="rain-main-card-icon">${intensityIcon}</div>
+        <div class="rain-main-card-copy"><small>INTENSITEIT</small><strong>${esc(intensity.label)}</strong>${rainingNow?`<span>${currentMm.toFixed(1)} mm/u</span>`:''}</div>
+      </div>
+      <div class="rain-main-card change-card">
+        <div class="rain-main-card-icon">${icon('gauge',true,28,'rain-metric-icon')}</div>
+        <div class="rain-main-card-copy"><small>${esc(change.label)}</small><strong>${esc(change.main)}</strong><span>${esc(change.sub)}</span></div>
+      </div>
+    </div>
+
+    <div class="rain-forecast-card">
+      <div class="rain-forecast-title">VERWACHTE REGENINTENSITEIT</div>
+      ${bars ? `<div class="rain-now-plot"><div class="rain-now-scale" aria-hidden="true"><span>ZWAAR</span><span>MATIG</span><span>LICHT</span><span>ZEER LICHT</span></div><div class="rain-now-chart">${bars}</div></div><div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 uur</span></div>` : `<div class="rain-chart-empty">Geen korte-termijnframes beschikbaar</div>`}
+    </div>
+
+    <div class="rain-bottom-stats">
+      ${precipChance!=null ? `<div class="rain-bottom-stat"><small>KANS OP NEERSLAG</small><strong>${Math.round(precipChance)}%</strong></div>` : ''}
+      ${precipAmount!=null ? `<div class="rain-bottom-stat"><small>NEERSLAG HOEVEELHEID</small><strong>${esc(fmtPrecip(precipAmount))}</strong></div>` : ''}
+    </div>
   </div>`;
 }
 
@@ -4811,20 +4902,6 @@ async function uploadAvatar(file){
   }catch(e){ updateProfileMessage(e.message || 'Profielfoto kon niet worden opgeslagen.', 'error'); }
 }
 
-async function compressAvatar(file){
-  const image=await loadCommunityImage(file);
-  const sourceW=image.width, sourceH=image.height;
-  const side=Math.min(sourceW,sourceH);
-  const canvas=document.createElement('canvas');
-  canvas.width=512; canvas.height=512;
-  const ctx=canvas.getContext('2d',{alpha:false});
-  ctx.fillStyle='#dcecff'; ctx.fillRect(0,0,512,512);
-  ctx.drawImage(image,(sourceW-side)/2,(sourceH-side)/2,side,side,0,0,512,512);
-  image.close?.();
-  try{ return await canvasToBlob(canvas,'image/webp',.86); }
-  catch(_){ return canvasToBlob(canvas,'image/jpeg',.88); }
-}
-
 function wireAuthUi(){
   $('#profileBtn')?.addEventListener('click', openAuthSheet);
   $('#closeAuthSheet')?.addEventListener('click', ()=>closeAuthSheet());
@@ -5391,10 +5468,9 @@ const safeRandomId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.n
 
 function initCommunityUi(){
   const catOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
-  const composerCatOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}" ${c.id === 'clouds' ? 'selected' : ''}>${c.label}</option>`).join('');
+  const composerCatOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}" ${c.id === 'other' ? 'selected' : ''}>${c.label}</option>`).join('');
   if($('#communityCategorySelect')) $('#communityCategorySelect').innerHTML = composerCatOptions;
   if($('#communityCategoryFilter')) $('#communityCategoryFilter').innerHTML = '<option value="">Alle categorieen</option>' + catOptions;
-  renderCommunityWeatherChips('clouds');
   renderCommunityQuickObservations();
   $('#communityQuickObservations')?.addEventListener('click', handleQuickObservationClick);
   $('#communityUploadOpen')?.addEventListener('click', ()=>{ openCommunityComposer(); setCommunityComposerMode('photo'); });
@@ -5404,22 +5480,7 @@ function initCommunityUi(){
   $('#communityScrim')?.addEventListener('click', closeCommunityComposer);
   $('#communitySubmitPost')?.addEventListener('click', createCommunityPost);
   $('#communityPhotoInput')?.addEventListener('change', handleCommunityPhotoSelect);
-  $('#communityCameraInput')?.addEventListener('change', handleCommunityPhotoSelect);
-  $('#communityCropPhoto')?.addEventListener('click', cycleCommunityPhotoCrop);
-  $('#communityRotatePhoto')?.addEventListener('click', rotateCommunityPhoto);
-  $('#communityCaption')?.addEventListener('input', ()=>{
-    if($('#communityCaptionCount')) $('#communityCaptionCount').textContent=String($('#communityCaption')?.value.length || 0);
-    updateCommunityComposerValidity();
-  });
-  $('#communityWeatherChips')?.addEventListener('click', e=>{
-    const btn=e.target.closest('button[data-category]'); if(!btn) return;
-    selectCommunityWeatherCategory(btn.dataset.category);
-  });
-  $('#communityPrivacyOptions')?.addEventListener('click', e=>{
-    const btn=e.target.closest('button[data-privacy]'); if(!btn) return;
-    selectCommunityPrivacy(btn.dataset.privacy);
-  });
-  $('#communityIncludeWeather')?.addEventListener('change', updateCommunityCapturedWeather);
+  $('#communityUseGps')?.addEventListener('change', updateCommunityCapturedWeather);
   $('#communityLoadMore')?.addEventListener('click', ()=>loadCommunityPosts(false));
   $('#communitySearch')?.addEventListener('input', debounce(e=>{
     state.community.query = e.target.value.trim();
@@ -5456,29 +5517,6 @@ function communityWeatherIcon(typeOrCategory,size=22){
   const id=String(typeOrCategory||'other');
   const map={rain:'rain',heavy_rain:'rain',thunder:'storm',lightning:'storm',hail:'snow',snow:'snow',fog:'fog',strong_wind:'wind',flooding:'rain',ice:'snow',clearing:'partly',sunset:'sun',sunrise:'sun',clouds:'cloud',storm:'storm',shower:'rain',coast:'wind',seaspark:'drop'};
   return icon(map[id]||'cloud',true,size);
-}
-function renderCommunityWeatherChips(selected='clouds'){
-  const wrap=$('#communityWeatherChips'); if(!wrap) return;
-  wrap.innerHTML=COMMUNITY_CATEGORIES.map(cat=>`<button type="button" role="radio" aria-checked="${cat.id===selected}" class="${cat.id===selected?'active':''}" data-category="${esc(cat.id)}"><span>${communityWeatherIcon(cat.id,20)}</span>${esc(cat.label)}</button>`).join('');
-}
-function selectCommunityWeatherCategory(category){
-  const select=$('#communityCategorySelect');
-  if(select) select.value=category;
-  $$('#communityWeatherChips button[data-category]').forEach(btn=>{
-    const active=btn.dataset.category===category;
-    btn.classList.toggle('active',active);
-    btn.setAttribute('aria-checked',String(active));
-  });
-}
-function selectCommunityPrivacy(privacy='municipality'){
-  const select=$('#communityLocationPrivacy');
-  if(select) select.value=privacy;
-  $$('#communityPrivacyOptions button[data-privacy]').forEach(btn=>{
-    const active=btn.dataset.privacy===privacy;
-    btn.classList.toggle('active',active);
-    btn.setAttribute('aria-checked',String(active));
-  });
-  updateCommunityCapturedWeather();
 }
 function renderCommunityQuickObservations(){
   const wrap=$('#communityQuickObservations'); if(!wrap) return;
@@ -5840,141 +5878,37 @@ function setCommunityComposerMode(mode='photo'){
   $('#communityPhotoPicker')?.classList.toggle('hidden',mode==='observation');
   if($('#communityComposerTitle')) $('#communityComposerTitle').textContent=mode==='photo'?'Weerfoto delen':'Waarneming melden';
   if($('#communityCaption')) $('#communityCaption').placeholder=mode==='photo'?'Wat zie je? Voeg een korte beschrijving toe.':'Beschrijf kort wat je waarneemt.';
-  if($('#communitySubmitPost')) $('#communitySubmitPost').innerHTML=mode==='photo'?'Plaats weerfoto <span aria-hidden="true">→</span>':'Plaats waarneming <span aria-hidden="true">→</span>';
-  updateCommunityComposerValidity();
 }
 function openCommunityComposer(){
   if(!requireCommunityLogin()) return;
   lockPageScroll();
-  document.body.classList.add('community-composer-open');
   $('#communityComposer')?.classList.add('show');
   $('#communityScrim')?.classList.add('show');
   updateCommunityCapturedWeather();
-  updateCommunityComposerValidity();
 }
 function closeCommunityComposer(){
   $('#communityComposer')?.classList.remove('show');
   $('#communityScrim')?.classList.remove('show');
-  document.body.classList.remove('community-composer-open');
   unlockPageScroll();
 }
 
 function handleCommunityPhotoSelect(e){
   const file = e.target.files?.[0];
-  if(!file) return;
-  if(!/^image\/(jpeg|png|webp)$/i.test(file.type || '')){
-    setCommunityComposerMessage('Kies een JPEG-, PNG- of WebP-afbeelding.', 'error');
-    e.target.value=''; return;
+  state.community.selectedFile = file || null;
+  const preview = $('#communityPhotoPreview');
+  if(file && preview){
+    preview.src = URL.createObjectURL(file);
+    preview.classList.remove('hidden');
+  }else if(preview){
+    preview.removeAttribute('src');
+    preview.classList.add('hidden');
   }
-  if(file.size > 20*1024*1024){
-    setCommunityComposerMessage('Deze foto is groter dan 20 MB. Kies een kleinere foto.', 'error');
-    e.target.value=''; return;
-  }
-  if(state.community.photoObjectUrl) URL.revokeObjectURL(state.community.photoObjectUrl);
-  state.community.selectedFile=file;
-  state.community.photoRotation=0;
-  state.community.photoCrop='original';
-  state.community.photoObjectUrl=URL.createObjectURL(file);
-  renderCommunityPhotoPreview();
-  setCommunityComposerMessage('');
-  updateCommunityComposerValidity();
-}
-
-function renderCommunityPhotoPreview(){
-  const preview=$('#communityPhotoPreview');
-  const wrap=$('#communityPhotoPreviewWrap');
-  const empty=$('#communityPhotoEmpty');
-  if(!preview || !wrap || !empty) return;
-  const hasPhoto=Boolean(state.community.selectedFile && state.community.photoObjectUrl);
-  empty.classList.toggle('hidden',hasPhoto);
-  wrap.classList.toggle('hidden',!hasPhoto);
-  if(!hasPhoto){ preview.removeAttribute('src'); return; }
-  preview.src=state.community.photoObjectUrl;
-  preview.style.transform=`rotate(${state.community.photoRotation||0}deg)`;
-  wrap.dataset.crop=state.community.photoCrop || 'original';
-  const cropButton=$('#communityCropPhoto');
-  if(cropButton){
-    const labels={original:'Bijsnijden',square:'Vierkant',portrait:'Staand'};
-    cropButton.textContent=labels[state.community.photoCrop] || 'Bijsnijden';
-  }
-}
-
-function cycleCommunityPhotoCrop(){
-  const order=['original','square','portrait'];
-  const index=order.indexOf(state.community.photoCrop);
-  state.community.photoCrop=order[(index+1)%order.length];
-  renderCommunityPhotoPreview();
-}
-
-function rotateCommunityPhoto(){
-  state.community.photoRotation=((state.community.photoRotation||0)+90)%360;
-  renderCommunityPhotoPreview();
-}
-
-function updateCommunityComposerValidity(){
-  const button=$('#communitySubmitPost'); if(!button) return;
-  const caption=$('#communityCaption')?.value.trim() || '';
-  const valid=state.community.composerMode==='photo' ? Boolean(state.community.selectedFile) : caption.length>=3;
-  button.disabled=!valid;
 }
 
 function updateCommunityCapturedWeather(){
-  const box=$('#communityCapturedWeather'); if(!box) return;
-  const include=$('#communityIncludeWeather')?.checked !== false;
-  if(!include){
-    box.textContent='Weergegevens worden niet toegevoegd.';
-    box.classList.add('is-off');
-    return;
-  }
-  const cur=liveWeatherSnapshot();
-  box.classList.remove('is-off');
-  if(!cur){ box.textContent='Weergegevens worden geladen…'; return; }
-  const privacy=$('#communityLocationPrivacy')?.value || 'municipality';
-  const place=privacy==='none' ? 'Locatie verborgen' : (state.loc.name || 'Huidige locatie');
-  const parts=[place,fmtTemp(cur.temperature_2m),`Wind ${fmtWind(cur.wind_speed_10m)}`,fmtPrecip(cur.precipitation || 0)];
-  box.textContent=parts.join(' · ');
-}
-
-async function loadCommunityImage(file){
-  if('createImageBitmap' in window) return createImageBitmap(file);
-  return new Promise((resolve,reject)=>{
-    const image=new Image();
-    const url=URL.createObjectURL(file);
-    image.onload=()=>{ URL.revokeObjectURL(url); resolve(image); };
-    image.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('Foto kon niet worden gelezen.')); };
-    image.src=url;
-  });
-}
-
-function canvasToBlob(canvas,type='image/webp',quality=.86){
-  return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Foto kon niet worden verwerkt.')),type,quality));
-}
-
-async function prepareCommunityPhoto(file){
-  const image=await loadCommunityImage(file);
-  const sourceW=image.width, sourceH=image.height;
-  let sx=0, sy=0, sw=sourceW, sh=sourceH;
-  const crop=state.community.photoCrop || 'original';
-  const targetRatio=crop==='square' ? 1 : crop==='portrait' ? .8 : sourceW/sourceH;
-  if(sw/sh>targetRatio){ sw=sh*targetRatio; sx=(sourceW-sw)/2; }
-  else if(sw/sh<targetRatio){ sh=sw/targetRatio; sy=(sourceH-sh)/2; }
-  const maxEdge=1800;
-  const scale=Math.min(1,maxEdge/Math.max(sw,sh));
-  const drawW=Math.max(1,Math.round(sw*scale));
-  const drawH=Math.max(1,Math.round(sh*scale));
-  const rotation=((state.community.photoRotation||0)%360+360)%360;
-  const swap=rotation===90 || rotation===270;
-  const canvas=document.createElement('canvas');
-  canvas.width=swap?drawH:drawW;
-  canvas.height=swap?drawW:drawH;
-  const ctx=canvas.getContext('2d',{alpha:false});
-  ctx.fillStyle='#07182e'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.translate(canvas.width/2,canvas.height/2);
-  ctx.rotate(rotation*Math.PI/180);
-  ctx.drawImage(image,sx,sy,sw,sh,-drawW/2,-drawH/2,drawW,drawH);
-  image.close?.();
-  try{ return await canvasToBlob(canvas,'image/webp',.86); }
-  catch(_){ return canvasToBlob(canvas,'image/jpeg',.88); }
+  const cur = liveWeatherSnapshot();
+  if(!cur || !$('#communityCapturedWeather')) return;
+  $('#communityCapturedWeather').textContent = `${state.loc.name}: ${fmtTemp(cur.temperature_2m)}, voelt ${fmtTemp(cur.apparent_temperature)}, wind ${fmtWind(cur.wind_speed_10m)}, ${fmtPrecip(cur.precipitation || 0)}, ${cur.relative_humidity_2m}% vocht.`;
 }
 
 async function createCommunityPost(){
@@ -5983,16 +5917,13 @@ async function createCommunityPost(){
   const caption = $('#communityCaption')?.value.trim() || '';
   if(state.community.composerMode==='photo' && !file) return setCommunityComposerMessage('Kies eerst een foto voor een weerfotobericht.', 'error');
   if(!file && caption.length < 3) return setCommunityComposerMessage('Beschrijf kort je waarneming.', 'error');
-  const submit=$('#communitySubmitPost');
   try{
-    if(submit){ submit.disabled=true; submit.classList.add('sending'); submit.textContent='Bezig met plaatsen…'; }
     setCommunityComposerMessage(file ? 'Foto voorbereiden...' : 'Bericht voorbereiden...');
+    const blob = file ? await compressAvatar(file) : null;
+    const gps = $('#communityUseGps')?.checked ? await getBrowserLocation() : null;
     const privacy = $('#communityLocationPrivacy')?.value || 'municipality';
-    const includeWeather = $('#communityIncludeWeather')?.checked !== false;
-    const blob = file ? await prepareCommunityPhoto(file) : null;
-    const gps = privacy === 'exact' ? await getBrowserLocation() : null;
     const loc = gps ? {lat:gps.lat, lon:gps.lon, ...(await reverseGeocode(gps.lat,gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
-    const cur = includeWeather ? liveWeatherSnapshot() : null;
+    const cur = liveWeatherSnapshot();
     let category = $('#communityCategorySelect')?.value || 'other';
     if(category === 'other' && /(^|\s|#)(zeevonk|seaspark|bioluminescentie|bioluminescence)(\s|$|[.,!?])/i.test(caption)) category = 'seaspark';
     const form = new FormData();
@@ -6002,35 +5933,20 @@ async function createCommunityPost(){
     form.append('location_privacy', privacy);
     form.append('location_name', privacy === 'none' ? '' : (loc.name || state.loc.name));
     if(privacy === 'exact'){ form.append('latitude', String(loc.lat)); form.append('longitude', String(loc.lon)); }
-    if(includeWeather){
-      form.append('temperature', cur?.temperature_2m ?? '');
-      form.append('apparent_temperature', cur?.apparent_temperature ?? '');
-      form.append('wind_speed', cur?.wind_speed_10m ?? '');
-      form.append('precipitation', cur?.precipitation ?? '');
-      form.append('humidity', cur?.relative_humidity_2m ?? '');
-      form.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
-      form.append('pressure', cur?.pressure_msl ?? '');
-      form.append('weather_source', state.observation ? state.observation.source : 'KNMI HARMONIE');
-      form.append('data_quality', 'automatisch-toegevoegd');
-    }
+    form.append('temperature', cur?.temperature_2m ?? '');
+    form.append('apparent_temperature', cur?.apparent_temperature ?? '');
+    form.append('wind_speed', cur?.wind_speed_10m ?? '');
+    form.append('precipitation', cur?.precipitation ?? '');
+    form.append('humidity', cur?.relative_humidity_2m ?? '');
+    form.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
+    form.append('pressure', cur?.pressure_msl ?? '');
+    form.append('weather_source', state.observation ? state.observation.source : 'KNMI HARMONIE');
+    form.append('data_quality', 'community-waarneming');
     await apiForm('/community/posts', form);
     setCommunityComposerMessage('Geplaatst.', 'ok');
-    if($('#communityCaption')) $('#communityCaption').value='';
-    if($('#communityCaptionCount')) $('#communityCaptionCount').textContent='0';
-    if($('#communityPhotoInput')) $('#communityPhotoInput').value='';
-    if($('#communityCameraInput')) $('#communityCameraInput').value='';
-    if(state.community.photoObjectUrl) URL.revokeObjectURL(state.community.photoObjectUrl);
-    state.community.selectedFile=null; state.community.photoObjectUrl=''; state.community.photoRotation=0; state.community.photoCrop='original';
-    renderCommunityPhotoPreview();
-    closeCommunityComposer(); await loadCommunityPosts(true); toast(file ? 'Weerfoto gedeeld.' : 'Waarneming gedeeld.');
-  }catch(e){
-    console.warn('Community upload mislukt:', e?.message || e);
-    const denied=/permission|denied|toestemming|geolocation/i.test(e?.message || '');
-    setCommunityComposerMessage(denied ? 'Exacte locatie kon niet worden opgehaald. Kies Alleen gemeente of geef locatietoegang.' : 'Uploaden lukte niet. Controleer je verbinding en probeer opnieuw.', 'error');
-  }finally{
-    if(submit){ submit.classList.remove('sending'); submit.innerHTML=state.community.composerMode==='photo'?'Plaats weerfoto <span aria-hidden="true">→</span>':'Plaats waarneming <span aria-hidden="true">→</span>'; }
-    updateCommunityComposerValidity();
-  }
+    $('#communityCaption').value=''; $('#communityPhotoInput').value=''; $('#communityPhotoPreview')?.classList.add('hidden');
+    state.community.selectedFile=null; closeCommunityComposer(); await loadCommunityPosts(true); toast(file ? 'Weerfoto gedeeld.' : 'Weerbericht gedeeld.');
+  }catch(e){ console.warn('Community upload mislukt:', e?.message || e); setCommunityComposerMessage('Uploaden lukte niet. Controleer je verbinding.', 'error'); }
 }
 
 function setCommunityComposerMessage(msg, type=''){

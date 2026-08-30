@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260830-light-glass-restore" rel="stylesheet"/>
+<link href="style.css?v=20260830-rain-approved-v1" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -815,76 +815,56 @@
 <div aria-labelledby="communityComposerTitle" aria-modal="true" class="community-composer" id="communityComposer" role="dialog">
 <header class="community-composer-head">
 <button aria-label="Sluiten" class="profile-close-button" id="communityComposerClose" type="button">
-        ‹
+        ×
       </button>
 <h3 id="communityComposerTitle">
         Weerfoto delen
       </h3>
-<span aria-hidden="true" class="community-head-spacer"></span>
+<button class="profile-done-button" id="communitySubmitPost" type="button">
+        Plaatsen
+      </button>
 </header>
-<div class="community-composer-body">
-<div class="community-composer-modes" id="communityComposerModes" aria-label="Type bericht"><button class="active" data-community-mode="photo" type="button">Weerfoto</button><button data-community-mode="observation" type="button">Waarneming</button></div>
-
-<section class="community-photo-picker" id="communityPhotoPicker" aria-label="Foto toevoegen">
-  <input accept="image/png,image/jpeg,image/webp" capture="environment" id="communityCameraInput" type="file"/>
-  <input accept="image/png,image/jpeg,image/webp" id="communityPhotoInput" type="file"/>
-  <div class="community-photo-empty" id="communityPhotoEmpty">
-    <span class="community-camera-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8.2 5.5 9.5 3.8h5l1.3 1.7H19A2.5 2.5 0 0 1 21.5 8v8.5A2.5 2.5 0 0 1 19 19H5a2.5 2.5 0 0 1-2.5-2.5V8A2.5 2.5 0 0 1 5 5.5h3.2Z"/><circle cx="12" cy="12" r="3.7"/></svg></span>
-    <strong>Voeg een weerfoto toe</strong>
-    <small>Maak een foto of kies uit je bibliotheek</small>
-    <div class="community-photo-source-actions">
-      <label class="community-source-primary" for="communityCameraInput">Maak foto</label>
-      <label for="communityPhotoInput">Kies foto</label>
-    </div>
-  </div>
-  <div class="community-photo-preview-wrap hidden" id="communityPhotoPreviewWrap">
-    <img alt="Voorvertoning van je weerfoto" id="communityPhotoPreview"/>
-    <div class="community-photo-edit-actions" aria-label="Foto bewerken">
-      <button id="communityCropPhoto" type="button">Bijsnijden</button>
-      <button id="communityRotatePhoto" type="button">Draaien</button>
-      <label for="communityPhotoInput">Andere foto</label>
-    </div>
-  </div>
-</section>
-
-<label class="community-form-card community-description-field">
-  <span>Beschrijving</span>
-  <textarea id="communityCaption" maxlength="500" placeholder="Wat zie je? Voeg eventueel #regen of #onweer toe"></textarea>
-  <small><span id="communityCaptionCount">0</span>/500</small>
+<div class="community-composer-body"><div class="community-composer-modes" id="communityComposerModes"><button class="active" data-community-mode="photo" type="button">Weerfoto</button><button data-community-mode="observation" type="button">Waarneming</button></div>
+<label class="community-photo-picker" id="communityPhotoPicker">
+<input accept="image/png,image/jpeg,image/webp" capture="environment" id="communityPhotoInput" type="file"/>
+<span>
+          Camera openen of foto kiezen
+        </span>
+<img alt="" class="hidden" id="communityPhotoPreview"/>
 </label>
+<label>
+        Omschrijving
 
-<section class="community-form-card">
-  <h4>Weersoort</h4>
-  <div class="community-weather-chips" id="communityWeatherChips" role="radiogroup" aria-label="Weersoort"></div>
-  <select class="community-native-select" id="communityCategorySelect" aria-label="Weersoort"></select>
-</section>
-
-<section class="community-form-card">
-  <h4>Locatie delen</h4>
-  <div class="community-privacy-options" id="communityPrivacyOptions" role="radiogroup" aria-label="Locatie delen">
-    <button class="active" data-privacy="municipality" type="button">Alleen gemeente</button>
-    <button data-privacy="exact" type="button">Exacte locatie</button>
-    <button data-privacy="none" type="button">Geen locatie</button>
-  </div>
-  <select class="community-native-select" id="communityLocationPrivacy" aria-label="Locatie delen">
-    <option selected value="municipality">Alleen gemeente</option>
-    <option value="exact">Exacte locatie</option>
-    <option value="none">Geen locatie</option>
-  </select>
-</section>
-
-<label class="community-weather-toggle">
-  <span><b>Weergegevens toevoegen</b><small>Temperatuur, wind en neerslag</small></span>
-  <input checked id="communityIncludeWeather" type="checkbox"/>
-  <i aria-hidden="true"></i>
+        <textarea id="communityCaption" maxlength="500" placeholder="Wat zie je? Gebruik gerust #onweer of #regenboog."></textarea>
 </label>
+<label>
+        Weersoort
+        <select id="communityCategorySelect"></select>
+</label>
+<label>
+        Locatie delen
 
-<div class="community-captured-weather" id="communityCapturedWeather">Weergegevens laden…</div>
-<div aria-live="polite" class="auth-message" id="communityComposerMessage"></div>
+        <select id="communityLocationPrivacy">
+<option value="municipality">
+            Alleen gemeente
+          </option>
+<option value="exact">
+            Exacte locatie
+          </option>
+<option value="none">
+            Geen locatie
+          </option>
+</select>
+</label>
+<label class="inline-check">
+<input id="communityUseGps" type="checkbox"/>
+        Gebruik GPS voor deze upload
+      </label>
+<div class="community-captured-weather" id="communityCapturedWeather">
+        Weergegevens worden toegevoegd bij plaatsen.
+      </div>
+<div class="auth-message" id="communityComposerMessage"></div>
 </div>
-<footer class="community-composer-footer">
-  <button class="community-submit-button" disabled id="communitySubmitPost" type="button">Plaats weerfoto <span aria-hidden="true">→</span></button>
-</footer>
 </div>
 <div aria-labelledby="daySheetTitle" aria-modal="true" class="day-sheet" id="daySheet" role="dialog"></div>
 <div aria-labelledby="profileSheetTitle" aria-modal="true" class="auth-sheet" id="authSheet" role="dialog">
@@ -1539,6 +1519,6 @@
 <!-- Wheaterflow scripts -->
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260830-light-glass-restore"></script>
+<script src="script.js?v=20260830-rain-approved-v1"></script>
 </body>
 </html>
