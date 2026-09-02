@@ -10277,3 +10277,6 @@ body.tv-pair-open .tabbar{
   #authSheet.auth-sheet.profile-mode .account-row-icon svg{width:19px!important;height:19px!important;}
   #authSheet.auth-sheet.profile-mode .account-row-label{font-size:12px!important;}
 }
+
+/* Wheaterflow Shop profile link */
+.profile-shop-icon{display:inline-grid;place-items:center;color:#68e7ee;font-size:1.15rem;font-weight:800;}

@@ -68,3 +68,11 @@ npm run build
 ## Native iOS companion
 
 De geïsoleerde SwiftUI/WidgetKit/ActivityKit companion staat in `ios/`. Open op macOS `ios/Wheaterflow.xcodeproj` en volg `ios/README.md` voor signing, App Group, widget-, Live Activity- en API-deploymentstappen.
+
+
+## Wheaterflow Shop
+
+De webshop staat in `shop/` en is direct bereikbaar via `https://wheaterflow.be/shop/` zodra de repository is gedeployed.
+De shop bevat momenteel de complete storefront, productopties, lokaal winkelmandje en checkout-UI. Productfoto’s, live orderverwerking en een betaalprovider zijn bewust nog niet gekoppeld.
+
+Belangrijk voor live verkoop: sluit eerst een server-side orderflow en betaalprovider aan en vervang de voorlopige juridische teksten in `shop/privacy.html` en `shop/voorwaarden.html` door definitieve bedrijfsinformatie.

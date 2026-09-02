@@ -1,10 +1,15 @@
-const CACHE_VERSION = "wheaterflow-v20260830-accountbeheer-cascade-fix-v2";
+const CACHE_VERSION = "wheaterflow-v20260902-shop-v1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./offline.html",
   "./style.css",
+  "./shop/index.html",
+  "./shop/shop.css",
+  "./shop/shop.js",
+  "./shop/privacy.html",
+  "./shop/voorwaarden.html",
   "./script.js",
   "./castService.js",
   "./tvPairingService.js",
