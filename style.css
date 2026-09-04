@@ -10618,3 +10618,72 @@ table.hourtable th,
   font-size:12px!important;
   line-height:1.2!important;
 }
+
+/* 2026-09-04 v3 — definitieve 14-daagse layoutfix.
+   Oude #home .days14 / #home .day14-regels hadden hogere specificiteit en
+   forceerden opnieuw 2 grote tegels per rij. Deze selectors winnen bewust. */
+#home .days14.forecast14-list{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:8px!important;
+  align-items:stretch!important;
+}
+#home button.day14.forecast14-row{
+  width:100%!important;
+  min-width:0!important;
+  min-height:68px!important;
+  max-height:none!important;
+  height:auto!important;
+  aspect-ratio:auto!important;
+  margin:0!important;
+  padding:9px 11px!important;
+  display:grid!important;
+  grid-template-rows:none!important;
+  grid-template-columns:minmax(72px,1.05fr) 44px minmax(52px,.72fr) minmax(52px,.72fr) minmax(78px,1fr)!important;
+  gap:7px!important;
+  align-items:center!important;
+  align-content:normal!important;
+  justify-content:stretch!important;
+  overflow:hidden!important;
+  border-radius:18px!important;
+  text-align:left!important;
+  box-sizing:border-box!important;
+}
+#home button.day14.forecast14-row:first-child,
+#home button.day14.forecast14-row.today{
+  background:rgba(111,144,172,.42)!important;
+  border-color:rgba(204,240,255,.27)!important;
+}
+#home button.day14.forecast14-row:hover,
+#home button.day14.forecast14-row.selected{
+  transform:none!important;
+}
+
+@media(max-width:390px){
+  #home button.day14.forecast14-row{
+    min-height:66px!important;
+    padding:8px!important;
+    grid-template-columns:minmax(61px,1fr) 39px minmax(47px,.72fr) minmax(47px,.72fr) minmax(67px,.98fr)!important;
+    gap:4px!important;
+  }
+  #home .forecast14-head{
+    grid-template-columns:minmax(61px,1fr) 39px minmax(47px,.72fr) minmax(47px,.72fr) minmax(67px,.98fr)!important;
+    gap:4px!important;
+    padding-inline:8px!important;
+    font-size:11.5px!important;
+  }
+  #home .forecast14-day b{font-size:14px!important;}
+  #home .forecast14-day small{font-size:11.5px!important;}
+  #home .forecast14-metric b{font-size:15px!important;}
+  #home .forecast14-wind b{font-size:12.5px!important;}
+}
+
+@media(max-width:340px){
+  #home .forecast14-head{display:none!important;}
+  #home button.day14.forecast14-row{
+    grid-template-columns:minmax(58px,1fr) 38px repeat(3,minmax(0,1fr))!important;
+    gap:3px!important;
+    padding-inline:7px!important;
+  }
+  #home .forecast14-metric small{display:block!important;font-size:10px!important;}
+}
