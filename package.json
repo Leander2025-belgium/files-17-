@@ -6,7 +6,7 @@
   "description": "Live weer, radar en weerwaarschuwingen",
   "scripts": {
     "build": "npm run test",
-    "test": "node --check script.js && node --check service-worker.js && node --check shop/shop.js && node --check tvPairingService.js && node --check netlify/functions/tv-pairing.js && node --check api/tv-pairing.js && node --check server/rain-eta-service.mjs && node --check api/rain-eta.js && node --test tests/rain-eta.test.js",
+    "test": "node --check script.js && node --check service-worker.js && node --check tvPairingService.js && node --check netlify/functions/tv-pairing.js && node --check api/tv-pairing.js && node --check server/rain-eta-service.mjs && node --check api/rain-eta.js && node --test tests/rain-eta.test.js tests/wheaterflow2-static.test.js",
     "generate-vapid": "web-push generate-vapid-keys",
     "tv-pairing-server": "node server/tv-pairing-server.js"
   },

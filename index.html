@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260830-accountbeheer-cascade-fix-v2" rel="stylesheet"/>
+<link href="style.css?v=20260904-wheaterflow2-v1" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -322,6 +322,7 @@
 <button class="chip" id="radarQuickTemp" type="button">Temperatuur</button>
 <button class="chip" id="radarQuickWind" type="button">Wind</button>
 <button class="chip" id="radarQuickCloud" type="button">Bewolking</button>
+<button class="chip" id="radarQuickLightning" type="button">Bliksem</button>
 </div>
 <div class="chip-row radar-duration-row" id="durationRow">
 <button class="chip active" data-dur="1">1 uur</button><button class="chip" data-dur="6">6 uur</button><button class="chip" data-dur="12">12 uur</button><button class="chip" data-dur="24">24 uur</button>
@@ -1005,7 +1006,6 @@
 <button class="profile-menu-row" id="profileNotificationsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/notifications.png"/><b>Meldingen</b></span><strong>›</strong></button>
 <button class="profile-menu-row" id="profileWeatherPrefsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/preferences.png"/><b>Weervoorkeuren</b></span><strong>›</strong></button>
 <button class="profile-menu-row" id="profileCommunityMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/community.png"/><b>Community</b></span><strong>›</strong></button>
-<button class="profile-menu-row" id="profileShopMenu" type="button" onclick="window.location.href='./shop/'"><span><span class="profile-menu-icon profile-shop-icon" aria-hidden="true">◈</span><b>Wheaterflow Shop</b></span><strong>›</strong></button>
 
 </div>
 <div class="profile-pro-card">
@@ -1130,8 +1130,8 @@
 <h3 style="margin:0 0 10px;">
       Instellingen
     </h3>
-<section class="settings-group">
-<div class="settings-section-head">
+<section class="settings-group settings-collapsible" data-settings-section="display" data-settings-open="true">
+<div class="settings-section-head" role="button" tabindex="0" aria-expanded="true">
 <span>Eenheden</span>
 <strong>Weergave</strong>
 </div>
@@ -1186,8 +1186,8 @@
 </div>
 </div>
 </section>
-<section class="settings-group">
-<div class="settings-section-head">
+<section class="settings-group settings-collapsible" data-settings-section="forecast" data-settings-open="false">
+<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
 <span>Voorspelling</span>
 <strong>Model</strong>
 </div>
@@ -1230,8 +1230,8 @@
         </span>
 </div>
 </section>
-<section class="settings-group">
-<div class="settings-section-head">
+<section class="settings-group settings-collapsible" data-settings-section="data" data-settings-open="false">
+<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
 <span>Data</span>
 <strong>Actueel</strong>
 </div>
@@ -1243,16 +1243,16 @@
         bij je actuele weer.
       </span>
 </section>
-<section class="settings-group onboarding-settings-group">
-<div class="settings-section-head">
+<section class="settings-group onboarding-settings-group settings-collapsible" data-settings-section="setup" data-settings-open="false">
+<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
 <span>Wheaterflow setup</span>
 <strong>Onboarding</strong>
 </div>
 <button class="smallbtn" id="replayOnboardingBtn" type="button" style="width:100%;padding:10px;">Onboarding opnieuw bekijken</button>
 <span class="settings-hint">Doorloop locatie, meldingen en profiel opnieuw. Je huidige instellingen blijven behouden totdat je iets wijzigt.</span>
 </section>
-<section class="settings-group tv-settings-group">
-<div class="settings-section-head">
+<section class="settings-group tv-settings-group settings-collapsible" data-settings-section="tv" data-settings-open="false">
+<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
 <span>TV &amp; apparaten</span>
 <strong id="tvSettingsStatus">
           Niet gekoppeld
@@ -1289,8 +1289,8 @@
         knoppen op het beginscherm.
       </span>
 </section>
-<section class="settings-group notification-settings" style="flex-direction:column;align-items:stretch;gap:10px;">
-<div class="settings-section-head">
+<section class="settings-group notification-settings settings-collapsible" style="flex-direction:column;align-items:stretch;gap:10px;" data-settings-section="notifications" data-settings-open="false">
+<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
 <span>Meldingen</span>
 <strong id="pushStatusText">
           Controleren...
@@ -1427,7 +1427,8 @@
       </span>
 </section>
 <!-- Over Wheaterflow -->
-<section class="settings-group about-weerscoop" style="flex-direction:column;align-items:stretch;gap:8px;">
+<section class="settings-group about-weerscoop settings-collapsible" style="flex-direction:column;align-items:stretch;gap:8px;" data-settings-section="about" data-settings-open="false">
+<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false"><span>Over Wheaterflow</span><strong>Info</strong></div>
 <div class="about-brand">
 <img alt="Wheaterflow" src="./icons/icon-96.png"/>
 <div>
@@ -1471,7 +1472,15 @@
 <label class="tv-pair-code-label" for="tvPairCodeInput">
       Koppelcode
     </label>
-<input autocomplete="one-time-code" class="tv-pair-code-input" id="tvPairCodeInput" inputmode="numeric" maxlength="6" placeholder="123456"/>
+<div class="tv-pair-code-entry" id="tvPairCodeSlots" role="presentation">
+<span class="tv-pair-code-slot" aria-hidden="true"></span>
+<span class="tv-pair-code-slot" aria-hidden="true"></span>
+<span class="tv-pair-code-slot" aria-hidden="true"></span>
+<span class="tv-pair-code-slot" aria-hidden="true"></span>
+<span class="tv-pair-code-slot" aria-hidden="true"></span>
+<span class="tv-pair-code-slot" aria-hidden="true"></span>
+<input autocomplete="one-time-code" aria-label="Zescijferige TV koppelcode" class="tv-pair-code-input tv-pair-code-hidden" id="tvPairCodeInput" inputmode="numeric" maxlength="6" pattern="[0-9]*" placeholder=""/>
+</div>
 <button class="smallbtn primary-auth" id="tvPairSubmit" type="button">
       Koppelen
     </button>
@@ -1565,6 +1574,6 @@
 <!-- Wheaterflow scripts -->
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260830-accountbeheer-cascade-fix-v2"></script>
+<script src="script.js?v=20260904-wheaterflow2-v1"></script>
 </body>
 </html>

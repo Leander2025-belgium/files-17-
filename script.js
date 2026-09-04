@@ -131,11 +131,11 @@ const state = {
   auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
   community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', quickFilter: 'foryou', map: null, markers: null, selectedFile: null, realtimeChannel: null },
   climate: { records: [], settings: {mode:'off'}, period:'month', location:'all', chart:null, loaded:false },
-  xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false },
+  xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false, uiWired:false, visibilityWired:false, mapClickWired:false },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   cast: { service:null, status:'idle', available:false, configured:false, connected:false, deviceName:'', receiver:false },
   tvPairing: { service:null, receiver:false, connected:false, code:'', expiresAt:0, status:'idle' },
-  radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null, openMeteoLayer: null, proximity:null },
+  radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null, openMeteoLayer: null, proximity:null, initialized:false, activating:false },
   map: null, marker: null, homeMap: { map:null, base:null, overlay:null, xweatherController:null, activeLayer:'radar' },
   activeTab: 'home',
   rainEta: null,
@@ -1490,12 +1490,22 @@ function tvPairingMessage(text, type=''){
   el.className = `tv-pair-message ${type}`.trim();
 }
 
+function syncTvPairCodeSlots(value=$('#tvPairCodeInput')?.value || ''){
+  const clean=window.WheaterflowTvPairingService?.cleanCode ? window.WheaterflowTvPairingService.cleanCode(value) : String(value).replace(/\D/g,'').slice(0,6);
+  $$('.tv-pair-code-slot').forEach((slot,i)=>{
+    slot.textContent=clean[i] || '';
+    slot.classList.toggle('filled',Boolean(clean[i]));
+    slot.classList.toggle('active',i===Math.min(clean.length,5));
+  });
+}
+
 function openTvPairSheet(code=''){
   document.body.classList.add('tv-pair-open');
   const input = $('#tvPairCodeInput');
   if(input){
     if(code) input.value = code;
-    setTimeout(()=>input.focus(), 80);
+    syncTvPairCodeSlots(input.value);
+    requestAnimationFrame(()=>input.focus());
   }
   updateTvPairingUi();
 }
@@ -1644,7 +1654,9 @@ function wireTvPairingUi(){
   $('#tvPairScrim')?.addEventListener('click', closeTvPairSheet);
   $('#tvPairCodeInput')?.addEventListener('input', (event)=>{
     event.target.value = window.WheaterflowTvPairingService.cleanCode(event.target.value);
+    syncTvPairCodeSlots(event.target.value);
   });
+  $('#tvPairCodeSlots')?.addEventListener('click', ()=>$('#tvPairCodeInput')?.focus());
   $('#tvPairCodeInput')?.addEventListener('keydown', (event)=>{
     if(event.key === 'Enter') $('#tvPairSubmit')?.click();
   });
@@ -1808,14 +1820,15 @@ function startAutoRefresh(){
     loadWeather();
   }, 60*1000);
   state.clockTickTimer = setInterval(updateLastUpdatedText, 15*1000);
-  document.addEventListener('visibilitychange', ()=>{
+  document.addEventListener('visibilitychange', async ()=>{
     if(document.hidden) return;
-    // iOS/PWA kan een oude radarlaag in geheugen houden. Zodra Wheaterflow
-    // opnieuw zichtbaar wordt, weerdata én radar opnieuw synchroniseren.
     const weatherAge = state.lastUpdated ? Date.now()-state.lastUpdated : Infinity;
     if(weatherAge > 30*1000) loadWeather();
-    refreshRadarSource().catch?.(()=>{});
-    if(state.map) setTimeout(()=>state.map.invalidateSize(),120);
+    if(state.map && state.activeTab === 'radarscreen'){
+      await nextPaint();
+      refreshRadarLayout();
+      refreshRadarSource().catch(error=>console.warn('Radar hervatten faalde:', error));
+    }
   });
 }
 
@@ -1830,6 +1843,46 @@ function weatherIntelligence(){
     rain: nowcastEngine(),
     storm: stormEngine(),
     sea: seaEngine()
+  };
+}
+
+/* Wheaterflow 2.0: één genormaliseerde frontend-weertoestand.
+ * UI-componenten kunnen hiermee dezelfde semantiek gebruiken voor regen,
+ * temperatuur en wind zonder telkens losse API-velden anders te interpreteren.
+ */
+function normalizedWeatherState(){
+  const cur = liveWeatherSnapshot() || {};
+  const rain = nowcastEngine();
+  const idx = nowIndexInHourly();
+  const h = state.hourly || {};
+  const valid = value => validNumber(value);
+  const rainRate = Math.max(0,
+    valid(cur.precipitation) ?? 0,
+    rain?.status === 'raining' && Array.isArray(rain.slots) && rain.slots.length
+      ? (valid(rain.slots[0]?.precipitation) ?? 0) * 4
+      : 0
+  );
+  return {
+    temperature:valid(cur.temperature_2m),
+    feelsLike:valid(cur.apparent_temperature ?? cur.temperature_2m),
+    condition:wcInfo(cur.weather_code),
+    weatherCode:valid(cur.weather_code),
+    rainRate,
+    rainProbability:valid(h.precipitation_probability?.[idx]),
+    rainAccumulation:valid(h.precipitation?.[idx]),
+    rainEta:rain,
+    windSpeed:valid(cur.wind_speed_10m),
+    windGust:valid(cur.wind_gusts_10m),
+    windDirection:valid(cur.wind_direction_10m),
+    pressure:valid(cur.pressure_msl),
+    humidity:valid(cur.relative_humidity_2m),
+    dewPoint:valid(h.dew_point_2m?.[idx]),
+    visibility:valid(h.visibility?.[idx]),
+    cloudCover:valid(cur.cloud_cover ?? h.cloud_cover?.[idx]),
+    uv:valid(h.uv_index?.[idx] ?? state.daily?.uv_index_max?.[0]),
+    sunrise:state.daily?.sunrise?.[0] || null,
+    sunset:state.daily?.sunset?.[0] || null,
+    warnings:Array.isArray(state.alerts) ? state.alerts : []
   };
 }
 
@@ -2680,17 +2733,21 @@ function rainNowcastCard(){
 
     <div class="rain-bottom-stats">
       ${precipChance!=null ? `<div class="rain-bottom-stat"><small>KANS OP NEERSLAG</small><strong>${Math.round(precipChance)}%</strong></div>` : ''}
-      ${precipAmount!=null ? `<div class="rain-bottom-stat"><small>NEERSLAG HOEVEELHEID</small><strong>${esc(fmtPrecip(precipAmount))}</strong></div>` : ''}
+      ${precipAmount!=null ? `<div class="rain-bottom-stat"><small>NEERSLAG HOEVEELHEID</small><strong>${esc(precipAmount>0 && precipAmount<0.1 && state.units.precip==='mm' ? '<0.1 mm' : fmtPrecip(precipAmount))}</strong></div>` : ''}
     </div>
   </div>`;
 }
 
 function weatherHeroLine(cur, rain){
-  const parts = [`Voelt als ${fmtTemp(cur.apparent_temperature ?? cur.temperature_2m)}`];
-  parts.push(centralRainEtaText(rain || nowcastEngine(), {short:true}));
-  const windText=formatWindPair(cur.wind_speed_10m,cur.wind_gusts_10m);
-  if(windText) parts.push(windText.toLowerCase().replace(/^wind /,'wind '));
-  return parts.filter(Boolean).join(' · ');
+  const wx = normalizedWeatherState();
+  const parts = [];
+  if(wx.feelsLike != null) parts.push(`Voelt als ${fmtTemp(wx.feelsLike)}`);
+  const central = rain || wx.rainEta;
+  if(central?.status === 'raining' || central?.status === 'rain_soon'){
+    const eta = centralRainEtaText(central, {short:true});
+    if(eta) parts.push(eta);
+  }
+  return parts.join(' · ');
 }
 
 function tvLaterRainTrend(){
@@ -2739,18 +2796,35 @@ function radarEtaText(rain=nowcastEngine()){
 }
 
 function weatherTrendSummary(){
-  const cur=liveWeatherSnapshot();
-  const wc=wcInfo(cur.weather_code);
-  const rain=nowcastEngine();
-  const place=locationDisplayName('jouw locatie');
-  const wind=formatWindPair(cur.wind_speed_10m,cur.wind_gusts_10m);
-  const model=modelRainSignalWithin(2);
-  let rainSentence='';
-  if(rain?.status==='raining') rainSentence=centralRainEtaText(rain)+'.';
-  else if(rain?.status==='rain_soon') rainSentence=centralRainEtaText(rain)+'.';
-  else if(model.elevated) rainSentence='Momenteel geen regen op de radar, maar later is regen mogelijk.';
-  else rainSentence='Op de actuele radar wordt binnen 2 uur geen regen verwacht.';
-  return `Nu ${String(wc.l||'weer').toLowerCase()} in ${place}. ${rainSentence}${wind?` ${wind}.`:''}`;
+  const wx = normalizedWeatherState();
+  const rain = wx.rainEta;
+  const h = state.hourly || {};
+  const idx = nowIndexInHourly();
+  const sentences = [];
+
+  if(rain?.status === 'raining'){
+    if(rain.endsInMinutes != null && rain.endTime) sentences.push(`De regen houdt waarschijnlijk nog ongeveer ${Math.max(1,Math.round(rain.endsInMinutes))} minuten aan; daarna wordt het tijdelijk droger.`);
+    else sentences.push('De regen houdt voorlopig aan; binnen de beschikbare nowcast is nog geen betrouwbaar droog moment zichtbaar.');
+  }else if(rain?.status === 'rain_soon'){
+    const when = rain.startTime ? formatShortTime(rain.startTime) : null;
+    sentences.push(when ? `Vanaf ongeveer ${when} neemt de kans op regen duidelijk toe.` : 'Binnenkort neemt de kans op regen duidelijk toe.');
+  }else{
+    const model = modelRainSignalWithin(2);
+    sentences.push(model.elevated ? 'Het is nu droog, maar later in de komende twee uur neemt de kans op regen toe.' : 'Het blijft volgens de actuele radar de komende twee uur waarschijnlijk droog.');
+  }
+
+  const futureTemps=[];
+  for(let i=idx;i<Math.min(idx+6,h.time?.length||0);i++){
+    const v=validNumber(h.temperature_2m?.[i]); if(v!=null) futureTemps.push(v);
+  }
+  if(wx.temperature!=null && futureTemps.length){
+    const end=futureTemps[futureTemps.length-1];
+    const delta=end-wx.temperature;
+    if(delta <= -2) sentences.push(`De temperatuur zakt de komende uren richting ${fmtTemp(end)}.`);
+    else if(delta >= 2) sentences.push(`De temperatuur loopt de komende uren op richting ${fmtTemp(end)}.`);
+  }
+  if(wx.windGust!=null && wx.windGust>=60) sentences.push(`Houd rekening met windstoten tot ongeveer ${fmtWind(wx.windGust)}.`);
+  return sentences.slice(0,3).join(' ');
 }
 
 async function loadWheaterflowAdminAlerts(){
@@ -3101,7 +3175,7 @@ html += rainNowcastCard();
     html += `<div class="hour-item ${i===nowIdx?'now':''}">
       <div class="t">${esc(label)}</div>
       <div class="hour-icon-wrap">${icon(hwc.ic, hIsDay, 26)}</div>
-      <div class="pop">${pop==null?'':Math.round(Math.max(0,Math.min(100,pop)))+'%'}</div>
+      <div class="pop">${pop!=null && pop>=10 ? Math.round(Math.max(0,Math.min(100,pop)))+'%' : ''}</div>
       <div class="v">${fmtTemp(hourly.temperature_2m[i])}</div>
     </div>`;
   }
@@ -3446,7 +3520,7 @@ function wireHomeMapLayers(){
   }
   updateHomeMapLayerAvailability();
   $$('.map-tabs [data-home-layer]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
+    btn.addEventListener('click', async ()=>{
       if(btn.disabled) return;
       $$('.map-tabs [data-home-layer]').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
@@ -3810,20 +3884,33 @@ function chartSubLabel(title){
 function fourteenDaySection(){
   if(!state.daily?.time?.length) return `<div class="card">${wheaterflowStatus('empty','Momenteel geen gegevens beschikbaar')}</div>`;
   const n = Math.min(14, state.daily.time.length);
-  return `<div class="card"><div class="card-title">${icon('sunrise',true,13)} 14-daagse verwachting</div>
-    <div class="days14">${Array.from({length:n},(_,i)=>day14Card(i)).join('')}</div>
+  const lows=state.daily.temperature_2m_min.slice(0,n).map(validNumber).filter(v=>v!=null);
+  const highs=state.daily.temperature_2m_max.slice(0,n).map(validNumber).filter(v=>v!=null);
+  const scaleMin=lows.length?Math.min(...lows):0;
+  const scaleMax=highs.length?Math.max(...highs):scaleMin+1;
+  return `<div class="card forecast14-card"><div class="card-title">${icon('sunrise',true,13)} 14-daagse verwachting</div>
+    <div class="days14 forecast14-list">${Array.from({length:n},(_,i)=>day14Card(i,scaleMin,scaleMax)).join('')}</div>
   </div>`;
 }
 
-function day14Card(i){
+function day14Card(i,scaleMin=null,scaleMax=null){
   const d = new Date(state.daily.time[i]);
   const wc = wcInfo(state.daily.weather_code[i]);
   const pop=validNumber(state.daily.precipitation_probability_max?.[i]);
   const gust=validNumber(state.daily.wind_gusts_10m_max?.[i]);
-  return `<button class="day14" data-day="${i}" type="button">
-    <div class="forecast-card-top"><span class="forecast-day">${i===0?'Vandaag':d.toLocaleDateString('nl-BE',{weekday:'short'})}<small>${d.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'})}</small></span><span class="forecast-icon">${icon(wc.ic,true,32)}</span></div>
-    <div class="forecast-temperatures"><strong class="forecast-max">${fmtTemp(state.daily.temperature_2m_max[i])}</strong><span class="forecast-min">${fmtTemp(state.daily.temperature_2m_min[i])}</span></div>
-    <div class="forecast-meta">${pop!=null?`<span>${Math.round(pop)}% regen</span>`:''}${gust!=null&&gust>=60?`<span>Stoten ${fmtWind(gust)}</span>`:''}</div>
+  const lo=validNumber(state.daily.temperature_2m_min?.[i]);
+  const hi=validNumber(state.daily.temperature_2m_max?.[i]);
+  const span=(scaleMax-scaleMin)||1;
+  const left=lo==null?0:Math.max(0,Math.min(100,((lo-scaleMin)/span)*100));
+  const width=lo==null||hi==null?0:Math.max(4,Math.min(100-left,((hi-lo)/span)*100));
+  const warn=[95,96,99].includes(Number(state.daily.weather_code?.[i])) || (gust!=null&&gust>=60);
+  return `<button class="day14 forecast14-row ${i===0?'today':''}" data-day="${i}" type="button" aria-label="Details voor ${esc(i===0?'Vandaag':d.toLocaleDateString('nl-BE',{weekday:'long'}))}">
+    <span class="forecast14-day"><b>${i===0?'Vandaag':esc(d.toLocaleDateString('nl-BE',{weekday:'short'}))}</b><small>${esc(d.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'}))}</small></span>
+    <span class="forecast14-icon">${icon(wc.ic,true,29)}</span>
+    <span class="forecast14-pop">${pop!=null&&pop>=10?Math.round(pop)+'%':''}${warn?`<i title="Weersignaal">!</i>`:''}</span>
+    <span class="forecast14-min">${lo==null?'':fmtTemp(lo)}</span>
+    <span class="forecast14-range"><span style="left:${left}%;width:${width}%"></span></span>
+    <span class="forecast14-max">${hi==null?'':fmtTemp(hi)}</span>
   </button>`;
 }
 
@@ -4025,33 +4112,42 @@ function metricListCard(rows, extraClass=''){
 }
 
 function skySectionCard(sky){
-  return `<div class="card sky-card">
+  const raining=nowcastEngine()?.status==='raining';
+  const poor=sky.cloud>=85 || raining || (sky.visibility && sky.visibility<4000);
+  const headline=poor ? 'Sterrenkijken afgeraden' : sky.stargazing>=70 ? 'Goede omstandigheden voor sterrenkijken' : 'Matige omstandigheden voor sterrenkijken';
+  const sub=sky.cloud>=85 ? 'Volledig of vrijwel volledig bewolkt' : raining ? 'Neerslag beperkt het zicht op de hemel' : `${Math.round(sky.cloud)}% bewolking`;
+  return `<div class="card sky-card sky-card-v2">
     <div class="card-title">${icon('eye',true,13)} Wheaterflow Sky</div>
+    <div class="sky-context-head ${poor?'poor':'good'}"><strong>${esc(headline)}</strong><span>${esc(sub)}</span></div>
     ${metricListCard([
-      {label:'Sterrenkijk-score', value:`${sky.stargazing} · ${sky.stargazingLabel}`},
+      {label:'Sterrenkijk-score', value:`${sky.stargazing}/100 · ${sky.stargazingLabel}`},
       {label:'Bewolking', value:`${Math.round(sky.cloud)}%`},
       {label:'Zicht', value:sky.visibility ? (sky.visibility/1000).toFixed(1)+' km' : '-'},
       {label:'Maan', value:`${Math.round(sky.moon.illumination*100)}%`},
       {label:'Melkweg', value:sky.milkyWayChance},
-      {label:'Aurora', value:sky.auroraChance},
-      {label:'Bron', value:'Afgeleid'}
+      ...(sky.auroraChance && !/nog geen data/i.test(sky.auroraChance) ? [{label:'Aurora',value:sky.auroraChance}] : [])
     ])}
-    <p>${esc(sky.factors.join(', ') || 'Gebaseerd op beschikbare hemeldata')}.</p>
   </div>`;
 }
 
 function photoWeatherCard(photo){
   const best = photo.best;
+  const cur=normalizedWeatherState();
+  let context='Rustige algemene omstandigheden';
+  if(cur.rainEta?.status==='raining') context='Interessant voor regenfotografie en reflecties';
+  else if((cur.cloudCover??0)>=70) context='Sterke wolkenluchten en dramatische landschappen';
+  else if((cur.cloudCover??0)>=30) context='Afwisselend licht en interessante wolkenstructuren';
+  else context='Helder licht; golden hour is het interessantste moment';
   return `<div class="card photo-weather-card">
     <div class="card-title">${icon('sunrise',true,13)} Fotoweer</div>
+    <div class="photo-context"><strong>${esc(context)}</strong>${best?`<span>Beste venster rond ${best.time.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</span>`:''}</div>
     ${metricListCard([
-      {label:'Beste moment', value:best ? best.time.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : '-'},
-      {label:'Fotografie-index', value:best ? `${best.score}%` : 'Nog geen data'},
+      {label:'Fotografie-index', value:best ? `${best.score}/100` : 'Niet beschikbaar'},
       {label:'Golden hour', value:photo.goldenEvening || '-'},
-      {label:'Zonsopgang', value:`${photo.sunriseScore}%`},
-      {label:'Zonsondergang', value:`${photo.sunsetScore}%`},
+      {label:'Zonsopgang', value:`${photo.sunriseScore}/100`},
+      {label:'Zonsondergang', value:`${photo.sunsetScore}/100`},
       {label:'Mistkans', value:`${photo.mistChance}%`},
-      {label:'Hoge bewolking', value:photo.highCloud || 'Nog geen data'}
+      {label:'Bewolking', value:photo.highCloud || 'Niet beschikbaar'}
     ])}
   </div>`;
 }
@@ -4147,7 +4243,7 @@ function coastSection(){
   state.sharedWeather.marine={seaTemperature:sea.seaTemperature,waveHeight:sea.waveHeight,wavePeriod:sea.wavePeriod,wind:sea.wind,gust:sea.gust,visibility:sea.visibility,tide:sea.tide,uv:sea.uv,updated:state.lastUpdated};
   const tide=sea.tide;
   const item=(label,value,ic='gauge')=> value==null||value==='-' ? '' : `<div class="sea-compact-item">${icon(ic,true,18)}<span>${esc(label)}</span><b>${esc(value)}</b></div>`;
-  return `<div class="card sea-mode-card sea-mode-compact"><div class="card-title">${icon('drop',true,13)} Sea Mode ${esc(sea.place)}</div>
+  return `<div class="card sea-mode-card sea-mode-compact"><div class="card-title">${icon('drop',true,13)} Sea Mode</div><div class="sea-reference">Zeegegevens · ${esc(sea.place)}</div>
     <div class="sea-score-grid"><div><span>Strandscore</span><b>${sea.beachScore}</b><small>${esc(sea.beachLabel)}</small></div><div><span>Zwemcomfort</span><b>${sea.swimScore}</b><small>${esc(sea.swimComfort)}</small></div></div>
     <div class="sea-compact-grid">
       ${item('Zeewater',validNumber(sea.seaTemperature)==null?null:`${sea.seaTemperature.toFixed(1)} °C`,'thermo')}
@@ -4579,7 +4675,7 @@ document.addEventListener('visibilitychange', ()=>{
 
 /* ---------------- tabs ---------------- */
 $$('.tabbtn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
+  btn.addEventListener('click', async ()=>{
     if(btn.dataset.tab === 'profile'){
       openAuthSheet();
       return;
@@ -4601,7 +4697,7 @@ $$('.tabbtn').forEach(btn=>{
         else el?.scrollIntoView({behavior:'smooth', block:'start'});
       }, 80);
     }
-    if(btn.dataset.tab === 'radarscreen'){ initMapIfNeeded(); refreshRadarSource().catch?.(()=>{}); setTimeout(refreshRadarLayout,150); setTimeout(refreshRadarLayout,650); }
+    if(btn.dataset.tab === 'radarscreen') await activateRadarScreen();
     if(btn.dataset.tab === 'communityscreen'){
       loadCommunityPosts(true);
       subscribeCommunityRealtime();
@@ -6257,6 +6353,31 @@ function refreshPushSettingsControls(){
   });
 }
 
+function initSettingsAccordion(){
+  $$('#settingsSheet .settings-collapsible').forEach((section,index)=>{
+    const head=$('.settings-section-head',section);
+    if(!head) return;
+    const requested=section.dataset.settingsOpen==='true';
+    section.classList.toggle('settings-collapsed',!requested);
+    head.setAttribute('aria-expanded',String(requested));
+    const toggle=()=>{
+      const willOpen=section.classList.contains('settings-collapsed');
+      section.classList.toggle('settings-collapsed',!willOpen);
+      section.dataset.settingsOpen=String(willOpen);
+      head.setAttribute('aria-expanded',String(willOpen));
+    };
+    if(head.dataset.accordionWired==='1') return;
+    head.dataset.accordionWired='1';
+    head.addEventListener('click',event=>{
+      if(event.target.closest('button,a,input,select,label')) return;
+      toggle();
+    });
+    head.addEventListener('keydown',event=>{
+      if(event.key==='Enter'||event.key===' '){ event.preventDefault(); toggle(); }
+    });
+  });
+}
+
 function refreshSettingsSegments(){
   $$('#segTemp button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.temp));
   $$('#segWind button').forEach(b=>b.classList.toggle('active', b.dataset.v===state.units.wind));
@@ -6357,6 +6478,70 @@ const XWEATHER_LAYER_DEFS = [
 const XWEATHER_PRIMARY_IDS = ['radar','satellite','wind-particles','wind-speeds','temperatures','feels-like','cloud-cover','snow','pressure-msl','humidity','air-quality-index','wave-heights'];
 const XWEATHER_TIMELESS_IDS = new Set([]);
 
+const RADAR_LAYER_ALIASES = Object.freeze({
+  precip:'precip', precipitation:'precip', radar:'precip', rain:'precip', rainviewer:'precip',
+  satellite:'satellite', sat:'satellite',
+  clouds:'cloud-cover', cloud:'cloud-cover', 'cloud-cover':'cloud-cover',
+  temperature:'temperatures', temp:'temperatures', temperatures:'temperatures',
+  wind:'wind-speeds', 'wind-speeds':'wind-speeds', 'wind-particles':'wind-particles',
+  lightning:'lightning-strikes-icons', 'lightning-strikes-icons':'lightning-strikes-icons'
+});
+function normalizeRadarLayerId(id='precip'){
+  return RADAR_LAYER_ALIASES[String(id||'').toLowerCase()] || String(id||'precip');
+}
+function nextPaint(){ return new Promise(resolve=>requestAnimationFrame(()=>resolve())); }
+function syncRadarLayerUi(layerId=state.radar.layer){
+  const normalized=normalizeRadarLayerId(layerId);
+  $('#chipPrecip')?.classList.toggle('active', normalized==='precip');
+  $('#chipSat')?.classList.toggle('active', normalized==='satellite');
+  const quick={precip:'chipPrecip',satellite:'chipSat',temperatures:'radarQuickTemp','wind-speeds':'radarQuickWind','cloud-cover':'radarQuickCloud','lightning-strikes-icons':'radarQuickLightning'};
+  $$('.radar-primary-layers button').forEach(btn=>btn.classList.toggle('active',btn.id===quick[normalized]));
+}
+function rememberRadarLayer(layerId){
+  try{ localStorage.setItem('weerscoop:radarLayerV2', normalizeRadarLayerId(layerId)); }catch(e){}
+}
+async function activateRadarScreen(){
+  if(state.radar.activating) return;
+  state.radar.activating=true;
+  try{
+    // De screen is al actief. Twee animation frames laten layout/Leaflet eerst
+    // een echte meetbare container zien; dit vervangt de oude 150/650ms timers.
+    await nextPaint();
+    await nextPaint();
+    initMapIfNeeded();
+    refreshRadarLayout();
+
+    let saved=null;
+    if(state.radar.initialized){
+      try{ saved=localStorage.getItem('weerscoop:radarLayerV2'); }catch(e){}
+    }
+    const target=normalizeRadarLayerId(saved || 'precip');
+
+    // Absolute first-run invariant: Buienradar is niet alleen visueel actief,
+    // maar de neerslagframes zijn ook werkelijk geladen voordat init klaar is.
+    if(!state.radar.initialized || target==='precip' || target==='satellite'){
+      state.radar.layer=!state.radar.initialized ? 'precip' : (target==='satellite'?'satellite':'precip');
+      syncRadarLayerUi(state.radar.layer);
+      await refreshRadarSource();
+    }else{
+      const ready=state.xweather.ready || await initXweatherMap(true);
+      if(ready && await setXweatherLayer(target)) syncRadarLayerUi(target);
+      else{ state.radar.layer='precip'; syncRadarLayerUi('precip'); await refreshRadarSource(); }
+    }
+
+    state.radar.initialized=true;
+    rememberRadarLayer(normalizeRadarLayerId(state.xweather.ready && state.xweather.activeLayer ? state.xweather.activeLayer.id : state.radar.layer));
+    updateRadarLocationUi();
+    refreshRadarLayout();
+  }catch(error){
+    console.error('Radar initialisatie faalde:',error);
+    state.dataStatus.radar.error=String(error?.message||error);
+    showRadarInfo('Radar kon niet volledig laden. Probeer opnieuw.');
+  }finally{
+    state.radar.activating=false;
+  }
+}
+
 function initMapIfNeeded(){
   if(state.map) return;
   state.map = L.map('map', {
@@ -6416,7 +6601,6 @@ function initMapIfNeeded(){
     }catch(err){ showRadarInfo('Kon puntgegevens niet laden.', lat,lng); }
   });
 
-  startLegacyRadar();
   clearInterval(state.radar.refreshTimer);
   state.radar.refreshTimer = setInterval(()=>{
     if(document.hidden) return;
@@ -6514,8 +6698,12 @@ async function initXweatherMap(force=false){
     updateXweatherTimelineUi();
     clearInterval(state.xweather.timelineUiTimer);
     state.xweather.timelineUiTimer = setInterval(updateXweatherTimelineUi, 1000);
-    document.addEventListener('visibilitychange', handleXweatherVisibility, {passive:true});
-    setTimeout(()=>state.xweather.controller?.resize(), 120);
+    if(!state.xweather.visibilityWired){
+      document.addEventListener('visibilitychange', handleXweatherVisibility, {passive:true});
+      state.xweather.visibilityWired=true;
+    }
+    await nextPaint();
+    state.xweather.controller?.resize?.();
     return true;
   }catch(err){
     console.warn('Xweather MapsGL kon niet starten', err);
@@ -6599,14 +6787,32 @@ function xweatherLayerCodeCandidates(def){
 
 
 function wireRadarQuickLayers(){
-  const mapping={chipPrecip:'radar',chipSat:'satellite',radarQuickTemp:'temperatures',radarQuickWind:'wind-speeds',radarQuickCloud:'cloud-cover'};
-  Object.entries(mapping).forEach(([id,layer])=>$('#'+id)?.addEventListener('click',async()=>{
-    $$('.radar-primary-layers button').forEach(b=>b.classList.toggle('active',b.id===id));
-    if(layer==='radar'){ state.radar.layer='precip'; await refreshRadarSource(); }
-    else if(layer==='satellite'){ state.radar.layer='satellite'; await refreshRadarSource(); }
-    else await setXweatherLayer(layer);
-  }));
+  const mapping={
+    chipPrecip:'precip',
+    chipSat:'satellite',
+    radarQuickTemp:'temperatures',
+    radarQuickWind:'wind-speeds',
+    radarQuickCloud:'cloud-cover',
+    radarQuickLightning:'lightning-strikes-icons'
+  };
+  Object.entries(mapping).forEach(([id,layer])=>{
+    const button=$('#'+id);
+    if(!button || button.dataset.radarWired==='1') return;
+    button.dataset.radarWired='1';
+    button.addEventListener('click',async()=>{
+      const normalized=normalizeRadarLayerId(layer);
+      if(normalized==='precip' || normalized==='satellite'){
+        await switchLayer(normalized);
+        return;
+      }
+      const ready=state.xweather.ready || await initXweatherMap(true);
+      if(!ready) return;
+      const ok=await setXweatherLayer(normalized);
+      if(ok){ syncRadarLayerUi(normalized); rememberRadarLayer(normalized); }
+    });
+  });
 }
+
 function refreshRadarLayout(){
   if(!state.map) return;
   requestAnimationFrame(()=>{
@@ -6617,6 +6823,8 @@ function refreshRadarLayout(){
 }
 function setupXweatherUi(){
   renderXweatherLayerSelector();
+  if(state.xweather.uiWired) return;
+  state.xweather.uiWired=true;
   $('#xweatherRetry')?.addEventListener('click', async ()=>{
     const ok = await initXweatherMap(true);
     if(!ok) startLegacyRadar();
@@ -6708,6 +6916,7 @@ async function setXweatherLayer(id){
   if($('#xweatherWindSettings')) $('#xweatherWindSettings').open = def.id === 'wind-particles';
   updateXweatherLegend();
   updateXweatherTimelineUi();
+  rememberRadarLayer(def.id);
   return true;
 }
 
@@ -6895,6 +7104,10 @@ function teardownXweather(removeUi=true){
   state.xweather.controller = null;
   state.xweather.ready = false;
   state.xweather.activeCodes = [];
+  if(state.xweather.visibilityWired){
+    document.removeEventListener('visibilitychange', handleXweatherVisibility);
+    state.xweather.visibilityWired=false;
+  }
   if(removeUi){
     $('#xweatherPanel')?.classList.add('hide');
     $('#xweatherLayerBar')?.classList.add('hide');
@@ -7073,13 +7286,18 @@ function removeKnmiWmsRadarLayer(){
   state.radar.knmiLayer = null;
 }
 
-function refreshRadarSource(){
-  if(!state.map) return;
+async function refreshRadarSource(){
+  if(!state.map) return false;
   stopPlaying();
   removeKnmiWmsRadarLayer();
-  loadRadarFrames();
+  await loadRadarFrames(true);
   const note = $('.radar-note');
-  if(note) note.textContent = 'WeatherFlow radar: echte neerslagframes via de Xweather-worker, vernieuwd om de 5 minuten.';
+  if(note) note.textContent = state.radar.layer === 'precip'
+    ? 'Buienradar actief · actuele RainViewer-frames met automatische Wheaterflow fallback.'
+    : 'Satellietlaag actief.';
+  state.dataStatus.radar.lastSuccess=Date.now();
+  state.dataStatus.radar.error=null;
+  return true;
 }
 
 /* ----- WeatherFlow radar-worker + satellietframes ----- */
@@ -7385,18 +7603,20 @@ function buildFrameList(keepFrame=false){
   const pastShown = state.radar.frames.filter(f=>!f.isNowcast && !f.isNow);
   if(keepFrame && previousTime){
     const same = state.radar.frames.findIndex(f=>f.time === previousTime);
-    state.radar.index = same >= 0 ? same : Math.max(0, state.radar.frames.length-1);
+    state.radar.index = same >= 0 ? same : Math.max(0, state.radar.frames.findLastIndex?.(f=>!f.isNowcast) ?? state.radar.frames.length-1);
   } else {
-    state.radar.index = state.radar.frames.length-1;
+    // Start op het nieuwste werkelijk geobserveerde frame (NU), niet op het
+    // verste toekomstige nowcastframe. De gebruiker kan daarna vooruit scrubben.
+    const nowFrame = state.radar.frames.findIndex(f=>f.isNow);
+    const latestObserved = state.radar.frames.map((f,i)=>({f,i})).filter(x=>!x.f.isNowcast).at(-1)?.i;
+    state.radar.index = nowFrame >= 0 ? nowFrame : (Number.isInteger(latestObserved) ? latestObserved : state.radar.frames.length-1);
   }
   renderTimeline();
   setFrame(state.radar.index);
 }
 function renderTimeline(){
   const tl = $('#timeline'); tl.innerHTML='';
-  const observedCount = state.radar.layer === 'precip'
-    ? state.radar.frames.length
-    : state.radar.frames.filter(f=>!f.isNowcast).length;
+  const observedCount = state.radar.frames.filter(f=>!f.isNowcast).length;
   tl.style.setProperty('--observed-count', observedCount || state.radar.frames.length);
   tl.style.setProperty('--frame-count', state.radar.frames.length || 1);
   const slider = $('#radarFrameSlider');
@@ -7474,26 +7694,20 @@ $('#opacitySlider').addEventListener('input', (e)=>{
   if(state.radar.knmiLayer) state.radar.knmiLayer.setOpacity(state.radar.opacity);
   if(state.radar.animator) state.radar.animator.setOpacity(state.radar.opacity);
 });
-$('#chipPrecip').addEventListener('click', ()=>{
-  switchLayer('precip');
-});
-$('#chipSat').addEventListener('click', ()=>{
-  if(state.xweather.ready){ setXweatherLayer('satellite'); return; }
-  switchLayer('satellite');
-});
-function switchLayer(l){
+async function switchLayer(layerId){
+  const l=normalizeRadarLayerId(layerId);
   if(state.xweather.ready || state.xweather.controller){
     teardownXweather();
     state.xweather.fallback = true;
     $('#liveRadarPanel')?.classList.remove('hide');
   }
-  state.radar.layer = l;
-  $('#chipPrecip').classList.toggle('active', l==='precip');
-  $('#chipSat').classList.toggle('active', l==='satellite');
+  state.radar.layer = l === 'satellite' ? 'satellite' : 'precip';
+  syncRadarLayerUi(state.radar.layer);
+  rememberRadarLayer(state.radar.layer);
   if(state.radar.animator){ state.radar.animator.destroy(); state.radar.animator = null; }
   clearOpenMeteoRadarLayer();
-  if(l === 'precip') startLegacyRadar();
-  else loadRadarFrames();
+  if(state.radar.layer === 'precip') startLegacyRadar();
+  else await loadRadarFrames();
 }
 const SCHEMES = [
   {v:4, l:'Helder'}, {v:2, l:'Universeel'}, {v:8, l:'Intens'}, {v:3, l:'Origineel'}, {v:6, l:'Zwart-wit'}
@@ -8223,6 +8437,7 @@ async function init(){
   await safeInitStep('Profielbeveiliging koppelen', wireProfileSafety);
   await safeInitStep('Community UI koppelen', initCommunityUi);
   await safeInitStep('Radar bediening koppelen', wireRadarQuickLayers);
+  await safeInitStep('Instellingencategorieën koppelen', initSettingsAccordion);
   await safeInitStep('Klimaat UI koppelen', initClimateUi);
   await safeInitStep('Push instellingen koppelen', wirePushSettings);
   await safeInitStep('Favorieten laden', loadStoredFavorites);

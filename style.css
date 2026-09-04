@@ -8946,7 +8946,7 @@ body.tv-pair-open .tabbar{
 .home-weather-map{background:rgba(10,29,51,.82)!important;}
 
 /* Radar: exactly three left-aligned horizontally scrollable rows. */
-.radar-top{left:0!important;right:0!important;top:calc(env(safe-area-inset-top) + 10px)!important;padding:0 12px!important;display:grid!important;gap:7px!important;pointer-events:none;}
+.radar-top{left:0!important;right:0!important;top:calc(var(--wf-safe-top) + 10px)!important;padding:0 12px!important;display:grid!important;gap:7px!important;pointer-events:none;}
 .radar-top>*{pointer-events:auto;}
 .radar-primary-layers,.radar-duration-row,.radar-utility-row{
   position:static!important;inset:auto!important;width:100%!important;display:flex!important;gap:7px!important;
@@ -8955,8 +8955,8 @@ body.tv-pair-open .tabbar{
 }
 .radar-primary-layers::-webkit-scrollbar,.radar-duration-row::-webkit-scrollbar,.radar-utility-row::-webkit-scrollbar{display:none!important;}
 .radar-primary-layers .chip,.radar-duration-row .chip,.radar-utility-row .chip{flex:0 0 auto!important;margin:0!important;white-space:nowrap!important;}
-.radar-eta-line{top:calc(env(safe-area-inset-top) + 156px)!important;right:12px!important;left:auto!important;max-width:min(78vw,320px)!important;background:rgba(7,23,43,.90)!important;backdrop-filter:blur(6px)!important;}
-.radar-bottom{padding-bottom:calc(var(--wf-nav-h) + env(safe-area-inset-bottom) + 28px)!important;}
+.radar-eta-line{top:calc(var(--wf-safe-top) + 156px)!important;right:12px!important;left:auto!important;max-width:min(78vw,320px)!important;background:rgba(7,23,43,.90)!important;backdrop-filter:blur(6px)!important;}
+.radar-bottom{padding-bottom:calc(var(--wf-nav-height) + var(--wf-safe-bottom) + 28px)!important;}
 .xweather-timeline{margin-bottom:8px!important;}
 
 /* Reisweer: one calm vertical form, equal control sizes. */
@@ -8973,25 +8973,25 @@ body.tv-pair-open .tabbar{
 .travel-calc{height:50px!important;font-weight:800!important;}
 
 /* Community: always below iPhone status bar and horizontally scrollable filters. */
-.community-inner{padding-top:calc(env(safe-area-inset-top) + 24px)!important;}
+.community-inner{padding-top:calc(var(--wf-safe-top) + 24px)!important;}
 .community-head-v2{align-items:flex-start!important;gap:12px!important;flex-wrap:wrap!important;}
 .community-create-actions{width:100%!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;}
 .community-share-photo,.community-observation-btn{min-height:44px!important;white-space:nowrap!important;}
 .community-quick-filters{display:flex!important;overflow-x:auto!important;gap:7px!important;padding:2px 2px 7px!important;scroll-padding-left:2px!important;}
 .community-quick-filters button{flex:0 0 auto!important;}
-.community-feed{padding-bottom:calc(var(--wf-nav-h) + env(safe-area-inset-bottom) + 28px)!important;}
+.community-feed{padding-bottom:calc(var(--wf-nav-height) + var(--wf-safe-bottom) + 28px)!important;}
 
 /* Every scrollable screen can clear the fixed bottom navigation. */
 .screen-inner,.auth-scroll,.community-inner,.radar-wrap,.more-weather-scroll,.sea-mode-scroll,.travel-scroll{
-  padding-bottom:calc(var(--wf-nav-h) + env(safe-area-inset-bottom) + 24px)!important;
+  padding-bottom:calc(var(--wf-nav-height) + var(--wf-safe-bottom) + 24px)!important;
   box-sizing:border-box!important;
 }
-#home .screen-inner{padding-bottom:calc(var(--wf-nav-h) + env(safe-area-inset-bottom) + 24px)!important;}
+#home .screen-inner{padding-bottom:calc(var(--wf-nav-height) + var(--wf-safe-bottom) + 24px)!important;}
 
 /* Detail headings and anchors must clear the iPhone status bar. */
-.screen:not(#home):not(#radarscreen)>.screen-inner{padding-top:calc(env(safe-area-inset-top) + 22px)!important;}
+.screen:not(#home):not(#radarscreen)>.screen-inner{padding-top:calc(var(--wf-safe-top) + 22px)!important;}
 .section-h,.card-title,[id^="section"],#moreWeatherRoot>*,.forecast-day-sheet,.sea-mode-card,.travel-weather-card{
-  scroll-margin-top:calc(env(safe-area-inset-top) + 24px)!important;
+  scroll-margin-top:calc(var(--wf-safe-top) + 24px)!important;
 }
 
 /* Profile: same darker card language and a quieter danger zone. */
@@ -9005,9 +9005,107 @@ body.tv-pair-open .tabbar{
   .seaspark-head{align-items:flex-start!important;}
   .seaspark-ring{width:78px!important;height:78px!important;min-width:78px!important;}
   .radar-top{padding-left:10px!important;padding-right:10px!important;}
-  .screen:not(#home):not(#radarscreen)>.screen-inner{padding-top:calc(env(safe-area-inset-top) + 18px)!important;}
+  .screen:not(#home):not(#radarscreen)>.screen-inner{padding-top:calc(var(--wf-safe-top) + 18px)!important;}
 }
 
+
+
+/* =====================================================================
+   WHEATERFLOW 2.0 — central mobile design system
+   Consolidates the active tokens without changing legacy component APIs.
+   ===================================================================== */
+:root{
+  --wf-glass-bg:rgba(88,112,138,.36);
+  --wf-glass-bg-strong:rgba(72,101,132,.48);
+  --wf-glass-bg-soft:rgba(112,137,161,.27);
+  --wf-glass-border:rgba(230,241,255,.20);
+  --wf-glass-highlight:rgba(255,255,255,.055);
+  --wf-text:#f8fbff;
+  --wf-text-secondary:rgba(236,244,255,.82);
+  --wf-text-tertiary:rgba(229,240,252,.58);
+  --wf-accent:#72e4ef;
+  --wf-danger:#f08089;
+  --wf-warning:#f3bd62;
+  --wf-radius-sm:13px;
+  --wf-radius-md:18px;
+  --wf-radius-lg:26px;
+  --wf-blur:10px;
+  --wf-nav-height:88px;
+  --wf-safe-top:env(safe-area-inset-top,0px);
+  --wf-safe-bottom:env(safe-area-inset-bottom,0px);
+  --wf-safe-left:env(safe-area-inset-left,0px);
+  --wf-safe-right:env(safe-area-inset-right,0px);
+  --wf-nav-h:var(--wf-nav-height);
+}
+@media(max-width:390px){:root{--wf-nav-height:84px;}}
+
+/* One safe-area strategy for normal full-screen/detail views. Home keeps its
+   intentionally spatial hero; Radar has its own fixed controls. */
+.screen:not(#home):not(#radarscreen)>.screen-inner{
+  padding-top:calc(var(--wf-safe-top) + 20px)!important;
+}
+.screen-inner,.auth-scroll,.community-inner,.radar-wrap,.more-weather-scroll,.sea-mode-scroll,.travel-scroll{
+  padding-bottom:calc(var(--wf-nav-height) + var(--wf-safe-bottom) + 26px)!important;
+}
+.section-h,.card-title,[id^="section"],#moreWeatherRoot>*,.forecast-day-sheet,.sea-mode-card,.travel-weather-card{
+  scroll-margin-top:calc(var(--wf-safe-top) + 24px)!important;
+}
+
+/* 14-day detail becomes a fast-scannable vertical list. */
+.forecast14-card{padding:15px!important;border-radius:var(--wf-radius-lg)!important;}
+.forecast14-list{display:grid!important;grid-template-columns:1fr!important;gap:7px!important;}
+.forecast14-row{
+  appearance:none;-webkit-appearance:none;width:100%;min-height:58px;margin:0;padding:7px 9px;
+  display:grid;grid-template-columns:minmax(61px,1.05fr) 34px minmax(46px,.72fr) 34px minmax(58px,1.3fr) 35px;
+  align-items:center;column-gap:clamp(4px,1.25vw,8px);border-radius:17px;
+  border:1px solid rgba(235,244,255,.15);background:var(--wf-glass-bg);color:var(--wf-text);
+  box-shadow:inset 0 1px 0 var(--wf-glass-highlight);text-align:left;
+  -webkit-backdrop-filter:blur(7px) saturate(112%);backdrop-filter:blur(7px) saturate(112%);
+}
+.forecast14-row.today{border-color:rgba(204,240,255,.24);background:rgba(111,144,172,.40);}
+.forecast14-day{display:flex;flex-direction:column;gap:2px;min-width:0}.forecast14-day b{font-size:12px;color:#fff}.forecast14-day small{font-size:9px;color:var(--wf-text-tertiary)}
+.forecast14-icon{display:grid;place-items:center}.forecast14-icon svg{width:28px!important;height:28px!important}
+.forecast14-pop{font-size:11px;font-weight:700;color:var(--wf-accent);min-width:0;white-space:nowrap}.forecast14-pop i{display:inline-grid;place-items:center;margin-left:3px;width:13px;height:13px;border-radius:50%;background:rgba(243,189,98,.16);color:var(--wf-warning);font:800 8px/1 inherit;font-style:normal}
+.forecast14-min,.forecast14-max{font-variant-numeric:tabular-nums;white-space:nowrap}.forecast14-min{text-align:right;color:var(--wf-text-secondary);font-size:11px}.forecast14-max{text-align:right;color:#fff;font-size:12px;font-weight:750}
+.forecast14-range{position:relative;width:100%;height:5px;border-radius:999px;background:rgba(26,55,83,.30);overflow:hidden}.forecast14-range>span{position:absolute;inset-block:0;border-radius:999px;background:linear-gradient(90deg,#4fd8df,#72d7a2 55%,#e7bf64);opacity:.88}
+@media(max-width:350px){.forecast14-row{grid-template-columns:54px 29px 40px 30px minmax(43px,1fr) 31px;gap:3px;padding-inline:6px}.forecast14-icon svg{width:25px!important;height:25px!important}.forecast14-pop,.forecast14-min{font-size:10px}.forecast14-max{font-size:11px}}
+
+/* Sky / Fotoweer now lead with context rather than a wall of scores. */
+.sky-context-head,.photo-context{display:grid;gap:3px;margin:3px 0 12px;padding:12px 13px;border-radius:var(--wf-radius-md);background:rgba(73,105,135,.28);border:1px solid rgba(232,244,255,.14)}
+.sky-context-head strong,.photo-context strong{font-size:15px;line-height:1.18;color:#fff}.sky-context-head span,.photo-context span{font-size:11px;line-height:1.35;color:var(--wf-text-secondary)}
+.sky-context-head.poor{border-color:rgba(243,189,98,.16)}
+.sea-reference{display:block;margin:-5px 0 10px;color:var(--wf-text-tertiary);font-size:10px;font-weight:650;letter-spacing:.02em}
+
+/* Settings 2.0: compact category accordion while preserving every control/ID. */
+#settingsSheet .settings-collapsible{overflow:hidden;border-radius:var(--wf-radius-md);border:1px solid rgba(235,244,255,.12);background:rgba(67,95,125,.28);padding:0!important;gap:0!important}
+#settingsSheet .settings-collapsible>.settings-section-head{min-height:52px;margin:0!important;padding:10px 13px!important;cursor:pointer;position:relative;outline:none}
+#settingsSheet .settings-collapsible>.settings-section-head::after{content:"⌄";position:absolute;right:13px;top:50%;transform:translateY(-50%) rotate(180deg);color:var(--wf-text-tertiary);font-size:16px;transition:transform .16s ease}
+#settingsSheet .settings-collapsible>.settings-section-head>strong{margin-right:24px}
+#settingsSheet .settings-collapsible.settings-collapsed>.settings-section-head::after{transform:translateY(-50%) rotate(0deg)}
+#settingsSheet .settings-collapsible.settings-collapsed>*:not(.settings-section-head){display:none!important}
+#settingsSheet .settings-collapsible:not(.settings-collapsed)>*:not(.settings-section-head){margin-left:10px!important;margin-right:10px!important}
+#settingsSheet .settings-collapsible:not(.settings-collapsed)>*:last-child{margin-bottom:10px!important}
+#settingsSheet .settings-collapsible:not(.settings-collapsed)>button,
+#settingsSheet .settings-collapsible:not(.settings-collapsed)>a{width:calc(100% - 20px)!important;box-sizing:border-box!important}
+#settingsSheet .settings-section-head:focus-visible{box-shadow:inset 0 0 0 2px rgba(114,228,239,.50)}
+
+/* TV pairing: six readable code slots with a single real input overlaid. */
+.tv-pair-code-entry{position:relative;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;width:100%;margin:3px 0 12px;cursor:text}
+.tv-pair-code-slot{height:52px;display:grid;place-items:center;border-radius:14px;border:1px solid rgba(232,244,255,.17);background:rgba(61,91,123,.38);color:#fff;font:760 20px/1 inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.035);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.tv-pair-code-slot.filled{border-color:rgba(114,228,239,.35);background:rgba(53,119,151,.34)}
+.tv-pair-code-slot.active{box-shadow:inset 0 0 0 1px rgba(114,228,239,.48)}
+.tv-pair-code-hidden{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;opacity:0!important;caret-color:transparent!important;z-index:2!important;cursor:text!important}
+
+/* Community composer: remove native-form feel without changing data handlers. */
+.community-composer input,.community-composer textarea,.community-composer select{
+  width:100%;box-sizing:border-box;border:1px solid rgba(232,244,255,.15);border-radius:14px;background:rgba(54,83,114,.34);color:#fff;min-height:46px;padding:10px 12px;font:inherit;outline:none;-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px)
+}
+.community-composer textarea{min-height:96px;resize:vertical}.community-composer input:focus,.community-composer textarea:focus,.community-composer select:focus{border-color:rgba(114,228,239,.44);box-shadow:0 0 0 3px rgba(114,228,239,.07)}
+.community-photo-picker{min-height:150px!important;border-radius:20px!important;background:rgba(62,94,126,.30)!important;border:1px dashed rgba(181,230,244,.25)!important}
+
+@media(prefers-reduced-motion:reduce){
+  #settingsSheet .settings-section-head::after,.forecast14-row,.tv-pair-code-slot{transition:none!important}
+}
 
 /* =====================================================================
    2026-08-30 — Restore lighter Wheaterflow Liquid Glass cards
@@ -10277,6 +10375,3 @@ body.tv-pair-open .tabbar{
   #authSheet.auth-sheet.profile-mode .account-row-icon svg{width:19px!important;height:19px!important;}
   #authSheet.auth-sheet.profile-mode .account-row-label{font-size:12px!important;}
 }
-
-/* Wheaterflow Shop profile link */
-.profile-shop-icon{display:inline-grid;place-items:center;color:#68e7ee;font-size:1.15rem;font-weight:800;}
