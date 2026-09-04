@@ -10375,3 +10375,246 @@ body.tv-pair-open .tabbar{
   #authSheet.auth-sheet.profile-mode .account-row-icon svg{width:19px!important;height:19px!important;}
   #authSheet.auth-sheet.profile-mode .account-row-label{font-size:12px!important;}
 }
+
+
+/* =====================================================================
+   2026-09-04 — Readability + 14-daagse verwachting
+   Voorkomt tekst van 6–10px op telefoons en vereenvoudigt 14 dagen naar:
+   dag | weericoon | max | min | maximumwind.
+   ===================================================================== */
+
+/* Algemene leesbaarheid van vaak zichtbare secundaire tekst. */
+.hero .updated,
+.alert-pill,
+.alert-source,
+.detail-card .dt-title,
+.compass .cdir,
+.gauge-labels,
+.timelabel,
+.radar-axis,
+.opacity-row,
+.radar-note,
+.xweather-layer-btn span,
+.xweather-panel-head span,
+#xweatherTimeLabel,
+.xweather-legend span,
+.xweather-wind-settings label,
+.hourlychart .hlabel,
+.hourlychart .hpop,
+.risk-scope .rs-lbl,
+.slider-block label,
+table.hourtable th,
+.safety-note,
+.forecast-day-grid span,
+.forecast-day-sheet p{
+  font-size:12px!important;
+  line-height:1.3!important;
+}
+
+.card-title{
+  font-size:13px!important;
+  line-height:1.2!important;
+}
+
+/* Onderste navigatie mag nooit microscopisch worden. */
+.tabbtn{
+  font-size:11.5px!important;
+  line-height:1.1!important;
+}
+
+/* Regenblok: labels en aswaarden blijven leesbaar op een iPhone. */
+#home .rain-reference-layout .rain-main-card-copy small,
+#home .rain-reference-layout .rain-forecast-title,
+#home .rain-reference-layout .rain-now-scale,
+#home .rain-reference-layout .rain-now-axis,
+#home .rain-reference-layout .rain-bottom-stat small,
+#home .rain-reference-layout .rain-brand strong,
+#home .rain-reference-layout .rain-updated{
+  font-size:11px!important;
+  line-height:1.2!important;
+}
+#home .rain-reference-layout .rain-main-card-copy span,
+#home .rain-reference-layout .rain-chart-empty{
+  font-size:12px!important;
+  line-height:1.3!important;
+}
+
+/* 7 dagen: geen 6.5/7/8px tekst meer op smalle schermen. */
+#home .compact-forecast-card>.card-title{font-size:13px!important;letter-spacing:.06em!important;}
+#home .compact-forecast-card .daily-row-compact{
+  min-height:62px!important;
+  height:auto!important;
+  max-height:none!important;
+}
+#home .compact-forecast-card .daily-row-compact .dname b{font-size:14px!important;line-height:1.1!important;}
+#home .compact-forecast-card .daily-row-compact .dname small{font-size:11px!important;line-height:1.15!important;}
+#home .compact-forecast-card .daily-row-compact .dpop{font-size:12px!important;}
+#home .compact-forecast-card .daily-row-compact .daily-wind-alert{font-size:11px!important;line-height:1.15!important;}
+#home .compact-forecast-card .daily-row-compact .dlow{font-size:13px!important;}
+#home .compact-forecast-card .daily-row-compact .dhigh{font-size:14px!important;}
+#home .compact-forecast-card .forecast-14-button{font-size:13px!important;}
+
+/* 14 dagen: vaste, rustige kolommen met alleen de gevraagde kernwaarden. */
+.forecast14-card{
+  padding:16px!important;
+  border-radius:26px!important;
+}
+.forecast14-card>.card-title{
+  margin-bottom:12px!important;
+  font-size:14px!important;
+  text-transform:none!important;
+  letter-spacing:0!important;
+}
+.forecast14-head{
+  display:grid!important;
+  grid-template-columns:minmax(72px,1.05fr) 44px minmax(52px,.72fr) minmax(52px,.72fr) minmax(78px,1fr)!important;
+  gap:7px!important;
+  align-items:center!important;
+  padding:0 11px 6px!important;
+  color:rgba(232,243,252,.62)!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:750!important;
+  text-align:center!important;
+}
+.forecast14-head span:first-child{text-align:left!important;}
+.forecast14-list{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:8px!important;
+}
+.forecast14-row{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  width:100%!important;
+  min-height:68px!important;
+  margin:0!important;
+  padding:9px 11px!important;
+  display:grid!important;
+  grid-template-columns:minmax(72px,1.05fr) 44px minmax(52px,.72fr) minmax(52px,.72fr) minmax(78px,1fr)!important;
+  gap:7px!important;
+  align-items:center!important;
+  border-radius:18px!important;
+  border:1px solid rgba(235,244,255,.15)!important;
+  background:var(--wf-glass-bg)!important;
+  color:var(--wf-text)!important;
+  box-shadow:inset 0 1px 0 var(--wf-glass-highlight)!important;
+  text-align:left!important;
+  -webkit-backdrop-filter:blur(7px) saturate(112%)!important;
+  backdrop-filter:blur(7px) saturate(112%)!important;
+}
+.forecast14-row.today{
+  border-color:rgba(204,240,255,.27)!important;
+  background:rgba(111,144,172,.42)!important;
+}
+.forecast14-day{
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  gap:3px!important;
+  min-width:0!important;
+}
+.forecast14-day b{
+  color:#fff!important;
+  font-size:14px!important;
+  line-height:1.05!important;
+  font-weight:780!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.forecast14-day small{
+  color:var(--wf-text-tertiary)!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:600!important;
+}
+.forecast14-icon{
+  width:44px!important;
+  height:44px!important;
+  display:grid!important;
+  place-items:center!important;
+  overflow:visible!important;
+}
+.forecast14-icon svg{
+  width:36px!important;
+  height:36px!important;
+  max-width:none!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+.forecast14-metric{
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  text-align:center!important;
+  font-variant-numeric:tabular-nums!important;
+  white-space:nowrap!important;
+}
+.forecast14-metric small{
+  display:none!important;
+  color:rgba(232,243,252,.58)!important;
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:700!important;
+}
+.forecast14-metric b{
+  color:#fff!important;
+  font-size:15px!important;
+  line-height:1.05!important;
+  font-weight:780!important;
+}
+.forecast14-min b{color:rgba(226,240,251,.77)!important;font-weight:650!important;}
+.forecast14-wind b{
+  color:#fff!important;
+  font-size:13px!important;
+  font-weight:700!important;
+}
+
+/* Oude 14-daagse velden uit eerdere iteraties mogen de nieuwe grid niet beïnvloeden. */
+.forecast14-pop,.forecast14-range{display:none!important;}
+
+@media(max-width:390px){
+  .tabbtn{font-size:11px!important;}
+  .forecast14-card{padding:13px!important;}
+  .forecast14-head,
+  .forecast14-row{
+    grid-template-columns:minmax(61px,1fr) 39px minmax(47px,.72fr) minmax(47px,.72fr) minmax(67px,.98fr)!important;
+    gap:4px!important;
+  }
+  .forecast14-head{padding-inline:8px!important;font-size:10.5px!important;}
+  .forecast14-row{min-height:66px!important;padding:8px!important;}
+  .forecast14-day b{font-size:13px!important;}
+  .forecast14-day small{font-size:11px!important;}
+  .forecast14-icon{width:39px!important;height:42px!important;}
+  .forecast14-icon svg{width:33px!important;height:33px!important;}
+  .forecast14-metric b{font-size:14px!important;}
+  .forecast14-wind b{font-size:12px!important;}
+}
+
+@media(max-width:340px){
+  .forecast14-head{display:none!important;}
+  .forecast14-row{
+    grid-template-columns:minmax(58px,1fr) 38px repeat(3,minmax(0,1fr))!important;
+    gap:3px!important;
+    padding-inline:7px!important;
+  }
+  .forecast14-metric small{display:block!important;font-size:10px!important;}
+  .forecast14-day b{font-size:12px!important;}
+  .forecast14-day small{font-size:10.5px!important;}
+  .forecast14-metric b{font-size:13px!important;}
+  .forecast14-wind b{font-size:11.5px!important;}
+}
+
+/* Extra leesbaarheidsbescherming voor zichtbare sectietitels en uurverwachting. */
+#home .hourly-24-card>.card-title{font-size:13px!important;line-height:1.2!important;}
+#home .hourly-24-card .hour-item .t{font-size:12px!important;}
+#home .hourly-24-card .hour-item .pop{font-size:12px!important;}
+#authSheet.auth-sheet.profile-mode .account-management-title,
+#authSheet.auth-sheet.profile-mode .account-danger-title{
+  font-size:12px!important;
+  line-height:1.2!important;
+}

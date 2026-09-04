@@ -3884,33 +3884,32 @@ function chartSubLabel(title){
 function fourteenDaySection(){
   if(!state.daily?.time?.length) return `<div class="card">${wheaterflowStatus('empty','Momenteel geen gegevens beschikbaar')}</div>`;
   const n = Math.min(14, state.daily.time.length);
-  const lows=state.daily.temperature_2m_min.slice(0,n).map(validNumber).filter(v=>v!=null);
-  const highs=state.daily.temperature_2m_max.slice(0,n).map(validNumber).filter(v=>v!=null);
-  const scaleMin=lows.length?Math.min(...lows):0;
-  const scaleMax=highs.length?Math.max(...highs):scaleMin+1;
   return `<div class="card forecast14-card"><div class="card-title">${icon('sunrise',true,13)} 14-daagse verwachting</div>
-    <div class="days14 forecast14-list">${Array.from({length:n},(_,i)=>day14Card(i,scaleMin,scaleMax)).join('')}</div>
+    <div class="forecast14-head" aria-hidden="true">
+      <span></span><span></span><span>Max</span><span>Min</span><span>Max wind</span>
+    </div>
+    <div class="days14 forecast14-list">${Array.from({length:n},(_,i)=>day14Card(i)).join('')}</div>
   </div>`;
 }
 
-function day14Card(i,scaleMin=null,scaleMax=null){
+function day14Card(i){
   const d = new Date(state.daily.time[i]);
   const wc = wcInfo(state.daily.weather_code[i]);
-  const pop=validNumber(state.daily.precipitation_probability_max?.[i]);
-  const gust=validNumber(state.daily.wind_gusts_10m_max?.[i]);
-  const lo=validNumber(state.daily.temperature_2m_min?.[i]);
-  const hi=validNumber(state.daily.temperature_2m_max?.[i]);
-  const span=(scaleMax-scaleMin)||1;
-  const left=lo==null?0:Math.max(0,Math.min(100,((lo-scaleMin)/span)*100));
-  const width=lo==null||hi==null?0:Math.max(4,Math.min(100-left,((hi-lo)/span)*100));
-  const warn=[95,96,99].includes(Number(state.daily.weather_code?.[i])) || (gust!=null&&gust>=60);
-  return `<button class="day14 forecast14-row ${i===0?'today':''}" data-day="${i}" type="button" aria-label="Details voor ${esc(i===0?'Vandaag':d.toLocaleDateString('nl-BE',{weekday:'long'}))}">
-    <span class="forecast14-day"><b>${i===0?'Vandaag':esc(d.toLocaleDateString('nl-BE',{weekday:'short'}))}</b><small>${esc(d.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'}))}</small></span>
-    <span class="forecast14-icon">${icon(wc.ic,true,29)}</span>
-    <span class="forecast14-pop">${pop!=null&&pop>=10?Math.round(pop)+'%':''}${warn?`<i title="Weersignaal">!</i>`:''}</span>
-    <span class="forecast14-min">${lo==null?'':fmtTemp(lo)}</span>
-    <span class="forecast14-range"><span style="left:${left}%;width:${width}%"></span></span>
-    <span class="forecast14-max">${hi==null?'':fmtTemp(hi)}</span>
+  const lo = validNumber(state.daily.temperature_2m_min?.[i]);
+  const hi = validNumber(state.daily.temperature_2m_max?.[i]);
+  const wind = validNumber(state.daily.wind_speed_10m_max?.[i]);
+  const dayName = i===0 ? 'Vandaag' : d.toLocaleDateString('nl-BE',{weekday:'short'});
+  const fullDayName = i===0 ? 'Vandaag' : d.toLocaleDateString('nl-BE',{weekday:'long'});
+  const dateLabel = d.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'});
+  const hiLabel = hi==null ? '—' : fmtTemp(hi);
+  const loLabel = lo==null ? '—' : fmtTemp(lo);
+  const windLabel = wind==null ? '—' : `${Math.round(wind)} km/u`;
+  return `<button class="day14 forecast14-row ${i===0?'today':''}" data-day="${i}" type="button" aria-label="${esc(fullDayName)}: maximum ${esc(hiLabel)}, minimum ${esc(loLabel)}, maximum wind ${esc(windLabel)}">
+    <span class="forecast14-day"><b>${esc(dayName)}</b><small>${esc(dateLabel)}</small></span>
+    <span class="forecast14-icon" title="${esc(wc.l)}">${icon(wc.ic,true,36)}</span>
+    <span class="forecast14-metric forecast14-max"><small>Max</small><b>${hiLabel}</b></span>
+    <span class="forecast14-metric forecast14-min"><small>Min</small><b>${loLabel}</b></span>
+    <span class="forecast14-metric forecast14-wind"><small>Wind</small><b>${windLabel}</b></span>
   </button>`;
 }
 
