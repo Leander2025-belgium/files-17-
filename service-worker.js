@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260904-readability-14d-v3";
+const CACHE_VERSION = "wheaterflow-v20260904-search-results-v4";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

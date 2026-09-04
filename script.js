@@ -1247,11 +1247,31 @@ function locationSuggestionHtml(){
   </div>`;
 }
 
+function fitSearchSuggestions(){
+  const box = $('#suggestions');
+  if(!box || !box.classList.contains('show')) return;
+  const vv = window.visualViewport;
+  const viewportBottom = (vv?.offsetTop || 0) + (vv?.height || window.innerHeight);
+  const boxTop = box.getBoundingClientRect().top;
+  const available = Math.max(150, viewportBottom - boxTop - 10);
+  box.style.setProperty('--wf-search-results-max', `${Math.min(420, Math.floor(available))}px`);
+}
+
+function showSearchSuggestions(box){
+  if(!box) return;
+  box.classList.add('show');
+  requestAnimationFrame(fitSearchSuggestions);
+}
+
+window.visualViewport?.addEventListener('resize', fitSearchSuggestions);
+window.visualViewport?.addEventListener('scroll', fitSearchSuggestions);
+window.addEventListener('orientationchange', ()=>setTimeout(fitSearchSuggestions, 120));
+
 function showLocationSuggestion(){
   const box = $('#suggestions');
   if(!box) return;
   box.innerHTML = locationSuggestionHtml();
-  box.classList.add('show');
+  showSearchSuggestions(box);
   wireCurrentLocationSuggestion(box);
 }
 
@@ -1263,7 +1283,7 @@ async function useCurrentBrowserLocation(){
   const box = $('#suggestions');
   if(box){
     box.innerHTML = `<div class="sugg-empty">Je locatie wordt opgehaald...</div>`;
-    box.classList.add('show');
+    showSearchSuggestions(box);
   }
   const p = await getBrowserLocation();
   if(!p){
@@ -1285,18 +1305,21 @@ async function doSearch(q){
     const results = d.results || [];
     if(!results.length){
       box.innerHTML = `<div class="sugg-empty">Geen plaatsen gevonden voor "${q}"</div>`;
-      box.classList.add('show'); return;
+      showSearchSuggestions(box); return;
     }
-    box.innerHTML = locationSuggestionHtml() + results.map((res,i)=>`
-      <div class="sugg-item" data-i="${i}">
-        <span class="sugg-name">${res.name}</span>
-        <span class="sugg-sub">${[res.admin1, res.country].filter(Boolean).join(', ')}</span>
+    box.innerHTML = results.map((res,i)=>`
+      <div class="sugg-item sugg-place" data-i="${i}">
+        <span class="sugg-main">
+          <span class="sugg-name">${res.name}</span>
+          <span class="sugg-sub">${[res.admin1, res.country].filter(Boolean).join(', ')}</span>
+        </span>
+        <span class="sugg-place-arrow" aria-hidden="true">›</span>
       </div>`).join('');
-    box.classList.add('show');
-    wireCurrentLocationSuggestion(box);
-    $$('.sugg-item', box).forEach(el=>{
+    showSearchSuggestions(box);
+    $$('.sugg-place', box).forEach(el=>{
       el.addEventListener('click', ()=>{
         const res = results[+el.dataset.i];
+        if(!res) return;
         setLocation(res.latitude, res.longitude, res.name, [res.admin1,res.country].filter(Boolean).join(', '), res.country || '', 'manual');
         box.classList.remove('show');
         $('#searchInput').value=''; $('#clearSearch').style.display='none';
@@ -1304,7 +1327,7 @@ async function doSearch(q){
     });
   }catch(e){
     box.innerHTML = `<div class="sugg-empty">Zoeken mislukt - controleer je verbinding.</div>`;
-    box.classList.add('show');
+    showSearchSuggestions(box);
   }
 }
 document.addEventListener('click', (e)=>{
