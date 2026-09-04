@@ -8693,39 +8693,39 @@ body.tv-pair-open .tabbar{
   margin-left:auto!important;
 }
 
-/* Ronde blauwe huidige-locatieknop rechts in de zoekbalk */
+/* Huidige-locatieknop met nieuw Liquid Glass icoon */
 .search-location-btn{
-  width:46px!important;
-  height:46px!important;
-  flex:0 0 46px!important;
-  border:1px solid rgba(255,255,255,.34)!important;
+  width:48px!important;
+  height:48px!important;
+  flex:0 0 48px!important;
+  border:1px solid rgba(132,235,255,.35)!important;
   border-radius:50%!important;
   display:grid!important;
   place-items:center!important;
   padding:0!important;
   margin-left:2px!important;
   color:#fff!important;
-  background:
-    linear-gradient(145deg,#2e86ff 0%,#1164e8 72%,#0758d4 100%)!important;
+  background:linear-gradient(160deg,rgba(18,35,60,.72),rgba(8,18,34,.54))!important;
   box-shadow:
-    0 0 0 7px rgba(44,132,255,.12),
-    0 8px 22px rgba(0,76,194,.26),
-    inset 0 1px 0 rgba(255,255,255,.38)!important;
+    0 0 0 6px rgba(92,209,255,.08),
+    0 8px 24px rgba(0,24,64,.24),
+    inset 0 1px 0 rgba(255,255,255,.22)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(140%)!important;
+  backdrop-filter:blur(18px) saturate(140%)!important;
   -webkit-tap-highlight-color:transparent;
   cursor:pointer;
-  transition:transform .16s ease,filter .16s ease;
+  transition:transform .16s ease,filter .16s ease,box-shadow .18s ease;
 }
 .search-location-btn:active{
   transform:scale(.94);
-  filter:brightness(.95);
+  filter:brightness(.97);
 }
-.search-location-btn .location-arrow-icon{
-  width:25px!important;
-  height:25px!important;
+.search-location-btn .current-location-liquid-icon{
+  width:33px!important;
+  height:33px!important;
   display:block!important;
-  fill:#fff!important;
-  stroke:none!important;
-  filter:drop-shadow(0 1px 1px rgba(0,0,0,.13));
+  object-fit:contain!important;
+  filter:drop-shadow(0 1px 2px rgba(255,255,255,.15)) drop-shadow(0 2px 10px rgba(82,215,255,.18));
 }
 
 /* Suggestiespaneel wordt een afzonderlijke donkere Wheaterflow-kaart */
@@ -8757,7 +8757,7 @@ body.tv-pair-open .tabbar{
     linear-gradient(145deg,rgba(12,39,67,.96),rgba(11,31,55,.92))!important;
 }
 
-/* Exact hetzelfde blauwe locatiepijltje als in de ronde knop */
+/* Huidige-locatiekaart met hetzelfde nieuwe icoon */
 .sugg-location-icon{
   width:54px!important;
   height:54px!important;
@@ -8766,18 +8766,20 @@ body.tv-pair-open .tabbar{
   display:grid!important;
   place-items:center!important;
   color:#fff!important;
-  background:
-    linear-gradient(145deg,#2e86ff 0%,#1164e8 72%,#0758d4 100%)!important;
-  border:1px solid rgba(255,255,255,.28)!important;
+  background:linear-gradient(160deg,rgba(22,43,74,.78),rgba(12,24,43,.56))!important;
+  border:1px solid rgba(132,235,255,.30)!important;
   box-shadow:
-    0 8px 22px rgba(0,76,194,.24),
-    inset 0 1px 0 rgba(255,255,255,.36)!important;
+    0 8px 22px rgba(0,24,64,.22),
+    inset 0 1px 0 rgba(255,255,255,.20)!important;
+  -webkit-backdrop-filter:blur(14px) saturate(140%)!important;
+  backdrop-filter:blur(14px) saturate(140%)!important;
 }
-.sugg-location-icon .location-arrow-icon{
-  width:29px!important;
-  height:29px!important;
-  fill:#fff!important;
-  stroke:none!important;
+.sugg-location-icon .current-location-liquid-icon{
+  width:37px!important;
+  height:37px!important;
+  display:block!important;
+  object-fit:contain!important;
+  filter:drop-shadow(0 1px 2px rgba(255,255,255,.14)) drop-shadow(0 2px 11px rgba(82,215,255,.18));
 }
 
 .sugg-main{
@@ -8824,6 +8826,10 @@ body.tv-pair-open .tabbar{
     width:44px!important;
     height:44px!important;
     flex-basis:44px!important;
+  }
+  .search-location-btn .current-location-liquid-icon{
+    width:31px!important;
+    height:31px!important;
   }
   .sugg-item.sugg-location{
     min-height:84px!important;
@@ -10810,9 +10816,9 @@ table.hourtable th,
   height:44px!important;
   flex:0 0 44px!important;
 }
-#home .suggestions .sugg-location-icon .location-arrow-icon{
-  width:24px!important;
-  height:24px!important;
+#home .suggestions .sugg-location-icon .current-location-liquid-icon{
+  width:30px!important;
+  height:30px!important;
 }
 #home .suggestions .sugg-location .sugg-name{
   font-size:16px!important;

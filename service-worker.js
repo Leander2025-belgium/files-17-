@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260904-gps-current-v5";
+const CACHE_VERSION = "wheaterflow-v20260904-current-location-icon";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -88,6 +88,7 @@ const STATIC_ASSETS = [
   "./icons/icon-512-maskable.png",
   "./icons/apple-touch-icon.png",
   "./icons/badge-96.png",
+    "./assets/ui/location/current-location-liquid.png",
   "./assets/ui/home/tv.png",
   "./assets/ui/home/settings.png",
   "./assets/ui/profile/location.png",
@@ -185,6 +186,7 @@ self.addEventListener("push", event => {
     body: data.body || "",
     icon: data.icon || "./icons/icon-192.png",
     badge: data.badge || "./icons/badge-96.png",
+    "./assets/ui/location/current-location-liquid.png",
     image: data.image,
     tag: data.tag || "wheaterflow-weather",
     renotify: Boolean(data.renotify),
