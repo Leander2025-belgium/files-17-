@@ -7218,51 +7218,101 @@ $('#xweatherLayersBtn')?.addEventListener('click', async ()=>{
 function createRadarAnimator(map){
   const layers = [null, null];
   let active = 0;
-  function ensureLayer(idx, url){
+
+  function configureLayer(layer, fallbackUrl=''){
+    layer._wfHadTileError = false;
+    layer._wfFallbackUrl = fallbackUrl || '';
+    layer._wfFallbackTried = false;
+  }
+
+  function ensureLayer(idx, url, fallbackUrl=''){
     if(!layers[idx]){
-      layers[idx] = L.tileLayer(url, {
+      const layer = L.tileLayer(url, {
         opacity:0,
         maxZoom:14,
         maxNativeZoom:7,
         pane:'radarPane',
         className:'radar-tile-layer',
         crossOrigin:true,
-        keepBuffer:4,
-        updateWhenIdle:false,
+        keepBuffer:6,
+        updateWhenIdle:true,
         updateWhenZooming:false
-      }).addTo(map);
-      layers[idx].on('tileerror', err=>{
-        console.error('Radar tegel kon niet laden', {url, error:err});
-        showRadarInfo('Radarbeeld kon niet volledig laden. Probeer opnieuw of zoom iets uit.');
       });
-    } else {
+      configureLayer(layer, fallbackUrl);
+      layer.on('tileerror', ()=>{
+        // Eén missende z7-tegel kan op een iPhone een enorm rechthoekig gat
+        // worden. Toon daarom nooit een half geladen frame.
+        layer._wfHadTileError = true;
+      });
+      layer.addTo(map);
+      layers[idx] = layer;
+    }else{
+      configureLayer(layers[idx], fallbackUrl);
       layers[idx].setUrl(url);
     }
     return layers[idx];
   }
+
   return {
-    showFrame(url, opacity){
+    showFrame(url, opacity, fallbackUrl=''){
       const next = 1-active;
-      const nextLayer = ensureLayer(next, url);
+      const nextLayer = ensureLayer(next, url, fallbackUrl);
       let done = false;
-      const finish = ()=>{
-        if(done) return; done = true;
+      let fallbackTimer = null;
+
+      const reveal = ()=>{
+        if(done) return;
+
+        // Als ook maar één primaire RainViewer-tegel faalt, laad het volledige
+        // frame opnieuw via de Wheaterflow worker. Zo ontstaan geen zichtbare
+        // verticale tegelranden of halve buien.
+        if(nextLayer._wfHadTileError && nextLayer._wfFallbackUrl && !nextLayer._wfFallbackTried){
+          nextLayer._wfFallbackTried = true;
+          nextLayer._wfHadTileError = false;
+          nextLayer.once('load', reveal);
+          nextLayer.setUrl(nextLayer._wfFallbackUrl);
+          return;
+        }
+
+        // Als primaire én fallbacktegels fouten geven, hou het vorige volledige
+        // frame zichtbaar in plaats van een kapotte tegel te tonen.
+        if(nextLayer._wfHadTileError){
+          done = true;
+          nextLayer.setOpacity(0);
+          showRadarInfo('Radarbeeld wordt opnieuw geladen. Zoom eventueel iets uit.');
+          return;
+        }
+
+        done = true;
+        if(fallbackTimer) clearTimeout(fallbackTimer);
         nextLayer.setOpacity(opacity);
         if(layers[active]) layers[active].setOpacity(0);
         active = next;
       };
-      nextLayer.once('load', finish);
-      setTimeout(finish, 1600); // vangnet als 'load' niet vuurt (bv. tegels al gecached)
+
+      nextLayer.once('load', reveal);
+
+      // Geen gedeeltelijk frame na een arbitraire timeout meer. Als de primaire
+      // bron te lang blijft hangen, schakel dan gecontroleerd naar de worker.
+      fallbackTimer = setTimeout(()=>{
+        if(done) return;
+        if(nextLayer._wfFallbackUrl && !nextLayer._wfFallbackTried){
+          nextLayer._wfFallbackTried = true;
+          nextLayer._wfHadTileError = false;
+          nextLayer.once('load', reveal);
+          nextLayer.setUrl(nextLayer._wfFallbackUrl);
+        }
+      }, 2600);
     },
     setOpacity(opacity){
       if(layers[active]) layers[active].setOpacity(opacity);
     },
     destroy(){
-      layers.forEach(l=>{ if(l) map.removeLayer(l); });
+      layers.forEach(layer=>{ if(layer && map.hasLayer(layer)) map.removeLayer(layer); });
+      layers[0]=layers[1]=null;
     }
   };
 }
-
 function wms3857Bbox(coords){
   const extent = 20037508.342789244;
   const tiles = Math.pow(2, coords.z);
@@ -7573,7 +7623,10 @@ async function fetchLatestRainviewerRadarFrame(){
 }
 function rainviewerTileUrl(frame, salt='radar'){
   if(!rainviewerMeta?.host || !frame?.path) return '';
-  return `${rainviewerMeta.host}${frame.path}/256/{z}/{x}/{y}/4/1_1.png?${salt}=${frame.time}-${Date.now()}`;
+  // RainViewer Weather Maps API v2: kleurenschema 2 (Universal Blue).
+  // Frame-pad + tijdstip zijn al uniek, dus geen Date.now() per tegel: dit laat
+  // browser/CDN-cache werken en voorkomt onnodige tegel-fouten op mobiel.
+  return `${rainviewerMeta.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png?${salt}=${frame.time}`;
 }
 function updateRadarLocationUi(){
   const place = $('#radarPlaceLabel');
@@ -7701,7 +7754,13 @@ function setFrame(i){
     url = `${host}${f.path}/256/{z}/{x}/{y}/0/0_0.png?rv=${f.time}-${Date.now()}`;
   }
   if(!state.radar.animator) state.radar.animator = createRadarAnimator(state.map);
-  state.radar.animator.showFrame(url, state.radar.opacity);
+  let fallbackUrl = '';
+  if(state.radar.layer === 'precip' && f.source === 'rainviewer'){
+    const minutesFromNow = (f.time * 1000 - Date.now()) / 60000;
+    const roundedOffset = Math.max(-120, Math.min(0, Math.round(minutesFromNow / 10) * 10));
+    fallbackUrl = weatherflowRadarTileUrl(roundedOffset);
+  }
+  state.radar.animator.showFrame(url, state.radar.opacity, fallbackUrl);
   const d = new Date(f.time*1000);
   const label = state.radar.layer === 'precip'
     ? (f.source === 'rainviewer' ? d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`))

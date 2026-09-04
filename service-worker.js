@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260904-radar-bottom-clean";
+const CACHE_VERSION = "wheaterflow-v20260904-radar-tiles-v2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -187,8 +187,6 @@ self.addEventListener("push", event => {
     body: data.body || "",
     icon: data.icon || "./icons/icon-192.png",
     badge: data.badge || "./icons/badge-96.png",
-    "./assets/ui/location/current-location-liquid.png",
-    "./assets/ui/location/current-location-liquid-compact.png",
     image: data.image,
     tag: data.tag || "wheaterflow-weather",
     renotify: Boolean(data.renotify),
