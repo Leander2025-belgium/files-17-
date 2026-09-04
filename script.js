@@ -1180,18 +1180,22 @@ function icon(name, isDay=true, size=24, cls=''){
 }
 
 /* ---------------- geolocation ---------------- */
-function getBrowserLocation(){
+function getBrowserLocation({fresh=false}={}){
   return new Promise((resolve)=>{
     if(!navigator.geolocation) return resolve(null);
     navigator.geolocation.getCurrentPosition(
       pos => resolve({lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy}),
       () => resolve(null),
-      {timeout:6000, maximumAge:600000}
+      {
+        timeout:fresh ? 12000 : 6000,
+        maximumAge:fresh ? 0 : 600000,
+        enableHighAccuracy:!!fresh
+      }
     );
   });
 }
 
-async function reverseGeocode(lat, lon){
+async function reverseGeocode(lat, lon, {fallbackToStored=true}={}){
   try{
     const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=nl`, {cache:'no-store'});
     if(!r.ok) throw new Error(`reverse geocode ${r.status}`);
@@ -1200,9 +1204,15 @@ async function reverseGeocode(lat, lon){
     const admin = [d.principalSubdivision, d.countryName].filter(Boolean).join(', ');
     const country = d.countryName || '';
     if(name) rememberResolvedLocation(name,admin,country);
+    if(!fallbackToStored){
+      return {name:name || 'Huidige locatie', admin, country};
+    }
     const last=lastResolvedLocation();
     return {name:name || last?.name || cleanLocationName(state.loc?.name,'Geselecteerde locatie'), admin:admin || last?.admin || state.loc?.admin || '', country:country || last?.country || state.loc?.country || ''};
   }catch(e){
+    if(!fallbackToStored){
+      return {name:'Huidige locatie', admin:'', country:''};
+    }
     const last=lastResolvedLocation();
     return {name:last?.name || cleanLocationName(state.loc?.name,'Geselecteerde locatie'), admin:last?.admin || state.loc?.admin || '', country:last?.country || state.loc?.country || ''};
   }
@@ -1210,11 +1220,12 @@ async function reverseGeocode(lat, lon){
 
 /* ---------------- geocoding search ---------------- */
 let searchTimer = null;
+let searchRequestSeq = 0;
 $('#searchInput').addEventListener('input', (e)=>{
   const q = e.target.value.trim();
   $('#clearSearch').style.display = q ? 'block' : 'none';
   clearTimeout(searchTimer);
-  if(q.length < 2){ showLocationSuggestion(); return; }
+  if(q.length < 2){ searchRequestSeq++; showLocationSuggestion(); return; }
   searchTimer = setTimeout(()=>doSearch(q), 300);
 });
 $('#searchInput').addEventListener('focus', ()=>{
@@ -1227,6 +1238,15 @@ $('#clearSearch').addEventListener('click', ()=>{
 $('#searchLocationBtn')?.addEventListener('click', async (e)=>{
   e.preventDefault();
   e.stopPropagation();
+  clearTimeout(searchTimer);
+  searchTimer = null;
+  searchRequestSeq++;
+  const input = $('#searchInput');
+  if(input){
+    input.value='';
+    input.blur();
+  }
+  $('#clearSearch').style.display='none';
   await useCurrentBrowserLocation();
 });
 
@@ -1282,26 +1302,31 @@ function wireCurrentLocationSuggestion(box=$('#suggestions')){
 async function useCurrentBrowserLocation(){
   const box = $('#suggestions');
   if(box){
-    box.innerHTML = `<div class="sugg-empty">Je locatie wordt opgehaald...</div>`;
+    box.innerHTML = `<div class="sugg-empty">Je actuele GPS-locatie wordt bepaald...</div>`;
     showSearchSuggestions(box);
   }
-  const p = await getBrowserLocation();
+  // Voor deze knop nooit een oude/cached positie gebruiken: hij betekent letterlijk 'waar ben ik nu?'.
+  const p = await getBrowserLocation({fresh:true});
   if(!p){
-    if(box) box.innerHTML = `<div class="sugg-empty">Locatie kon niet worden opgehaald. Controleer je toestemming voor locatie.</div>`;
+    if(box) box.innerHTML = `<div class="sugg-empty">Je huidige locatie kon niet worden opgehaald. Controleer Locatievoorzieningen en de toestemming voor Wheaterflow.</div>`;
     return;
   }
-  const g = await reverseGeocode(p.lat, p.lon);
+  // Belangrijk: als reverse geocoding faalt, nooit de laatst GEZOCHTE plaatsnaam hergebruiken.
+  const g = await reverseGeocode(p.lat, p.lon, {fallbackToStored:false});
   await setLocation(p.lat, p.lon, g.name, g.admin, g.country, 'gps');
   if(box) box.classList.remove('show');
   $('#searchInput').value='';
   $('#clearSearch').style.display='none';
+  toast(g.name && g.name !== 'Huidige locatie' ? `Huidige locatie: ${g.name}` : 'Huidige GPS-locatie geladen');
 }
 
 async function doSearch(q){
   const box = $('#suggestions');
+  const requestSeq = ++searchRequestSeq;
   try{
     const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=nl&format=json`);
     const d = await r.json();
+    if(requestSeq !== searchRequestSeq || $('#searchInput').value.trim() !== q) return;
     const results = d.results || [];
     if(!results.length){
       box.innerHTML = `<div class="sugg-empty">Geen plaatsen gevonden voor "${q}"</div>`;
@@ -1342,12 +1367,14 @@ async function setLocation(lat, lon, name, admin, country='', status='manual'){
     return;
   }
   let displayName = cleanLocationName(name, '');
-  if(!displayName || /huidige locatie/i.test(displayName)){
+  if(!displayName || (/huidige locatie/i.test(displayName) && status !== 'gps')){
     const resolved = await reverseGeocode(nextLat,nextLon);
     displayName = cleanLocationName(resolved.name, lastResolvedLocation()?.name || 'Locatie bepalen…');
     admin = admin || resolved.admin;
     country = country || resolved.country;
   }
+  // Bij GPS mag een mislukte plaatsnaam-resolutie nooit terugvallen op de laatst handmatig gezochte plaats.
+  if(status === 'gps' && !displayName) displayName = 'Huidige locatie';
   state.locationStatus = status;
   state.loc = {lat:nextLat, lon:nextLon, name:displayName, admin:admin || '', country:country || ''};
   rememberResolvedLocation(displayName, state.loc.admin, state.loc.country);
