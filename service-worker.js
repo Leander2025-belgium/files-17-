@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260904-radar-contrast-v1";
+const CACHE_VERSION = "wheaterflow-v20260904-exact-location-icon-v1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -90,6 +90,7 @@ const STATIC_ASSETS = [
   "./icons/badge-96.png",
     "./assets/ui/location/current-location-liquid.png",
     "./assets/ui/location/current-location-liquid-compact.png",
+    "./assets/ui/location/current-location-liquid-exact.png",
   "./assets/ui/home/tv.png",
   "./assets/ui/home/settings.png",
   "./assets/ui/profile/location.png",

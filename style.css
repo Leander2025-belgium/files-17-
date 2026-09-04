@@ -11171,3 +11171,22 @@ table.hourtable th,
     color:rgba(255,255,255,.68)!important;
   }
 }
+
+
+/* 2026-09-04 — exact door gebruiker gekozen huidige-locatie-icoon */
+#home .search-location-btn .current-location-liquid-icon,
+#home .suggestions .sugg-location-icon .current-location-liquid-icon{
+  object-fit:contain!important;
+  object-position:center!important;
+  background:transparent!important;
+  border:0!important;
+}
+#home .search-location-btn .current-location-liquid-icon{
+  width:31px!important;
+  height:31px!important;
+  transform:none!important;
+}
+#home .suggestions .sugg-location-icon .current-location-liquid-icon{
+  width:34px!important;
+  height:34px!important;
+}

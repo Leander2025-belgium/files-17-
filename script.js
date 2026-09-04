@@ -1253,7 +1253,7 @@ $('#searchLocationBtn')?.addEventListener('click', async (e)=>{
 function locationSuggestionHtml(){
   return `<div class="sugg-item sugg-location" data-use-current-location="true">
     <span class="sugg-location-icon" aria-hidden="true">
-      <img src="./assets/ui/location/current-location-liquid.png" alt="" class="current-location-liquid-icon"/>
+      <img src="./assets/ui/location/current-location-liquid-exact.png" alt="" class="current-location-liquid-icon"/>
     </span>
     <span class="sugg-main">
       <span class="sugg-location-title-row">
