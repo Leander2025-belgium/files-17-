@@ -2668,6 +2668,24 @@ function rainNowcastCard(){
   const rainingNow = rain?.status === 'raining';
   const currentMm = rainingNow ? Math.max(0, Number(currentSignal?.now)||0, slotNowMm) : 0;
 
+  const displaySlots = slots.map(slot=>({ ...slot }));
+  if(rainingNow && currentMm > 0){
+    const currentQuarterMm = currentMm / 4;
+    if(displaySlots.length){
+      displaySlots[0].minutes = 0;
+      displaySlots[0].wet = true;
+      displaySlots[0].precipitation = Math.max(currentQuarterMm, Math.max(0, Number(displaySlots[0].precipitation)||0));
+    }else{
+      displaySlots.push({
+        time:new Date().toISOString(),
+        minutes:0,
+        precipitation:currentQuarterMm,
+        wet:true,
+        weatherCode:Number(state.current?.weather_code) || null
+      });
+    }
+  }
+
   const intensity = (()=>{
     if(!rainingNow || currentMm < 0.05) return {id:'none', label:'Geen regen'};
     if(currentMm < 0.30) return {id:'very-light', label:'Zeer lichte regen'};
@@ -2697,9 +2715,10 @@ function rainNowcastCard(){
     return {label:'GEEN REGEN VERWACHT', main:'Komende 2 uur', sub:''};
   })();
 
-  // Gebruik uitsluitend de fijnste bestaande nowcast-resolutie. Lege slots blijven
-  // ruimtelijk bestaan zodat de tijdas klopt, maar krijgen bewust géén regenbalk.
-  const barSlots = slots.map((slot,i)=>{
+  // Als het nu al regent via de live snapshot maar het eerste 15-minutenframe nog
+  // droog staat, tonen we toch een "Nu"-balk zodat de grafiek overeenkomt met de status.
+  // Lege slots blijven verder ruimtelijk bestaan zodat de tijdas klopt.
+  const barSlots = displaySlots.map((slot,i)=>{
     const hourlyMm = Math.max(0,(Number(slot.precipitation)||0)*4);
     const level = rainIntensityToLevel(hourlyMm);
     const current = Number(slot.minutes) === 0 || i === 0;
@@ -2726,10 +2745,12 @@ function rainNowcastCard(){
     }
   }
   const popValues = hourIndexes.map(i=>Number(hourly.precipitation_probability?.[i])).filter(Number.isFinite);
-  const precipChance = popValues.length ? Math.max(...popValues.map(v=>Math.max(0,Math.min(100,v)))) : null;
+  const precipChance = rainingNow
+    ? 100
+    : (popValues.length ? Math.max(...popValues.map(v=>Math.max(0,Math.min(100,v)))) : null);
 
-  let precipAmount = slots.length
-    ? slots.reduce((sum,slot)=>sum+Math.max(0,Number(slot.precipitation)||0),0)
+  let precipAmount = displaySlots.length
+    ? displaySlots.reduce((sum,slot)=>sum+Math.max(0,Number(slot.precipitation)||0),0)
     : null;
   if(precipAmount == null && hourIndexes.length){
     const values = hourIndexes.map(i=>Number(hourly.precipitation?.[i])).filter(Number.isFinite);

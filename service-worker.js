@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260904-radar-tiles-v2";
+const CACHE_VERSION = "wheaterflow-v20260904-rain-bars-fix";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
