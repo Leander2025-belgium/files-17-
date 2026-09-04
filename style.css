@@ -11094,3 +11094,80 @@ table.hourtable th,
     color:rgba(255,255,255,.72)!important;
   }
 }
+
+
+/* =====================================================================
+   2026-09-04 — Radar bottom contrast + intensity legend
+   - behoud de nuttige Licht → Zwaar intensiteitsschaal
+   - geen groot radar-informatievlak terugbrengen
+   - subtiele donkere gradient onderaan zodat Liquid Glass nav leesbaar blijft
+   ===================================================================== */
+@media (max-width: 760px){
+  #radarscreen.active .radar-wrap::after{
+    content:""!important;
+    position:absolute!important;
+    left:0!important;
+    right:0!important;
+    bottom:0!important;
+    height:220px!important;
+    z-index:70!important;
+    pointer-events:none!important;
+    background:linear-gradient(
+      to bottom,
+      rgba(4,12,23,0) 0%,
+      rgba(4,12,23,.08) 24%,
+      rgba(4,12,23,.22) 52%,
+      rgba(4,12,23,.42) 78%,
+      rgba(4,12,23,.52) 100%
+    )!important;
+  }
+
+  #radarscreen.active .radar-bottom{
+    z-index:86!important;
+  }
+
+  #radarscreen.active #liveRadarPanel:not(.hide){
+    grid-template-columns:44px minmax(0,1fr) 56px!important;
+    grid-template-rows:20px 44px!important;
+    row-gap:6px!important;
+  }
+
+  /* Intensiteit blijft zichtbaar, maar compact en zonder kaart/achtergrond. */
+  #radarscreen.active #liveRadarPanel .legend{
+    display:flex!important;
+    grid-column:1 / -1!important;
+    grid-row:1!important;
+    align-items:center!important;
+    gap:7px!important;
+    width:100%!important;
+    margin:0!important;
+    padding:0 2px!important;
+    color:rgba(255,255,255,.78)!important;
+    font-size:10.5px!important;
+    line-height:1!important;
+    font-weight:650!important;
+    text-shadow:0 1px 7px rgba(0,0,0,.68)!important;
+  }
+  #radarscreen.active #liveRadarPanel .legend .swatches{
+    height:6px!important;
+    border-radius:999px!important;
+    overflow:hidden!important;
+    box-shadow:0 1px 8px rgba(0,0,0,.22)!important;
+  }
+
+  #radarscreen.active #liveRadarPanel .playbtn{
+    grid-row:2!important;
+  }
+  #radarscreen.active #liveRadarPanel .radar-frame-slider{
+    grid-row:2!important;
+  }
+  #radarscreen.active #liveRadarPanel .timelabel{
+    grid-row:2!important;
+  }
+
+  /* Bronvermelding blijft leesbaar maar minder dominant. */
+  #radarscreen.active .leaflet-control-attribution{
+    background:rgba(5,14,27,.58)!important;
+    color:rgba(255,255,255,.68)!important;
+  }
+}
