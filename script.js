@@ -197,11 +197,18 @@ function formatWindPair(speed, gust){
   if(g!=null && (s==null || g >= s + 8)) parts.push(`stoten ${fmtWind(g)}`);
   return parts.join(' · ');
 }
-function rememberResolvedLocation(name, admin='', country=''){
+function rememberResolvedLocation(name, admin='', country='', lat=state.loc?.lat, lon=state.loc?.lon){
   const clean=cleanLocationName(name,'');
   if(!clean || /huidige locatie|locatie bepalen/i.test(clean)) return;
   state.sharedWeather.locationName=clean;
-  try{ localStorage.setItem('wheaterflow:last-location-name', JSON.stringify({name:clean,admin,country,lat:state.loc?.lat,lon:state.loc?.lon})); }catch(e){}
+  const resolvedLat = Number(lat), resolvedLon = Number(lon);
+  try{ localStorage.setItem('wheaterflow:last-location-name', JSON.stringify({
+    name:clean,
+    admin,
+    country,
+    lat:Number.isFinite(resolvedLat) ? resolvedLat : null,
+    lon:Number.isFinite(resolvedLon) ? resolvedLon : null
+  })); }catch(e){}
 }
 function lastResolvedLocation(){
   try{ const x=JSON.parse(localStorage.getItem('wheaterflow:last-location-name')||'null'); return x?.name ? x : null; }catch(e){ return null; }
@@ -1237,7 +1244,7 @@ async function applyLiveLocationPosition(position, {force=false}={}){
   liveLocationBusy = true;
   const generation = liveLocationGeneration;
   try{
-    const g = await reverseGeocode(lat, lon, {fallbackToStored:false});
+    const g = await resolveGpsLocation(lat, lon);
     if(generation !== liveLocationGeneration || !liveLocationModeActive()) return false;
     await setLocation(lat, lon, g.name, g.admin, g.country, 'gps', {silent:true, fromTracking:true});
     liveLocationLastAppliedAt = Date.now();
@@ -1300,7 +1307,7 @@ async function reverseGeocode(lat, lon, {fallbackToStored=true}={}){
     const name = d.city || d.locality || d.principalSubdivision || d.countryName || '';
     const admin = [d.principalSubdivision, d.countryName].filter(Boolean).join(', ');
     const country = d.countryName || '';
-    if(name) rememberResolvedLocation(name,admin,country);
+    if(name) rememberResolvedLocation(name,admin,country,lat,lon);
     if(!fallbackToStored){
       return {name:name || 'Huidige locatie', admin, country};
     }
@@ -1313,6 +1320,17 @@ async function reverseGeocode(lat, lon, {fallbackToStored=true}={}){
     const last=lastResolvedLocation();
     return {name:last?.name || cleanLocationName(state.loc?.name,'Geselecteerde locatie'), admin:last?.admin || state.loc?.admin || '', country:last?.country || state.loc?.country || ''};
   }
+}
+
+
+async function resolveGpsLocation(lat, lon){
+  // GPS-coordinaten mogen nooit gekoppeld worden aan een oude handmatig gezochte
+  // plaatsnaam. Probeer de actuele coördinaten twee keer te reverse-geocoden.
+  let resolved = await reverseGeocode(lat, lon, {fallbackToStored:false});
+  if(resolved?.name && resolved.name !== 'Huidige locatie') return resolved;
+  await new Promise(resolve=>setTimeout(resolve, 280));
+  resolved = await reverseGeocode(lat, lon, {fallbackToStored:false});
+  return resolved || {name:'Huidige locatie', admin:'', country:''};
 }
 
 /* ---------------- geocoding search ---------------- */
@@ -1407,7 +1425,7 @@ async function useCurrentBrowserLocation(){
     return;
   }
   // Belangrijk: als reverse geocoding faalt, nooit de laatst GEZOCHTE plaatsnaam hergebruiken.
-  const g = await reverseGeocode(p.lat, p.lon, {fallbackToStored:false});
+  const g = await resolveGpsLocation(p.lat, p.lon);
   await setLocation(p.lat, p.lon, g.name, g.admin, g.country, 'gps');
   if(box) box.classList.remove('show');
   $('#searchInput').value='';
@@ -5252,7 +5270,7 @@ function wireAuthUi(){
     updateProfileMessage('Actuele gps-locatie bepalen...');
     const gps=await getBrowserLocation({fresh:true});
     if(!gps){ updateProfileMessage('Gps-locatie kon niet worden opgehaald. Controleer je locatietoegang.', 'error'); return; }
-    const resolved=await reverseGeocode(gps.lat,gps.lon);
+    const resolved=await resolveGpsLocation(gps.lat,gps.lon);
     const name=cleanLocationName(resolved.name,'');
     if(!name){ updateProfileMessage('Plaatsnaam van je gps-locatie kon niet worden bepaald.', 'error'); return; }
     input.value=name;
@@ -6020,7 +6038,7 @@ async function submitQuickObservation(typeId, button=null){
   if(button){ button.disabled = true; button.classList.add('sending'); }
   try{
     const gps = await getBrowserLocation({fresh:true});
-    const baseLoc = gps ? {lat:gps.lat, lon:gps.lon, ...(await reverseGeocode(gps.lat, gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
+    const baseLoc = gps ? {lat:gps.lat, lon:gps.lon, ...(await resolveGpsLocation(gps.lat, gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
     const safeLoc = communityPrivacyLocation(baseLoc, 'municipality');
     const cur = liveWeatherSnapshot();
     const expiresAt = new Date(Date.now() + type.ttlMinutes * 60000).toISOString();
@@ -6214,7 +6232,7 @@ async function createCommunityPost(){
     const blob = file ? await compressAvatar(file) : null;
     const gps = $('#communityUseGps')?.checked ? await getBrowserLocation({fresh:true}) : null;
     const privacy = $('#communityLocationPrivacy')?.value || 'municipality';
-    const loc = gps ? {lat:gps.lat, lon:gps.lon, ...(await reverseGeocode(gps.lat,gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
+    const loc = gps ? {lat:gps.lat, lon:gps.lon, ...(await resolveGpsLocation(gps.lat,gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
     const cur = liveWeatherSnapshot();
     let category = $('#communityCategorySelect')?.value || 'other';
     if(category === 'other' && /(^|\s|#)(zeevonk|seaspark|bioluminescentie|bioluminescence)(\s|$|[.,!?])/i.test(caption)) category = 'seaspark';
@@ -7303,7 +7321,7 @@ function placeMarker(lat, lon, name){
 $('#chipLocate').addEventListener('click', async ()=>{
   const p = await getBrowserLocation({fresh:true});
   if(!p){ toast('Locatie niet beschikbaar'); return; }
-  const g = await reverseGeocode(p.lat,p.lon);
+  const g = await resolveGpsLocation(p.lat,p.lon);
   setLocation(p.lat,p.lon,g.name,g.admin,g.country || '', 'gps');
   const rv = radarView();
   state.map.setView(rv.center, rv.zoom);
@@ -8679,15 +8697,22 @@ async function init(){
   await safeInitStep('Locatie ophalen', async ()=>{
     if(state.cast.receiver || state.tvPairing.receiver) return;
     state.locationStatus = 'detecting';
-    state.loc = {...state.loc, name: cleanLocationName(state.loc?.name, 'Locatie bepalen...')};
+    state.loc = {...state.loc, name:'Locatie bepalen...', admin:'', country:''};
     if(isFirstRunOnboarding()){
       state.locationStatus = 'onboarding';
       return;
     }
     const p = await getBrowserLocation({fresh:true});
     if(p){
-      const g = await reverseGeocode(p.lat, p.lon);
-      state.loc = {lat:p.lat, lon:p.lon, name:g.name, admin:g.admin, country:g.country};
+      const g = await resolveGpsLocation(p.lat, p.lon);
+      state.loc = {
+        lat:p.lat,
+        lon:p.lon,
+        name:cleanLocationName(g?.name,'Huidige locatie'),
+        admin:g?.admin || '',
+        country:g?.country || ''
+      };
+      rememberResolvedLocation(state.loc.name, state.loc.admin, state.loc.country, p.lat, p.lon);
       state.locationStatus = 'gps';
     }else{
       state.locationStatus = 'denied';
@@ -8906,7 +8931,7 @@ function initFirstRunOnboarding(force=false){
     try{
       const p=await getBrowserLocation({fresh:true});
       if(!p) throw new Error('denied');
-      const g=await reverseGeocode(p.lat,p.lon);
+      const g=await resolveGpsLocation(p.lat,p.lon);
       await setLocation(p.lat,p.lon,g.name,g.admin,g.country,'gps');
       locationConfirmed=true;
       shell.querySelector('#onboardingLocationCard')?.classList.add('allowed');
