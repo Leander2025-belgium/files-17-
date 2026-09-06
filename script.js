@@ -796,7 +796,10 @@ function liveWeatherSnapshot(){
     const idx = closestIndex(state.minutely.time, targetMs);
     const minuteAge = Math.abs(new Date(state.minutely.time[idx]).getTime() - targetMs) / 60000;
     if(minuteAge <= 35){
-      ['temperature_2m','weather_code','precipitation','wind_speed_10m','wind_gusts_10m'].forEach(k=>{
+      // minutely_15 is een korte-termijnVOORSPELLING, geen actuele meting.
+      // Gebruik hem nooit om 'regen nu' of de huidige weather_code te forceren.
+      // Temperatuur/wind mogen wel als fijnere modelupdate worden gebruikt.
+      ['temperature_2m','wind_speed_10m','wind_gusts_10m'].forEach(k=>{
         if(state.minutely[k] && state.minutely[k][idx] != null) cur[k] = state.minutely[k][idx];
       });
     }
@@ -813,40 +816,47 @@ function liveWeatherSnapshot(){
 }
 
 function precipitationSignal(cur=state.current || {}){
-  const signal = {now:0, soon:0, pop:0, thunder:false};
+  const signal = {now:0, soon:0, pop:0, thunder:false, radarNow:false, observationWet:false, observationDry:false};
 
-  // Gebruik zowel de actuele snapshot als de ruwe current-data. Zo kan een
-  // 15-minutenframe met 0 mm een echte actuele regenmeting niet overschrijven.
+  // Open-Meteo `current` blijft een modelanalyse. Behandel minutely_15 nooit als
+  // een actuele meting; die data is uitsluitend een korte-termijnvoorspelling.
   const snapshotPrecip = Number(cur?.precipitation) || 0;
-const snapshotRain = Number(cur?.rain) || 0;
-const snapshotShowers = Number(cur?.showers) || 0;
+  const snapshotRain = Number(cur?.rain) || 0;
+  const snapshotShowers = Number(cur?.showers) || 0;
+  const currentPrecip = Number(state.current?.precipitation) || 0;
+  const currentRain = Number(state.current?.rain) || 0;
+  const currentShowers = Number(state.current?.showers) || 0;
+  const modelNow = Math.max(snapshotPrecip, snapshotRain, snapshotShowers, currentPrecip, currentRain, currentShowers);
 
-const currentPrecip = Number(state.current?.precipitation) || 0;
-const currentRain = Number(state.current?.rain) || 0;
-const currentShowers = Number(state.current?.showers) || 0;
+  const obs = state.observation;
+  const obsAgeMs = obs?.time ? Date.now() - Number(obs.time) : Infinity;
+  const obsFresh = Boolean(
+    obs &&
+    Number.isFinite(Number(obs.weather_code)) &&
+    Number(obs.distanceKm) <= 45 &&
+    obsAgeMs >= 0 && obsAgeMs <= 60*60*1000
+  );
+  const wetObsCodes = [51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99];
+  signal.observationWet = obsFresh && wetObsCodes.includes(Number(obs.weather_code));
+  signal.observationDry = obsFresh && !signal.observationWet;
 
-const currentTotal = Math.max(
-  snapshotPrecip,
-  snapshotRain,
-  snapshotShowers,
-  currentPrecip,
-  currentRain,
-  currentShowers
-);
-
-signal.now = Math.max(signal.now, currentTotal);
-signal.soon = Math.max(signal.soon, currentTotal);
+  // Een verse, nabije droge waarneming mag een heel zwak modelregensignaal
+  // tegenhouden. Een sterk modelsignaal (>=1 mm/u) blijft staan omdat een lokale
+  // bui tussen station en gebruiker mogelijk is.
+  if(signal.observationWet){
+    signal.now = Math.max(modelNow, 0.2);
+  }else if(!signal.observationDry || modelNow >= 1.0){
+    signal.now = Math.max(signal.now, modelNow);
+  }
+  signal.soon = Math.max(signal.soon, modelNow);
 
   const targetMs = Date.now();
   if(state.minutely?.time?.length){
     const idx = closestIndex(state.minutely.time, targetMs);
     const minuteAge = Math.abs(new Date(state.minutely.time[idx]).getTime() - targetMs) / 60000;
     if(minuteAge <= 35){
-      // Open-Meteo minutely_15 is een hoeveelheid per 15 minuten. Zet om naar
-      // een mm/u-intensiteit voordat we lichte/gewone/zware regen bepalen.
+      // mm per kwartier -> mm/u, maar ALLEEN als toekomstsignaal.
       const slots = state.minutely.precipitation.slice(idx, idx + 4).map(v=>(Number(v) || 0) * 4);
-      const minuteNow = slots[0] || 0;
-      signal.now = Math.max(signal.now, minuteNow);
       signal.soon = Math.max(signal.soon, ...slots);
       const codes = state.minutely.weather_code?.slice(idx, idx + 4) || [];
       signal.thunder = codes.some(c=>[95,96,99].includes(Number(c)));
@@ -857,13 +867,13 @@ signal.soon = Math.max(signal.soon, currentTotal);
     const idx = nowIndexInHourly();
     const hourPrecip = Number(state.hourly.precipitation?.[idx]) || 0;
     const nextPrecip = Number(state.hourly.precipitation?.[idx + 1]) || 0;
-    // Uurdata is grover: gebruik ze vooral als 'soon'-signaal, niet om droog
-    // weer nu automatisch als regen te tonen.
     signal.soon = Math.max(signal.soon, hourPrecip, nextPrecip);
     signal.pop = Number(state.hourly.precipitation_probability?.[idx]) || 0;
     signal.thunder = signal.thunder || [95,96,99].includes(Number(state.hourly.weather_code?.[idx]));
   }
-  // Verse live radar krijgt voorrang wanneer neerslag echt boven de gebruiker ligt.
+
+  // Verse live radar mag 'regen nu' bevestigen wanneer echo's echt boven de
+  // gebruiker liggen. De radar bepaalt hier OF het regent, niet exact hoeveel.
   const rp = state.radar?.proximity;
   const radarFresh = rp && Date.now() - Number(rp.checkedAt || 0) < 10*60*1000;
   if(radarFresh){
@@ -871,14 +881,13 @@ signal.soon = Math.max(signal.soon, currentTotal);
     signal.radarLevel = rp.localIntensity || rp.intensity || 'light';
     signal.radarNow = Boolean(rp.atLocation || (Number.isFinite(signal.radarDistanceKm) && signal.radarDistanceKm <= 4));
     if(signal.radarNow){
-      // Radar bepaalt vooral OF het regent. De kleur van RainViewer is niet betrouwbaar
-      // genoeg om rechtstreeks 'zware regen' te forceren; daarvoor gebruiken we de
-      // gemeten/verwachte hoeveelheid van Open-Meteo.
       const radarMm = 0.2;
       signal.now = Math.max(signal.now, radarMm);
       signal.soon = Math.max(signal.soon, radarMm);
     }
   }
+
+  signal.confirmedNow = signal.now >= 0.1;
   return signal;
 }
 
@@ -889,9 +898,9 @@ function effectiveCurrentWeatherCode(cur=state.current || {}){
   const snowCodes = [71,73,75,77,85,86];
   const p = precipitationSignal(cur);
 
-  if([99,96,95].includes(code)) return code;
+  if([99,96,95].includes(code) && (p.now >= 0.1 || p.observationWet)) return code;
   if(snowCodes.includes(code)) return code;
-  if([66,67].includes(code)) return code;
+  if([66,67].includes(code) && p.now >= 0.1) return code;
   if([45,48].includes(code) && p.now < 0.1) return code;
 
   if(p.thunder && p.now >= 0.1) return 95;
@@ -899,7 +908,18 @@ function effectiveCurrentWeatherCode(cur=state.current || {}){
   if(p.now >= 2.0) return 63;
   if(p.now >= 0.1) return 61;
 
-  if(drizzleCodes.includes(code) || rainCodes.includes(code)) return code;
+  // Een model-weather_code met regen mag zonder actuele regenbevestiging niet
+  // langer 'Lichte regen' op Home zetten. Val terug op de bewolkingsgraad.
+  if(drizzleCodes.includes(code) || rainCodes.includes(code) || [95,96,99].includes(code)){
+    const cloud = Number(cur.cloud_cover ?? state.current?.cloud_cover ?? state.hourly?.cloud_cover?.[nowIndexInHourly()]);
+    if(Number.isFinite(cloud)){
+      if(cloud >= 85) return 3;
+      if(cloud >= 45) return 2;
+      if(cloud >= 15) return 1;
+      return 0;
+    }
+    return 0;
+  }
   return Number.isFinite(code) ? code : 0;
 }
 
@@ -2024,12 +2044,10 @@ function normalizedWeatherState(){
   const idx = nowIndexInHourly();
   const h = state.hourly || {};
   const valid = value => validNumber(value);
-  const rainRate = Math.max(0,
-    valid(cur.precipitation) ?? 0,
-    rain?.status === 'raining' && Array.isArray(rain.slots) && rain.slots.length
-      ? (valid(rain.slots[0]?.precipitation) ?? 0) * 4
-      : 0
-  );
+  const currentRainSignal = precipitationSignal(cur);
+  const rainRate = rain?.status === 'raining'
+    ? Math.max(0, valid(currentRainSignal.now) ?? 0)
+    : 0;
   return {
     temperature:valid(cur.temperature_2m),
     feelsLike:valid(cur.apparent_temperature ?? cur.temperature_2m),
@@ -2121,15 +2139,13 @@ function calculateRainEtaRaw(){
  */
 const currentSignal = precipitationSignal(liveWeatherSnapshot());
 
-const rainingNow =
-  currentSignal.now >= 0.1 ||
-  slots[0]?.wet === true;
+const rainingNow = currentSignal.now >= 0.1;
 
 /*
- * Als het nu al regent, begint de regen op minuut 0.
- * Anders zoeken we zoals vroeger naar de eerstvolgende natte periode.
+ * minutely_15 is forecastdata: het eerste forecastslot mag niet zelfstandig
+ * bewijzen dat het nu regent. Zoek bij droog weer pas naar een echt toekomstslot.
  */
-const firstWetFromForecast = slots.find(s => s.wet);
+const firstWetFromForecast = slots.find(s => s.wet && Number(s.minutes) >= 5);
 
 const firstWet = rainingNow
   ? {

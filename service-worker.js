@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260906-location-sync-v1";
+const CACHE_VERSION = "wheaterflow-v20260906-actual-weather-fix";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
