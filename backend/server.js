@@ -215,6 +215,305 @@ app.delete('/api/push-unsubscribe',async(req,res)=>{await DB.query('DELETE FROM 
 
 app.post('/api/push-test',async(req,res)=>{try{const r=await DB.query('SELECT subscription FROM push_subscriptions WHERE endpoint=$1 OR installation_id=$2 LIMIT 1',[req.body.endpoint||'',req.body.installationId||'']);if(!r.rows.length)return res.status(404).json({error:'Abonnement niet gevonden'});await webpush.sendNotification(r.rows[0].subscription,JSON.stringify({title:'Wheaterflow test',body:'Meldingen via je eigen server werken.',url:PUBLIC_APP_URL}));res.json({ok:true});}catch(e){console.error(e);res.status(500).json({error:'Testmelding mislukt'});}});
 
+
+// ---------------------------------------------------------------------------
+// Wheaterflow Admin Control Center API
+// Alle routes hieronder zijn uitsluitend beschikbaar met ADMIN_TOKEN.
+// ---------------------------------------------------------------------------
+function adminAuthorized(req){
+  const expected=String(process.env.ADMIN_TOKEN||'');
+  const supplied=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
+  if(!expected||!supplied) return false;
+  try{
+    const a=Buffer.from(expected);
+    const b=Buffer.from(supplied);
+    return a.length===b.length && crypto.timingSafeEqual(a,b);
+  }catch{return false;}
+}
+
+function adminOnly(req,res,next){
+  if(!process.env.ADMIN_TOKEN) return res.status(503).json({ok:false,error:'ADMIN_TOKEN ontbreekt op de backend'});
+  if(!adminAuthorized(req)) return res.status(401).json({ok:false,error:'Unauthorized'});
+  next();
+}
+
+async function adminScalar(sql,params=[],fallback=0){
+  try{
+    const r=await DB.query(sql,params);
+    const row=r.rows?.[0]||{};
+    const value=Object.values(row)[0];
+    const number=Number(value);
+    return Number.isFinite(number)?number:fallback;
+  }catch(e){
+    console.warn('Admin metric overgeslagen:',e.message);
+    return fallback;
+  }
+}
+
+async function adminRows(sql,params=[],fallback=[]){
+  try{return (await DB.query(sql,params)).rows||fallback;}
+  catch(e){console.warn('Admin query overgeslagen:',e.message);return fallback;}
+}
+
+app.get('/api/admin/overview',adminOnly,async(req,res)=>{
+  try{
+    const dbStarted=Date.now();
+    await DB.query('SELECT 1');
+    const databaseLatencyMs=Date.now()-dbStarted;
+
+    const [
+      users,users24h,users7d,pushSubscriptions,push24h,communityPosts,
+      community24h,openReports,comments,favorites,weatherDays
+    ]=await Promise.all([
+      adminScalar('SELECT count(*) FROM users'),
+      adminScalar("SELECT count(*) FROM users WHERE created_at>=now()-interval '24 hours'"),
+      adminScalar("SELECT count(*) FROM users WHERE created_at>=now()-interval '7 days'"),
+      adminScalar('SELECT count(*) FROM push_subscriptions'),
+      adminScalar("SELECT count(*) FROM push_subscriptions WHERE updated_at>=now()-interval '24 hours'"),
+      adminScalar('SELECT count(*) FROM community_posts'),
+      adminScalar("SELECT count(*) FROM community_posts WHERE created_at>=now()-interval '24 hours'"),
+      adminScalar("SELECT count(*) FROM community_reports WHERE status='open'"),
+      adminScalar('SELECT count(*) FROM community_comments'),
+      adminScalar('SELECT count(*) FROM favorite_locations'),
+      adminScalar('SELECT count(*) FROM personal_weather_days')
+    ]);
+
+    const recentUsers=await adminRows(`
+      SELECT id,username,email,display_name,role,created_at
+      FROM users ORDER BY created_at DESC LIMIT 6
+    `);
+
+    const recentPosts=await adminRows(`
+      SELECT p.id,p.caption,p.category,p.location_name,p.photo_url,p.moderation_status,
+             p.created_at,COALESCE(pr.display_name,u.display_name,u.username,'Gebruiker') AS author,
+             (SELECT count(*)::int FROM community_reports r WHERE r.post_id=p.id AND r.status='open') AS open_reports
+      FROM community_posts p
+      LEFT JOIN profiles pr ON pr.user_id=p.user_id
+      LEFT JOIN users u ON u.id=p.user_id
+      ORDER BY p.created_at DESC LIMIT 6
+    `);
+
+    const userGrowth=await adminRows(`
+      SELECT to_char(days.day,'YYYY-MM-DD') AS day, count(u.id)::int AS count
+      FROM generate_series(current_date-interval '6 days',current_date,interval '1 day') AS days(day)
+      LEFT JOIN users u ON u.created_at>=days.day AND u.created_at<days.day+interval '1 day'
+      GROUP BY days.day ORDER BY days.day
+    `);
+
+    const postGrowth=await adminRows(`
+      SELECT to_char(days.day,'YYYY-MM-DD') AS day, count(p.id)::int AS count
+      FROM generate_series(current_date-interval '6 days',current_date,interval '1 day') AS days(day)
+      LEFT JOIN community_posts p ON p.created_at>=days.day AND p.created_at<days.day+interval '1 day'
+      GROUP BY days.day ORDER BY days.day
+    `);
+
+    const memory=process.memoryUsage();
+    res.json({
+      ok:true,
+      generatedAt:new Date().toISOString(),
+      metrics:{users,users24h,users7d,pushSubscriptions,push24h,communityPosts,community24h,openReports,comments,favorites,weatherDays},
+      recentUsers,recentPosts,userGrowth,postGrowth,
+      system:{
+        status:'ok',database:'connected',databaseLatencyMs,
+        uptimeSeconds:Math.round(process.uptime()),
+        nodeVersion:process.version,
+        memoryRssMb:Math.round(memory.rss/1024/1024),
+        memoryHeapMb:Math.round(memory.heapUsed/1024/1024),
+        vapidConfigured:Boolean(process.env.VAPID_PUBLIC_KEY&&process.env.VAPID_PRIVATE_KEY),
+        smtpConfigured:Boolean(process.env.SMTP_HOST),
+        xweatherConfigured:Boolean(process.env.XWEATHER_CLIENT_ID&&process.env.XWEATHER_CLIENT_SECRET),
+        knmiConfigured:Boolean(process.env.KNMI_OPEN_DATA_API_KEY||process.env.KNMI_WMS_API_KEY),
+        adminTokenConfigured:Boolean(process.env.ADMIN_TOKEN)
+      }
+    });
+  }catch(e){console.error('admin overview:',e);res.status(500).json({ok:false,error:'Dashboard kon niet worden geladen'});}
+});
+
+app.get('/api/admin/users',adminOnly,async(req,res)=>{
+  try{
+    const q=String(req.query.q||'').trim();
+    const limit=Math.min(100,Math.max(1,Number(req.query.limit||50)));
+    const offset=Math.max(0,Number(req.query.offset||0));
+    const params=[];
+    let where='';
+    if(q){params.push(`%${q}%`);where=`WHERE u.username ILIKE $1 OR u.email ILIKE $1 OR u.display_name ILIKE $1`;}
+    params.push(limit,offset);
+    const li=params.length-1, oi=params.length;
+    const rows=await DB.query(`
+      SELECT u.id,u.username,u.email,u.display_name,u.role,u.created_at,u.updated_at,
+        (SELECT count(*)::int FROM favorite_locations f WHERE f.user_id=u.id) AS favorite_count,
+        (SELECT count(*)::int FROM community_posts p WHERE p.user_id=u.id) AS post_count,
+        (SELECT count(*)::int FROM push_subscriptions s WHERE s.user_id=u.id) AS push_count
+      FROM users u ${where}
+      ORDER BY u.created_at DESC LIMIT $${li} OFFSET $${oi}
+    `,params);
+    const countParams=q?[`%${q}%`]:[];
+    const total=await adminScalar(`SELECT count(*) FROM users u ${where}`,countParams,rows.rows.length);
+    res.json({ok:true,users:rows.rows,total,limit,offset});
+  }catch(e){console.error('admin users:',e);res.status(500).json({ok:false,error:'Gebruikers konden niet worden geladen'});}
+});
+
+app.patch('/api/admin/users/:id',adminOnly,async(req,res)=>{
+  try{
+    const id=String(req.params.id||'');
+    const fields=[]; const values=[];
+    if(req.body?.role!==undefined){
+      const role=String(req.body.role||'').trim().toLowerCase();
+      if(!['user','admin'].includes(role)) return res.status(400).json({ok:false,error:'Ongeldige rol'});
+      values.push(role);fields.push(`role=$${values.length}`);
+    }
+    if(req.body?.displayName!==undefined){
+      const name=String(req.body.displayName||'').trim().slice(0,80);
+      if(!name) return res.status(400).json({ok:false,error:'Naam mag niet leeg zijn'});
+      values.push(name);fields.push(`display_name=$${values.length}`);
+    }
+    if(!fields.length) return res.status(400).json({ok:false,error:'Geen wijziging opgegeven'});
+    values.push(id);
+    const r=await DB.query(`UPDATE users SET ${fields.join(',')},updated_at=now() WHERE id=$${values.length} RETURNING id,username,email,display_name,role,created_at,updated_at`,values);
+    if(!r.rows.length) return res.status(404).json({ok:false,error:'Gebruiker niet gevonden'});
+    if(req.body?.displayName!==undefined){
+      await DB.query('UPDATE profiles SET display_name=$1,updated_at=now() WHERE user_id=$2',[r.rows[0].display_name,id]).catch(()=>{});
+    }
+    res.json({ok:true,user:r.rows[0]});
+  }catch(e){console.error('admin user update:',e);res.status(500).json({ok:false,error:'Gebruiker kon niet worden bijgewerkt'});}
+});
+
+app.delete('/api/admin/users/:id',adminOnly,async(req,res)=>{
+  try{
+    if(String(req.body?.confirmation||'')!=='VERWIJDER GEBRUIKER') return res.status(400).json({ok:false,error:'Bevestiging ontbreekt'});
+    const id=String(req.params.id||'');
+    const files=await adminRows(`SELECT avatar_url AS url FROM profiles WHERE user_id=$1 UNION ALL SELECT photo_url AS url FROM community_posts WHERE user_id=$1`,[id]);
+    const r=await DB.query('DELETE FROM users WHERE id=$1 RETURNING id',[id]);
+    if(!r.rows.length) return res.status(404).json({ok:false,error:'Gebruiker niet gevonden'});
+    for(const item of files){
+      const url=item.url;
+      if(url&&url.startsWith(PUBLIC_API_URL+'/uploads/')){
+        const rel=url.slice((PUBLIC_API_URL+'/uploads/').length);
+        fs.rm(path.join(UPLOAD_ROOT,rel),{force:true},()=>{});
+      }
+    }
+    res.json({ok:true});
+  }catch(e){console.error('admin user delete:',e);res.status(500).json({ok:false,error:'Gebruiker kon niet worden verwijderd'});}
+});
+
+app.get('/api/admin/community',adminOnly,async(req,res)=>{
+  try{
+    const status=String(req.query.status||'all').toLowerCase();
+    const q=String(req.query.q||'').trim();
+    const limit=Math.min(100,Math.max(1,Number(req.query.limit||60)));
+    const params=[]; const where=[];
+    if(status!=='all'){params.push(status);where.push(`p.moderation_status=$${params.length}`);}
+    if(q){params.push(`%${q}%`);where.push(`(p.caption ILIKE $${params.length} OR p.location_name ILIKE $${params.length} OR COALESCE(pr.display_name,u.display_name,u.username,'') ILIKE $${params.length})`);}
+    params.push(limit);
+    const r=await DB.query(`
+      SELECT p.id,p.user_id,p.photo_url,p.photo_path,p.caption,p.category,p.location_name,p.visibility,
+             p.moderation_status,p.created_at,p.updated_at,
+             COALESCE(pr.display_name,u.display_name,u.username,'Gebruiker') AS author,
+             (SELECT count(*)::int FROM community_likes l WHERE l.post_id=p.id) AS like_count,
+             (SELECT count(*)::int FROM community_comments c WHERE c.post_id=p.id) AS comment_count,
+             (SELECT count(*)::int FROM community_reports x WHERE x.post_id=p.id AND x.status='open') AS open_report_count
+      FROM community_posts p
+      LEFT JOIN profiles pr ON pr.user_id=p.user_id
+      LEFT JOIN users u ON u.id=p.user_id
+      ${where.length?'WHERE '+where.join(' AND '):''}
+      ORDER BY p.created_at DESC LIMIT $${params.length}
+    `,params);
+    res.json({ok:true,posts:r.rows});
+  }catch(e){console.error('admin community:',e);res.status(500).json({ok:false,error:'Communitybeheer kon niet worden geladen'});}
+});
+
+app.patch('/api/admin/community/:id',adminOnly,async(req,res)=>{
+  try{
+    const status=String(req.body?.status||'').toLowerCase();
+    if(!['pending','approved','hidden','rejected'].includes(status)) return res.status(400).json({ok:false,error:'Ongeldige moderatiestatus'});
+    const r=await DB.query('UPDATE community_posts SET moderation_status=$1,updated_at=now() WHERE id=$2 RETURNING id,moderation_status',[status,req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ok:false,error:'Post niet gevonden'});
+    res.json({ok:true,post:r.rows[0]});
+  }catch(e){console.error('admin moderation:',e);res.status(500).json({ok:false,error:'Moderatieactie mislukt'});}
+});
+
+app.delete('/api/admin/community/:id',adminOnly,async(req,res)=>{
+  try{
+    if(String(req.body?.confirmation||'')!=='VERWIJDER POST') return res.status(400).json({ok:false,error:'Bevestiging ontbreekt'});
+    const r=await DB.query('DELETE FROM community_posts WHERE id=$1 RETURNING photo_path',[req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ok:false,error:'Post niet gevonden'});
+    if(r.rows[0].photo_path) fs.rm(path.join(UPLOAD_ROOT,'community',r.rows[0].photo_path),{force:true},()=>{});
+    res.json({ok:true});
+  }catch(e){console.error('admin post delete:',e);res.status(500).json({ok:false,error:'Post kon niet worden verwijderd'});}
+});
+
+app.get('/api/admin/reports',adminOnly,async(req,res)=>{
+  try{
+    const status=String(req.query.status||'open').toLowerCase();
+    const params=[];let where='';
+    if(status!=='all'){params.push(status);where=`WHERE r.status=$1`;}
+    const rows=await adminRows(`
+      SELECT r.id,r.post_id,r.reporter_id,r.reason,r.status,r.created_at,
+             p.caption,p.photo_url,p.location_name,p.moderation_status,
+             COALESCE(author.display_name,au.display_name,au.username,'Gebruiker') AS post_author,
+             COALESCE(reporter.display_name,ru.display_name,ru.username,'Gebruiker') AS reporter
+      FROM community_reports r
+      LEFT JOIN community_posts p ON p.id=r.post_id
+      LEFT JOIN profiles author ON author.user_id=p.user_id
+      LEFT JOIN users au ON au.id=p.user_id
+      LEFT JOIN profiles reporter ON reporter.user_id=r.reporter_id
+      LEFT JOIN users ru ON ru.id=r.reporter_id
+      ${where}
+      ORDER BY r.created_at DESC LIMIT 100
+    `,params);
+    res.json({ok:true,reports:rows});
+  }catch(e){console.error('admin reports:',e);res.status(500).json({ok:false,error:'Rapporten konden niet worden geladen'});}
+});
+
+app.patch('/api/admin/reports/:id',adminOnly,async(req,res)=>{
+  try{
+    const status=String(req.body?.status||'').toLowerCase();
+    if(!['open','reviewed','dismissed','actioned'].includes(status)) return res.status(400).json({ok:false,error:'Ongeldige rapportstatus'});
+    const r=await DB.query('UPDATE community_reports SET status=$1 WHERE id=$2 RETURNING id,status',[status,req.params.id]);
+    if(!r.rows.length) return res.status(404).json({ok:false,error:'Rapport niet gevonden'});
+    res.json({ok:true,report:r.rows[0]});
+  }catch(e){console.error('admin report update:',e);res.status(500).json({ok:false,error:'Rapport kon niet worden bijgewerkt'});}
+});
+
+app.get('/api/admin/push-stats',adminOnly,async(req,res)=>{
+  try{
+    const rows=await adminRows('SELECT user_id,location,created_at,updated_at FROM push_subscriptions ORDER BY updated_at DESC');
+    const byCountry=new Map(),byRegion=new Map(),byCity=new Map();
+    let authenticated=0,anonymous=0,recent24h=0,recent7d=0;
+    const now=Date.now();
+    for(const row of rows){
+      row.user_id?authenticated++:anonymous++;
+      const updated=new Date(row.updated_at||row.created_at||0).getTime();
+      if(Number.isFinite(updated)){
+        if(now-updated<=86400000) recent24h++;
+        if(now-updated<=7*86400000) recent7d++;
+      }
+      let loc=row.location||{};
+      if(typeof loc==='string'){try{loc=JSON.parse(loc);}catch{loc={name:loc};}}
+      const inc=(map,key)=>{key=String(key||'').trim();if(key)map.set(key,(map.get(key)||0)+1);};
+      inc(byCountry,loc.country);inc(byRegion,loc.admin);inc(byCity,loc.name);
+    }
+    const top=map=>[...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8).map(([name,count])=>({name,count}));
+    res.json({ok:true,total:rows.length,authenticated,anonymous,recent24h,recent7d,byCountry:top(byCountry),byRegion:top(byRegion),byCity:top(byCity)});
+  }catch(e){console.error('admin push stats:',e);res.status(500).json({ok:false,error:'Pushstatistieken konden niet worden geladen'});}
+});
+
+app.post('/api/admin/email-test',adminOnly,async(req,res)=>{
+  try{
+    const to=String(req.body?.to||'').trim();
+    if(!/^\S+@\S+\.\S+$/.test(to)) return res.status(400).json({ok:false,error:'Vul een geldig e-mailadres in'});
+    const tx=mailer();
+    if(!tx) return res.status(503).json({ok:false,error:'SMTP is nog niet geconfigureerd'});
+    await tx.sendMail({
+      from:process.env.SMTP_FROM||'Wheaterflow <no-reply@wheaterflow.be>',to,
+      subject:'Wheaterflow e-mailtest',
+      text:`Dit is een test vanuit Wheaterflow Admin. Verzonden op ${new Date().toLocaleString('nl-BE')}.`,
+      html:`<div style="font-family:Arial,sans-serif;background:#08111f;color:#fff;padding:28px;border-radius:18px"><h2 style="margin-top:0">Wheaterflow</h2><p>De e-mailverbinding werkt correct.</p><p style="color:#a8b7ca">Verzonden op ${new Date().toLocaleString('nl-BE')}</p></div>`
+    });
+    res.json({ok:true});
+  }catch(e){console.error('admin email test:',e);res.status(500).json({ok:false,error:'Testmail kon niet worden verzonden'});}
+});
+
 app.post('/api/admin-push',async(req,res)=>{
   try{
     const expected=process.env.ADMIN_TOKEN||'';
