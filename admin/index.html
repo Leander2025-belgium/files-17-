@@ -1,1334 +1,248 @@
-<!DOCTYPE html>
-<html lang="nl">
+<!doctype html>
+<html lang="nl-BE">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#080d16">
-<title>Wheaterflow Admin</title>
-
+<meta name="theme-color" content="#07101e">
+<title>Wheaterflow Control Center</title>
 <style>
 :root{
-  --bg:#080d16;
-  --panel:#101824;
-  --panel2:#151f2d;
-  --line:rgba(255,255,255,.09);
-  --text:#f5f8fc;
-  --muted:#8e9aac;
-  --blue:#4b8dff;
-  --green:#36c98f;
-  --orange:#ffad3d;
-  --red:#ff5d67;
-  --radius:18px;
+  color-scheme:dark;
+  --bg:#06101d;--bg2:#0a1626;--panel:rgba(15,29,47,.78);--panel-strong:rgba(13,27,45,.94);
+  --line:rgba(255,255,255,.10);--line2:rgba(255,255,255,.16);--text:#f6f9ff;--muted:#91a3b9;
+  --blue:#5aa2ff;--cyan:#52e2e2;--green:#45d39a;--yellow:#ffd15c;--orange:#ff9f4a;--red:#ff6672;
+  --shadow:0 22px 70px rgba(0,0,0,.28);--r:20px;--r2:14px;
 }
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+body{min-height:100vh;background:radial-gradient(circle at 92% -8%,rgba(75,139,255,.22),transparent 31%),radial-gradient(circle at 13% 90%,rgba(63,218,207,.09),transparent 27%),linear-gradient(155deg,#07101c,#071423 55%,#06101c)}
+button,input,textarea,select{font:inherit}button{cursor:pointer}.hidden{display:none!important}.muted{color:var(--muted)}
+svg{display:block}.ico{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 
-*{box-sizing:border-box}
+/* Login */
+.login-screen{min-height:100vh;display:grid;place-items:center;padding:24px}.login-card{width:min(430px,100%);padding:28px;border:1px solid var(--line2);border-radius:28px;background:linear-gradient(160deg,rgba(20,38,62,.93),rgba(8,18,31,.94));box-shadow:0 34px 100px rgba(0,0,0,.46);backdrop-filter:blur(28px)}
+.logo-row{display:flex;align-items:center;gap:13px}.logo-mark{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(145deg,#6edfe6,#4a8cff);box-shadow:inset 0 1px 0 #ffffff55,0 10px 32px #3d8cff35;font-weight:900;color:#07111e}.logo-row strong{font-size:18px}.logo-row small{display:block;color:var(--muted);margin-top:2px}.login-card h1{font-size:30px;margin:32px 0 8px;letter-spacing:-.03em}.login-card>p{margin:0 0 22px;color:var(--muted);line-height:1.55}.login-help{font-size:12px;color:#73869c;margin-top:14px;line-height:1.45}
 
-body{
-  margin:0;
-  min-height:100vh;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-  background:
-    radial-gradient(circle at 85% -10%,rgba(64,126,255,.17),transparent 32%),
-    var(--bg);
-  color:var(--text);
-}
-
-button,input,textarea,select{font:inherit}
-
-button{cursor:pointer}
-
-.hidden{display:none!important}
-
-/* LOGIN */
-
-.login{
-  min-height:100vh;
-  display:grid;
-  place-items:center;
-  padding:24px;
-}
-
-.login-card{
-  width:min(420px,100%);
-  padding:32px;
-  background:rgba(16,24,36,.92);
-  border:1px solid var(--line);
-  border-radius:26px;
-  box-shadow:0 30px 80px rgba(0,0,0,.4);
-}
-
-.brand{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  margin-bottom:28px;
-}
-
-.brand-icon{
-  width:45px;
-  height:45px;
-  border-radius:14px;
-  display:grid;
-  place-items:center;
-  background:linear-gradient(135deg,#397cff,#70a8ff);
-  font-size:22px;
-}
-
-.brand strong{
-  display:block;
-  font-size:18px;
-}
-
-.brand small{color:var(--muted)}
-
-.login-card h1{
-  margin:0 0 8px;
-  font-size:27px;
-}
-
-.login-card>p{
-  margin:0 0 22px;
-  color:var(--muted);
-  line-height:1.5;
-}
-
-/* LAYOUT */
-
-.shell{
-  display:grid;
-  grid-template-columns:250px minmax(0,1fr);
-  min-height:100vh;
-}
-
-.sidebar{
-  position:sticky;
-  top:0;
-  height:100vh;
-  padding:24px 16px;
-  border-right:1px solid var(--line);
-  background:rgba(9,14,23,.92);
-}
-
-.nav-title{
-  color:#647083;
-  font-size:11px;
-  font-weight:700;
-  text-transform:uppercase;
-  letter-spacing:.1em;
-  padding:12px 12px 8px;
-}
-
-.nav button{
-  width:100%;
-  display:flex;
-  align-items:center;
-  gap:11px;
-  border:0;
-  color:#aeb8c7;
-  background:transparent;
-  padding:12px 13px;
-  border-radius:12px;
-  text-align:left;
-  margin:2px 0;
-}
-
-.nav button.active{
-  color:white;
-  background:rgba(75,141,255,.15);
-}
-
-.main{
-  padding:32px;
-  width:100%;
-  max-width:1450px;
-  margin:0 auto;
-}
-
-.topbar{
-  display:flex;
-  justify-content:space-between;
-  gap:20px;
-  align-items:center;
-  margin-bottom:28px;
-}
-
-.topbar h1{
-  margin:0 0 5px;
-  font-size:28px;
-}
-
-.topbar p{
-  margin:0;
-  color:var(--muted);
-}
-
-.status{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  color:#aeb8c7;
-  font-size:13px;
-}
-
-.status-dot{
-  width:8px;
-  height:8px;
-  border-radius:50%;
-  background:var(--green);
-  box-shadow:0 0 12px var(--green);
-}
-
-/* GENERAL */
-
-.card{
-  background:linear-gradient(180deg,rgba(21,31,45,.96),rgba(15,23,35,.96));
-  border:1px solid var(--line);
-  border-radius:var(--radius);
-}
-
-.card-head{
-  padding:20px 22px;
-  border-bottom:1px solid var(--line);
-}
-
-.card-head h2{
-  margin:0 0 4px;
-  font-size:17px;
-}
-
-.card-head p{
-  margin:0;
-  color:var(--muted);
-  font-size:13px;
-}
-
-.form{
-  padding:22px;
-}
-
-label{
-  display:block;
-  color:#aab5c5;
-  font-size:12px;
-  font-weight:650;
-  margin:0 0 7px;
-}
-
-.field{margin-bottom:18px}
-
-input,textarea,select{
-  width:100%;
-  border:1px solid var(--line);
-  outline:0;
-  background:#0b121d;
-  color:white;
-  border-radius:11px;
-  padding:12px 13px;
-}
-
-input:focus,textarea:focus,select:focus{
-  border-color:rgba(75,141,255,.7);
-  box-shadow:0 0 0 3px rgba(75,141,255,.1);
-}
-
-textarea{
-  min-height:110px;
-  resize:vertical;
-  line-height:1.5;
-}
-
-.row{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:14px;
-}
-
-.btn{
-  border:0;
-  border-radius:11px;
-  padding:11px 16px;
-  font-weight:700;
-  color:white;
-}
-
-.btn-primary{
-  background:linear-gradient(135deg,#397cff,#5999ff);
-}
-
-.btn-secondary{
-  background:#202b3a;
-  border:1px solid var(--line);
-}
-
-.btn-danger{
-  background:rgba(255,93,103,.13);
-  color:#ff7c84;
-  border:1px solid rgba(255,93,103,.2);
-}
-
-.actions{
-  display:flex;
-  justify-content:flex-end;
-  gap:10px;
-  margin-top:22px;
-}
-
-/* GRID */
-
-.editor-grid{
-  display:grid;
-  grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);
-  gap:20px;
-}
+/* Shell */
+.shell{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:100vh}.sidebar{position:sticky;top:0;height:100vh;padding:20px 14px;border-right:1px solid var(--line);background:rgba(5,13,24,.84);backdrop-filter:blur(22px);z-index:20}.sidebar .logo-row{padding:6px 8px 24px}.nav-label{font-size:10px;font-weight:800;letter-spacing:.14em;color:#60748e;text-transform:uppercase;padding:12px 11px 8px}.nav{display:grid;gap:4px}.nav-btn{width:100%;border:0;background:transparent;color:#9eb0c4;border-radius:13px;padding:11px 12px;display:flex;align-items:center;gap:11px;text-align:left;font-weight:680;transition:.18s}.nav-btn:hover{background:#ffffff08;color:#eaf2ff}.nav-btn.active{color:#fff;background:linear-gradient(90deg,rgba(76,145,255,.19),rgba(74,225,219,.07));box-shadow:inset 0 0 0 1px rgba(97,168,255,.14)}.nav-badge{margin-left:auto;min-width:22px;height:20px;border-radius:999px;padding:0 6px;display:grid;place-items:center;background:#ff66721c;color:#ff8992;font-size:11px;font-weight:800}.sidebar-bottom{position:absolute;bottom:18px;left:14px;right:14px}.admin-mini{padding:12px;border:1px solid var(--line);border-radius:14px;background:#ffffff05;display:flex;align-items:center;gap:10px}.admin-avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#4c8fff,#65d8e5);font-weight:900}.admin-mini strong{font-size:13px}.admin-mini small{display:block;color:var(--muted);font-size:11px}.logout{margin-left:auto;border:0;background:transparent;color:#8fa1b8;padding:6px}
 
-/* SEVERITY */
+.content{min-width:0}.topbar{position:sticky;top:0;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 30px;border-bottom:1px solid var(--line);background:rgba(6,16,29,.72);backdrop-filter:blur(26px)}.top-title h1{font-size:25px;margin:0 0 4px;letter-spacing:-.025em}.top-title p{margin:0;color:var(--muted);font-size:13px}.top-actions{display:flex;align-items:center;gap:9px}.live-pill{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#ffffff06;padding:9px 12px;border-radius:999px;color:#aebed0;font-size:12px;font-weight:700}.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 13px var(--green)}.main{max-width:1540px;margin:0 auto;padding:28px 30px 60px}.page{animation:fade .18s ease}@keyframes fade{from{opacity:.2;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-.severity{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:9px;
-}
-
-.severity button{
-  padding:12px 8px;
-  border-radius:11px;
-  border:1px solid var(--line);
-  background:#0b121d;
-  color:#aeb8c7;
-}
-
-.severity button.selected{
-  border-color:var(--blue);
-  color:white;
-  background:rgba(75,141,255,.13);
-}
-
-.severity button[data-type="warning"].selected{
-  border-color:var(--orange);
-  background:rgba(255,173,61,.12);
-}
-
-.severity button[data-type="danger"].selected{
-  border-color:var(--red);
-  background:rgba(255,93,103,.12);
-}
-
-/* SCOPE */
-
-.scope-options{
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:9px;
-}
-
-.scope-btn{
-  border:1px solid var(--line);
-  background:#0b121d;
-  color:#aeb8c7;
-  padding:11px;
-  border-radius:11px;
-}
-
-.scope-btn.selected{
-  color:white;
-  border-color:var(--blue);
-  background:rgba(75,141,255,.12);
-}
-
-/* TOGGLES */
-
-.option{
-  display:flex;
-  justify-content:space-between;
-  gap:16px;
-  align-items:center;
-  padding:14px 0;
-  border-top:1px solid var(--line);
-}
-
-.option:first-child{border-top:0}
-
-.option strong{
-  display:block;
-  font-size:14px;
-}
-
-.option small{
-  color:var(--muted);
-  display:block;
-  margin-top:3px;
-}
-
-.switch{
-  width:46px;
-  height:26px;
-  background:#303b49;
-  border-radius:99px;
-  position:relative;
-  flex:0 0 auto;
-}
-
-.switch input{display:none}
-
-.switch span{
-  position:absolute;
-  width:20px;
-  height:20px;
-  left:3px;
-  top:3px;
-  background:white;
-  border-radius:50%;
-  transition:.2s;
-}
-
-.switch:has(input:checked){
-  background:var(--blue);
-}
-
-.switch input:checked+span{
-  transform:translateX(20px);
-}
-
-/* PREVIEW */
-
-.preview-wrap{
-  padding:22px;
-}
-
-.phone-title{
-  color:var(--muted);
-  font-size:12px;
-  margin-bottom:12px;
-}
-
-.alert-preview{
-  border:1px solid rgba(75,141,255,.28);
-  background:linear-gradient(135deg,rgba(39,100,213,.18),rgba(24,45,76,.28));
-  border-radius:16px;
-  padding:17px;
-}
-
-.alert-preview.warning{
-  border-color:rgba(255,173,61,.32);
-  background:rgba(255,173,61,.08);
-}
-
-.alert-preview.danger{
-  border-color:rgba(255,93,103,.35);
-  background:rgba(255,93,103,.09);
-}
-
-.preview-label{
-  font-size:11px;
-  color:#82afff;
-  text-transform:uppercase;
-  font-weight:800;
-  letter-spacing:.08em;
-}
-
-.warning .preview-label{color:var(--orange)}
-.danger .preview-label{color:var(--red)}
-
-.alert-preview h3{
-  margin:8px 0 5px;
-  font-size:16px;
-}
-
-.alert-preview p{
-  margin:0;
-  color:#c2cbd7;
-  line-height:1.45;
-  font-size:13px;
-}
-
-.preview-meta{
-  color:#778497;
-  font-size:11px;
-  margin-top:12px;
-}
-
-/* ALERT LIST */
-
-.list-card{margin-top:20px}
-
-.tabs{
-  display:flex;
-  gap:4px;
-  padding:14px 18px 0;
-}
-
-.tab{
-  background:transparent;
-  border:0;
-  color:var(--muted);
-  padding:9px 12px;
-  border-bottom:2px solid transparent;
-}
-
-.tab.active{
-  color:white;
-  border-color:var(--blue);
-}
-
-.alerts{
-  padding:14px 18px 20px;
-}
-
-.alert-row{
-  display:grid;
-  grid-template-columns:1fr auto;
-  gap:18px;
-  padding:16px 4px;
-  border-bottom:1px solid var(--line);
-}
-
-.alert-row:last-child{border-bottom:0}
-
-.alert-row h3{
-  margin:5px 0;
-  font-size:15px;
-}
+/* General components */
+.card{border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(160deg,rgba(17,34,55,.79),rgba(10,23,39,.82));box-shadow:0 14px 42px rgba(0,0,0,.12);overflow:hidden}.card-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:14px}.card-head h2{margin:0;font-size:16px;letter-spacing:-.01em}.card-head p{margin:4px 0 0;color:var(--muted);font-size:12px}.card-body{padding:20px}.grid{display:grid;gap:18px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.metric-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:18px}.metric{padding:17px 18px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(155deg,rgba(20,39,63,.73),rgba(10,24,41,.74));min-width:0}.metric-top{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.07em}.metric-icon{width:31px;height:31px;border-radius:10px;display:grid;place-items:center;background:#ffffff08;color:#bcd4ef}.metric strong{display:block;font-size:29px;margin-top:12px;letter-spacing:-.045em}.metric small{display:block;margin-top:4px;color:var(--muted);font-size:11px}.positive{color:var(--green)!important}.warning-text{color:var(--yellow)!important}.danger-text{color:var(--red)!important}
+.btn{border:1px solid transparent;border-radius:12px;padding:10px 14px;font-weight:760;color:#fff;background:#23354b;transition:.15s;white-space:nowrap}.btn:hover{filter:brightness(1.08)}.btn:active{transform:scale(.98)}.btn:disabled{opacity:.45;cursor:not-allowed}.btn-primary{background:linear-gradient(135deg,#4188ff,#5b9eff);box-shadow:0 8px 24px #438aff25}.btn-cyan{background:linear-gradient(135deg,#20bfb9,#39cec6)}.btn-soft{background:#ffffff08;border-color:var(--line);color:#c9d6e5}.btn-danger{background:#ff667213;border-color:#ff66722e;color:#ff9098}.btn-success{background:#45d39a16;border-color:#45d39a30;color:#75e5ba}.btn-sm{padding:7px 10px;border-radius:9px;font-size:12px}.icon-btn{width:38px;height:38px;padding:0;display:grid;place-items:center}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.field{margin-bottom:16px}.field:last-child{margin-bottom:0}.field label,.label{display:block;margin:0 0 7px;color:#a8b8cb;font-size:10px;font-weight:850;letter-spacing:.09em;text-transform:uppercase}.input, input, textarea, select{width:100%;border:1px solid var(--line);border-radius:12px;background:rgba(4,13,24,.66);color:#fff;padding:11px 12px;outline:0}.input:focus,input:focus,textarea:focus,select:focus{border-color:#5aa2ff99;box-shadow:0 0 0 3px #5aa2ff13}textarea{min-height:115px;resize:vertical;line-height:1.5}.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.message{margin-top:12px;padding:10px 12px;border-radius:10px;font-size:12px;display:none}.message.show{display:block}.message.ok{background:#45d39a12;color:#80e8c0;border:1px solid #45d39a2d}.message.err{background:#ff667212;color:#ff959d;border:1px solid #ff66722c}.divider{height:1px;background:var(--line);margin:18px 0}.empty{padding:28px;text-align:center;color:var(--muted);font-size:13px}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid var(--line);border-radius:999px;background:#ffffff06;color:#b5c6d8;font-size:10px;font-weight:800}.pill.green{color:#79e6bd;border-color:#45d39a2e;background:#45d39a0d}.pill.yellow{color:#ffe18b;border-color:#ffd15c2d;background:#ffd15c0d}.pill.red{color:#ff9098;border-color:#ff66722d;background:#ff66720d}.pill.blue{color:#9ec7ff;border-color:#5aa2ff2e;background:#5aa2ff0d}.section-title{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:4px 0 14px}.section-title h2{margin:0;font-size:18px}.section-title p{margin:4px 0 0;color:var(--muted);font-size:12px}.quick-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.quick{border:1px solid var(--line);border-radius:16px;background:#ffffff05;color:#d8e4f2;padding:16px;text-align:left}.quick:hover{border-color:#5aa2ff45;background:#5aa2ff0a}.quick strong{display:block;font-size:13px;margin-top:12px}.quick small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.quick .metric-icon{width:34px;height:34px}
 
-.alert-row p{
-  color:var(--muted);
-  font-size:13px;
-  margin:0;
-}
-
-.badges{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-}
-
-.badge{
-  border-radius:999px;
-  background:#202b3a;
-  color:#aeb8c7;
-  padding:4px 8px;
-  font-size:10px;
-  font-weight:700;
-}
+/* dashboard */
+.dashboard-split{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:18px;margin-top:18px}.chart{height:170px;display:flex;align-items:flex-end;gap:9px;padding-top:18px}.bar-wrap{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px}.bar{width:100%;max-width:38px;min-height:3px;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#5ca7ff,#4680e8);box-shadow:0 6px 18px #4b8dff22}.bar.secondary{background:linear-gradient(180deg,#5edfd5,#2eaaa6)}.bar-value{font-size:10px;color:#cbd9e8;font-weight:800}.bar-day{font-size:10px;color:#72859c}.feed{display:grid}.feed-row{padding:13px 0;border-bottom:1px solid var(--line);display:flex;gap:11px;align-items:center}.feed-row:last-child{border-bottom:0}.avatar{width:35px;height:35px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(145deg,#253d5b,#172a42);color:#aec6e4;font-weight:850;flex:0 0 auto}.feed-main{min-width:0;flex:1}.feed-main strong{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed-main span{display:block;color:var(--muted);font-size:10px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.system-list{display:grid;gap:9px}.system-row{border:1px solid var(--line);background:#ffffff04;border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:10px}.system-row strong{font-size:12px}.system-row span{margin-left:auto;color:var(--muted);font-size:11px}
 
-.badge.info{color:#79aaff;background:rgba(75,141,255,.12)}
-.badge.warning{color:#ffc264;background:rgba(255,173,61,.11)}
-.badge.danger{color:#ff7e86;background:rgba(255,93,103,.11)}
+/* alert composer */
+.editor-grid{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(310px,.82fr);gap:18px}.choice-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.choice-btn{border:1px solid var(--line);border-radius:11px;padding:10px;background:#ffffff04;color:#aebed0;font-weight:700}.choice-btn.selected{border-color:#5aa2ff70;background:#5aa2ff14;color:#fff}.choice-btn.warning.selected{border-color:#ffd15c5c;background:#ffd15c12}.choice-btn.danger.selected{border-color:#ff66725c;background:#ff667212}.scope-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.toggle-row{padding:11px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}.toggle-row:last-child{border:0}.toggle-row strong{font-size:12px}.toggle-row small{display:block;color:var(--muted);font-size:10px;margin-top:3px}.switch{position:relative;width:43px;height:25px;flex:0 0 auto}.switch input{position:absolute;opacity:0}.switch span{position:absolute;inset:0;border-radius:999px;background:#26354a;border:1px solid var(--line2);transition:.18s}.switch span:before{content:"";position:absolute;width:19px;height:19px;left:2px;top:2px;border-radius:50%;background:#dde7f3;transition:.18s}.switch input:checked+span{background:#3884ff;border-color:#65a5ff}.switch input:checked+span:before{transform:translateX(18px);background:white}.template-row{display:flex;gap:7px;overflow:auto;padding-bottom:3px}.template{border:1px solid var(--line);border-radius:999px;background:#ffffff05;color:#afc0d3;padding:7px 10px;font-size:10px;font-weight:800;white-space:nowrap}.phone{padding:22px;background:radial-gradient(circle at 50% 0,#397aff18,transparent 35%),#07111f;min-height:430px}.phone-top{font-size:10px;letter-spacing:.15em;color:#758aa3;text-align:center;margin-bottom:26px;font-weight:850}.alert-preview{padding:18px;border:1px solid #5aa2ff33;border-radius:18px;background:linear-gradient(155deg,#1b3658de,#10243cde);box-shadow:var(--shadow)}.alert-preview.warning{border-color:#ffd15c48;background:linear-gradient(155deg,#493d21e8,#272616e8)}.alert-preview.danger{border-color:#ff66724a;background:linear-gradient(155deg,#4b2530e8,#28151ee8)}.preview-label{font-size:9px;font-weight:900;letter-spacing:.12em;color:#9dc8ff}.warning .preview-label{color:#ffe18c}.danger .preview-label{color:#ff9ca3}.alert-preview h3{font-size:19px;margin:10px 0 8px}.alert-preview p{margin:0;color:#d3dfeb;line-height:1.5;font-size:12px}.preview-meta{margin-top:13px;color:#91a6bc;font-size:10px}.tabs{display:flex;gap:6px;padding:14px 18px;border-bottom:1px solid var(--line);overflow:auto}.tab{border:1px solid transparent;border-radius:999px;padding:7px 10px;background:transparent;color:#8fa2b8;font-size:11px;font-weight:800;white-space:nowrap}.tab.active{background:#5aa2ff12;border-color:#5aa2ff2e;color:#b9d5ff}.alert-list{display:grid}.alert-row{padding:16px 18px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center}.alert-row:last-child{border-bottom:0}.alert-row h3{font-size:13px;margin:8px 0 5px}.alert-row p{font-size:11px;color:#9fb0c2;margin:0;line-height:1.5;max-width:850px}.badges{display:flex;gap:6px;flex-wrap:wrap}
 
-.empty{
-  padding:32px;
-  text-align:center;
-  color:var(--muted);
-}
-
-/* MESSAGES */
+/* tables */
+.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:760px}.table th{text-align:left;padding:10px 13px;font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:#70849c;border-bottom:1px solid var(--line)}.table td{padding:12px 13px;border-bottom:1px solid var(--line);font-size:11px;color:#c4d2e0;vertical-align:middle}.table tr:last-child td{border-bottom:0}.table .primary{color:#fff;font-weight:750}.table .sub{display:block;color:#74889f;font-size:9px;margin-top:3px}.search-line{display:flex;gap:8px;align-items:center}.search-line input{max-width:340px}.stat-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.mini-stat{border:1px solid var(--line);border-radius:13px;padding:13px;background:#ffffff04}.mini-stat span{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:800}.mini-stat strong{display:block;font-size:21px;margin-top:6px}.location-list{display:grid;gap:8px}.location-row{display:flex;align-items:center;gap:10px}.location-row strong{font-size:11px;min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.meter{height:7px;border-radius:999px;background:#ffffff08;overflow:hidden;flex:1}.meter i{height:100%;display:block;border-radius:inherit;background:linear-gradient(90deg,#4b8dff,#55d8d0)}.location-row span{width:28px;text-align:right;color:#92a4b8;font-size:10px}
 
-.message{
-  margin-top:14px;
-  font-size:13px;
-}
+/* Community */
+.community-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap}.filter-row{display:flex;gap:6px;overflow:auto}.post-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.post-card{border:1px solid var(--line);border-radius:16px;background:#ffffff04;overflow:hidden}.post-img{aspect-ratio:16/9;background:#0a1422;display:grid;place-items:center;color:#607690;overflow:hidden}.post-img img{width:100%;height:100%;object-fit:cover}.post-body{padding:13px}.post-meta{display:flex;justify-content:space-between;gap:10px;align-items:center}.post-body h3{font-size:12px;margin:9px 0 4px}.post-body p{font-size:10px;color:#95a8bc;line-height:1.45;margin:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.post-actions{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}.report-card{border:1px solid #ff667223;background:#ff667208;border-radius:14px;padding:13px}.report-card+.report-card{margin-top:9px}.report-card strong{font-size:12px}.report-card p{font-size:10px;color:#c4b0b3;line-height:1.45}.report-card .actions{margin-top:10px}
 
-.message.error{color:#ff7c84}
-.message.success{color:#55dca7}
+/* System */
+.config-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.config-card{border:1px solid var(--line);border-radius:15px;padding:15px;background:#ffffff04}.config-card .metric-icon{margin-bottom:13px}.config-card h3{font-size:12px;margin:0 0 5px}.config-card p{font-size:10px;color:var(--muted);margin:0;line-height:1.45}.warning-box{border:1px solid var(--line);border-radius:14px;padding:14px;background:#ffffff04}.warning-box+.warning-box{margin-top:9px}.warning-box h3{font-size:12px;margin:8px 0 5px}.warning-box p{font-size:10px;color:#9fb0c2;line-height:1.5;margin:0}.level-yellow{border-color:#ffd15c36}.level-orange{border-color:#ff9f4a42}.level-red{border-color:#ff667244}
 
-@media(max-width:900px){
-  .shell{grid-template-columns:1fr}
-  .sidebar{
-    position:relative;
-    height:auto;
-    border-right:0;
-    border-bottom:1px solid var(--line);
-  }
-  .nav{display:flex;overflow:auto}
-  .nav-title{display:none}
-  .nav button{white-space:nowrap;width:auto}
-  .editor-grid{grid-template-columns:1fr}
-}
+.toast-wrap{position:fixed;right:20px;bottom:20px;z-index:100;display:grid;gap:8px}.toast{min-width:260px;max-width:390px;border:1px solid var(--line2);border-radius:13px;background:rgba(12,27,45,.96);box-shadow:0 20px 60px #0008;padding:11px 13px;font-size:11px;color:#dbe6f2;animation:toastin .2s ease}.toast.ok{border-color:#45d39a40}.toast.err{border-color:#ff667244}@keyframes toastin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-@media(max-width:600px){
-  .main{padding:20px 14px}
-  .sidebar{padding:14px}
-  .topbar{align-items:flex-start}
-  .status{display:none}
-  .row{grid-template-columns:1fr}
-  .severity{grid-template-columns:1fr}
-  .scope-options{grid-template-columns:1fr 1fr}
-}
+@media(max-width:1180px){.metric-grid{grid-template-columns:repeat(3,1fr)}.post-grid{grid-template-columns:repeat(2,1fr)}.config-grid{grid-template-columns:repeat(2,1fr)}.quick-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.shell{grid-template-columns:1fr}.sidebar{height:auto;position:sticky;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line)}.sidebar .logo-row,.nav-label,.sidebar-bottom{display:none}.nav{display:flex;overflow:auto}.nav-btn{width:auto;white-space:nowrap;padding:9px 11px}.topbar{top:57px;padding:15px 16px}.main{padding:18px 14px 50px}.dashboard-split,.editor-grid,.g2{grid-template-columns:1fr}.metric-grid{grid-template-columns:repeat(2,1fr)}.post-grid{grid-template-columns:1fr}.stat-strip{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:580px){.top-actions .live-pill{display:none}.top-title h1{font-size:21px}.metric strong{font-size:25px}.metric-grid{gap:9px}.metric{padding:13px}.row2,.choice-grid{grid-template-columns:1fr}.scope-grid{grid-template-columns:repeat(2,1fr)}.quick-grid,.config-grid{grid-template-columns:1fr}.card-head{align-items:flex-start}.alert-row{grid-template-columns:1fr}.stat-strip{grid-template-columns:1fr 1fr}.search-line{align-items:stretch;flex-direction:column}.search-line input{max-width:none}}
 </style>
 </head>
-
 <body>
 
-<section id="login" class="login">
+<div id="loginScreen" class="login-screen">
   <div class="login-card">
-    <div class="brand">
-      <div class="brand-icon">☁</div>
-      <div>
-        <strong>Wheaterflow</strong>
-        <small>Administration</small>
-      </div>
-    </div>
-
-    <h1>Welkom terug</h1>
-    <p>Log in met je beheertoken om meldingen te beheren.</p>
-
-    <div class="field">
-      <label>ADMIN TOKEN</label>
-      <input id="token" type="password" placeholder="Voer je token in">
-    </div>
-
-    <button class="btn btn-primary" style="width:100%" onclick="login()">
-      Inloggen
-    </button>
-
-    <div id="loginMessage" class="message error"></div>
+    <div class="logo-row"><div class="logo-mark">WF</div><div><strong>Wheaterflow</strong><small>Control Center</small></div></div>
+    <h1>Admin aanmelden</h1>
+    <p>Beheer Wheaterflow, gebruikers, meldingen, push, community en systeemstatus vanuit één dashboard.</p>
+    <div class="field"><label>Admin token</label><input id="loginToken" type="password" autocomplete="current-password" placeholder="Voer ADMIN_TOKEN in"></div>
+    <button id="loginBtn" class="btn btn-primary" style="width:100%" onclick="login()">Aanmelden</button>
+    <div id="loginMessage" class="message"></div>
+    <div class="login-help">Het token wordt alleen in deze browsersessie bewaard. Zorg dat dezelfde <strong>ADMIN_TOKEN</strong> op de Wheaterflow backend en meldingen-API staat.</div>
   </div>
-</section>
+</div>
 
-
-<section id="admin" class="shell hidden">
-
+<div id="adminShell" class="shell hidden">
   <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-icon">☁</div>
-      <div>
-        <strong>Wheaterflow</strong>
-        <small>Admin</small>
-      </div>
-    </div>
-
-    <div class="nav-title">Beheer</div>
-
+    <div class="logo-row"><div class="logo-mark">WF</div><div><strong>Wheaterflow</strong><small>Control Center</small></div></div>
+    <div class="nav-label">Overzicht</div>
     <nav class="nav">
-      <button class="active">⚡ Meldingen</button>
-      <button disabled>🔔 Push</button>
-      <button disabled>📊 Statistieken</button>
-      <button disabled>⚙ Instellingen</button>
+      <button class="nav-btn active" data-view="overview" onclick="setView('overview')">⌂ <span>Dashboard</span></button>
+      <button class="nav-btn" data-view="alerts" onclick="setView('alerts')">⚠ <span>Meldingen</span><span id="navAlertCount" class="nav-badge hidden"></span></button>
+      <button class="nav-btn" data-view="push" onclick="setView('push')">◉ <span>Push</span></button>
+      <button class="nav-btn" data-view="community" onclick="setView('community')">◎ <span>Community</span><span id="navReportCount" class="nav-badge hidden"></span></button>
+      <button class="nav-btn" data-view="users" onclick="setView('users')">♙ <span>Gebruikers</span></button>
+      <button class="nav-btn" data-view="system" onclick="setView('system')">⚙ <span>Systeem</span></button>
     </nav>
+    <div class="sidebar-bottom"><div class="admin-mini"><div class="admin-avatar">A</div><div><strong>Administrator</strong><small>Wheaterflow</small></div><button class="logout" title="Uitloggen" onclick="logout()">↗</button></div></div>
   </aside>
 
+  <div class="content">
+    <header class="topbar"><div class="top-title"><h1 id="pageTitle">Dashboard</h1><p id="pageSubtitle">Alles wat er in Wheaterflow gebeurt.</p></div><div class="top-actions"><div class="live-pill"><span id="systemDot" class="dot"></span><span id="systemLabel">Backend controleren…</span></div><button class="btn btn-soft icon-btn" title="Vernieuwen" onclick="refreshCurrentView()">↻</button></div></header>
+    <main class="main">
 
-  <main class="main">
-
-    <header class="topbar">
-      <div>
-        <h1>Meldingen</h1>
-        <p>Publiceer berichten en waarschuwingen in Wheaterflow.</p>
-      </div>
-
-      <div class="status">
-        <span class="status-dot"></span>
-        Systeem online
-      </div>
-    </header>
-
-
-    <div class="editor-grid">
-
-      <section class="card">
-        <div class="card-head">
-          <h2>Nieuwe melding</h2>
-          <p>Stel de inhoud en het doelgebied van je melding in.</p>
+      <section class="page" data-page="overview">
+        <div class="metric-grid">
+          <div class="metric"><div class="metric-top"><span>Gebruikers</span><span class="metric-icon">♙</span></div><strong id="mUsers">—</strong><small id="mUsersSub">Accountdata laden…</small></div>
+          <div class="metric"><div class="metric-top"><span>Push apparaten</span><span class="metric-icon">◉</span></div><strong id="mPush">—</strong><small id="mPushSub">Abonnementen</small></div>
+          <div class="metric"><div class="metric-top"><span>Community posts</span><span class="metric-icon">◎</span></div><strong id="mPosts">—</strong><small id="mPostsSub">Uploads en berichten</small></div>
+          <div class="metric"><div class="metric-top"><span>Open rapporten</span><span class="metric-icon">!</span></div><strong id="mReports">—</strong><small id="mReportsSub">Moderatie vereist</small></div>
+          <div class="metric"><div class="metric-top"><span>Actieve meldingen</span><span class="metric-icon">⚠</span></div><strong id="mAlerts">—</strong><small id="mAlertsSub">In Wheaterflow</small></div>
         </div>
-
-        <div class="form">
-
-          <div class="field">
-            <label>TYPE MELDING</label>
-
-            <div class="severity">
-              <button data-type="info" class="selected" onclick="setType('info')">
-                ℹ Info
-              </button>
-
-              <button data-type="warning" onclick="setType('warning')">
-                ⚠ Waarschuwing
-              </button>
-
-              <button data-type="danger" onclick="setType('danger')">
-                ⛔ Ernstig
-              </button>
-            </div>
+        <div class="quick-grid">
+          <button class="quick" onclick="setView('alerts');setTimeout(()=>document.getElementById('alertTitle')?.focus(),80)"><span class="metric-icon">＋</span><strong>Nieuwe melding</strong><small>Publiceer info of waarschuwing.</small></button>
+          <button class="quick" onclick="setView('push')"><span class="metric-icon">◉</span><strong>Push versturen</strong><small>Bereik gebruikers direct.</small></button>
+          <button class="quick" onclick="setView('community')"><span class="metric-icon">◎</span><strong>Moderatie</strong><small>Posts en rapporten beheren.</small></button>
+          <button class="quick" onclick="setView('system')"><span class="metric-icon">↻</span><strong>Systeemcheck</strong><small>API, e-mail en databronnen.</small></button>
+        </div>
+        <div class="dashboard-split">
+          <div class="grid">
+            <section class="card"><div class="card-head"><div><h2>Activiteit laatste 7 dagen</h2><p>Nieuwe accounts en communityposts.</p></div><span class="pill blue">Live database</span></div><div class="card-body"><div class="row2"><div><span class="label">Nieuwe gebruikers</span><div id="userGrowth" class="chart"></div></div><div><span class="label">Community</span><div id="postGrowth" class="chart"></div></div></div></div></section>
+            <section class="card"><div class="card-head"><div><h2>Recente gebruikers</h2><p>Nieuwste accounts.</p></div><button class="btn btn-soft btn-sm" onclick="setView('users')">Alles bekijken</button></div><div id="recentUsers" class="card-body feed"><div class="empty">Laden…</div></div></section>
           </div>
-
-
-          <div class="field">
-            <label>TITEL</label>
-            <input
-              id="title"
-              maxlength="100"
-              placeholder="Bijvoorbeeld: Zware regen op komst"
-              oninput="updatePreview()">
+          <div class="grid">
+            <section class="card"><div class="card-head"><div><h2>Systeemstatus</h2><p>Belangrijkste services.</p></div></div><div id="overviewSystem" class="card-body system-list"><div class="empty">Controleren…</div></div></section>
+            <section class="card"><div class="card-head"><div><h2>Laatste community</h2><p>Recente inhoud en rapporten.</p></div></div><div id="recentPosts" class="card-body feed"><div class="empty">Laden…</div></div></section>
           </div>
-
-
-          <div class="field">
-            <label>BERICHT</label>
-            <textarea
-              id="message"
-              maxlength="500"
-              placeholder="Beschrijf wat gebruikers moeten weten..."
-              oninput="updatePreview()"></textarea>
-          </div>
-
-
-          <div class="field">
-            <label>DOELGEBIED</label>
-
-            <div class="scope-options">
-              <button class="scope-btn selected" data-scope="all" onclick="setScope('all')">
-                🌍 Overal
-              </button>
-
-              <button class="scope-btn" data-scope="land" onclick="setScope('land')">
-                🏳 Land
-              </button>
-
-              <button class="scope-btn" data-scope="provincie" onclick="setScope('provincie')">
-                🗺 Regio
-              </button>
-
-              <button class="scope-btn" data-scope="stad" onclick="setScope('stad')">
-                📍 Stad
-              </button>
-            </div>
-          </div>
-
-
-          <div id="scopeField" class="field hidden">
-            <label id="scopeLabel">LOCATIE</label>
-
-            <input
-              id="scopeValue"
-              list="locationSuggestions"
-              placeholder="Zoek een locatie..."
-              oninput="updatePreview()">
-
-            <datalist id="locationSuggestions">
-              <option value="België">
-              <option value="Nederland">
-              <option value="Frankrijk">
-              <option value="Duitsland">
-              <option value="West-Vlaanderen">
-              <option value="Oost-Vlaanderen">
-              <option value="Antwerpen">
-              <option value="Limburg">
-              <option value="Oostende">
-              <option value="Brugge">
-              <option value="Gent">
-              <option value="Brussel">
-              <option value="Antwerpen">
-            </datalist>
-          </div>
-
-
-          <div class="row">
-
-            <div class="field">
-              <label>START</label>
-              <input id="startsAt" type="datetime-local">
-            </div>
-
-            <div class="field">
-              <label>EIND</label>
-              <input id="endsAt" type="datetime-local">
-            </div>
-
-          </div>
-
-
-          <div class="field">
-
-            <div class="option">
-              <div>
-                <strong>Tonen in Wheaterflow</strong>
-                <small>Toon de melding boven Wheaterflow Intelligence.</small>
-              </div>
-
-              <label class="switch">
-                <input id="showInApp" type="checkbox" checked>
-                <span></span>
-              </label>
-            </div>
-
-
-            <div class="option">
-              <div>
-                <strong>Pushmelding</strong>
-                <small>Wordt in de volgende backendstap gekoppeld.</small>
-              </div>
-
-              <label class="switch">
-                <input id="sendPush" type="checkbox">
-                <span></span>
-              </label>
-            </div>
-
-          </div>
-
-
-          <div class="actions">
-            <button class="btn btn-secondary" onclick="resetForm()">
-              Wissen
-            </button>
-
-            <button id="publishBtn" class="btn btn-primary" onclick="publishAlert()">
-              Publiceren
-            </button>
-          </div>
-
-          <div id="formMessage" class="message"></div>
-
         </div>
       </section>
 
-
-      <aside class="card">
-        <div class="card-head">
-          <h2>Voorbeeld</h2>
-          <p>Zo kan de melding in Wheaterflow verschijnen.</p>
+      <section class="page hidden" data-page="alerts">
+        <div class="editor-grid">
+          <section class="card"><div class="card-head"><div><h2 id="alertEditorTitle">Nieuwe melding</h2><p>Publiceer in-app en optioneel als push.</p></div><button class="btn btn-soft btn-sm" onclick="resetAlertForm()">Leegmaken</button></div><div class="card-body">
+            <div class="field"><label>Snelle sjablonen</label><div class="template-row"><button class="template" onclick="applyTemplate('info')">Informatie</button><button class="template" onclick="applyTemplate('maintenance')">Onderhoud</button><button class="template" onclick="applyTemplate('yellow')">Code geel</button><button class="template" onclick="applyTemplate('orange')">Code oranje</button><button class="template" onclick="applyTemplate('red')">Code rood</button><button class="template" onclick="applyTemplate('storm')">Onweer</button></div></div>
+            <div class="field"><label>Type</label><div class="choice-grid"><button class="choice-btn selected" data-alert-type="info" onclick="setAlertType('info')">ℹ Informatie</button><button class="choice-btn warning" data-alert-type="warning" onclick="setAlertType('warning')">⚠ Waarschuwing</button><button class="choice-btn danger" data-alert-type="danger" onclick="setAlertType('danger')">⛔ Ernstig</button></div></div>
+            <div class="field"><label>Titel</label><input id="alertTitle" maxlength="100" placeholder="Bijvoorbeeld: Code geel voor wind" oninput="updateAlertPreview()"></div>
+            <div class="field"><label>Bericht</label><textarea id="alertMessage" maxlength="500" placeholder="Wat moeten gebruikers weten?" oninput="updateAlertPreview()"></textarea></div>
+            <div class="field"><label>Doelgebied</label><div class="scope-grid"><button class="choice-btn selected" data-alert-scope="all" onclick="setAlertScope('all')">Overal</button><button class="choice-btn" data-alert-scope="land" onclick="setAlertScope('land')">Land</button><button class="choice-btn" data-alert-scope="provincie" onclick="setAlertScope('provincie')">Regio</button><button class="choice-btn" data-alert-scope="stad" onclick="setAlertScope('stad')">Stad</button></div></div>
+            <div id="alertScopeField" class="field hidden"><label id="alertScopeLabel">Locatie</label><input id="alertScopeValue" list="adminLocations" placeholder="Bijvoorbeeld Oostende" oninput="updateAlertPreview()"></div>
+            <datalist id="adminLocations"><option>België</option><option>Nederland</option><option>West-Vlaanderen</option><option>Oost-Vlaanderen</option><option>Antwerpen</option><option>Limburg</option><option>Vlaams-Brabant</option><option>Oostende</option><option>Brugge</option><option>Gent</option><option>Brussel</option></datalist>
+            <div class="row2"><div class="field"><label>Start</label><input id="alertStarts" type="datetime-local"></div><div class="field"><label>Eind</label><input id="alertEnds" type="datetime-local"></div></div>
+            <div class="toggle-row"><div><strong>Tonen in Wheaterflow</strong><small>Verschijnt als appmelding.</small></div><label class="switch"><input id="alertShowInApp" type="checkbox" checked><span></span></label></div>
+            <div class="toggle-row"><div><strong>Pushmelding versturen</strong><small>Stuurt direct naar passende abonnementen.</small></div><label class="switch"><input id="alertSendPush" type="checkbox"><span></span></label></div>
+            <div class="actions" style="justify-content:flex-end;margin-top:17px"><button class="btn btn-soft" onclick="resetAlertForm()">Annuleren</button><button id="alertPublishBtn" class="btn btn-primary" onclick="saveAlert()">Publiceren</button></div><div id="alertMessageBox" class="message"></div>
+          </div></section>
+          <aside class="card"><div class="card-head"><div><h2>Live voorbeeld</h2><p>Zo ziet de melding eruit.</p></div></div><div class="phone"><div class="phone-top">WHEATERFLOW</div><div id="alertPreview" class="alert-preview"><div id="alertPreviewType" class="preview-label">INFORMATIE</div><h3 id="alertPreviewTitle">Titel van je melding</h3><p id="alertPreviewMessage">Je bericht verschijnt hier.</p><div id="alertPreviewScope" class="preview-meta">🌍 Overal</div></div></div></aside>
         </div>
+        <section class="card" style="margin-top:18px"><div class="card-head"><div><h2>Meldingen beheren</h2><p>Bewerken, beëindigen, dupliceren of verwijderen.</p></div><button class="btn btn-soft btn-sm" onclick="loadAlerts()">Vernieuwen</button></div><div class="tabs"><button class="tab active" data-alert-tab="active" onclick="setAlertTab('active',this)">Actief</button><button class="tab" data-alert-tab="scheduled" onclick="setAlertTab('scheduled',this)">Gepland</button><button class="tab" data-alert-tab="expired" onclick="setAlertTab('expired',this)">Verlopen</button><button class="tab" data-alert-tab="all" onclick="setAlertTab('all',this)">Alles</button></div><div id="alertList" class="alert-list"><div class="empty">Laden…</div></div></section>
+      </section>
 
-        <div class="preview-wrap">
-
-          <div class="phone-title">WHEATERFLOW</div>
-
-          <div id="preview" class="alert-preview">
-            <div id="previewType" class="preview-label">INFORMATIE</div>
-
-            <h3 id="previewTitle">
-              Titel van je melding
-            </h3>
-
-            <p id="previewMessage">
-              Je bericht verschijnt hier.
-            </p>
-
-            <div id="previewScope" class="preview-meta">
-              🌍 Overal
-            </div>
-          </div>
-
+      <section class="page hidden" data-page="push">
+        <div id="pushStatStrip" class="stat-strip" style="margin-bottom:18px"><div class="mini-stat"><span>Abonnementen</span><strong>—</strong></div><div class="mini-stat"><span>Met account</span><strong>—</strong></div><div class="mini-stat"><span>Anoniem</span><strong>—</strong></div><div class="mini-stat"><span>Actief 24u</span><strong>—</strong></div><div class="mini-stat"><span>Actief 7d</span><strong>—</strong></div></div>
+        <div class="g2 grid">
+          <section class="card"><div class="card-head"><div><h2>Handmatige push</h2><p>Verstuur zonder in-app melding aan te maken.</p></div></div><div class="card-body">
+            <div class="field"><label>Type</label><select id="pushType"><option value="info">Informatie</option><option value="warning">Waarschuwing</option><option value="danger">Ernstig</option></select></div>
+            <div class="field"><label>Titel</label><input id="pushTitle" maxlength="100" placeholder="Titel van de push"></div><div class="field"><label>Bericht</label><textarea id="pushMessage" maxlength="500" placeholder="Kort en duidelijk bericht"></textarea></div>
+            <div class="row2"><div class="field"><label>Doel</label><select id="pushScope" onchange="togglePushScope()"><option value="all">Overal</option><option value="land">Land</option><option value="provincie">Regio</option><option value="stad">Stad</option></select></div><div id="pushScopeField" class="field hidden"><label>Locatie</label><input id="pushScopeValue" placeholder="Bijvoorbeeld Oostende"></div></div>
+            <div class="actions" style="justify-content:flex-end"><button id="pushSendBtn" class="btn btn-cyan" onclick="sendManualPush()">Push versturen</button></div><div id="pushMessageBox" class="message"></div>
+          </div></section>
+          <section class="card"><div class="card-head"><div><h2>Waar zitten abonnementen?</h2><p>Toplocaties van pushapparaten.</p></div><button class="btn btn-soft btn-sm" onclick="loadPushStats()">Vernieuwen</button></div><div class="card-body"><span class="label">Steden</span><div id="pushCities" class="location-list"><div class="empty">Laden…</div></div><div class="divider"></div><span class="label">Regio's</span><div id="pushRegions" class="location-list"></div></div></section>
         </div>
-      </aside>
+      </section>
 
-    </div>
+      <section class="page hidden" data-page="community">
+        <div class="community-toolbar"><div class="filter-row"><button class="tab active" data-community-filter="all" onclick="setCommunityFilter('all',this)">Alles</button><button class="tab" data-community-filter="pending" onclick="setCommunityFilter('pending',this)">In afwachting</button><button class="tab" data-community-filter="approved" onclick="setCommunityFilter('approved',this)">Goedgekeurd</button><button class="tab" data-community-filter="hidden" onclick="setCommunityFilter('hidden',this)">Verborgen</button><button class="tab" data-community-filter="rejected" onclick="setCommunityFilter('rejected',this)">Afgewezen</button></div><div class="search-line"><input id="communitySearch" placeholder="Zoek post, locatie of gebruiker"><button class="btn btn-soft btn-sm" onclick="loadCommunity()">Zoeken</button></div></div>
+        <div class="dashboard-split" style="grid-template-columns:minmax(0,1.45fr) minmax(300px,.55fr)"><section class="card"><div class="card-head"><div><h2>Communitybeheer</h2><p>Moderatie van foto's en waarnemingen.</p></div><button class="btn btn-soft btn-sm" onclick="loadCommunity()">Vernieuwen</button></div><div class="card-body"><div id="communityGrid" class="post-grid"><div class="empty">Laden…</div></div></div></section><aside class="card"><div class="card-head"><div><h2>Rapporten</h2><p>Meldingen van gebruikers.</p></div><span id="reportCountPill" class="pill red">0 open</span></div><div id="reportList" class="card-body"><div class="empty">Laden…</div></div></aside></div>
+      </section>
 
+      <section class="page hidden" data-page="users">
+        <section class="card"><div class="card-head"><div><h2>Gebruikersbeheer</h2><p>Accounts, rollen en activiteit.</p></div><div class="search-line"><input id="userSearch" placeholder="Zoek naam of e-mail" onkeydown="if(event.key==='Enter')loadUsers()"><button class="btn btn-soft btn-sm" onclick="loadUsers()">Zoeken</button></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Gebruiker</th><th>Rol</th><th>Favorieten</th><th>Posts</th><th>Push</th><th>Aangemaakt</th><th></th></tr></thead><tbody id="usersBody"><tr><td colspan="7" class="empty">Laden…</td></tr></tbody></table></div><div id="usersFooter" class="card-body muted" style="font-size:11px"></div></section>
+      </section>
 
-    <section class="card list-card">
-
-      <div class="card-head">
-        <h2>Meldingen beheren</h2>
-        <p>Bekijk de meldingen die momenteel in het systeem staan.</p>
-      </div>
-
-      <div class="tabs">
-        <button class="tab active" onclick="setTab('active',this)">Actief</button>
-        <button class="tab" onclick="setTab('scheduled',this)">Gepland</button>
-        <button class="tab" onclick="setTab('expired',this)">Verlopen</button>
-      </div>
-
-      <div id="alerts" class="alerts">
-        <div class="empty">Meldingen laden...</div>
-      </div>
-
-    </section>
-
-  </main>
-</section>
-
+      <section class="page hidden" data-page="system">
+        <div id="configGrid" class="config-grid" style="margin-bottom:18px"></div>
+        <div class="g2 grid">
+          <section class="card"><div class="card-head"><div><h2>Backend</h2><p>Live technische status.</p></div><button class="btn btn-soft btn-sm" onclick="loadOverview(true);loadSystemWarnings()">Opnieuw controleren</button></div><div id="systemDetails" class="card-body system-list"><div class="empty">Laden…</div></div></section>
+          <section class="card"><div class="card-head"><div><h2>E-mail testen</h2><p>Controleer de SMTP-configuratie zonder mailing te sturen.</p></div></div><div class="card-body"><div class="field"><label>Testadres</label><input id="emailTestTo" type="email" placeholder="jij@example.com"></div><button class="btn btn-primary" onclick="sendEmailTest()">Testmail versturen</button><div id="emailTestMessage" class="message"></div><div class="divider"></div><p class="muted" style="font-size:11px;line-height:1.55;margin:0">Bulk e-mail en SMS worden hier bewust nog niet automatisch verstuurd. Eerst moet per gebruiker opt-in en kanaalvoorkeur worden opgeslagen. Push werkt al volledig.</p></div></section>
+        </div>
+        <section class="card" style="margin-top:18px"><div class="card-head"><div><h2>Officiële weerwaarschuwingen</h2><p>KMI/KNMI-feed zoals Wheaterflow die ziet.</p></div><button class="btn btn-soft btn-sm" onclick="loadSystemWarnings()">Vernieuwen</button></div><div id="officialWarnings" class="card-body"><div class="empty">Laden…</div></div></section>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toastWrap" class="toast-wrap"></div>
 
 <script>
-const API = '/api/alerts';
-
-let token = sessionStorage.getItem('wfAdminToken') || '';
-let selectedType = 'info';
-let selectedScope = 'all';
-let selectedTab = 'active';
-let alerts = [];
-
-
-function escapeHtml(value=''){
-  const el=document.createElement('div');
-  el.textContent=String(value);
-  return el.innerHTML;
-}
-
-
-async function login(){
-  const input=document.getElementById('token');
-  const msg=document.getElementById('loginMessage');
-
-  token=input.value.trim();
-
-  if(!token){
-    msg.textContent='Vul je beheertoken in.';
-    return;
-  }
-
-  /*
-   * De huidige API heeft nog geen aparte loginroute.
-   * We controleren het token daarom bij de eerste beheeractie.
-   */
-  sessionStorage.setItem('wfAdminToken',token);
-
-  document.getElementById('login').classList.add('hidden');
-  document.getElementById('admin').classList.remove('hidden');
-
-  await loadAlerts();
-}
-
-
-function setType(type){
-  selectedType=type;
-
-  document.querySelectorAll('.severity button')
-    .forEach(btn=>{
-      btn.classList.toggle(
-        'selected',
-        btn.dataset.type===type
-      );
-    });
-
-  updatePreview();
-}
-
-
-function setScope(scope){
-  selectedScope=scope;
-
-  document.querySelectorAll('.scope-btn')
-    .forEach(btn=>{
-      btn.classList.toggle(
-        'selected',
-        btn.dataset.scope===scope
-      );
-    });
-
-  const field=document.getElementById('scopeField');
-  const label=document.getElementById('scopeLabel');
-  const input=document.getElementById('scopeValue');
-
-  field.classList.toggle('hidden',scope==='all');
-
-  const labels={
-    land:'LAND',
-    provincie:'REGIO / PROVINCIE',
-    stad:'STAD / GEMEENTE'
-  };
-
-  const placeholders={
-    land:'Bijvoorbeeld België',
-    provincie:'Bijvoorbeeld West-Vlaanderen',
-    stad:'Bijvoorbeeld Oostende'
-  };
-
-  if(scope!=='all'){
-    label.textContent=labels[scope] || 'LOCATIE';
-    input.placeholder=placeholders[scope] || 'Locatie';
-  }
-
-  updatePreview();
-}
-
-
-function updatePreview(){
-  const title=
-    document.getElementById('title').value.trim()
-    || 'Titel van je melding';
-
-  const message=
-    document.getElementById('message').value.trim()
-    || 'Je bericht verschijnt hier.';
-
-  const scopeValue=
-    document.getElementById('scopeValue').value.trim();
-
-  const preview=document.getElementById('preview');
-
-  preview.className='alert-preview';
-  if(selectedType!=='info'){
-    preview.classList.add(selectedType);
-  }
-
-  const typeLabels={
-    info:'INFORMATIE',
-    warning:'WAARSCHUWING',
-    danger:'ERNSTIGE WAARSCHUWING'
-  };
-
-  document.getElementById('previewType').textContent=
-    typeLabels[selectedType];
-
-  document.getElementById('previewTitle').textContent=title;
-  document.getElementById('previewMessage').textContent=message;
-
-  const scopeIcons={
-    all:'🌍',
-    land:'🏳',
-    provincie:'🗺',
-    stad:'📍'
-  };
-
-  document.getElementById('previewScope').textContent=
-    selectedScope==='all'
-      ? '🌍 Overal'
-      : `${scopeIcons[selectedScope]} ${scopeValue || 'Kies een locatie'}`;
-}
-
-
-async function publishAlert(){
-  const title=document.getElementById('title').value.trim();
-  const message=document.getElementById('message').value.trim();
-  const scopeValue=document.getElementById('scopeValue').value.trim();
-
-  const startsRaw=document.getElementById('startsAt').value;
-  const endsRaw=document.getElementById('endsAt').value;
-
-  const formMessage=document.getElementById('formMessage');
-  const button=document.getElementById('publishBtn');
-
-  formMessage.className='message';
-  formMessage.textContent='';
-
-  if(!title || !message){
-    formMessage.className='message error';
-    formMessage.textContent='Titel en bericht zijn verplicht.';
-    return;
-  }
-
-  if(selectedScope!=='all' && !scopeValue){
-    formMessage.className='message error';
-    formMessage.textContent='Kies een doelgebied.';
-    return;
-  }
-
-  const startsAt=startsRaw
-    ? new Date(startsRaw).toISOString()
-    : new Date().toISOString();
-
-  const endsAt=endsRaw
-    ? new Date(endsRaw).toISOString()
-    : null;
-
-  if(endsAt && new Date(endsAt)<=new Date(startsAt)){
-    formMessage.className='message error';
-    formMessage.textContent='De eindtijd moet na de starttijd liggen.';
-    return;
-  }
-
-  button.disabled=true;
-  button.textContent='Publiceren...';
-
-  try{
-    const response=await fetch(API,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Authorization':`Bearer ${token}`
-      },
-      body:JSON.stringify({
-        type:selectedType,
-        title,
-        message,
-        scope:selectedScope,
-        scopeValue:selectedScope==='all' ? null : scopeValue,
-        startsAt,
-        endsAt,
-
-        /*
-         * De oude API negeert deze twee velden voorlopig.
-         * De nieuwe API gaat ze straks gebruiken.
-         */
-        showInApp:document.getElementById('showInApp').checked,
-        sendPush:document.getElementById('sendPush').checked
-      })
-    });
-
-    if(response.status===401){
-      sessionStorage.removeItem('wfAdminToken');
-
-      formMessage.className='message error';
-      formMessage.textContent='Je beheertoken is ongeldig.';
-      return;
-    }
-
-    if(!response.ok){
-      const error=await response.text();
-      throw new Error(error || 'Publiceren mislukt');
-    }
-
-    const wantsPush=document.getElementById('sendPush').checked;
-
-    let pushResult=null;
-
-    if(wantsPush){
-const pushResponse=await fetch('https:'+'//api.wheaterflow.be/api/admin-push',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':`Bearer ${token}`
-        },
-        body:JSON.stringify({
-          type:selectedType,
-          title,
-          message,
-          scope:selectedScope,
-          scopeValue:selectedScope==='all' ? null : scopeValue
-        })
-      });
-
-      if(pushResponse.status===401){
-        throw new Error('Push geweigerd: beheertoken ongeldig.');
-      }
-
-      if(!pushResponse.ok){
-        const error=await pushResponse.text();
-        throw new Error('Melding opgeslagen, maar push mislukt: '+error);
-      }
-
-      pushResult=await pushResponse.json();
-    }
-
-    formMessage.className='message success';
-
-    if(pushResult){
-      formMessage.textContent=
-        `✓ Melding gepubliceerd · ${pushResult.sent || 0} pushmelding(en) verzonden.`;
-    }else{
-      formMessage.textContent='✓ Melding gepubliceerd.';
-    }
-
-    resetForm(false);
-    await loadAlerts();
-
-  }catch(error){
-    formMessage.className='message error';
-    formMessage.textContent=
-      'Publiceren mislukt: '+error.message;
-  }finally{
-    button.disabled=false;
-    button.textContent='Publiceren';
-  }
-}
-
-async function loadAlerts(){
-  const container =
-    document.getElementById('alerts');
-
-  container.innerHTML =
-    '<div class="empty">Meldingen laden...</div>';
-
-  try{
-    const response = await fetch(
-      `${API}?admin=1`,
-      {
-        cache:'no-store',
-        headers:{
-          'Authorization':`Bearer ${token}`
-        }
-      }
-    );
-
-    if(response.status === 401){
-      sessionStorage.removeItem('wfAdminToken');
-
-      container.innerHTML =
-        '<div class="empty">Je beheertoken is ongeldig. Log opnieuw in.</div>';
-
-      return;
-    }
-
-    if(!response.ok){
-      throw new Error(
-        'HTTP ' + response.status
-      );
-    }
-
-    const data =
-      await response.json();
-
-    alerts =
-      Array.isArray(data.alerts)
-        ? data.alerts
-        : [];
-
-    renderAlerts();
-
-  }catch(error){
-    console.error(
-      'Admin meldingen laden:',
-      error
-    );
-
-    container.innerHTML =
-      '<div class="empty">Meldingen konden niet worden geladen.</div>';
-  }
-}
-
-
-function statusFor(alert){
-  const now=Date.now();
-
-  const start=alert.startsAt
-    ? new Date(alert.startsAt).getTime()
-    : 0;
-
-  const end=alert.endsAt
-    ? new Date(alert.endsAt).getTime()
-    : Infinity;
-
-  if(start>now) return 'scheduled';
-  if(end<=now) return 'expired';
-
-  return 'active';
-}
-
-
-function setTab(tab,button){
-  selectedTab=tab;
-
-  document.querySelectorAll('.tab')
-    .forEach(item=>item.classList.remove('active'));
-
-  button.classList.add('active');
-
-  renderAlerts();
-}
-
-
-function renderAlerts(){
-  const container=document.getElementById('alerts');
-
-  const filtered=alerts.filter(alert=>
-    statusFor(alert)===selectedTab
-  );
-
-  if(!filtered.length){
-    const labels={
-      active:'Geen actieve meldingen.',
-      scheduled:'Geen geplande meldingen.',
-      expired:'Geen verlopen meldingen.'
-    };
-
-    container.innerHTML=
-      `<div class="empty">${labels[selectedTab]}</div>`;
-
-    return;
-  }
-
-  container.innerHTML=filtered.map(alert=>{
-
-    const scope=
-      !alert.scope || alert.scope==='all'
-        ? 'Overal'
-        : alert.scopeValue || alert.scope;
-
-    const created=alert.createdAt
-      ? new Date(alert.createdAt).toLocaleString('nl-BE')
-      : '';
-
-    return `
-      <div class="alert-row">
-
-        <div>
-
-          <div class="badges">
-            <span class="badge ${escapeHtml(alert.type || 'info')}">
-              ${escapeHtml((alert.type || 'info').toUpperCase())}
-            </span>
-
-            <span class="badge">
-              ${escapeHtml(scope)}
-            </span>
-          </div>
-
-          <h3>${escapeHtml(alert.title)}</h3>
-
-          <p>${escapeHtml(alert.message)}</p>
-
-          <div class="preview-meta">
-            ${created ? `Aangemaakt ${escapeHtml(created)}` : ''}
-          </div>
-
-        </div>
-
-        <div>
-          <button
-            class="btn btn-danger"
-            onclick="deleteAlert('${escapeHtml(alert.id)}')">
-            Verwijder
-          </button>
-        </div>
-
-      </div>
-    `;
-  }).join('');
-}
-
-
-async function deleteAlert(id){
-  if(!confirm('Deze melding definitief verwijderen?')){
-    return;
-  }
-
-  try{
-    const response=await fetch(
-      `${API}?id=${encodeURIComponent(id)}`,
-      {
-        method:'DELETE',
-        headers:{
-          'Authorization':`Bearer ${token}`
-        }
-      }
-    );
-
-    if(response.status===401){
-      alert('Je beheertoken is ongeldig.');
-      return;
-    }
-
-    if(!response.ok){
-      throw new Error('HTTP '+response.status);
-    }
-
-    alerts=alerts.filter(alert=>alert.id!==id);
-    renderAlerts();
-
-  }catch(error){
-    alert('De melding kon niet worden verwijderd.');
-  }
-}
-
-
-function resetForm(clearMessage=true){
-  document.getElementById('title').value='';
-  document.getElementById('message').value='';
-  document.getElementById('scopeValue').value='';
-  document.getElementById('startsAt').value='';
-  document.getElementById('endsAt').value='';
-  document.getElementById('showInApp').checked=true;
-  document.getElementById('sendPush').checked=false;
-
-  setType('info');
-  setScope('all');
-
-  if(clearMessage){
-    document.getElementById('formMessage').textContent='';
-  }
-
-  updatePreview();
-}
-
-
-if(token){
-  document.getElementById('login').classList.add('hidden');
-  document.getElementById('admin').classList.remove('hidden');
-  loadAlerts();
-}
-
-updatePreview();
+const API_BASE=(location.hostname==='localhost'||location.hostname==='127.0.0.1')?'http://localhost:3000':'https://api.wheaterflow.be';
+const ALERTS_API='/api/alerts';
+const S={token:sessionStorage.getItem('wfAdminToken')||'',view:'overview',overview:null,alerts:[],alertType:'info',alertScope:'all',alertTab:'active',editingAlertId:null,pushStats:null,communityFilter:'all',community:[],reports:[],users:[]};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=v=>{const d=document.createElement('div');d.textContent=String(v??'');return d.innerHTML};
+const fmtNum=v=>new Intl.NumberFormat('nl-BE').format(Number(v)||0);
+const fmtDate=v=>{if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('nl-BE',{dateStyle:'short',timeStyle:'short'})};
+const fmtDuration=sec=>{sec=Math.max(0,Number(sec)||0);const d=Math.floor(sec/86400),h=Math.floor(sec%86400/3600),m=Math.floor(sec%3600/60);return d?`${d}d ${h}u`:h?`${h}u ${m}m`:`${m} min`};
+function toast(msg,type='ok'){const el=document.createElement('div');el.className=`toast ${type}`;el.textContent=msg;$('#toastWrap').appendChild(el);setTimeout(()=>el.remove(),3800)}
+function showMessage(id,msg,type='ok'){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=`message show ${type==='err'?'err':'ok'}`}
+function clearMessage(id){const el=document.getElementById(id);if(el){el.textContent='';el.className='message'}}
+async function adminApi(path,options={}){const headers={...(options.headers||{}),'Authorization':`Bearer ${S.token}`};if(options.body&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(`${API_BASE}${path}`,{...options,headers,cache:'no-store'});let data={};try{data=await r.json()}catch{}if(r.status===401){logout(false);throw new Error('Je adminsessie is verlopen.')}if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data}
+async function alertApi(path='',options={}){const headers={...(options.headers||{}),'Authorization':`Bearer ${S.token}`};if(options.body&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(`${ALERTS_API}${path}`,{...options,headers,cache:'no-store'});let data={};try{data=await r.json()}catch{}if(r.status===401)throw new Error('Beheertoken ongeldig voor meldingen-API.');if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data}
+
+async function login(){const token=$('#loginToken').value.trim();if(!token)return showMessage('loginMessage','Vul je admin token in.','err');S.token=token;$('#loginBtn').disabled=true;$('#loginBtn').textContent='Controleren…';clearMessage('loginMessage');try{await adminApi('/api/admin/overview');sessionStorage.setItem('wfAdminToken',token);showAdmin();await loadOverview()}catch(e){S.token='';showMessage('loginMessage',e.message,'err')}finally{$('#loginBtn').disabled=false;$('#loginBtn').textContent='Aanmelden'}}
+function logout(reload=true){sessionStorage.removeItem('wfAdminToken');S.token='';if(reload)location.reload();else{$('#adminShell').classList.add('hidden');$('#loginScreen').classList.remove('hidden')}}
+function showAdmin(){$('#loginScreen').classList.add('hidden');$('#adminShell').classList.remove('hidden')}
+
+const pageMeta={overview:['Dashboard','Alles wat er in Wheaterflow gebeurt.'],alerts:['Meldingen','In-app waarschuwingen en geplande communicatie.'],push:['Pushmeldingen','Bereik apparaten en bekijk pushdekking.'],community:['Community','Moderatie, rapporten en inhoud.'],users:['Gebruikers','Accounts, rollen en activiteit beheren.'],system:['Systeem','Backend, databronnen en e-mailstatus.']};
+function setView(view){if(!pageMeta[view])view='overview';S.view=view;$$('[data-page]').forEach(p=>p.classList.toggle('hidden',p.dataset.page!==view));$$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view));$('#pageTitle').textContent=pageMeta[view][0];$('#pageSubtitle').textContent=pageMeta[view][1];history.replaceState(null,'',`#${view}`);if(view==='overview')loadOverview();if(view==='alerts')loadAlerts();if(view==='push')loadPushStats();if(view==='community'){loadCommunity();loadReports()}if(view==='users')loadUsers();if(view==='system'){loadOverview(true);loadSystemWarnings()}window.scrollTo({top:0,behavior:'smooth'})}
+function refreshCurrentView(){setView(S.view);toast('Gegevens vernieuwd')}
+
+async function loadOverview(force=false){try{const [overview]=await Promise.all([adminApi('/api/admin/overview'),loadAlerts(true).catch(()=>null)]);S.overview=overview;renderOverview();renderSystem();$('#systemLabel').textContent='Systeem online';$('#systemDot').style.background='var(--green)'}catch(e){$('#systemLabel').textContent='Backend probleem';$('#systemDot').style.background='var(--red)';if(S.view==='overview')toast(e.message,'err')}}
+function renderOverview(){const o=S.overview;if(!o)return;const m=o.metrics||{};$('#mUsers').textContent=fmtNum(m.users);$('#mUsersSub').innerHTML=`<span class="positive">+${fmtNum(m.users24h)}</span> laatste 24 uur · +${fmtNum(m.users7d)} / 7d`;$('#mPush').textContent=fmtNum(m.pushSubscriptions);$('#mPushSub').innerHTML=`<span class="positive">${fmtNum(m.push24h)}</span> recent bijgewerkt`;$('#mPosts').textContent=fmtNum(m.communityPosts);$('#mPostsSub').innerHTML=`<span class="positive">+${fmtNum(m.community24h)}</span> laatste 24 uur`;$('#mReports').textContent=fmtNum(m.openReports);$('#mReportsSub').textContent=m.openReports?'Actie aanbevolen':'Alles nagekeken';$('#mReports').className=m.openReports?'danger-text':'';const active=S.alerts.filter(a=>statusForAlert(a)==='active').length;$('#mAlerts').textContent=fmtNum(active);$('#mAlertsSub').textContent=`${S.alerts.length} totaal opgeslagen`;setBadge('navReportCount',m.openReports);setBadge('navAlertCount',active);renderGrowth('userGrowth',o.userGrowth,false);renderGrowth('postGrowth',o.postGrowth,true);renderRecentUsers(o.recentUsers||[]);renderRecentPosts(o.recentPosts||[])}
+function setBadge(id,n){const el=document.getElementById(id);if(!el)return;el.textContent=n;el.classList.toggle('hidden',!n)}
+function renderGrowth(id,rows,secondary){const el=document.getElementById(id);if(!el)return;const max=Math.max(1,...(rows||[]).map(x=>Number(x.count)||0));el.innerHTML=(rows||[]).map(x=>{const h=Math.max(3,Math.round((Number(x.count)||0)/max*125));const day=new Date(`${x.day}T12:00:00`).toLocaleDateString('nl-BE',{weekday:'short'}).slice(0,2);return `<div class="bar-wrap"><span class="bar-value">${fmtNum(x.count)}</span><i class="bar ${secondary?'secondary':''}" style="height:${h}px"></i><span class="bar-day">${esc(day)}</span></div>`}).join('')||'<div class="empty">Geen data</div>'}
+function initials(v=''){return String(v).trim().split(/\s+/).slice(0,2).map(s=>s[0]||'').join('').toUpperCase()||'?'}
+function renderRecentUsers(rows){$('#recentUsers').innerHTML=rows.length?rows.map(u=>`<div class="feed-row"><div class="avatar">${esc(initials(u.display_name||u.username))}</div><div class="feed-main"><strong>${esc(u.display_name||u.username)}</strong><span>${esc(u.email)} · ${fmtDate(u.created_at)}</span></div><span class="pill ${u.role==='admin'?'blue':''}">${esc(u.role||'user')}</span></div>`).join(''):'<div class="empty">Nog geen gebruikers</div>'}
+function renderRecentPosts(rows){$('#recentPosts').innerHTML=rows.length?rows.map(p=>`<div class="feed-row"><div class="avatar">${p.photo_url?'▧':'✎'}</div><div class="feed-main"><strong>${esc(p.author)}</strong><span>${esc((p.caption||p.category||'Communitypost').slice(0,80))}</span></div>${Number(p.open_reports)?`<span class="pill red">${p.open_reports} rapport</span>`:`<span class="pill">${esc(p.moderation_status)}</span>`}</div>`).join(''):'<div class="empty">Nog geen communityposts</div>'}
+function statusItem(name,ok,detail){return `<div class="system-row"><span class="dot" style="background:${ok?'var(--green)':'var(--red)'};box-shadow:none"></span><strong>${esc(name)}</strong><span>${esc(detail)}</span></div>`}
+function renderSystem(){const s=S.overview?.system;if(!s)return;$('#overviewSystem').innerHTML=[statusItem('Backend',true,`uptime ${fmtDuration(s.uptimeSeconds)}`),statusItem('Database',s.database==='connected',`${s.databaseLatencyMs} ms`),statusItem('Push / VAPID',s.vapidConfigured,s.vapidConfigured?'geconfigureerd':'ontbreekt'),statusItem('E-mail / SMTP',s.smtpConfigured,s.smtpConfigured?'geconfigureerd':'ontbreekt'),statusItem('Xweather',s.xweatherConfigured,s.xweatherConfigured?'geconfigureerd':'ontbreekt')].join('');const configs=[['Push',s.vapidConfigured,'VAPID','Browser- en PWA-pushmeldingen'],['E-mail',s.smtpConfigured,'SMTP','Wachtwoordmails en toekomstige alerts'],['Xweather',s.xweatherConfigured,'API','Radar- en weerlagen'],['KNMI',s.knmiConfigured,'API','Nederlandse officiële bronnen']];$('#configGrid').innerHTML=configs.map(([name,ok,tag,desc])=>`<div class="config-card"><div class="metric-icon">${ok?'✓':'!'}</div><span class="pill ${ok?'green':'yellow'}">${ok?'Actief':'Niet ingesteld'}</span><h3>${esc(name)} · ${esc(tag)}</h3><p>${esc(desc)}</p></div>`).join('');$('#systemDetails').innerHTML=[statusItem('Node.js',true,s.nodeVersion||'—'),statusItem('Database latency',s.databaseLatencyMs<500,`${s.databaseLatencyMs} ms`),statusItem('Geheugen RSS',true,`${s.memoryRssMb} MB`),statusItem('Heap',true,`${s.memoryHeapMb} MB`),statusItem('Uptime',true,fmtDuration(s.uptimeSeconds)),statusItem('Admin beveiliging',s.adminTokenConfigured,s.adminTokenConfigured?'ADMIN_TOKEN actief':'ontbreekt')].join('')}
+
+function setAlertType(type){S.alertType=type;$$('[data-alert-type]').forEach(b=>b.classList.toggle('selected',b.dataset.alertType===type));updateAlertPreview()}
+function setAlertScope(scope){S.alertScope=scope;$$('[data-alert-scope]').forEach(b=>b.classList.toggle('selected',b.dataset.alertScope===scope));$('#alertScopeField').classList.toggle('hidden',scope==='all');const l={land:'Land',provincie:'Regio / provincie',stad:'Stad / gemeente'};$('#alertScopeLabel').textContent=l[scope]||'Locatie';updateAlertPreview()}
+function updateAlertPreview(){const t=$('#alertTitle').value.trim()||'Titel van je melding',m=$('#alertMessage').value.trim()||'Je bericht verschijnt hier.',v=$('#alertScopeValue').value.trim();const box=$('#alertPreview');box.className=`alert-preview ${S.alertType==='info'?'':S.alertType}`;$('#alertPreviewType').textContent={info:'INFORMATIE',warning:'WAARSCHUWING',danger:'ERNSTIGE WAARSCHUWING'}[S.alertType];$('#alertPreviewTitle').textContent=t;$('#alertPreviewMessage').textContent=m;$('#alertPreviewScope').textContent=S.alertScope==='all'?'🌍 Overal':`${{land:'🏳',provincie:'🗺',stad:'📍'}[S.alertScope]} ${v||'Kies een locatie'}`}
+const templates={info:{type:'info',title:'Wheaterflow informatie',message:'Er is nieuwe informatie beschikbaar in Wheaterflow.'},maintenance:{type:'info',title:'Gepland onderhoud',message:'Wheaterflow kan tijdelijk minder goed bereikbaar zijn door gepland onderhoud.'},yellow:{type:'warning',title:'Code geel',message:'Het KMI heeft code geel afgekondigd. Wees alert en volg de actuele verwachting.'},orange:{type:'danger',title:'Code oranje',message:'Het KMI waarschuwt voor gevaarlijk weer. Neem voorzorgsmaatregelen en volg de actuele waarschuwingen.'},red:{type:'danger',title:'Code rood',message:'Zeer gevaarlijk weer verwacht. Volg de officiële adviezen en beperk onnodige verplaatsingen.'},storm:{type:'warning',title:'Onweer in de buurt',message:'Er is kans op onweer. Volg de radar en blijf tijdens hevig onweer op een veilige plaats.'}};
+function applyTemplate(k){const t=templates[k];if(!t)return;setAlertType(t.type);$('#alertTitle').value=t.title;$('#alertMessage').value=t.message;updateAlertPreview()}
+function alertPayload(){const title=$('#alertTitle').value.trim(),message=$('#alertMessage').value.trim(),sv=$('#alertScopeValue').value.trim();if(!title||!message)throw new Error('Titel en bericht zijn verplicht.');if(S.alertScope!=='all'&&!sv)throw new Error('Kies een doelgebied.');const sr=$('#alertStarts').value,er=$('#alertEnds').value;const startsAt=sr?new Date(sr).toISOString():new Date().toISOString();const endsAt=er?new Date(er).toISOString():null;if(endsAt&&new Date(endsAt)<=new Date(startsAt))throw new Error('De eindtijd moet na de starttijd liggen.');return{type:S.alertType,title,message,scope:S.alertScope,scopeValue:S.alertScope==='all'?null:sv,startsAt,endsAt,showInApp:$('#alertShowInApp').checked,sendPush:$('#alertSendPush').checked}}
+async function saveAlert(){clearMessage('alertMessageBox');let p;try{p=alertPayload()}catch(e){return showMessage('alertMessageBox',e.message,'err')}const btn=$('#alertPublishBtn');btn.disabled=true;btn.textContent=S.editingAlertId?'Opslaan…':'Publiceren…';try{if(S.editingAlertId)await alertApi(`?id=${encodeURIComponent(S.editingAlertId)}`,{method:'PATCH',body:JSON.stringify(p)});else await alertApi('',{method:'POST',body:JSON.stringify(p)});let pushText='';if(p.sendPush){const r=await adminApi('/api/admin-push',{method:'POST',body:JSON.stringify(p)});pushText=` · ${r.sent||0} push verzonden`}showMessage('alertMessageBox',`${S.editingAlertId?'Melding bijgewerkt':'Melding gepubliceerd'}${pushText}.`);toast('Melding opgeslagen');resetAlertForm(false);await loadAlerts()}catch(e){showMessage('alertMessageBox',e.message,'err')}finally{btn.disabled=false;btn.textContent='Publiceren'}}
+async function loadAlerts(silent=false){try{const d=await alertApi('?admin=1');S.alerts=Array.isArray(d.alerts)?d.alerts:[];renderAlertList();if(S.overview)renderOverview()}catch(e){if(!silent){$('#alertList').innerHTML=`<div class="empty">${esc(e.message)}</div>`;toast(e.message,'err')}throw e}}
+function statusForAlert(a){const n=Date.now(),s=a.startsAt?new Date(a.startsAt).getTime():0,e=a.endsAt?new Date(a.endsAt).getTime():Infinity;if(s>n)return'scheduled';if(e<=n)return'expired';return'active'}
+function setAlertTab(tab,btn){S.alertTab=tab;$$('[data-alert-tab]').forEach(b=>b.classList.remove('active'));btn?.classList.add('active');renderAlertList()}
+function renderAlertList(){const list=$('#alertList');if(!list)return;const rows=S.alerts.filter(a=>S.alertTab==='all'||statusForAlert(a)===S.alertTab);if(!rows.length){list.innerHTML='<div class="empty">Geen meldingen in deze categorie.</div>';return}list.innerHTML=rows.map(a=>`<div class="alert-row"><div><div class="badges"><span class="pill ${a.type==='danger'?'red':a.type==='warning'?'yellow':'blue'}">${esc((a.type||'info').toUpperCase())}</span><span class="pill">${esc(a.scope==='all'?'Overal':a.scopeValue||a.scope)}</span><span class="pill">${esc(statusForAlert(a))}</span></div><h3>${esc(a.title)}</h3><p>${esc(a.message)}</p><div class="preview-meta">${fmtDate(a.startsAt)}${a.endsAt?` → ${fmtDate(a.endsAt)}`:''}</div></div><div class="actions"><button class="btn btn-soft btn-sm" onclick="editAlert('${esc(a.id)}')">Bewerk</button><button class="btn btn-soft btn-sm" onclick="duplicateAlert('${esc(a.id)}')">Dupliceer</button>${statusForAlert(a)==='active'?`<button class="btn btn-soft btn-sm" onclick="endAlert('${esc(a.id)}')">Beëindig</button>`:''}<button class="btn btn-danger btn-sm" onclick="deleteAlert('${esc(a.id)}')">Verwijder</button></div></div>`).join('')}
+function fillAlertForm(a){S.editingAlertId=a.id||null;setAlertType(a.type||'info');setAlertScope(a.scope||'all');$('#alertTitle').value=a.title||'';$('#alertMessage').value=a.message||'';$('#alertScopeValue').value=a.scopeValue||'';$('#alertStarts').value=a.startsAt?new Date(a.startsAt).toISOString().slice(0,16):'';$('#alertEnds').value=a.endsAt?new Date(a.endsAt).toISOString().slice(0,16):'';$('#alertShowInApp').checked=a.showInApp!==false;$('#alertSendPush').checked=false;$('#alertEditorTitle').textContent=S.editingAlertId?'Melding bewerken':'Nieuwe melding';$('#alertPublishBtn').textContent=S.editingAlertId?'Wijzigingen opslaan':'Publiceren';updateAlertPreview();window.scrollTo({top:0,behavior:'smooth'})}
+function editAlert(id){const a=S.alerts.find(x=>x.id===id);if(a)fillAlertForm(a)}function duplicateAlert(id){const a=S.alerts.find(x=>x.id===id);if(a)fillAlertForm({...a,id:null,startsAt:null,endsAt:null})}
+async function endAlert(id){try{await alertApi(`?id=${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({endsAt:new Date(Date.now()+1500).toISOString(),sendPush:false})});toast('Melding beëindigd');await loadAlerts()}catch(e){toast(e.message,'err')}}
+async function deleteAlert(id){if(!confirm('Deze melding definitief verwijderen?'))return;try{await alertApi(`?id=${encodeURIComponent(id)}`,{method:'DELETE'});toast('Melding verwijderd');await loadAlerts()}catch(e){toast(e.message,'err')}}
+function resetAlertForm(clear=true){S.editingAlertId=null;$('#alertTitle').value='';$('#alertMessage').value='';$('#alertScopeValue').value='';$('#alertStarts').value='';$('#alertEnds').value='';$('#alertShowInApp').checked=true;$('#alertSendPush').checked=false;setAlertType('info');setAlertScope('all');$('#alertEditorTitle').textContent='Nieuwe melding';$('#alertPublishBtn').textContent='Publiceren';if(clear)clearMessage('alertMessageBox');updateAlertPreview()}
+
+async function loadPushStats(){try{const d=await adminApi('/api/admin/push-stats');S.pushStats=d;const vals=[d.total,d.authenticated,d.anonymous,d.recent24h,d.recent7d];$$('#pushStatStrip .mini-stat strong').forEach((el,i)=>el.textContent=fmtNum(vals[i]));renderLocations('pushCities',d.byCity||[]);renderLocations('pushRegions',d.byRegion||[])}catch(e){toast(e.message,'err')}}
+function renderLocations(id,rows){const el=document.getElementById(id);if(!el)return;const max=Math.max(1,...rows.map(r=>Number(r.count)||0));el.innerHTML=rows.length?rows.map(r=>`<div class="location-row"><strong>${esc(r.name)}</strong><div class="meter"><i style="width:${Math.max(4,(r.count/max)*100)}%"></i></div><span>${fmtNum(r.count)}</span></div>`).join(''):'<div class="empty">Geen locatiegegevens.</div>'}
+function togglePushScope(){$('#pushScopeField').classList.toggle('hidden',$('#pushScope').value==='all')}
+async function sendManualPush(){clearMessage('pushMessageBox');const title=$('#pushTitle').value.trim(),message=$('#pushMessage').value.trim(),scope=$('#pushScope').value,scopeValue=$('#pushScopeValue').value.trim();if(!title||!message)return showMessage('pushMessageBox','Titel en bericht zijn verplicht.','err');if(scope!=='all'&&!scopeValue)return showMessage('pushMessageBox','Vul het doelgebied in.','err');const btn=$('#pushSendBtn');btn.disabled=true;btn.textContent='Versturen…';try{const r=await adminApi('/api/admin-push',{method:'POST',body:JSON.stringify({type:$('#pushType').value,title,message,scope,scopeValue:scope==='all'?null:scopeValue})});showMessage('pushMessageBox',`${r.sent||0} verzonden · ${r.failed||0} mislukt · ${r.matched||0} doelapparaten.`);toast('Pushactie voltooid');loadPushStats()}catch(e){showMessage('pushMessageBox',e.message,'err')}finally{btn.disabled=false;btn.textContent='Push versturen'}}
+
+function setCommunityFilter(v,btn){S.communityFilter=v;$$('[data-community-filter]').forEach(b=>b.classList.remove('active'));btn?.classList.add('active');loadCommunity()}
+async function loadCommunity(){const q=$('#communitySearch')?.value.trim()||'';$('#communityGrid').innerHTML='<div class="empty">Community laden…</div>';try{const d=await adminApi(`/api/admin/community?status=${encodeURIComponent(S.communityFilter)}&q=${encodeURIComponent(q)}&limit=60`);S.community=d.posts||[];renderCommunity()}catch(e){$('#communityGrid').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+function renderCommunity(){const el=$('#communityGrid');if(!S.community.length){el.innerHTML='<div class="empty">Geen posts gevonden.</div>';return}el.innerHTML=S.community.map(p=>`<article class="post-card"><div class="post-img">${p.photo_url?`<img src="${esc(p.photo_url)}" alt="Communityfoto" loading="lazy">`:'Geen foto'}</div><div class="post-body"><div class="post-meta"><span class="pill ${p.open_report_count?'red':p.moderation_status==='approved'?'green':''}">${esc(p.moderation_status)}</span><span class="muted" style="font-size:9px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.author)}${p.location_name?` · ${esc(p.location_name)}`:''}</h3><p>${esc(p.caption||'Geen beschrijving')}</p><div class="preview-meta">♥ ${fmtNum(p.like_count)} · 💬 ${fmtNum(p.comment_count)} · ⚑ ${fmtNum(p.open_report_count)}</div><div class="post-actions"><button class="btn btn-success btn-sm" onclick="moderatePost('${esc(p.id)}','approved')">Goedkeur</button><button class="btn btn-soft btn-sm" onclick="moderatePost('${esc(p.id)}','hidden')">Verberg</button><button class="btn btn-soft btn-sm" onclick="moderatePost('${esc(p.id)}','rejected')">Wijs af</button><button class="btn btn-danger btn-sm" onclick="deletePost('${esc(p.id)}')">Verwijder</button></div></div></article>`).join('')}
+async function moderatePost(id,status){try{await adminApi(`/api/admin/community/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({status})});toast(`Post: ${status}`);await Promise.all([loadCommunity(),loadReports(),loadOverview(true)])}catch(e){toast(e.message,'err')}}
+async function deletePost(id){if(!confirm('Deze communitypost definitief verwijderen?'))return;try{await adminApi(`/api/admin/community/${encodeURIComponent(id)}`,{method:'DELETE',body:JSON.stringify({confirmation:'VERWIJDER POST'})});toast('Post verwijderd');await Promise.all([loadCommunity(),loadReports(),loadOverview(true)])}catch(e){toast(e.message,'err')}}
+async function loadReports(){try{const d=await adminApi('/api/admin/reports?status=open');S.reports=d.reports||[];renderReports()}catch(e){$('#reportList').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+function renderReports(){$('#reportCountPill').textContent=`${S.reports.length} open`;setBadge('navReportCount',S.reports.length);$('#reportList').innerHTML=S.reports.length?S.reports.map(r=>`<div class="report-card"><span class="pill red">Rapport</span><h3>${esc(r.post_author||'Post')}</h3><p>${esc(r.reason||'Geen reden opgegeven')}</p><div class="preview-meta">Door ${esc(r.reporter||'gebruiker')} · ${fmtDate(r.created_at)}</div><div class="actions"><button class="btn btn-soft btn-sm" onclick="updateReport('${esc(r.id)}','reviewed')">Bekeken</button><button class="btn btn-soft btn-sm" onclick="updateReport('${esc(r.id)}','dismissed')">Negeren</button><button class="btn btn-danger btn-sm" onclick="moderatePost('${esc(r.post_id)}','hidden');updateReport('${esc(r.id)}','actioned')">Verberg post</button></div></div>`).join(''):'<div class="empty">Geen open rapporten. 🎉</div>'}
+async function updateReport(id,status){try{await adminApi(`/api/admin/reports/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({status})});toast('Rapport bijgewerkt');await loadReports();loadOverview(true)}catch(e){toast(e.message,'err')}}
+
+async function loadUsers(){const q=$('#userSearch')?.value.trim()||'';$('#usersBody').innerHTML='<tr><td colspan="7" class="empty">Gebruikers laden…</td></tr>';try{const d=await adminApi(`/api/admin/users?q=${encodeURIComponent(q)}&limit=100`);S.users=d.users||[];renderUsers();$('#usersFooter').textContent=`${fmtNum(d.total)} gebruiker(s) gevonden · maximaal 100 weergegeven` }catch(e){$('#usersBody').innerHTML=`<tr><td colspan="7" class="empty">${esc(e.message)}</td></tr>`}}
+function renderUsers(){const body=$('#usersBody');if(!S.users.length){body.innerHTML='<tr><td colspan="7" class="empty">Geen gebruikers gevonden.</td></tr>';return}body.innerHTML=S.users.map(u=>`<tr><td><span class="primary">${esc(u.display_name||u.username)}</span><span class="sub">${esc(u.email)} · @${esc(u.username)}</span></td><td><select style="width:auto;padding:6px 8px;font-size:10px" onchange="changeUserRole('${esc(u.id)}',this.value)"><option value="user" ${u.role!=='admin'?'selected':''}>user</option><option value="admin" ${u.role==='admin'?'selected':''}>admin</option></select></td><td>${fmtNum(u.favorite_count)}</td><td>${fmtNum(u.post_count)}</td><td>${fmtNum(u.push_count)}</td><td>${fmtDate(u.created_at)}</td><td><div class="actions"><button class="btn btn-soft btn-sm" onclick="renameUser('${esc(u.id)}')">Naam</button><button class="btn btn-danger btn-sm" onclick="deleteUser('${esc(u.id)}')">Verwijder</button></div></td></tr>`).join('')}
+async function changeUserRole(id,role){try{await adminApi(`/api/admin/users/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({role})});toast(`Rol gewijzigd naar ${role}`)}catch(e){toast(e.message,'err');loadUsers()}}
+async function renameUser(id){const u=S.users.find(x=>x.id===id);const name=prompt('Nieuwe weergavenaam:',u?.display_name||u?.username||'');if(!name)return;try{await adminApi(`/api/admin/users/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({displayName:name})});toast('Naam bijgewerkt');loadUsers()}catch(e){toast(e.message,'err')}}
+async function deleteUser(id){const u=S.users.find(x=>x.id===id);const c=prompt(`Je gaat ${u?.email||'deze gebruiker'} definitief verwijderen. Typ exact: VERWIJDER GEBRUIKER`);if(c!=='VERWIJDER GEBRUIKER')return;try{await adminApi(`/api/admin/users/${encodeURIComponent(id)}`,{method:'DELETE',body:JSON.stringify({confirmation:c})});toast('Gebruiker verwijderd');await Promise.all([loadUsers(),loadOverview(true)])}catch(e){toast(e.message,'err')}}
+
+async function sendEmailTest(){clearMessage('emailTestMessage');const to=$('#emailTestTo').value.trim();if(!to)return showMessage('emailTestMessage','Vul een e-mailadres in.','err');try{await adminApi('/api/admin/email-test',{method:'POST',body:JSON.stringify({to})});showMessage('emailTestMessage','Testmail verzonden.');toast('E-mailverbinding werkt')}catch(e){showMessage('emailTestMessage',e.message,'err')}}
+async function loadSystemWarnings(){const el=$('#officialWarnings');if(!el)return;el.innerHTML='<div class="empty">Officiële waarschuwingen ophalen…</div>';try{const [kmi,knmi]=await Promise.allSettled([fetch(`${API_BASE}/api/kmi/warnings`,{cache:'no-store'}).then(r=>r.json()),fetch(`${API_BASE}/api/knmi/warnings`,{cache:'no-store'}).then(r=>r.json())]);const warnings=[];if(kmi.status==='fulfilled')for(const a of(kmi.value.alerts||[]))warnings.push({...a,country:'België'});if(knmi.status==='fulfilled')for(const a of(knmi.value.alerts||[]))warnings.push({...a,country:'Nederland'});if(!warnings.length){el.innerHTML='<div class="empty">Geen officiële waarschuwingen geladen.</div>';return}el.innerHTML=warnings.map((w,i)=>{const level=String(w.level||w.color||'').toLowerCase();const cls=level.includes('red')||level.includes('rood')?'level-red':level.includes('orange')||level.includes('oranje')?'level-orange':level.includes('yellow')||level.includes('geel')?'level-yellow':'';return `<div class="warning-box ${cls}"><div class="badges"><span class="pill ${cls==='level-red'?'red':cls==='level-yellow'?'yellow':''}">${esc(w.country)}</span><span class="pill">${esc(w.source||'Officieel')}</span></div><h3>${esc(w.headline||w.title||'Weerwaarschuwing')}</h3><p>${esc(w.description||w.message||'Geen beschrijving')}</p><div class="actions" style="margin-top:10px"><button class="btn btn-soft btn-sm" onclick='warningToAlert(${JSON.stringify(JSON.stringify(w))})'>Maak Wheaterflow-melding</button></div></div>`}).join('')}catch(e){el.innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+function warningToAlert(raw){let w={};try{w=JSON.parse(raw)}catch{}setView('alerts');setAlertType((String(w.level||'').toLowerCase().match(/red|rood|orange|oranje/))?'danger':'warning');$('#alertTitle').value=w.headline||w.title||'Officiële weerwaarschuwing';$('#alertMessage').value=(w.description||w.message||'').slice(0,500);setAlertScope('all');$('#alertSendPush').checked=true;updateAlertPreview()}
+
+window.addEventListener('DOMContentLoaded',async()=>{resetAlertForm();const hash=location.hash.slice(1);if(pageMeta[hash])S.view=hash;if(S.token){showAdmin();try{await loadOverview();setView(S.view)}catch{logout(false)}}else{$('#loginToken').focus()}});
 </script>
-
 </body>
 </html>
