@@ -11438,3 +11438,15 @@ body.auth-open #home #suggestions{
   visibility:hidden!important;
   pointer-events:none!important;
 }
+
+/* =====================================================================
+   2026-09-08 — profiel: alle Home-topknoppen verbergen
+   De profielweergave ligt als transparante full-screen sheet boven Home.
+   Verberg daarom TV, Instellingen en de Home-profielknop zolang profiel open
+   is, zodat alleen de eigen profielheader zichtbaar en klikbaar blijft.
+   ===================================================================== */
+body.auth-open #home .home-action-row{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
