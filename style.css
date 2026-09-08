@@ -11425,3 +11425,16 @@ table.hourtable th,
     margin-bottom:98px!important;
   }
 }
+
+/* =====================================================================
+   2026-09-08 — profiel: Home-zoekbalk mag niet door de profiel-sheet lekken
+   De profielweergave is een full-screen auth/profile sheet boven Home. Door
+   de transparante Liquid Glass achtergrond kon de Home-zoekbalk zichtbaar
+   blijven. Verberg enkel die onderliggende zoeklaag zolang profiel open is.
+   ===================================================================== */
+body.auth-open #home .searchwrap,
+body.auth-open #home #suggestions{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
