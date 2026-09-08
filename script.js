@@ -8831,9 +8831,13 @@ function toonMeldingen(alerts) {
     bar.style.setProperty('--glass-y', `${y}px`);
   };
   const begin = (event) => {
+    // Mouse/trackpad navigation must keep the pointer on the actual tab button.
+    // Capturing the pointer on the whole tabbar can retarget pointerup/click to
+    // the bar itself in desktop Chromium/Safari, making the navigation appear
+    // unresponsive. The highlight does not need pointer capture.
+    if (typeof event.button === 'number' && event.button > 0) return;
     moveHighlight(event);
     bar.classList.add('glass-touching');
-    try { bar.setPointerCapture?.(event.pointerId); } catch (_) {}
   };
   const end = () => {
     bar.classList.remove('glass-touching');
@@ -8849,7 +8853,27 @@ function toonMeldingen(alerts) {
   }, {passive:true});
   bar.addEventListener('pointerup', end, {passive:true});
   bar.addEventListener('pointercancel', end, {passive:true});
-  bar.addEventListener('lostpointercapture', end, {passive:true});
+  bar.addEventListener('pointerleave', (event) => {
+    if (event.pointerType === 'mouse') end();
+  }, {passive:true});
+  window.addEventListener('pointerup', end, {passive:true});
+})();
+
+// Laptop/desktop: maps need a fresh size calculation when the browser window
+// changes size (resize, maximize, split-screen or browser zoom).
+(() => {
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(() => {
+      if (state.activeTab === 'radarscreen') {
+        try { refreshRadarLayout(); } catch (_) {}
+      }
+      if (state.community?.view === 'map') {
+        try { state.community.map?.invalidateSize?.({pan:false}); } catch (_) {}
+      }
+    }, 120);
+  }, {passive:true});
 })();
 
 // 2026-08-28 — profielinstellingen via glazen tandwiel rechtsboven.
