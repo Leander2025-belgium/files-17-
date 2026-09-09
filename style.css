@@ -11537,11 +11537,38 @@ body.auth-open .tabbar{
   opacity:1!important;
   visibility:visible!important;
   pointer-events:auto!important;
-  transform:translateX(-50%) translateY(0)!important;
   z-index:40050!important;
 }
-body.auth-open .tabbar.glass-touching{
-  transform:translateX(-50%) scale(.994)!important;
+/* Mobiel gebruikt een edge-anchored navbar (left + right). Daar mag NOOIT
+   translateX(-50%) op staan: dat schoof de balk een halve viewport naar links
+   waardoor Vandaag en Voorspelling buiten beeld vielen op Profiel. */
+@media (max-width:899.98px){
+  body.auth-open .tabbar{
+    left:max(10px,env(safe-area-inset-left))!important;
+    right:max(10px,env(safe-area-inset-right))!important;
+    width:auto!important;
+    max-width:none!important;
+    transform:none!important;
+    translate:none!important;
+  }
+  body.auth-open .tabbar.glass-touching{
+    transform:scale(.994)!important;
+    translate:none!important;
+  }
+}
+/* Desktop/laptop gebruikt bewust een gecentreerde dock met left:50%. */
+@media (min-width:900px){
+  body.auth-open .tabbar{
+    left:50%!important;
+    right:auto!important;
+    width:var(--wf-desktop-nav)!important;
+    max-width:760px!important;
+    transform:translateX(-50%)!important;
+    translate:none!important;
+  }
+  body.auth-open .tabbar.glass-touching{
+    transform:translateX(-50%) scale(.994)!important;
+  }
 }
 body.auth-open .tabbtn{
   pointer-events:auto!important;
