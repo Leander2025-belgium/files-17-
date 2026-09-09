@@ -11450,3 +11450,103 @@ body.auth-open #home .home-action-row{
   visibility:hidden!important;
   pointer-events:none!important;
 }
+
+/* =====================================================================
+   2026-09-08 — profielheader: Terug + Instellingen weer klikbaar
+   Home .topbar kreeg voor zoekresultaten z-index:20000. Ook nadat de zichtbare
+   Home-controls verborgen waren, bleef die transparante container boven de
+   profielheader liggen en onderschepte hij taps. Zet de volledige Home-topbar
+   buiten de hit-test zolang de profiel-sheet open is.
+   ===================================================================== */
+body.auth-open #home .topbar{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+
+/* De eigen profielheader blijft expliciet interactief. */
+#authSheet.auth-sheet.show .profile-header,
+#authSheet.auth-sheet.show .profile-header button{
+  pointer-events:auto!important;
+}
+
+/* =====================================================================
+   2026-09-08 — profielheader klikfix v2 (iOS/PWA robuust)
+   De profielweergave is een echte modal. Onderliggende Home-lagen mogen
+   daarom nooit deelnemen aan hit-testing. De header staat bovendien buiten
+   .auth-scroll, dus sticky is hier niet nodig en kan op iOS in combinatie
+   met backdrop-filter foutieve hit-testing geven. De blur verhuist naar een
+   pointer-events:none pseudo-laag zodat Terug en Instellingen altijd bovenop
+   blijven en taps rechtstreeks op de buttons landen.
+   ===================================================================== */
+body.auth-open #home{
+  pointer-events:none!important;
+}
+body.auth-open #authScrim.auth-scrim.show{
+  z-index:39990!important;
+}
+body.auth-open #authSheet.auth-sheet.show{
+  z-index:40000!important;
+  pointer-events:auto!important;
+  isolation:isolate!important;
+}
+#authSheet.auth-sheet.show .profile-header{
+  position:relative!important;
+  top:auto!important;
+  z-index:40!important;
+  flex:0 0 auto!important;
+  isolation:isolate!important;
+  pointer-events:auto!important;
+  background:transparent!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+#authSheet.auth-sheet.show .profile-header::before{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:-1!important;
+  pointer-events:none!important;
+  background:linear-gradient(180deg,rgba(8,22,40,.46),rgba(8,22,40,.14))!important;
+  -webkit-backdrop-filter:blur(16px) saturate(145%)!important;
+  backdrop-filter:blur(16px) saturate(145%)!important;
+  box-shadow:inset 0 -1px 0 rgba(255,255,255,.10)!important;
+}
+#authSheet.auth-sheet.show #closeAuthSheet,
+#authSheet.auth-sheet.show #profileDoneBtn{
+  position:relative!important;
+  z-index:3!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  -webkit-tap-highlight-color:transparent!important;
+  cursor:pointer!important;
+  transform:translateZ(0)!important;
+}
+#authSheet.auth-sheet.show #profileDoneBtn img{
+  pointer-events:none!important;
+}
+
+/* =====================================================================
+   2026-09-09 — onderste Liquid Glass navigatie ook zichtbaar op Profiel
+   Profiel is een full-screen sheet, maar blijft onderdeel van de primaire
+   appnavigatie. De tabbar staat daarom boven de profiel-sheet en blijft
+   klikbaar. De auth-scroll heeft al nav-clearance, zodat onderste inhoud
+   niet onder de balk verdwijnt.
+   ===================================================================== */
+body.auth-open .tabbar{
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  transform:translateX(-50%) translateY(0)!important;
+  z-index:40050!important;
+}
+body.auth-open .tabbar.glass-touching{
+  transform:translateX(-50%) scale(.994)!important;
+}
+body.auth-open .tabbtn{
+  pointer-events:auto!important;
+}
+body.auth-open #authSheet.auth-sheet.show .auth-scroll{
+  padding-bottom:calc(var(--wf-nav-height,88px) + var(--wf-safe-bottom,env(safe-area-inset-bottom)) + 34px)!important;
+  scroll-padding-bottom:calc(var(--wf-nav-height,88px) + var(--wf-safe-bottom,env(safe-area-inset-bottom)) + 34px)!important;
+}

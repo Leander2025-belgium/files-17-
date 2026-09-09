@@ -4878,12 +4878,20 @@ document.addEventListener('visibilitychange', ()=>{
 });
 
 /* ---------------- tabs ---------------- */
+let profilePreviousTabBtn = null;
 $$('.tabbtn').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     if(btn.dataset.tab === 'profile'){
-      openAuthSheet();
+      if(document.body.classList.contains('auth-open')){
+        $('#authSheet')?.scrollTo({top:0, left:0, behavior:'smooth'});
+      }else{
+        openAuthSheet();
+      }
       return;
     }
+    // De onderste navigatie blijft zichtbaar op Profiel. Een andere tab sluit
+    // daarom eerst de profiel-sheet en navigeert daarna direct naar de keuze.
+    if(document.body.classList.contains('auth-open')) closeAuthSheet({fromNav:true});
     $$('.tabbtn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     $$('.screen').forEach(s=>s.classList.remove('active'));
@@ -4964,6 +4972,10 @@ function syncProfileWeatherBackground(){
 
 function openAuthSheet(){
   syncProfileWeatherBackground();
+  // Onthoud exact welke onderste tab actief was (Vandaag en Voorspelling
+  // gebruiken beide data-tab=home), zodat Terug de juiste selectie herstelt.
+  profilePreviousTabBtn = document.querySelector('.tabbtn.active:not([data-tab="profile"])') || profilePreviousTabBtn;
+  $$('.tabbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab === 'profile'));
   lockPageScroll();
   $('#authSheet')?.classList.add('show');
   $('#authScrim')?.classList.add('show');
@@ -4980,7 +4992,13 @@ function closeAuthSheet(options={}){
   $('#authScrim')?.classList.remove('show');
   document.body.classList.remove('auth-open');
   unlockPageScroll();
-  $('#profileBtn')?.focus();
+  if(!options.fromNav){
+    $$('.tabbtn').forEach(b=>b.classList.remove('active'));
+    if(profilePreviousTabBtn?.isConnected) profilePreviousTabBtn.classList.add('active');
+    else document.querySelector(`.tabbtn[data-tab="${state.activeTab}"]`)?.classList.add('active');
+    $('#profileBtn')?.focus();
+  }
+  profilePreviousTabBtn = null;
   if(authHistoryOpen && !options.fromPopState){
     authHistoryOpen = false;
     history.back();
