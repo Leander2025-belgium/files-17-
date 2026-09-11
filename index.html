@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260911-alert-expand-v1" rel="stylesheet"/>
+<link href="style.css?v=20260911-community-photo-native-v3" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -825,15 +825,19 @@
 </header>
 <div class="community-composer-body"><div class="community-composer-modes" id="communityComposerModes"><button class="active" data-community-mode="photo" type="button">Weerfoto</button><button data-community-mode="observation" type="button">Waarneming</button></div>
 <div class="community-photo-picker" id="communityPhotoPicker">
-<input accept="image/*" capture="environment" hidden id="communityCameraInput" type="file"/>
-<input accept="image/*" hidden id="communityPhotoInput" type="file"/>
 <div class="community-photo-empty" id="communityPhotoEmpty">
 <div class="community-photo-picker-icon" aria-hidden="true">⌁</div>
 <strong>Voeg een weerfoto toe</strong>
 <span>Maak een nieuwe foto of kies er één uit je fotobibliotheek.</span>
 <div class="community-photo-source-actions">
-<button class="community-photo-source primary" id="communityCameraButton" type="button">Maak foto</button>
-<button class="community-photo-source" id="communityGalleryButton" type="button">Kies foto</button>
+<label class="community-photo-source primary community-native-photo-control" for="communityCameraInput">
+<span>Maak foto</span>
+<input accept="image/*" capture="environment" class="community-photo-native-input" id="communityCameraInput" type="file"/>
+</label>
+<label class="community-photo-source community-native-photo-control" for="communityPhotoInput">
+<span>Kies foto</span>
+<input accept="image/*" class="community-photo-native-input" id="communityPhotoInput" type="file"/>
+</label>
 </div>
 <small>JPG, PNG, WebP of HEIC · grote foto’s worden automatisch verkleind</small>
 </div>
@@ -842,7 +846,10 @@
 <div class="community-photo-preview-footer">
 <div class="community-photo-meta" id="communityPhotoMeta">Foto geselecteerd</div>
 <div class="community-photo-preview-actions">
-<button id="communityPhotoReplace" type="button">Andere foto</button>
+<label class="community-photo-replace community-native-photo-control" for="communityPhotoReplaceInput">
+<span>Andere foto</span>
+<input accept="image/*" class="community-photo-native-input" id="communityPhotoReplaceInput" type="file"/>
+</label>
 <button class="danger" id="communityPhotoRemove" type="button">Verwijderen</button>
 </div>
 </div>
@@ -1607,6 +1614,6 @@
 <script src="location-engine.js?v=20260911-location-i18n-v2"></script>
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260911-alert-expand-v1"></script>
+<script src="script.js?v=20260911-community-photo-native-v3"></script>
 </body>
 </html>

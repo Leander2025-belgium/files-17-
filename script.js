@@ -6045,28 +6045,11 @@ function initCommunityUi(){
   $('#communityComposerClose')?.addEventListener('click', closeCommunityComposer);
   $('#communityScrim')?.addEventListener('click', closeCommunityComposer);
   $('#communitySubmitPost')?.addEventListener('click', createCommunityPost);
+  // iOS/PWA: use native file inputs directly inside the visible controls.
+  // No programmatic input.click(): Safari can reject that in standalone mode.
   $('#communityPhotoInput')?.addEventListener('change', handleCommunityPhotoSelect);
   $('#communityCameraInput')?.addEventListener('change', handleCommunityPhotoSelect);
-  // Real buttons are more reliable than <label for=file> inside the iOS/PWA glass composer.
-  // Keep the input click synchronous with the user gesture so Safari opens Camera/Photos.
-  $('#communityCameraButton')?.addEventListener('click', (e)=>{
-    e.preventDefault();
-    e.stopPropagation();
-    const input=$('#communityCameraInput');
-    if(input){ input.value=''; input.click(); }
-  });
-  $('#communityGalleryButton')?.addEventListener('click', (e)=>{
-    e.preventDefault();
-    e.stopPropagation();
-    const input=$('#communityPhotoInput');
-    if(input){ input.value=''; input.click(); }
-  });
-  $('#communityPhotoReplace')?.addEventListener('click', (e)=>{
-    e.preventDefault();
-    e.stopPropagation();
-    const input=$('#communityPhotoInput');
-    if(input){ input.value=''; input.click(); }
-  });
+  $('#communityPhotoReplaceInput')?.addEventListener('change', handleCommunityPhotoSelect);
   $('#communityPhotoRemove')?.addEventListener('click', ()=>clearCommunityPhotoSelection());
   $('#communityUseGps')?.addEventListener('change', updateCommunityCapturedWeather);
   $('#communityLoadMore')?.addEventListener('click', ()=>loadCommunityPosts(false));
@@ -6497,6 +6480,7 @@ function clearCommunityPhotoSelection({clearMessage=true}={}){
   $('#communityPhotoEmpty')?.classList.remove('hidden');
   if($('#communityPhotoInput')) $('#communityPhotoInput').value = '';
   if($('#communityCameraInput')) $('#communityCameraInput').value = '';
+  if($('#communityPhotoReplaceInput')) $('#communityPhotoReplaceInput').value = '';
   if($('#communityPhotoMeta')) $('#communityPhotoMeta').textContent = tr('Foto geselecteerd');
   if(clearMessage) setCommunityComposerMessage('');
 }
