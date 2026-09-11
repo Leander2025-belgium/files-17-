@@ -11624,45 +11624,82 @@ body.auth-open #authSheet.auth-sheet.show .auth-scroll{
 
 
 /* =====================================================================
-   2026-09-11 — profiel onderrand + taalkeuze v2
-   - iOS kan rond de safe-area/visual viewport een stuk body laten zien.
-     Een overscannende profielachtergrond voorkomt daardoor definitief de
-     effen donkerblauwe strook onder de Liquid Glass navbar.
-   - De taalkeuze krijgt een eigen interactieve laag zodat NL/FR/DE/EN op
-     touch én muis altijd selecteerbaar blijven.
+   2026-09-11 — profiel herstel v3 + veilige iPhone onderrand
+   De v2-overscan gebruikte body.auth-open::before als fixed laag met hoge
+   z-index. iOS/WebKit kan zo'n laag samen met backdrop-filter verkeerd
+   compositen, waardoor de volledige profielinhoud achter de achtergrond
+   verdwijnt. Geen pseudo-overlay meer: html/body krijgen rechtstreeks
+   dezelfde weerachtergrond en de profielinhoud krijgt een expliciete
+   interactieve stacking-laag.
    ===================================================================== */
 body.auth-open::before{
-  content:""!important;
-  position:fixed!important;
-  left:0!important;
-  right:0!important;
-  top:-18vh!important;
-  bottom:-18vh!important;
-  z-index:39980!important;
-  pointer-events:none!important;
+  content:none!important;
+  display:none!important;
+}
+
+/* De pagina achter de full-screen profiel-sheet gebruikt dezelfde achtergrond.
+   Daardoor verschijnt er ook in de iPhone safe-area geen effen blauwe strook. */
+body.auth-open{
   background-color:#0d2138!important;
   background-image:
-    linear-gradient(180deg,rgba(5,18,34,.18),rgba(5,18,34,.50)),
-    var(--profile-weather-photo,var(--weather-photo))!important;
+    linear-gradient(180deg,rgba(5,18,34,.18),rgba(5,18,34,.48)),
+    var(--weather-photo)!important;
   background-size:cover,cover!important;
   background-position:center center,center center!important;
   background-repeat:no-repeat,no-repeat!important;
 }
+@supports selector(html:has(body.auth-open)){
+  html:has(body.auth-open){
+    background-color:#0d2138!important;
+    background-image:
+      linear-gradient(180deg,rgba(5,18,34,.18),rgba(5,18,34,.48)),
+      var(--weather-photo)!important;
+    background-size:cover,cover!important;
+    background-position:center center,center center!important;
+    background-repeat:no-repeat,no-repeat!important;
+  }
+}
+
 body.auth-open #authScrim.auth-scrim.show{
   background:transparent!important;
   -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
 }
+
+/* Profiel blijft een echte full-screen laag, maar zonder extra fixed backdrop. */
 body.auth-open #authSheet.auth-sheet.profile-mode.show{
-  background-color:transparent!important;
-  /* Laat de overscannende backdrop de volledige onderrand verzorgen. */
+  z-index:40000!important;
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  background-color:#0d2138!important;
   background-image:
     linear-gradient(180deg,rgba(5,18,34,.10),rgba(5,18,34,.34)),
     var(--profile-weather-photo,var(--weather-photo))!important;
   background-size:cover,cover!important;
   background-position:center center,center center!important;
+  background-repeat:no-repeat,no-repeat!important;
 }
 
+/* Belangrijk op iOS: profielheader en scrollcontent altijd boven de eigen
+   achtergrond/compositinglaag houden. */
+body.auth-open #authSheet.auth-sheet.show .profile-header,
+body.auth-open #authSheet.auth-sheet.show .auth-scroll{
+  position:relative!important;
+  z-index:2!important;
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+}
+body.auth-open #authSheet.auth-sheet.show .auth-scroll{
+  display:block!important;
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+
+/* Taalkeuze blijft expliciet interactief. */
 #settingsSheet #segLanguage{
   position:relative!important;
   z-index:20!important;
@@ -11688,15 +11725,8 @@ body.auth-open #authSheet.auth-sheet.profile-mode.show{
 }
 
 @media (max-width:899.98px){
-  body.auth-open #authSheet.auth-sheet.profile-mode.show{
-    top:0!important;
-    right:0!important;
-    bottom:-2px!important;
-    left:0!important;
-    height:auto!important;
-    min-height:calc(100dvh + 2px)!important;
-  }
-  /* Nog iets lager dan v1, maar niet over de iPhone home-indicator. */
+  /* De bestaande mobiele full-screen .auth-sheet-regel blijft leidend.
+     Alleen de navbar zetten we laag in de safe-area. */
   body.auth-open .tabbar{
     bottom:max(2px,calc(env(safe-area-inset-bottom,0px) - 30px))!important;
   }
@@ -11707,7 +11737,5 @@ body.auth-open #authSheet.auth-sheet.profile-mode.show{
 }
 
 @media (min-width:900px){
-  body.auth-open .tabbar{
-    bottom:6px!important;
-  }
+  body.auth-open .tabbar{bottom:6px!important;}
 }
