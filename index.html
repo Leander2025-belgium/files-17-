@@ -77,7 +77,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260911-community-photo-native-v4" rel="stylesheet"/>
+<link href="style.css?v=20260911-community-photo-native-v5" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -830,15 +830,15 @@
 <strong>Voeg een weerfoto toe</strong>
 <span>Maak een nieuwe foto of kies er één uit je fotobibliotheek.</span>
 <div class="community-photo-source-actions">
-<label class="community-photo-source primary community-native-photo-control" for="communityCameraInput">
+<label class="community-photo-source primary community-direct-photo-control">
 <span>Maak foto</span>
+<input accept="image/*" capture="environment" class="community-photo-direct-input" id="communityCameraInput" type="file"/>
 </label>
-<label class="community-photo-source community-native-photo-control" for="communityPhotoInput">
+<label class="community-photo-source community-direct-photo-control">
 <span>Kies foto</span>
+<input accept="image/*" class="community-photo-direct-input" id="communityPhotoInput" type="file"/>
 </label>
 </div>
-<input accept="image/*" capture="environment" class="community-photo-native-input community-photo-native-offscreen" id="communityCameraInput" type="file"/>
-<input accept="image/*" class="community-photo-native-input community-photo-native-offscreen" id="communityPhotoInput" type="file"/>
 <small>JPG, PNG, WebP of HEIC · grote foto’s worden automatisch verkleind</small>
 </div>
 <div class="community-photo-preview-wrap hidden" id="communityPhotoPreviewWrap">
@@ -846,10 +846,10 @@
 <div class="community-photo-preview-footer">
 <div class="community-photo-meta" id="communityPhotoMeta">Foto geselecteerd</div>
 <div class="community-photo-preview-actions">
-<label class="community-photo-replace community-native-photo-control" for="communityPhotoReplaceInput">
+<label class="community-photo-replace community-direct-photo-control">
 <span>Andere foto</span>
+<input accept="image/*" class="community-photo-direct-input" id="communityPhotoReplaceInput" type="file"/>
 </label>
-<input accept="image/*" class="community-photo-native-input community-photo-native-offscreen" id="communityPhotoReplaceInput" type="file"/>
 <button class="danger" id="communityPhotoRemove" type="button">Verwijderen</button>
 </div>
 </div>
@@ -1614,6 +1614,6 @@
 <script src="location-engine.js?v=20260911-location-i18n-v2"></script>
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260911-community-photo-native-v4"></script>
+<script src="script.js?v=20260911-community-photo-native-v5"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260911-community-photo-native-v4";
+const CACHE_VERSION = "wheaterflow-v20260911-community-photo-native-v5";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
