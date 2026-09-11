@@ -12287,3 +12287,55 @@ body.community-composer-open .tabbar{
     font-size:14px!important;
   }
 }
+
+
+/* =====================================================================
+   2026-09-11 — Community native photo controls v4
+   iPhone/PWA reliability: labels activate separate native file inputs.
+   Inputs are no longer transparently layered on top of the glass buttons.
+   ===================================================================== */
+#communityComposer label.community-native-photo-control{
+  position:relative!important;
+  z-index:30!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  cursor:pointer!important;
+  overflow:visible!important;
+}
+#communityComposer label.community-native-photo-control > span{
+  pointer-events:none!important;
+}
+/* Safari/iOS can ignore file pickers that are display:none. Keep the real
+   controls alive and focusable, but park them outside the viewport. */
+#communityComposer input.community-photo-native-offscreen[type="file"]{
+  display:block!important;
+  position:fixed!important;
+  left:-10000px!important;
+  top:0!important;
+  width:1px!important;
+  height:1px!important;
+  min-width:1px!important;
+  min-height:1px!important;
+  max-width:1px!important;
+  max-height:1px!important;
+  margin:0!important;
+  padding:0!important;
+  opacity:.01!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  border:0!important;
+  appearance:auto!important;
+  -webkit-appearance:auto!important;
+}
+/* Override the previous v3 overlay rule completely. */
+#communityComposer input.community-photo-native-input[type="file"]{
+  inset:auto!important;
+  z-index:auto!important;
+  border-radius:0!important;
+}
+#communityComposer .community-photo-source-actions{
+  z-index:30!important;
+}
+#communityComposer .community-photo-preview-actions{
+  z-index:30!important;
+}
