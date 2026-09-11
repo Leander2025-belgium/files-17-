@@ -6496,7 +6496,10 @@ function setCommunityComposerMode(mode='photo'){
 }
 function openCommunityComposer(){
   if(!requireCommunityLogin()) return;
-  lockPageScroll();
+  // iOS/Safari native controls (file/camera/select) can become unreliable when
+  // the whole <body> is changed to position:fixed. Community therefore uses a
+  // real fixed dialog without lockPageScroll(). The dialog owns its scrolling.
+  document.documentElement.classList.add('community-composer-open');
   document.body.classList.add('community-composer-open');
   $('#communityComposer')?.classList.add('show');
   $('#communityScrim')?.classList.add('show');
@@ -6506,7 +6509,7 @@ function closeCommunityComposer(){
   $('#communityComposer')?.classList.remove('show');
   $('#communityScrim')?.classList.remove('show');
   document.body.classList.remove('community-composer-open');
-  unlockPageScroll();
+  document.documentElement.classList.remove('community-composer-open');
 }
 
 function revokeCommunityPhotoPreview(){
