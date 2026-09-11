@@ -12155,268 +12155,135 @@ body.community-composer-open .tabbar{
   to{opacity:1;transform:translateY(0)}
 }
 
-
 /* =====================================================================
-   2026-09-11 — Community native photo controls v3
-   iOS/PWA: taps hit the real file input directly; no input.click() bridge.
-   Also reserve enough height so photo controls never overlap Omschrijving.
+   2026-09-11 — Community native visible file controls v7
+   Reliability first: actual input[type=file] controls are visible and receive
+   the user gesture directly on iOS/PWA. No opacity/overlay/synthetic click.
    ===================================================================== */
 #communityComposer #communityPhotoPicker.community-photo-picker{
   position:relative!important;
   display:block!important;
+  width:100%!important;
   height:auto!important;
-  min-height:286px!important;
+  min-height:0!important;
+  max-height:none!important;
   overflow:visible!important;
   contain:none!important;
 }
 #communityComposer #communityPhotoEmpty.community-photo-empty{
-  position:relative!important;
   display:flex!important;
   width:100%!important;
-  min-height:284px!important;
   height:auto!important;
+  min-height:0!important;
   overflow:visible!important;
   padding:20px 16px 18px!important;
   box-sizing:border-box!important;
 }
-#communityComposer #communityPhotoEmpty.community-photo-empty.hidden{
-  display:none!important;
-}
-#communityComposer .community-photo-source-actions{
-  position:relative!important;
-  z-index:20!important;
-  isolation:isolate!important;
+#communityComposer #communityPhotoEmpty.community-photo-empty.hidden{display:none!important}
+#communityComposer .community-native-file-actions{
   display:grid!important;
   grid-template-columns:repeat(2,minmax(0,1fr))!important;
-  width:100%!important;
-  max-width:430px!important;
-  margin:10px auto 3px!important;
   gap:10px!important;
+  width:100%!important;
+  max-width:470px!important;
+  margin:10px auto 4px!important;
+  overflow:visible!important;
 }
-#communityComposer label.community-native-photo-control{
-  position:relative!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
+#communityComposer .community-native-file-card{
+  display:grid!important;
+  gap:7px!important;
   min-width:0!important;
-  width:100%!important;
-  min-height:50px!important;
-  height:50px!important;
-  margin:0!important;
-  padding:0 14px!important;
-  overflow:hidden!important;
-  cursor:pointer!important;
-  pointer-events:auto!important;
-  touch-action:manipulation!important;
-  user-select:none!important;
-  -webkit-user-select:none!important;
-  box-sizing:border-box!important;
-  border:1px solid rgba(218,240,255,.22)!important;
-  border-radius:15px!important;
-  background:rgba(255,255,255,.09)!important;
-  color:#fff!important;
-  font:800 14px/1.15 inherit!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.10)!important;
-  -webkit-tap-highlight-color:transparent!important;
+  padding:10px!important;
+  border:1px solid rgba(218,240,255,.20)!important;
+  border-radius:16px!important;
+  background:rgba(255,255,255,.075)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09)!important;
 }
-#communityComposer label.community-native-photo-control.primary{
-  background:rgba(58,164,218,.28)!important;
-  border-color:rgba(130,226,255,.42)!important;
+#communityComposer .community-native-file-card.primary{
+  background:rgba(58,164,218,.20)!important;
+  border-color:rgba(130,226,255,.34)!important;
 }
-#communityComposer label.community-native-photo-control > span{
-  position:relative!important;
-  z-index:1!important;
-  pointer-events:none!important;
-  color:inherit!important;
-}
-/* This is the key iPhone fix: the real native control covers the visual button. */
-#communityComposer input.community-photo-native-input[type="file"]{
+#communityComposer .community-native-file-title{
   display:block!important;
-  position:absolute!important;
-  inset:0!important;
-  z-index:5!important;
+  color:#fff!important;
+  font-size:14px!important;
+  line-height:1.2!important;
+  font-weight:800!important;
+  text-align:center!important;
+}
+/* This is intentionally a normal, visible native file input. */
+#communityComposer input.community-native-visible-file[type="file"]{
+  display:block!important;
+  position:static!important;
+  inset:auto!important;
   width:100%!important;
-  height:100%!important;
-  min-width:100%!important;
-  min-height:100%!important;
-  max-width:none!important;
-  max-height:none!important;
+  min-width:0!important;
+  max-width:100%!important;
+  height:48px!important;
+  min-height:48px!important;
+  max-height:48px!important;
   margin:0!important;
   padding:0!important;
-  border:0!important;
-  border-radius:inherit!important;
-  opacity:.001!important;
-  background:transparent!important;
-  box-shadow:none!important;
-  cursor:pointer!important;
+  opacity:1!important;
+  visibility:visible!important;
   pointer-events:auto!important;
   touch-action:manipulation!important;
-  -webkit-appearance:none!important;
-  appearance:none!important;
+  overflow:visible!important;
+  border:0!important;
+  border-radius:13px!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:transparent!important;
+  font-size:0!important;
+  -webkit-appearance:auto!important;
+  appearance:auto!important;
 }
-#communityComposer .community-photo-preview-actions label.community-photo-replace{
-  min-height:44px!important;
-  height:44px!important;
+#communityComposer input.community-native-visible-file[type="file"]::file-selector-button,
+#communityComposer input.community-native-visible-file[type="file"]::-webkit-file-upload-button{
+  width:100%!important;
+  height:48px!important;
+  margin:0!important;
+  padding:0 12px!important;
+  border:1px solid rgba(218,240,255,.24)!important;
+  border-radius:13px!important;
+  background:rgba(255,255,255,.12)!important;
+  color:#fff!important;
+  font:800 14px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  cursor:pointer!important;
+  -webkit-appearance:none!important;
+}
+#communityComposer .community-native-file-card.primary input.community-native-visible-file[type="file"]::file-selector-button,
+#communityComposer .community-native-file-card.primary input.community-native-visible-file[type="file"]::-webkit-file-upload-button{
+  background:rgba(56,167,222,.32)!important;
+  border-color:rgba(132,225,255,.42)!important;
 }
 #communityComposer .community-photo-preview-actions{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:end!important;
+  gap:10px!important;
   position:relative!important;
   z-index:20!important;
-  grid-template-columns:minmax(0,1fr) auto!important;
 }
-#communityComposer .community-photo-preview-actions button{
-  position:relative!important;
-  z-index:21!important;
-  pointer-events:auto!important;
+#communityComposer .community-photo-preview-actions .community-native-file-card.compact{
+  padding:7px!important;
+}
+#communityComposer .community-photo-preview-actions .community-native-file-card.compact .community-native-file-title{
+  font-size:12px!important;
+}
+#communityComposer .community-photo-preview-actions .community-native-file-card.compact input.community-native-visible-file[type="file"],
+#communityComposer .community-photo-preview-actions .community-native-file-card.compact input.community-native-visible-file[type="file"]::file-selector-button,
+#communityComposer .community-photo-preview-actions .community-native-file-card.compact input.community-native-visible-file[type="file"]::-webkit-file-upload-button{
+  height:42px!important;
+  min-height:42px!important;
+  max-height:42px!important;
 }
 #communityComposer .community-photo-picker + label{
   position:relative!important;
   z-index:1!important;
-  margin-top:2px!important;
+  margin-top:8px!important;
 }
 @media(max-width:520px){
-  #communityComposer #communityPhotoPicker.community-photo-picker{
-    min-height:294px!important;
-  }
-  #communityComposer #communityPhotoEmpty.community-photo-empty{
-    min-height:292px!important;
-    padding:18px 12px 16px!important;
-  }
-  #communityComposer label.community-native-photo-control{
-    min-height:52px!important;
-    height:52px!important;
-    font-size:14px!important;
-  }
+  #communityComposer .community-native-file-actions{grid-template-columns:1fr!important}
+  #communityComposer #communityPhotoEmpty.community-photo-empty{padding:18px 12px 16px!important}
 }
-
-
-/* =====================================================================
-   2026-09-11 — Community native photo controls v4
-   iPhone/PWA reliability: labels activate separate native file inputs.
-   Inputs are no longer transparently layered on top of the glass buttons.
-   ===================================================================== */
-#communityComposer label.community-native-photo-control{
-  position:relative!important;
-  z-index:30!important;
-  pointer-events:auto!important;
-  touch-action:manipulation!important;
-  cursor:pointer!important;
-  overflow:visible!important;
-}
-#communityComposer label.community-native-photo-control > span{
-  pointer-events:none!important;
-}
-/* Safari/iOS can ignore file pickers that are display:none. Keep the real
-   controls alive and focusable, but park them outside the viewport. */
-#communityComposer input.community-photo-native-offscreen[type="file"]{
-  display:block!important;
-  position:fixed!important;
-  left:-10000px!important;
-  top:0!important;
-  width:1px!important;
-  height:1px!important;
-  min-width:1px!important;
-  min-height:1px!important;
-  max-width:1px!important;
-  max-height:1px!important;
-  margin:0!important;
-  padding:0!important;
-  opacity:.01!important;
-  visibility:visible!important;
-  pointer-events:auto!important;
-  border:0!important;
-  appearance:auto!important;
-  -webkit-appearance:auto!important;
-}
-/* Override the previous v3 overlay rule completely. */
-#communityComposer input.community-photo-native-input[type="file"]{
-  inset:auto!important;
-  z-index:auto!important;
-  border-radius:0!important;
-}
-#communityComposer .community-photo-source-actions{
-  z-index:30!important;
-}
-#communityComposer .community-photo-preview-actions{
-  z-index:30!important;
-}
-
-
-/* =====================================================================
-   2026-09-11 — Community direct native photo controls v5
-   The actual input[type=file] lives inside and covers each visible button.
-   This gives iOS/PWA a direct user gesture on the native file control.
-   ===================================================================== */
-#communityComposer label.community-direct-photo-control{
-  position:relative!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  width:100%!important;
-  min-width:0!important;
-  min-height:52px!important;
-  height:52px!important;
-  margin:0!important;
-  padding:0 14px!important;
-  overflow:hidden!important;
-  box-sizing:border-box!important;
-  cursor:pointer!important;
-  pointer-events:auto!important;
-  touch-action:manipulation!important;
-  user-select:none!important;
-  -webkit-user-select:none!important;
-  border:1px solid rgba(218,240,255,.22)!important;
-  border-radius:15px!important;
-  background:rgba(255,255,255,.09)!important;
-  color:#fff!important;
-  font:800 14px/1.15 inherit!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.10)!important;
-  -webkit-tap-highlight-color:transparent!important;
-  z-index:40!important;
-}
-#communityComposer label.community-direct-photo-control.primary{
-  background:rgba(58,164,218,.28)!important;
-  border-color:rgba(130,226,255,.42)!important;
-}
-#communityComposer label.community-direct-photo-control > span{
-  position:relative!important;
-  z-index:1!important;
-  pointer-events:none!important;
-  color:inherit!important;
-}
-#communityComposer label.community-direct-photo-control > input.community-photo-direct-input[type="file"]{
-  display:block!important;
-  position:absolute!important;
-  inset:0!important;
-  z-index:10!important;
-  width:100%!important;
-  height:100%!important;
-  min-width:100%!important;
-  min-height:100%!important;
-  max-width:none!important;
-  max-height:none!important;
-  margin:0!important;
-  padding:0!important;
-  border:0!important;
-  border-radius:inherit!important;
-  opacity:.001!important;
-  visibility:visible!important;
-  background:transparent!important;
-  box-shadow:none!important;
-  pointer-events:auto!important;
-  touch-action:manipulation!important;
-  cursor:pointer!important;
-  appearance:auto!important;
-  -webkit-appearance:auto!important;
-  font-size:100px!important;
-}
-#communityComposer .community-photo-preview-actions label.community-direct-photo-control{
-  min-height:44px!important;
-  height:44px!important;
-}
-#communityComposer .community-photo-source-actions,
-#communityComposer .community-photo-preview-actions{
-  position:relative!important;
-  z-index:40!important;
-  pointer-events:auto!important;
-}
-\n\n/* =====================================================================\n   2026-09-11 — Community photo picker v6\n   Visible controls are normal buttons. The native file control is created\n   fresh under <body> for each tap, outside the glass composer.\n   ===================================================================== */\n#communityComposer .community-photo-source-actions{\n  position:relative!important;\n  z-index:50!important;\n  display:grid!important;\n  grid-template-columns:repeat(2,minmax(0,1fr))!important;\n  gap:10px!important;\n  width:100%!important;\n  max-width:430px!important;\n  margin:10px auto 3px!important;\n  pointer-events:auto!important;\n}\n#communityComposer button.community-photo-trigger{\n  appearance:none!important;\n  -webkit-appearance:none!important;\n  position:relative!important;\n  z-index:51!important;\n  display:flex!important;\n  align-items:center!important;\n  justify-content:center!important;\n  width:100%!important;\n  min-width:0!important;\n  height:52px!important;\n  min-height:52px!important;\n  margin:0!important;\n  padding:0 14px!important;\n  border:1px solid rgba(218,240,255,.22)!important;\n  border-radius:15px!important;\n  background:rgba(255,255,255,.09)!important;\n  color:#fff!important;\n  font:800 14px/1.15 inherit!important;\n  box-shadow:inset 0 1px 0 rgba(255,255,255,.10)!important;\n  cursor:pointer!important;\n  pointer-events:auto!important;\n  touch-action:manipulation!important;\n  -webkit-tap-highlight-color:transparent!important;\n}\n#communityComposer button.community-photo-trigger.primary{\n  background:rgba(58,164,218,.28)!important;\n  border-color:rgba(130,226,255,.42)!important;\n}\n#communityComposer button.community-photo-trigger:active{transform:scale(.98)!important}\n#communityComposer .community-photo-preview-actions button.community-photo-trigger{\n  min-height:44px!important;\n  height:44px!important;\n}\n/* Fresh native control: outside the modal, alive but visually out of the way. */\nbody > input.community-ephemeral-file-input[type="file"]{\n  display:block!important;\n  position:fixed!important;\n  left:0!important;\n  bottom:0!important;\n  width:1px!important;\n  height:1px!important;\n  min-width:1px!important;\n  min-height:1px!important;\n  max-width:1px!important;\n  max-height:1px!important;\n  margin:0!important;\n  padding:0!important;\n  border:0!important;\n  opacity:.001!important;\n  pointer-events:none!important;\n  visibility:visible!important;\n  z-index:2147483647!important;\n}\n

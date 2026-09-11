@@ -6045,12 +6045,11 @@ function initCommunityUi(){
   $('#communityComposerClose')?.addEventListener('click', closeCommunityComposer);
   $('#communityScrim')?.addEventListener('click', closeCommunityComposer);
   $('#communitySubmitPost')?.addEventListener('click', createCommunityPost);
-  // Community photo picker v6: create a fresh top-level native file input for
-  // every user gesture. This keeps the iOS picker outside the transformed /
-  // backdrop-filtered composer and avoids stale file controls in standalone PWA.
-  $('#communityCameraBtn')?.addEventListener('click', ()=>openCommunityPhotoPicker({camera:true}));
-  $('#communityPhotoBtn')?.addEventListener('click', ()=>openCommunityPhotoPicker({camera:false}));
-  $('#communityPhotoReplaceBtn')?.addEventListener('click', ()=>openCommunityPhotoPicker({camera:false}));
+  // Community photo picker v7: use the real, visible native file controls.
+  // No synthetic click/label/overlay is involved; iOS receives the tap directly.
+  $('#communityCameraInput')?.addEventListener('change', handleCommunityPhotoSelect);
+  $('#communityPhotoInput')?.addEventListener('change', handleCommunityPhotoSelect);
+  $('#communityPhotoReplaceInput')?.addEventListener('change', handleCommunityPhotoSelect);
   $('#communityPhotoRemove')?.addEventListener('click', ()=>clearCommunityPhotoSelection());
   $('#communityUseGps')?.addEventListener('change', updateCommunityCapturedWeather);
   $('#communityLoadMore')?.addEventListener('click', ()=>loadCommunityPosts(false));
@@ -6522,51 +6521,7 @@ function handleCommunityPhotoSelect(e){
   if(input) input.value = '';
 }
 
-function openCommunityPhotoPicker({camera=false}={}){
-  // Must run synchronously from the user's tap. A new top-level input is used
-  // each time so iOS never has to re-open a stale picker control.
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  if(camera) input.setAttribute('capture','environment');
-  input.setAttribute('aria-label', camera ? tr('Maak foto') : tr('Kies foto'));
-  input.className = 'community-ephemeral-file-input';
-  input.tabIndex = -1;
-
-  let cleaned = false;
-  const cleanup = ()=>{
-    if(cleaned) return;
-    cleaned = true;
-    try{ input.remove(); }catch(e){}
-  };
-  input.addEventListener('change', ()=>{
-    const file = input.files?.[0] || null;
-    if(file) setCommunityPhotoFile(file);
-    cleanup();
-  }, {once:true});
-  input.addEventListener('cancel', cleanup, {once:true});
-
-  document.body.appendChild(input);
-  setCommunityComposerMessage(camera ? tr('Camera openen…') : tr('Fotobibliotheek openen…'));
-
-  try{
-    // .click() on a file input is supported from a direct user gesture on iOS.
-    // Keep showPicker as a fallback for engines that prefer it.
-    input.click();
-  }catch(firstError){
-    try{
-      if(typeof input.showPicker === 'function') input.showPicker();
-      else throw firstError;
-    }catch(e){
-      cleanup();
-      setCommunityComposerMessage(tr('De fotokiezer kon niet worden geopend. Sluit Wheaterflow volledig en probeer opnieuw.'), 'error');
-    }
-  }
-
-  // Safety cleanup only; never remove while the native picker is likely open.
-  setTimeout(cleanup, 120000);
-}
-
+/* v7: native visible file inputs open Camera/Photos directly. */
 function updateCommunityCapturedWeather(){
   const cur = liveWeatherSnapshot();
   if(!cur || !$('#communityCapturedWeather')) return;
