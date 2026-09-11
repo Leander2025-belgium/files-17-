@@ -11577,3 +11577,47 @@ body.auth-open #authSheet.auth-sheet.show .auth-scroll{
   padding-bottom:calc(var(--wf-nav-height,88px) + var(--wf-safe-bottom,env(safe-area-inset-bottom)) + 34px)!important;
   scroll-padding-bottom:calc(var(--wf-nav-height,88px) + var(--wf-safe-bottom,env(safe-area-inset-bottom)) + 34px)!important;
 }
+
+/* =====================================================================
+   2026-09-11 — Profiel: navbar lager + geen effen blauwe onderstrook
+   In iOS/PWA kan de veilige onderrand buiten de 100dvh-profielsheet vallen.
+   Laat daarom de profielachtergrond ook op body doorlopen en schuif de
+   primaire navigatie dichter naar de fysieke onderrand. De inhoud behoudt
+   voldoende scroll-clearance zodat de laatste acties niet achter de dock
+   verdwijnen.
+   ===================================================================== */
+@media (max-width:899.98px){
+  body.auth-open{
+    background-color:#0d2138!important;
+    background-image:
+      linear-gradient(180deg,rgba(5,18,34,.18),rgba(5,18,34,.48)),
+      var(--profile-weather-photo,var(--weather-photo))!important;
+    background-size:cover,cover!important;
+    background-position:center center,center center!important;
+    background-repeat:no-repeat,no-repeat!important;
+    background-attachment:fixed,fixed!important;
+  }
+
+  /* Zorg dat de profielsheet zelf tot aan de onderste viewport-rand loopt. */
+  body.auth-open #authSheet.auth-sheet.profile-mode.show{
+    top:0!important;
+    right:0!important;
+    bottom:0!important;
+    left:0!important;
+    width:100%!important;
+    min-height:100dvh!important;
+    height:100dvh!important;
+    max-height:none!important;
+  }
+
+  /* iPhone safe-area is al door viewport-fit=cover beschikbaar. Trek de dock
+     bewust iets de safe-area in: visueel lager, maar nog boven de home-indicator. */
+  body.auth-open .tabbar{
+    bottom:max(4px,calc(env(safe-area-inset-bottom,0px) - 24px))!important;
+  }
+
+  body.auth-open #authSheet.auth-sheet.show .auth-scroll{
+    padding-bottom:calc(var(--wf-nav-height,88px) + 30px)!important;
+    scroll-padding-bottom:calc(var(--wf-nav-height,88px) + 30px)!important;
+  }
+}

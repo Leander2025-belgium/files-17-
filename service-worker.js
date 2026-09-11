@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260909-profile-navbar-mobile-fix-v2";
+const CACHE_VERSION = "wheaterflow-v20260911-profile-bottom-nav-v1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -6,6 +6,7 @@ const STATIC_ASSETS = [
   "./offline.html",
   "./style.css",
   "./script.js",
+  "./i18n.js",
   "./castService.js",
   "./tvPairingService.js",
   "./manifest.webmanifest",
