@@ -117,6 +117,7 @@ const TV_WEATHER_PHOTO_FILES = new Set([
 
 const state = {
   loc: { lat: 51.2405, lon: 2.9309, name: "Oostende", admin: "West-Vlaanderen, Belgie" },
+  language: window.WF_I18N?.language || 'nl',
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
   current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
   observation: null, marine: null, seaspark: null, air: null,
@@ -147,6 +148,9 @@ const state = {
 const $ = (s,ctx=document)=>ctx.querySelector(s);
 const $$ = (s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
 const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '"' ? '&quot;' : '&#39;');
+const tr = (text, lang=state.language) => window.WF_I18N?.t?.(text, lang) ?? text;
+const wfLocale = () => window.WF_I18N?.locale?.(state.language) || 'nl-BE';
+const wfLanguage = () => (window.WF_I18N?.isSupported?.(state.language) ? state.language : 'nl');
 
 function cleanLocationName(name, fallback='Huidige locatie'){
   const value = String(name || '').trim();
@@ -156,14 +160,14 @@ function cleanLocationName(name, fallback='Huidige locatie'){
 
 function locationDisplayName(fallback='Huidige locatie'){
   const name = cleanLocationName(state.loc?.name, '');
-  if(name) return name;
-  if(state.locationStatus === 'detecting') return 'Locatie bepalen...';
-  if(state.locationStatus === 'denied') return 'Plaats kiezen';
-  return fallback;
+  if(name) return tr(name);
+  if(state.locationStatus === 'detecting') return tr('Locatie bepalen...');
+  if(state.locationStatus === 'denied') return tr('Plaats kiezen');
+  return tr(fallback);
 }
 
 function toast(msg){
-  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  const t = $('#toast'); t.textContent = tr(msg); t.classList.add('show');
   clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2200);
 }
 
@@ -186,7 +190,7 @@ function wheaterflowStatus(kind='loading', message='', options={}){
   const text = validText(message) || defaults[kind] || defaults.empty;
   const updated = options.updated ? new Date(options.updated) : null;
   const updatedText = updated && Number.isFinite(updated.getTime())
-    ? `<small>Laatst bijgewerkt om ${updated.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</small>` : '';
+    ? `<small>Laatst bijgewerkt om ${updated.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}</small>` : '';
   const retry = options.retryId ? `<button class="smallbtn wf-status-retry" id="${esc(options.retryId)}" type="button">Opnieuw proberen</button>` : '';
   return `<div class="wf-data-status ${esc(kind)}" role="status"><span class="wf-status-spinner" aria-hidden="true"></span><div><b>${esc(text)}</b>${updatedText}</div>${retry}</div>`;
 }
@@ -366,6 +370,10 @@ function parseProfileJsonSetting(value, fallback){
 
 function mapProfileToUnits(profile){
   if(!profile) return;
+  if(profile.language && window.WF_I18N?.isSupported?.(profile.language)){
+    state.language = String(profile.language).toLowerCase().split('-')[0];
+    window.WF_I18N.setLanguage(state.language, {persist:true, notify:false});
+  }
   if(profile.temperature_unit) state.units.temp = profile.temperature_unit;
   if(profile.wind_unit) state.units.wind = profile.wind_unit;
   if(profile.precipitation_unit) state.units.precip = profile.precipitation_unit;
@@ -390,7 +398,7 @@ function profilePayload(){
     home_location_name: profile.home_location_name || null,
     home_latitude: Number.isFinite(Number(profile.home_latitude)) ? Number(profile.home_latitude) : null,
     home_longitude: Number.isFinite(Number(profile.home_longitude)) ? Number(profile.home_longitude) : null,
-    language:'nl',
+    language:wfLanguage(),
     temperature_unit:state.units.temp,
     wind_unit:state.units.wind,
     pressure_unit:state.units.press,
@@ -414,6 +422,8 @@ async function loadCloudProfileAndFavorites(){
     savePushSettings();
     refreshPushSettingsControls();
     refreshSettingsSegments();
+    refreshLanguageControls();
+    rerenderForLanguageChange();
     if(Array.isArray(data.favorites)){
       state.favorites = data.favorites.map(f=>({id:f.id, name:f.name, lat:+f.latitude, lon:+f.longitude, admin:f.country || ''}));
       await window.storage.set('weerscoop:favorites', JSON.stringify(state.favorites)).catch(()=>undefined);
@@ -1162,7 +1172,7 @@ const WCODE = {
   85:{l:'Sneeuwbuien', ic:'snow'}, 86:{l:'Zware sneeuwbuien', ic:'snow'},
   95:{l:'Onweer', ic:'storm', severe:true}, 96:{l:'Onweer met hagel', ic:'storm', severe:true}, 99:{l:'Zwaar onweer met hagel', ic:'storm', severe:true}
 };
-function wcInfo(code){ return WCODE[code] || {l:'Onbekend', ic:'cloud'}; }
+function wcInfo(code){ const base = WCODE[code] || {l:'Onbekend', ic:'cloud'}; return {...base, l:tr(base.l)}; }
 
 function isDayForTime(timeValue){
   if(!state.daily || !state.daily.time) return true;
@@ -1321,7 +1331,7 @@ window.addEventListener('pageshow', ()=>{
 
 async function reverseGeocode(lat, lon, {fallbackToStored=true}={}){
   try{
-    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=nl`, {cache:'no-store'});
+    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=${encodeURIComponent(wfLanguage())}`, {cache:'no-store'});
     if(!r.ok) throw new Error(`reverse geocode ${r.status}`);
     const d = await r.json();
     const name = d.city || d.locality || d.principalSubdivision || d.countryName || '';
@@ -1457,7 +1467,7 @@ async function doSearch(q){
   const box = $('#suggestions');
   const requestSeq = ++searchRequestSeq;
   try{
-    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=nl&format=json`);
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=${encodeURIComponent(wfLanguage())}&format=json`);
     const d = await r.json();
     if(requestSeq !== searchRequestSeq || $('#searchInput').value.trim() !== q) return;
     const results = d.results || [];
@@ -2474,7 +2484,7 @@ function formatShortTime(value){
   if(!value) return '--:--';
   const date = new Date(value);
   if(Number.isNaN(date.getTime())) return '--:--';
-  return date.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
+  return date.toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
 }
 
 async function loadLightning(force=false){
@@ -2796,7 +2806,7 @@ function rainNowcastCard(){
     if(sec < 60) return 'Zojuist bijgewerkt';
     if(sec < 120) return '1 min geleden';
     if(sec < 3600) return `${Math.round(sec/60)} min geleden`;
-    return `Om ${new Date(state.lastUpdated).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}`;
+    return `Om ${new Date(state.lastUpdated).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}`;
   })();
 
   const currentSignal = precipitationSignal(liveWeatherSnapshot());
@@ -3398,8 +3408,8 @@ html += rainNowcastCard();
     for(let i=0;i<nDays;i++){
       const dwc=wcInfo(daily.weather_code?.[i]);
       const d=new Date(daily.time[i]);
-      const dayName=i===0?'Vandaag':d.toLocaleDateString('nl-BE',{weekday:'short'});
-      const dateLabel=d.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'});
+      const dayName=i===0?tr('Vandaag'):d.toLocaleDateString(wfLocale(),{weekday:'short'});
+      const dateLabel=d.toLocaleDateString(wfLocale(),{day:'2-digit',month:'2-digit'});
       const lo=validNumber(daily.temperature_2m_min?.[i]), hi=validNumber(daily.temperature_2m_max?.[i]);
       const left=lo==null?0:((lo-gMin)/(gMax-gMin||1))*100;
       const width=lo==null||hi==null?0:((hi-lo)/(gMax-gMin||1))*100;
@@ -3534,7 +3544,7 @@ function formatEventTime(value){
   if(!value) return '-';
   const date = new Date(value);
   if(Number.isNaN(date.getTime())) return String(value).slice(11,16) || '-';
-  return date.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit'});
+  return date.toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit'});
 }
 
 function meteorVisibilityEstimate(event){
@@ -3680,7 +3690,7 @@ function smartMessages(){
   if(centralRain.status==='rain_soon') msgs.push(`${centralRainEtaText(centralRain)} (${rainEtaReliabilityText(centralRain)}).`);
   else if(centralRain.status==='raining') msgs.push(centralRainEtaText(centralRain));
   for(let i=idx;i<Math.min(idx+24,h.time.length);i++){
-    if([95,96,99].includes(h.weather_code[i])){ msgs.push(`Kans op onweer rond ${new Date(h.time[i]).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}.`); break; }
+    if([95,96,99].includes(h.weather_code[i])){ msgs.push(`Kans op onweer rond ${new Date(h.time[i]).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}.`); break; }
   }
   const uvMax = Math.max(...(h.uv_index||[]).slice(idx, idx+24).map(v=>v||0));
   if(uvMax >= 6) msgs.push('De UV-index wordt hoog vandaag. Bescherm je huid tussen de middag.');
@@ -3808,7 +3818,7 @@ async function setHomeMapLayer(layerId){
     }
     setHomeMapStatus('');
     refreshHomeMapLayout();
-    $('#mapLayerTime').textContent = `Laatst bijgewerkt om ${new Date().toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}`;
+    $('#mapLayerTime').textContent = `Laatst bijgewerkt om ${new Date().toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}`;
   }catch(err){
     console.error('Home weather map layer failed', {layerId, err});
     setHomeMapStatus('Radargegevens tijdelijk niet beschikbaar','radar');
@@ -3980,7 +3990,7 @@ function renderPremiumCharts(){
   if(!window.Chart || !state.hourly?.time) return renderFallbackCharts();
   const idx = nowIndexInHourly();
   const points = Array.from({length:24},(_,n)=>idx+n).filter(i=>i<state.hourly.time.length);
-  const labels = points.map(i=>new Date(state.hourly.time[i]).toLocaleTimeString('nl-BE',{hour:'2-digit'}));
+  const labels = points.map(i=>new Date(state.hourly.time[i]).toLocaleTimeString(wfLocale(),{hour:'2-digit'}));
   const h = state.hourly;
   const charts = [
     ['temp', labels, [
@@ -4073,7 +4083,7 @@ function miniChart(title, points, y1, y2, unit){
       ${y2?`<polyline class="line sub" points="${line(y2)}"></polyline>`:''}
       ${minN>=0?`<circle class="point min" cx="${x(minN).toFixed(1)}" cy="${y(minVal).toFixed(1)}" r="1.8"><title>Minimum ${fmt(minVal)} ${unit}</title></circle>`:''}
       ${maxN>=0?`<circle class="point max" cx="${x(maxN).toFixed(1)}" cy="${y(maxVal).toFixed(1)}" r="1.8"><title>Maximum ${fmt(maxVal)} ${unit}</title></circle>`:''}
-      ${points.map((i,n)=>({i,n,v:y1(i),v2:y2?y2(i):null})).filter(p=>p.v!=null && isFinite(p.v)).map(p=>`<circle class="hit" cx="${x(p.n).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="3"><title>${new Date(state.hourly.time[p.i]).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}: ${fmt(p.v)} ${unit}${p.v2!=null && isFinite(p.v2)?` / ${fmt(p.v2)}`:''}</title></circle>`).join('')}
+      ${points.map((i,n)=>({i,n,v:y1(i),v2:y2?y2(i):null})).filter(p=>p.v!=null && isFinite(p.v)).map(p=>`<circle class="hit" cx="${x(p.n).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="3"><title>${new Date(state.hourly.time[p.i]).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}: ${fmt(p.v)} ${unit}${p.v2!=null && isFinite(p.v2)?` / ${fmt(p.v2)}`:''}</title></circle>`).join('')}
     </svg>
     <div class="chart-legend"><span><i class="main"></i>${chartMainLabel(title)}</span>${y2?`<span><i class="sub"></i>${chartSubLabel(title)}</span>`:''}</div>
   </div>`;
@@ -4103,9 +4113,9 @@ function day14Card(i){
   const lo = validNumber(state.daily.temperature_2m_min?.[i]);
   const hi = validNumber(state.daily.temperature_2m_max?.[i]);
   const wind = validNumber(state.daily.wind_speed_10m_max?.[i]);
-  const dayName = i===0 ? 'Vandaag' : d.toLocaleDateString('nl-BE',{weekday:'short'});
-  const fullDayName = i===0 ? 'Vandaag' : d.toLocaleDateString('nl-BE',{weekday:'long'});
-  const dateLabel = d.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'});
+  const dayName = i===0 ? tr('Vandaag') : d.toLocaleDateString(wfLocale(),{weekday:'short'});
+  const fullDayName = i===0 ? tr('Vandaag') : d.toLocaleDateString(wfLocale(),{weekday:'long'});
+  const dateLabel = d.toLocaleDateString(wfLocale(),{day:'2-digit',month:'2-digit'});
   const hiLabel = hi==null ? '—' : fmtTemp(hi);
   const loLabel = lo==null ? '—' : fmtTemp(lo);
   const windLabel = wind==null ? '—' : `${Math.round(wind)} km/u`;
@@ -4181,7 +4191,7 @@ function dayDetailSheet(i){
     <button class="day-sheet-close" type="button" aria-label="Sluiten">&times;</button>
     <div class="day-detail-hero">
       <div>
-        <div class="day-detail-date">${date.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'})}</div>
+        <div class="day-detail-date">${date.toLocaleDateString(wfLocale(),{weekday:'long',day:'numeric',month:'long'})}</div>
         <h2 id="daySheetTitle">${wc.l}</h2>
         <div class="day-detail-range"><b>${fmtTemp(daily.temperature_2m_max[i])}</b><span>${fmtTemp(daily.temperature_2m_min[i])}</span></div>
       </div>
@@ -4220,7 +4230,7 @@ function dayHourlyIndexes(dayIndex){
 
 function dayHourItem(i){
   const h = state.hourly, wc = wcInfo(h.weather_code[i]);
-  const time = new Date(h.time[i]).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
+  const time = new Date(h.time[i]).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
   const pop = h.precipitation_probability[i] ?? 0;
   return `<div class="day-hour">
     <span>${time}</span>${icon(wc.ic,isDayForTime(h.time[i]),24)}
@@ -4344,7 +4354,7 @@ function photoWeatherCard(photo){
   else context='Helder licht; golden hour is het interessantste moment';
   return `<div class="card photo-weather-card">
     <div class="card-title">${icon('sunrise',true,13)} Fotoweer</div>
-    <div class="photo-context"><strong>${esc(context)}</strong>${best?`<span>Beste venster rond ${best.time.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</span>`:''}</div>
+    <div class="photo-context"><strong>${esc(context)}</strong>${best?`<span>Beste venster rond ${best.time.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}</span>`:''}</div>
     ${metricListCard([
       {label:'Fotografie-index', value:best ? `${best.score}/100` : 'Niet beschikbaar'},
       {label:'Golden hour', value:photo.goldenEvening || '-'},
@@ -4455,7 +4465,7 @@ function coastSection(){
       ${item('Golfperiode',validNumber(sea.wavePeriod)==null?null:`${sea.wavePeriod.toFixed(1)} s`,'gauge')}
       ${item('Wind',validNumber(sea.wind)==null?null:formatWindPair(sea.wind,sea.gust),'wind')}
       ${item('Getij',tide?.state||null,'drop')}
-      ${item('Volgend hoogwater',tide?.nextTime ? new Date(tide.nextTime.getTime() + (tide.nextType==='hoogwater'?0:(6*3600+12.5*60)*1000)).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : null,'gauge')}
+      ${item('Volgend hoogwater',tide?.nextTime ? new Date(tide.nextTime.getTime() + (tide.nextType==='hoogwater'?0:(6*3600+12.5*60)*1000)).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : null,'gauge')}
       ${item('UV-index',validNumber(sea.uv)==null?null:String(Math.round(sea.uv)),'uv')}
       ${item('Zicht',validNumber(sea.visibility)==null?null:`${(sea.visibility/1000).toFixed(1)} km`,'eye')}
     </div>
@@ -4488,10 +4498,10 @@ function seaSparkCoastPanel(){
   const level=score>=65?'Hoge':score>=40?'Matige':'Lage';
   const cloud=validNumber(s.cloud);
   const best=s.bestTime ? new Date(s.bestTime) : null;
-  const bestWindow=best&&Number.isFinite(best.getTime()) ? `${new Date(best.getTime()-30*60000).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}–${new Date(best.getTime()+60*60000).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}` : 'Na volledige duisternis';
+  const bestWindow=best&&Number.isFinite(best.getTime()) ? `${new Date(best.getTime()-30*60000).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}–${new Date(best.getTime()+60*60000).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}` : 'Na volledige duisternis';
   return `<div class="seaspark-panel seaspark-v2">
     <div class="seaspark-head"><div><div class="card-title">${icon('drop',true,13)} Zeevonk</div><h3>${level} kans op zeevonk</h3></div><div class="seaspark-score-wrap"><div class="seaspark-ring" style="--score:${score}"><b>${score}/100</b></div><small>Indicatieve score</small></div></div>
-    <div class="seaspark-shared-grid"><span><small>Beste tijdvenster</small><b>${esc(bestWindow)}</b></span><span><small>Locatie</small><b>${esc(sea.place)}</b></span>${cloud!=null?`<span><small>Bewolking</small><b>${Math.round(cloud)}%</b></span>`:''}<span><small>Laatste update</small><b>${new Date(state.lastUpdated||Date.now()).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</b></span></div>
+    <div class="seaspark-shared-grid"><span><small>Beste tijdvenster</small><b>${esc(bestWindow)}</b></span><span><small>Locatie</small><b>${esc(sea.place)}</b></span>${cloud!=null?`<span><small>Bewolking</small><b>${Math.round(cloud)}%</b></span>`:''}<span><small>Laatste update</small><b>${new Date(state.lastUpdated||Date.now()).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}</b></span></div>
     <p>${esc(seaModePracticalAdvice(sea))}</p>
     <div class="sea-safety">Blijf uit gevaarlijke branding en ga niet alleen het water in in het donker.</div>
     <div class="subtle">Indicatief, geen officiële voorspelling.</div>
@@ -4500,7 +4510,7 @@ function seaSparkCoastPanel(){
 
 function seaSparkBestTimeText(s){
   if(!s?.bestTime) return 'Beste moment: na zonsondergang';
-  return 'Beste moment rond ' + s.bestTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
+  return 'Beste moment rond ' + s.bestTime.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
 }
 
 function seaSparkSummary(s){
@@ -4527,7 +4537,7 @@ function travelWeatherSection(){
   </div>`;
 }
 async function travelGeocode(q){
-  const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=nl&format=json`,{cache:'no-store'});
+  const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=${encodeURIComponent(wfLanguage())}&format=json`,{cache:'no-store'});
   if(!r.ok) throw new Error('Plaats zoeken mislukt');
   const x=(await r.json()).results?.[0];
   if(!x) throw new Error(`Plaats niet gevonden: ${q}`);
@@ -4541,7 +4551,7 @@ async function travelPointWeather(point, when){
   return {point,time:d.hourly.time[i],temperature:d.hourly.temperature_2m?.[i],code:d.hourly.weather_code?.[i],pop:d.hourly.precipitation_probability?.[i],wind:d.hourly.wind_speed_10m?.[i],gust:d.hourly.wind_gusts_10m?.[i]};
 }
 function travelResultCard(label,w){
-  const info=wcInfo(w.code); return `<div class="travel-result-card"><small>${label}</small><b>${esc(w.point.name)} · ${new Date(w.time).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})}</b><div>${icon(info.ic,true,30)}<strong>${fmtTemp(w.temperature)}</strong><span>${esc(info.l)}</span></div><p>${validNumber(w.pop)!=null?`${Math.round(w.pop)}% regen · `:''}${formatWindPair(w.wind,w.gust)}</p></div>`;
+  const info=wcInfo(w.code); return `<div class="travel-result-card"><small>${label}</small><b>${esc(w.point.name)} · ${new Date(w.time).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}</b><div>${icon(info.ic,true,30)}<strong>${fmtTemp(w.temperature)}</strong><span>${esc(info.l)}</span></div><p>${validNumber(w.pop)!=null?`${Math.round(w.pop)}% regen · `:''}${formatWindPair(w.wind,w.gust)}</p></div>`;
 }
 function wireTravelWeather(){
   const from=$('#travelFrom'),to=$('#travelTo'),time=$('#travelTime'),calc=$('#travelCalculate'),msg=$('#travelValidation'); if(!from||!to||!calc) return;
@@ -4574,8 +4584,8 @@ function formatOfficialAlertPeriod(alert){
   const from = alert.validFrom ? new Date(alert.validFrom) : null;
   const to = alert.validTo ? new Date(alert.validTo) : null;
   const now = Date.now();
-  const hm = d => d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
-  const day = d => d.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'});
+  const hm = d => d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
+  const day = d => d.toLocaleDateString(wfLocale(),{day:'2-digit',month:'2-digit'});
   if(from && Number.isFinite(from.getTime())){
     if(now < from.getTime()){
       const sameDay = new Date().toDateString() === from.toDateString();
@@ -4773,8 +4783,8 @@ function moonTimesForToday(){
     if(!window.SunCalc || !state.loc) return {rise:'-', set:'-'};
     const mt = window.SunCalc.getMoonTimes(new Date(), state.loc.lat, state.loc.lon);
     return {
-      rise: mt.rise ? mt.rise.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : '-',
-      set: mt.set ? mt.set.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : '-'
+      rise: mt.rise ? mt.rise.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : '-',
+      set: mt.set ? mt.set.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : '-'
     };
   }catch(e){
     return {rise:'-', set:'-'};
@@ -4786,7 +4796,7 @@ function addMinutesText(value, minutes){
   const d = new Date(value);
   if(Number.isNaN(d.getTime())) return '-';
   d.setMinutes(d.getMinutes() + minutes);
-  return d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});
+  return d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
 }
 
 function formatDuration(seconds){
@@ -5151,7 +5161,7 @@ async function searchProfileFavorites(query){
   box.innerHTML = '<div class="profile-favorite-loading">Plaatsen zoeken…</div>';
   box.classList.add('show');
   try{
-    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=nl&format=json`);
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=${encodeURIComponent(wfLanguage())}&format=json`);
     if(!r.ok) throw new Error(`Zoeken ${r.status}`);
     const data = await r.json();
     const results = data.results || [];
@@ -5612,7 +5622,7 @@ function climateCompareText(){
 }
 
 function formatClimateDate(date){
-  return new Date(date + 'T00:00:00').toLocaleDateString('nl-BE',{day:'2-digit',month:'short',year:'numeric'});
+  return new Date(date + 'T00:00:00').toLocaleDateString(wfLocale(),{day:'2-digit',month:'short',year:'numeric'});
 }
 
 function climateMetric(label, value, sub=''){
@@ -5650,7 +5660,7 @@ function renderClimateDashboard(){
     climateMetric('Koudste dag', x.byMin ? fmtTemp(x.byMin.min_temperature) : '-', x.byMin ? formatClimateDate(x.byMin.date) : ''),
     climateMetric('Natste dag', x.byRain ? fmtPrecip(x.byRain.precipitation_total) : '-', x.byRain ? formatClimateDate(x.byRain.date) : ''),
     climateMetric('Sterkste wind', x.byWind ? fmtWind(x.byWind.max_wind_gust) : '-', x.byWind ? formatClimateDate(x.byWind.date) : ''),
-    climateMetric('Zonnigste maand', x.sunnyMonth ? new Date(x.sunnyMonth.key + '-01').toLocaleDateString('nl-BE',{month:'long',year:'numeric'}) : '-', x.sunnyMonth ? `Gem. UV ${x.sunnyMonth.avg.toFixed(1)}` : ''),
+    climateMetric('Zonnigste maand', x.sunnyMonth ? new Date(x.sunnyMonth.key + '-01').toLocaleDateString(wfLocale(),{month:'long',year:'numeric'}) : '-', x.sunnyMonth ? `Gem. UV ${x.sunnyMonth.avg.toFixed(1)}` : ''),
     climateMetric('Regendagen', x.rainDays, 'Minstens 1 mm'),
     climateMetric('Vorstdagen', x.frostDays, 'Minimum onder 0 °C'),
     climateMetric('Warme dagen', x.warmDays, 'Maximum vanaf 25 °C'),
@@ -6361,6 +6371,64 @@ function subscribeCommunityRealtime(){
   }, 20000);
 }
 
+function refreshLanguageControls(){
+  const lang = window.WF_I18N?.language || state.language || 'nl';
+  state.language = lang;
+  $$('#segLanguage button').forEach(button=>button.classList.toggle('active', button.dataset.v === lang));
+  const current = $('#languageCurrent');
+  if(current) current.textContent = window.WF_I18N?.languageName?.(lang) || lang.toUpperCase();
+  document.documentElement.lang = window.WF_I18N?.locale?.(lang) || 'nl-BE';
+}
+
+function rerenderForLanguageChange(){
+  try{ if(state.current) renderHome(); }catch(e){ console.warn('Home opnieuw renderen na taalwissel faalde:', e); }
+  try{ renderProfileWeatherToday?.(); }catch(e){}
+  try{ renderProfileFavorites?.(); }catch(e){}
+  try{ updatePushUi?.(state.push.status); }catch(e){}
+  try{ if(state.activeTab === 'community') renderCommunityFeed?.(); }catch(e){}
+  try{ if($('#stormscreen')?.classList.contains('active')) updateStormTab?.(); }catch(e){}
+  try{ window.WF_I18N?.translateDocument?.(); }catch(e){}
+}
+
+function applyLanguageSetting(next, {showToast=true, syncCloud=true}={}){
+  if(!window.WF_I18N?.isSupported?.(next)) return false;
+  const lang = String(next).toLowerCase().split('-')[0];
+  state.language = lang;
+  window.WF_I18N.setLanguage(lang, {persist:true, notify:false});
+  refreshLanguageControls();
+  rerenderForLanguageChange();
+  if(syncCloud) syncProfileSettingsToCloud?.();
+  if(showToast){
+    const messages = {nl:'Taal gewijzigd naar Nederlands',fr:'Langue définie sur Français',de:'Sprache auf Deutsch geändert',en:'Language changed to English'};
+    toast(messages[lang] || 'Taal gewijzigd');
+  }
+  return true;
+}
+
+function wireLanguageSettings(){
+  refreshLanguageControls();
+  const seg = $('#segLanguage');
+  if(seg && seg.dataset.languageWired !== '1'){
+    seg.dataset.languageWired = '1';
+    seg.addEventListener('click', event=>{
+      const button = event.target.closest('button[data-v]');
+      if(!button) return;
+      event.preventDefault();
+      applyLanguageSetting(button.dataset.v);
+    });
+  }
+  if(document.documentElement.dataset.languageEventWired !== '1'){
+    document.documentElement.dataset.languageEventWired = '1';
+    window.addEventListener('wheaterflow:language-changed', event=>{
+      const next = event.detail?.language || window.WF_I18N?.language || state.language;
+      state.language = next;
+      refreshLanguageControls();
+      rerenderForLanguageChange();
+      syncProfileSettingsToCloud?.();
+    });
+  }
+}
+
 function wireSeg(id, key){
   const seg = $(id);
   if(!seg) return;
@@ -6373,8 +6441,8 @@ function wireSeg(id, key){
       if(key==='model'){
         saveUnits();
         loadWeather();
-        const labels = {best_match:'Automatisch', ecmwf_ifs025:'ECMWF', icon_eu:'ICON-EU', gfs_seamless:'GFS', knmi_seamless:'Harmonie (Benelux)'};
-        toast(`${labels[state.units.model] || 'Weermodel'} actief`);
+        const labels = {best_match:tr('Automatisch'), ecmwf_ifs025:'ECMWF', icon_eu:'ICON-EU', gfs_seamless:'GFS', knmi_seamless:'Harmonie (Benelux)'};
+        toast(`${labels[state.units.model] || tr('Weermodel')} ${tr('actief')}`);
         return;
       }
       if(state.current) renderHome();
@@ -7233,10 +7301,10 @@ function updateXweatherTimelineUi(){
   const current = info.currentDate.getTime();
   const pct = end > start ? Math.round(((current - start) / (end - start)) * 100) : 100;
   if($('#xweatherTimeSlider')) $('#xweatherTimeSlider').value = String(Math.max(0, Math.min(100, pct)));
-  if($('#xweatherTimeLabel')) $('#xweatherTimeLabel').textContent = info.currentDate.toLocaleString('nl-BE',{weekday:'short',hour:'2-digit',minute:'2-digit'});
+  if($('#xweatherTimeLabel')) $('#xweatherTimeLabel').textContent = info.currentDate.toLocaleString(wfLocale(),{weekday:'short',hour:'2-digit',minute:'2-digit'});
   const ageMin = Math.max(0, Math.round((Date.now() - current) / 60000));
   const ageLabel = current > Date.now() + 60000 ? 'verwachting' : `leeftijd ${ageMin} min`;
-  setXweatherStatus(`Databron: Xweather MapsGL. Tijd: ${info.currentDate.toLocaleString('nl-BE')}. ${ageLabel}. Vertraging en resolutie hangen af van de gekozen Xweather-laag.`);
+  setXweatherStatus(`Databron: Xweather MapsGL. Tijd: ${info.currentDate.toLocaleString(wfLocale())}. ${ageLabel}. Vertraging en resolutie hangen af van de gekozen Xweather-laag.`);
   $('#xweatherPlay')?.classList.toggle('active', info.isActive);
 }
 
@@ -7664,7 +7732,7 @@ async function refreshOpenMeteoRadarLayer(){
   group.addTo(state.map);
   state.radar.openMeteoLayer = group;
   const latestTime = rows.find(p=>p.time)?.time;
-  if($('#timeLabel')) $('#timeLabel').textContent = latestTime ? new Date(latestTime).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : 'Nu';
+  if($('#timeLabel')) $('#timeLabel').textContent = latestTime ? new Date(latestTime).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : 'Nu';
   const note = $('.radar-note');
   if(note) note.textContent = rainy.length
     ? 'Open-Meteo neerslaglaag actief als fallback. De laag vernieuwt automatisch om de 5 minuten.'
@@ -7904,8 +7972,8 @@ function renderTimeline(){
     b.className = 'tframe' + (f.isNowcast ? ' nowcast':'') + (f.isNow ? ' now':'') + (i===state.radar.index?' active':'');
     const d = new Date(f.time*1000);
     b.title = state.radar.layer === 'precip'
-      ? (f.source === 'rainviewer' ? d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`))
-      : d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast ? ' verwacht' : ' gemeten');
+      ? (f.source === 'rainviewer' ? d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`))
+      : d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast ? ' verwacht' : ' gemeten');
     b.addEventListener('click', ()=>{ stopPlaying(); setFrame(i); });
     tl.appendChild(b);
   });
@@ -7938,8 +8006,8 @@ function setFrame(i){
   state.radar.animator.showFrame(url, state.radar.opacity, fallbackUrl);
   const d = new Date(f.time*1000);
   const label = state.radar.layer === 'precip'
-    ? (f.source === 'rainviewer' ? d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) : (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`))
-    : d.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast?' verwacht':'');
+    ? (f.source === 'rainviewer' ? d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`))
+    : d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast?' verwacht':'');
   $('#timeLabel').textContent = label;
   $('#radarNowBadge')?.classList.toggle('show', state.radar.layer === 'precip' && f.isNow);
   if($('#radarFrameSlider')) $('#radarFrameSlider').value = String(i);
@@ -8140,7 +8208,7 @@ function renderHourTable(){
     const t = new Date(state.hourly.time[i]);
     const wc = wcInfo(state.hourly.weather_code[i]);
     rows.push(`<tr class="${isHit?'hit':''}">
-      <td>${t.toLocaleDateString('nl-BE',{weekday:'short'})} ${t.getHours()}:00</td>
+      <td>${t.toLocaleDateString(wfLocale(),{weekday:'short'})} ${t.getHours()}:00</td>
       <td>${wc.l}</td>
       <td>${Math.round(cape)}</td>
       <td>${li!=null?li.toFixed(1):'-'}</td>
@@ -8249,8 +8317,8 @@ function tickClock(){
   const now = new Date();
   const opts = {hour:'2-digit', minute:'2-digit', timeZone: state.tz || undefined};
   const dopts = {weekday:'long', day:'numeric', month:'long', timeZone: state.tz || undefined};
-  $('#tvClock').textContent = now.toLocaleTimeString('nl-BE', opts);
-  $('#tvDate').textContent = now.toLocaleDateString('nl-BE', dopts);
+  $('#tvClock').textContent = now.toLocaleTimeString(wfLocale(), opts);
+  $('#tvDate').textContent = now.toLocaleDateString(wfLocale(), dopts);
 }
 
 function renderTV(){
@@ -8315,7 +8383,7 @@ function renderTV(){
   for(let i=0;i<6;i++){
     const dwc = wcInfo(daily.weather_code[i]);
     const d = new Date(daily.time[i]);
-    const dn = i===0?'Vandaag':d.toLocaleDateString('nl-BE',{weekday:'short'});
+    const dn = i===0?tr('Vandaag'):d.toLocaleDateString(wfLocale(),{weekday:'short'});
     dd += `<div class="ditem"><div class="dn">${dn}</div>${icon(dwc.ic,true,22)}<div class="dv">${fmtTemp(daily.temperature_2m_max[i])} <span class="lo">${fmtTemp(daily.temperature_2m_min[i])}</span></div></div>`;
   }
   $('#tvDaily').innerHTML = dd;
@@ -8332,7 +8400,7 @@ function formatTvSunTime(value){
   if(text.length >= 16 && text.includes('T')) return text.slice(11,16);
   const d = new Date(value);
   if(Number.isNaN(d.getTime())) return '--:--';
-  return d.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
+  return d.toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
 }
 
 function tvAlertCard(){
@@ -8351,7 +8419,7 @@ function tvMarineCard(){
   const tide = state.marine.tide;
   const nextLabel = tide.nextType === 'hoogwater' ? 'vloed' : 'eb';
   const nextTime = tide.nextTime instanceof Date && !Number.isNaN(tide.nextTime.getTime())
-    ? tide.nextTime.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})
+    ? tide.nextTime.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})
     : '--:--';
   const wave = state.marine.waveHeight != null ? `${state.marine.waveHeight.toFixed(1)} m` : 'n.b.';
   const spark = state.seaspark ? ` - zeevonk ${Math.round(state.seaspark.score)}/100` : '';
@@ -8669,7 +8737,7 @@ function updateTvRadarLabel(epochSeconds, fallback='Live buienradar'){
     return;
   }
   const d = new Date(epochSeconds * 1000);
-  const time = d.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
+  const time = d.toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit', timeZone:state.tz || undefined});
   const title = fallback && fallback !== 'Live buienradar' ? fallback : 'Radar bijgewerkt';
   el.textContent = `${title} ${time}`;
 }
@@ -8718,6 +8786,7 @@ async function init(){
   await safeInitStep('Profielbeveiliging koppelen', wireProfileSafety);
   await safeInitStep('Community UI koppelen', initCommunityUi);
   await safeInitStep('Radar bediening koppelen', wireRadarQuickLayers);
+  await safeInitStep('Taalinstellingen koppelen', wireLanguageSettings);
   await safeInitStep('Instellingencategorieën koppelen', initSettingsAccordion);
   await safeInitStep('Klimaat UI koppelen', initClimateUi);
   await safeInitStep('Push instellingen koppelen', wirePushSettings);
@@ -9118,7 +9187,7 @@ document.getElementById('replayOnboardingBtn')?.addEventListener('click',()=>{
 function forecastDayDetailCard(i){
   const d=state.daily; if(!d?.time?.[i]) return '';
   const date=new Date(d.time[i]); const wc=wcInfo(d.weather_code?.[i]);
-  const name=i===0?'Vandaag':date.toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long'});
+  const name=i===0?tr('Vandaag'):date.toLocaleDateString(wfLocale(),{weekday:'long',day:'numeric',month:'long'});
   const pop=Number(d.precipitation_probability_max?.[i]||0);
   const rain=Number(d.precipitation_sum?.[i]||0);
   const gust=Number(d.wind_gusts_10m_max?.[i]||0);

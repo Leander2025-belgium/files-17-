@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260911-profile-bottom-nav-v1";
+const CACHE_VERSION = "wheaterflow-v20260911-profile-bottom-i18n-v2";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
