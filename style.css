@@ -12084,3 +12084,73 @@ body.community-composer-open .tabbar{
     white-space:nowrap!important;
   }
 }
+
+
+/* 2026-09-11 — officiële waarschuwing volledig openklapbaar */
+#home details.official-kmi.kmi-compact .kmi-summary{
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  -webkit-tap-highlight-color:transparent!important;
+  position:relative!important;
+  z-index:2!important;
+}
+#home details.official-kmi.kmi-compact .kmi-summary:active{
+  background:rgba(255,255,255,.045)!important;
+}
+#home .kmi-expanded{
+  padding:0 20px 20px 20px!important;
+  animation:kmiExpandIn .2s ease-out both;
+}
+#home .kmi-detail-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:9px!important;
+  margin-top:14px!important;
+}
+#home .kmi-detail-item{
+  min-width:0!important;
+  padding:11px 12px!important;
+  border-radius:15px!important;
+  background:rgba(255,255,255,.06)!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+}
+#home .kmi-detail-item span,
+#home .kmi-advice span{
+  display:block!important;
+  margin-bottom:4px!important;
+  font-size:10px!important;
+  line-height:1.2!important;
+  font-weight:800!important;
+  letter-spacing:.08em!important;
+  text-transform:uppercase!important;
+  color:rgba(236,245,255,.58)!important;
+}
+#home .kmi-detail-item strong{
+  display:block!important;
+  overflow-wrap:anywhere!important;
+  font-size:14px!important;
+  line-height:1.3!important;
+  font-weight:720!important;
+  color:#fff!important;
+}
+#home .kmi-advice{
+  margin-top:14px!important;
+  padding:12px 13px!important;
+  border-radius:15px!important;
+  background:rgba(255,255,255,.055)!important;
+  border:1px solid rgba(255,255,255,.09)!important;
+}
+#home .kmi-advice p{
+  margin:0!important;
+  font-size:14px!important;
+  line-height:1.45!important;
+  font-weight:600!important;
+  color:rgba(246,250,255,.90)!important;
+}
+@media(max-width:430px){
+  #home .kmi-detail-grid{grid-template-columns:1fr!important;}
+}
+@keyframes kmiExpandIn{
+  from{opacity:0;transform:translateY(-5px)}
+  to{opacity:1;transform:translateY(0)}
+}

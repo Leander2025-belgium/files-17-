@@ -3517,6 +3517,7 @@ html += rainNowcastCard();
   html += appSections();
 
   $('#homeInner').innerHTML = html;
+  wireOfficialAlertDisclosure();
   wireSectionNav();
   $('#openFull14')?.addEventListener('click', ()=>{
     document.querySelector('#moreWeatherTabs [data-more-tab="fourteen"]')?.click();
@@ -4674,6 +4675,58 @@ function officialAlertCountdown(alert){
   return '';
 }
 
+let officialAlertExpanded = false;
+
+function officialAlertIconName(alert){
+  const p = String(alert?.phenomenon || alert?.headline || '').toLowerCase();
+  if(/mist|nevel/.test(p)) return 'fog';
+  if(/onweer|bliksem/.test(p)) return 'storm';
+  if(/regen|neerslag/.test(p)) return 'rain';
+  if(/sneeuw|glad|ijzel|vorst/.test(p)) return 'snow';
+  if(/hitte|warmte|koude/.test(p)) return 'thermo';
+  return 'wind';
+}
+
+function officialAlertAdvice(alert){
+  const p = String(alert?.phenomenon || alert?.headline || '').toLowerCase();
+  if(/mist|nevel/.test(p)) return 'Houd rekening met beperkt zicht en pas je snelheid aan.';
+  if(/onweer|bliksem/.test(p)) return 'Blijf bij hevig onweer zoveel mogelijk binnen en vermijd open terrein.';
+  if(/regen|neerslag/.test(p)) return 'Houd rekening met lokaal veel water en verminder je snelheid op de weg.';
+  if(/sneeuw|glad|ijzel/.test(p)) return 'Pas je snelheid aan en houd extra afstand door mogelijk gladde wegen.';
+  if(/wind|storm/.test(p)) return 'Vermijd losse voorwerpen en wees extra voorzichtig in verkeer en aan de kust.';
+  if(/hitte|warmte/.test(p)) return 'Drink voldoende water en beperk zware inspanning tijdens de warmste uren.';
+  if(/koude|vorst/.test(p)) return 'Kleed je warm en let op lokale gladheid door vorst.';
+  return 'Volg de actuele situatie en officiële aanbevelingen.';
+}
+
+function formatOfficialAlertDateTime(value){
+  if(!value) return '—';
+  const d = new Date(value);
+  if(!Number.isFinite(d.getTime())) return '—';
+  return d.toLocaleString(wfLocale(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+function wireOfficialAlertDisclosure(){
+  const details = document.querySelector('#home details.official-kmi.kmi-compact');
+  if(!details) return;
+  const summary = details.querySelector('.kmi-summary');
+  if(!summary || summary.dataset.disclosureWired === '1') return;
+  summary.dataset.disclosureWired = '1';
+  details.open = officialAlertExpanded;
+  summary.setAttribute('aria-expanded', String(details.open));
+  summary.addEventListener('click', event => {
+    event.preventDefault();
+    const willOpen = !details.open;
+    details.open = willOpen;
+    officialAlertExpanded = willOpen;
+    summary.setAttribute('aria-expanded', String(willOpen));
+  });
+  details.addEventListener('toggle', ()=>{
+    officialAlertExpanded = details.open;
+    summary.setAttribute('aria-expanded', String(details.open));
+  });
+}
+
 function alertsCard(){
   const alert = (state.alerts && state.alerts[0]) || buildIndicativeAlert()[0];
   const level = ALERT_LEVELS[alert.level] || ALERT_LEVELS.green;
@@ -4687,10 +4740,13 @@ function alertsCard(){
 
   if(official && !isGreen){
     const phenomenon = esc(alert.phenomenon || String(headline).split('·')[0].trim() || 'Waarschuwing');
-    return `<details class="card alert-card official-kmi kmi-compact ${level.cls}">
-      <summary class="kmi-summary">
+    const iconName = officialAlertIconName(alert);
+    const area = state.loc?.admin || state.loc?.name || 'Jouw regio';
+    const advice = officialAlertAdvice(alert);
+    return `<details class="card alert-card official-kmi kmi-compact ${level.cls}" ${officialAlertExpanded ? 'open' : ''}>
+      <summary class="kmi-summary" aria-expanded="${officialAlertExpanded ? 'true' : 'false'}" aria-label="Meer informatie over ${phenomenon}">
         <span class="kmi-level-rail" aria-hidden="true"></span>
-        <span class="kmi-phenomenon-icon">${icon('wind',true,30)}</span>
+        <span class="kmi-phenomenon-icon">${icon(iconName,true,30)}</span>
         <span class="kmi-summary-copy">
           <strong>${phenomenon}</strong>
           <small>${timing || esc(alert.period || '')}</small>
@@ -4702,8 +4758,15 @@ function alertsCard(){
           <span class="kmi-code-pill">${levelLabel}</span>
           ${countdown ? `<span class="alert-countdown">${esc(countdown)}</span>` : ''}
         </div>
+        <div class="kmi-detail-grid">
+          <div class="kmi-detail-item"><span>Niveau</span><strong>${esc(levelLabel)}</strong></div>
+          <div class="kmi-detail-item"><span>Regio</span><strong>${esc(area)}</strong></div>
+          <div class="kmi-detail-item"><span>Geldig van</span><strong>${esc(formatOfficialAlertDateTime(alert.validFrom))}</strong></div>
+          <div class="kmi-detail-item"><span>Geldig tot</span><strong>${esc(formatOfficialAlertDateTime(alert.validTo))}</strong></div>
+        </div>
         <div class="alert-title">${esc(headline)}</div>
         ${alert.description ? `<div class="alert-text">${esc(alert.description)}</div>` : ''}
+        <div class="kmi-advice"><span>Advies</span><p>${esc(advice)}</p></div>
         ${alert.source ? `<div class="alert-source">Bron: ${esc(alert.source)}</div>` : ''}
       </div>
     </details>`;
