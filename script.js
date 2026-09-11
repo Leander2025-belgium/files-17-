@@ -6089,8 +6089,8 @@ function initCommunityUi(){
   $('#communityComposerClose')?.addEventListener('click', closeCommunityComposer);
   $('#communityScrim')?.addEventListener('click', closeCommunityComposer);
   $('#communitySubmitPost')?.addEventListener('click', createCommunityPost);
-  // Community photo picker v7: use the real, visible native file controls.
-  // No synthetic click/label/overlay is involved; iOS receives the tap directly.
+  // Community photo picker v10: changes are read from the native inputs;
+  // opening is handled by showPicker() in capture phase above.
   $('#communityCameraInput')?.addEventListener('change', handleCommunityPhotoSelect);
   $('#communityPhotoInput')?.addEventListener('change', handleCommunityPhotoSelect);
   $('#communityPhotoReplaceInput')?.addEventListener('change', handleCommunityPhotoSelect);
@@ -6568,7 +6568,60 @@ function handleCommunityPhotoSelect(e){
   if(input) input.value = '';
 }
 
-/* v7: native visible file inputs open Camera/Photos directly. */
+// v10 — Open de native iOS/Safari picker via showPicker() vanuit exact dezelfde
+// vertrouwde gebruikersinteractie. De file-input zelf hoeft daardoor niet meer
+// het zichtbare hit-target te zijn.
+let communityPickerLastOpenAt = 0;
+function communityPickerInput(kind){
+  if(kind === 'camera') return $('#communityCameraInput');
+  if(kind === 'replace') return $('#communityPhotoReplaceInput');
+  return $('#communityPhotoInput');
+}
+function openCommunityNativePicker(kind='library'){
+  const input = communityPickerInput(kind);
+  if(!input) return setCommunityComposerMessage(tr('De fotokiezer kon niet worden geopend.'), 'error');
+  try{ input.value = ''; }catch(e){}
+  try{
+    if(typeof input.showPicker === 'function'){
+      input.showPicker();
+      return true;
+    }
+  }catch(error){
+    console.warn('Native photo showPicker faalde:', error);
+    // fall through naar de klassieke click als Safari showPicker weigert.
+  }
+  try{
+    input.focus?.({preventScroll:true});
+    input.click();
+    return true;
+  }catch(error){
+    console.error('Native photo picker kon niet openen:', error);
+    setCommunityComposerMessage(`${tr('De fotokiezer kon niet worden geopend.')} ${error?.name || ''}`.trim(), 'error');
+    return false;
+  }
+}
+function wireCommunityPhotoPickerCapture(){
+  if(document.documentElement.dataset.communityPickerCaptureWired === '1') return;
+  document.documentElement.dataset.communityPickerCaptureWired = '1';
+  const activate = event => {
+    const button = event.target?.closest?.('[data-community-picker]');
+    if(!button || !$('#communityComposer')?.classList.contains('show')) return;
+    // pointerup + click volgen elkaar op iOS; voorkom twee pickers.
+    const now = Date.now();
+    if(now - communityPickerLastOpenAt < 650) return;
+    communityPickerLastOpenAt = now;
+    event.preventDefault();
+    event.stopPropagation();
+    openCommunityNativePicker(button.dataset.communityPicker || 'library');
+  };
+  // Pointerup is op iOS het betrouwbaarste moment en behoudt user activation.
+  document.addEventListener('pointerup', activate, true);
+  // Click blijft nodig voor toetsenbord/assistive tech en browsers zonder pointer.
+  document.addEventListener('click', activate, true);
+}
+wireCommunityPhotoPickerCapture();
+
+/* v10: big buttons trigger Safari's native file picker via showPicker(). */
 function updateCommunityCapturedWeather(){
   const cur = liveWeatherSnapshot();
   if(!cur || !$('#communityCapturedWeather')) return;

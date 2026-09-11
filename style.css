@@ -12434,3 +12434,83 @@ body.community-composer-open #communityComposer .community-composer-body{
   -webkit-overflow-scrolling:touch!important;
   padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))!important;
 }
+
+/* =====================================================================
+   2026-09-11 — Community photo picker v10: showPicker() direct user gesture
+   Grote gewone knoppen zijn het hit-target. De echte file inputs blijven
+   mutable/in de DOM maar buiten beeld; Safari opent ze via showPicker().
+   ===================================================================== */
+#communityComposer .community-picker-actions{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px!important;
+  width:100%!important;
+  max-width:520px!important;
+  margin:18px auto 8px!important;
+  position:relative!important;
+  z-index:30!important;
+}
+#communityComposer .community-picker-button{
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:9px!important;
+  min-height:58px!important;
+  padding:0 16px!important;
+  border:1px solid rgba(218,240,255,.24)!important;
+  border-radius:18px!important;
+  background:rgba(255,255,255,.10)!important;
+  color:#fff!important;
+  font:800 17px/1.1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12)!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  user-select:none!important;
+  -webkit-user-select:none!important;
+  cursor:pointer!important;
+  position:relative!important;
+  z-index:31!important;
+}
+#communityComposer .community-picker-button.primary{
+  background:rgba(48,160,218,.27)!important;
+  border-color:rgba(127,224,255,.44)!important;
+}
+#communityComposer .community-picker-button:active{
+  transform:scale(.985)!important;
+  background:rgba(255,255,255,.16)!important;
+}
+#communityComposer .community-picker-icon{
+  font-size:20px!important;
+  line-height:1!important;
+  pointer-events:none!important;
+}
+#communityComposer .community-picker-button.compact{
+  min-height:44px!important;
+  border-radius:14px!important;
+  font-size:14px!important;
+}
+/* Niet display:none: houd de inputs mutable voor WebKit showPicker(). */
+#communityComposer input.community-picker-native-input[type="file"]{
+  position:fixed!important;
+  left:-10000px!important;
+  top:0!important;
+  width:1px!important;
+  height:1px!important;
+  min-width:1px!important;
+  min-height:1px!important;
+  opacity:.001!important;
+  visibility:visible!important;
+  display:block!important;
+  pointer-events:none!important;
+  overflow:hidden!important;
+  z-index:-1!important;
+}
+#communityComposer .community-photo-preview-actions{
+  grid-template-columns:minmax(0,1fr) auto!important;
+}
+@media(max-width:520px){
+  #communityComposer .community-picker-actions{grid-template-columns:1fr 1fr!important;gap:10px!important}
+  #communityComposer .community-picker-button{min-height:56px!important;font-size:16px!important;padding:0 10px!important}
+}

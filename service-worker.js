@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260911-community-native-safe-v9";
+const CACHE_VERSION = "wheaterflow-v20260911-community-showpicker-v10";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
