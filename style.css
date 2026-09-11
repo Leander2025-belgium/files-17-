@@ -11739,3 +11739,177 @@ body.auth-open #authSheet.auth-sheet.show .auth-scroll{
 @media (min-width:900px){
   body.auth-open .tabbar{bottom:6px!important;}
 }
+
+/* =====================================================================
+   2026-09-11 — Community photo capture/upload v1
+   Betrouwbare camera + fotobibliotheek flow, met preview en iPhone-safe UI.
+   ===================================================================== */
+.community-photo-picker{
+  display:block!important;
+  min-height:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border-style:solid!important;
+}
+.community-photo-picker > input[type="file"]{display:none!important}
+.community-photo-empty{
+  min-height:190px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:22px 16px;
+  text-align:center;
+}
+.community-photo-empty.hidden{display:none!important}
+.community-photo-picker-icon{
+  width:54px;
+  height:54px;
+  display:grid;
+  place-items:center;
+  border-radius:18px;
+  font-size:28px;
+  line-height:1;
+  color:#9fefff;
+  background:rgba(69,171,217,.16);
+  border:1px solid rgba(157,231,255,.25);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.13);
+}
+.community-photo-empty strong{
+  font-size:17px;
+  color:#fff;
+}
+.community-photo-empty > span{
+  max-width:430px;
+  color:rgba(238,247,255,.74);
+  font-size:13px;
+  line-height:1.42;
+}
+.community-photo-empty small{
+  color:rgba(225,239,255,.50);
+  font-size:10px;
+  line-height:1.35;
+}
+.community-photo-source-actions{
+  width:100%;
+  max-width:430px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  margin-top:5px;
+}
+.community-photo-source,
+.community-photo-preview-actions button{
+  min-height:46px;
+  border:1px solid rgba(218,240,255,.19);
+  border-radius:15px;
+  background:rgba(255,255,255,.08);
+  color:#fff;
+  font:800 13px/1 inherit;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10);
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.community-photo-source.primary{
+  background:rgba(58,164,218,.24);
+  border-color:rgba(130,226,255,.35);
+}
+.community-photo-source:active,
+.community-photo-preview-actions button:active{transform:scale(.98)}
+.community-photo-preview-wrap{
+  position:relative;
+  display:block;
+  background:rgba(4,13,28,.38);
+}
+.community-photo-preview-wrap.hidden{display:none!important}
+#communityPhotoPreview{
+  display:block!important;
+  width:100%!important;
+  height:min(42vh,330px)!important;
+  min-height:220px;
+  object-fit:contain!important;
+  background:rgba(3,10,22,.65);
+}
+#communityPhotoPreview.preview-unavailable{
+  opacity:.12;
+  min-height:150px;
+}
+.community-photo-preview-footer{
+  display:grid;
+  gap:10px;
+  padding:11px;
+  background:linear-gradient(180deg,rgba(12,29,50,.76),rgba(8,21,39,.92));
+  border-top:1px solid rgba(255,255,255,.10);
+}
+.community-photo-meta{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:rgba(235,246,255,.72);
+  font-size:11px;
+  line-height:1.35;
+}
+.community-photo-preview-actions{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:8px;
+}
+.community-photo-preview-actions button{min-height:42px;padding:0 14px}
+.community-photo-preview-actions button.danger{
+  color:#ff9dab;
+  border-color:rgba(255,126,145,.24);
+  background:rgba(141,43,62,.16);
+}
+#communitySubmitPost:disabled{
+  opacity:.58;
+  pointer-events:none;
+}
+#communitySubmitPost.sending::after{
+  content:'';
+  display:inline-block;
+  width:11px;
+  height:11px;
+  margin-left:7px;
+  border:2px solid rgba(255,255,255,.38);
+  border-top-color:#fff;
+  border-radius:50%;
+  vertical-align:-1px;
+  animation:wfCommunitySpin .75s linear infinite;
+}
+@keyframes wfCommunitySpin{to{transform:rotate(360deg)}}
+@media(max-width:520px){
+  .community-photo-empty{min-height:175px;padding:18px 12px}
+  .community-photo-source-actions{grid-template-columns:1fr 1fr}
+  #communityPhotoPreview{height:min(38vh,290px)!important;min-height:190px}
+}
+@media(prefers-reduced-motion:reduce){
+  #communitySubmitPost.sending::after{animation:none}
+  .community-photo-source:active,.community-photo-preview-actions button:active{transform:none}
+}
+.community-photo-source-actions label.community-photo-source,
+.community-photo-preview-actions label{
+  display:grid!important;
+  place-items:center;
+  gap:0!important;
+  margin:0!important;
+  padding:0 14px!important;
+  min-height:46px;
+  cursor:pointer;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.community-photo-preview-actions label{
+  min-height:42px;
+  border:1px solid rgba(218,240,255,.19);
+  border-radius:15px;
+  background:rgba(255,255,255,.08);
+  color:#fff!important;
+  font:800 13px/1 inherit!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10);
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.community-photo-source-actions label.community-photo-source:active,
+.community-photo-preview-actions label:active{transform:scale(.98)}

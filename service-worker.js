@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260911-profile-render-fix-v3";
+const CACHE_VERSION = "wheaterflow-v20260911-community-photo-v1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -7,6 +7,7 @@ const STATIC_ASSETS = [
   "./style.css",
   "./script.js",
   "./i18n.js",
+  "./location-engine.js",
   "./castService.js",
   "./tvPairingService.js",
   "./manifest.webmanifest",

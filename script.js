@@ -115,8 +115,11 @@ const TV_WEATHER_PHOTO_FILES = new Set([
   'tv-heavy-rain.png'
 ]);
 
+const DEFAULT_LOCATION = { lat:51.2405, lon:2.9309, name:'Oostende', admin:'West-Vlaanderen, België', country:'België', status:'ready', source:'default' };
+const INITIAL_LOCATION = window.WF_LOCATION?.hydrate?.(DEFAULT_LOCATION) || DEFAULT_LOCATION;
+
 const state = {
-  loc: { lat: 51.2405, lon: 2.9309, name: "Oostende", admin: "West-Vlaanderen, Belgie" },
+  loc: { lat:INITIAL_LOCATION.lat, lon:INITIAL_LOCATION.lon, name:INITIAL_LOCATION.name || DEFAULT_LOCATION.name, admin:INITIAL_LOCATION.admin || DEFAULT_LOCATION.admin, country:INITIAL_LOCATION.country || DEFAULT_LOCATION.country },
   language: window.WF_I18N?.language || 'nl',
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
   current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
@@ -140,7 +143,7 @@ const state = {
   map: null, marker: null, homeMap: { map:null, base:null, overlay:null, xweatherController:null, activeLayer:'radar' },
   activeTab: 'home',
   rainEta: null,
-  sharedWeather: {marine:null, wind:null, locationName:'Oostende'},
+  sharedWeather: {marine:null, wind:null, locationName:INITIAL_LOCATION.name || DEFAULT_LOCATION.name},
   dataStatus: {homeMap:{lastSuccess:null,error:null}, radar:{lastSuccess:null,error:null}},
   refreshTimer: null, clockTickTimer: null
 };
@@ -152,6 +155,60 @@ const tr = (text, lang=state.language) => window.WF_I18N?.t?.(text, lang) ?? tex
 const wfLocale = () => window.WF_I18N?.locale?.(state.language) || 'nl-BE';
 const wfLanguage = () => (window.WF_I18N?.isSupported?.(state.language) ? state.language : 'nl');
 
+const locationEngine = window.WF_LOCATION || null;
+
+function canonicalLocation(){
+  const loc = locationEngine?.get?.();
+  return loc && Number.isFinite(Number(loc.lat)) && Number.isFinite(Number(loc.lon)) ? loc : {...state.loc, status:state.locationStatus};
+}
+
+function commitCanonicalLocation(input, status='manual', options={}){
+  const payload = {
+    lat:Number(input?.lat), lon:Number(input?.lon),
+    name:String(input?.name || '').trim(), admin:String(input?.admin || '').trim(), country:String(input?.country || '').trim(),
+    status, source:options.source || status, accuracy:Number.isFinite(Number(input?.accuracy)) ? Number(input.accuracy) : null
+  };
+  let committed = payload;
+  if(locationEngine?.set){
+    committed = locationEngine.set(payload, {
+      persist: options.persist !== false,
+      emit: options.emit !== false,
+      reason: options.reason || options.source || status
+    });
+  }
+  state.loc = {
+    lat:Number(committed.lat), lon:Number(committed.lon),
+    name:String(committed.name || payload.name || '').trim(),
+    admin:String(committed.admin || payload.admin || '').trim(),
+    country:String(committed.country || payload.country || '').trim()
+  };
+  state.locationStatus = committed.status || status;
+  if(state.sharedWeather) state.sharedWeather.locationName = state.loc.name || state.sharedWeather.locationName;
+  return {...state.loc, status:state.locationStatus};
+}
+
+function updateCanonicalLocationStatus(status, options={}){
+  const committed = locationEngine?.setStatus?.(status, {
+    persist: options.persist === true,
+    emit: options.emit !== false,
+    source: options.source || status,
+    reason: options.reason || 'status'
+  });
+  state.locationStatus = committed?.status || status;
+  if(committed){
+    state.loc = {lat:committed.lat, lon:committed.lon, name:committed.name, admin:committed.admin, country:committed.country};
+  }
+  return state.locationStatus;
+}
+
+window.addEventListener('wheaterflow:location-changed', event=>{
+  const loc = event.detail?.location;
+  if(!loc || !Number.isFinite(Number(loc.lat)) || !Number.isFinite(Number(loc.lon))) return;
+  state.loc = {lat:Number(loc.lat), lon:Number(loc.lon), name:String(loc.name||''), admin:String(loc.admin||''), country:String(loc.country||'')};
+  state.locationStatus = loc.status || state.locationStatus;
+  if(state.sharedWeather) state.sharedWeather.locationName = state.loc.name || state.sharedWeather.locationName;
+});
+
 function cleanLocationName(name, fallback='Huidige locatie'){
   const value = String(name || '').trim();
   if(!value || /onbekende locatie/i.test(value)) return fallback;
@@ -159,10 +216,10 @@ function cleanLocationName(name, fallback='Huidige locatie'){
 }
 
 function locationDisplayName(fallback='Huidige locatie'){
-  const name = cleanLocationName(state.loc?.name, '');
-  if(name) return tr(name);
   if(state.locationStatus === 'detecting') return tr('Locatie bepalen...');
   if(state.locationStatus === 'denied') return tr('Plaats kiezen');
+  const name = cleanLocationName(canonicalLocation()?.name, '');
+  if(name) return name;
   return tr(fallback);
 }
 
@@ -206,16 +263,28 @@ function rememberResolvedLocation(name, admin='', country='', lat=state.loc?.lat
   if(!clean || /huidige locatie|locatie bepalen/i.test(clean)) return;
   state.sharedWeather.locationName=clean;
   const resolvedLat = Number(lat), resolvedLon = Number(lon);
-  try{ localStorage.setItem('wheaterflow:last-location-name', JSON.stringify({
-    name:clean,
-    admin,
-    country,
+  const item = {
+    name:clean, admin, country,
     lat:Number.isFinite(resolvedLat) ? resolvedLat : null,
-    lon:Number.isFinite(resolvedLon) ? resolvedLon : null
-  })); }catch(e){}
+    lon:Number.isFinite(resolvedLon) ? resolvedLon : null,
+    status:state.locationStatus
+  };
+  locationEngine?.rememberResolved?.(item);
+  try{ localStorage.setItem('wheaterflow:last-location-name', JSON.stringify(item)); }catch(e){}
 }
-function lastResolvedLocation(){
-  try{ const x=JSON.parse(localStorage.getItem('wheaterflow:last-location-name')||'null'); return x?.name ? x : null; }catch(e){ return null; }
+function lastResolvedLocation(lat=state.loc?.lat, lon=state.loc?.lon, maxKm=5){
+  const near = locationEngine?.resolvedNear?.(lat, lon, maxKm);
+  if(near?.name) return near;
+  try{
+    const x=JSON.parse(localStorage.getItem('wheaterflow:last-location-name')||'null');
+    if(!x?.name) return null;
+    const target={lat:Number(lat),lon:Number(lon)};
+    if(Number.isFinite(Number(x.lat)) && Number.isFinite(Number(x.lon)) && Number.isFinite(target.lat) && Number.isFinite(target.lon)){
+      const d=locationEngine?.distanceKm?.(x,target);
+      if(Number.isFinite(d) && d > maxKm) return null;
+    }
+    return x;
+  }catch(e){ return null; }
 }
 
 function loadScriptOnce(src){
@@ -1276,7 +1345,7 @@ async function applyLiveLocationPosition(position, {force=false}={}){
   try{
     const g = await resolveGpsLocation(lat, lon);
     if(generation !== liveLocationGeneration || !liveLocationModeActive()) return false;
-    await setLocation(lat, lon, g.name, g.admin, g.country, 'gps', {silent:true, fromTracking:true});
+    await setLocation(lat, lon, g.name, g.admin, g.country, 'gps', {silent:true, fromTracking:true, accuracy:Number(position.accuracy ?? position.coords?.accuracy)});
     liveLocationLastAppliedAt = Date.now();
     return true;
   }catch(e){
@@ -1341,14 +1410,14 @@ async function reverseGeocode(lat, lon, {fallbackToStored=true}={}){
     if(!fallbackToStored){
       return {name:name || 'Huidige locatie', admin, country};
     }
-    const last=lastResolvedLocation();
-    return {name:name || last?.name || cleanLocationName(state.loc?.name,'Geselecteerde locatie'), admin:admin || last?.admin || state.loc?.admin || '', country:country || last?.country || state.loc?.country || ''};
+    const last=lastResolvedLocation(lat,lon);
+    return {name:name || last?.name || 'Geselecteerde locatie', admin:admin || last?.admin || '', country:country || last?.country || ''};
   }catch(e){
     if(!fallbackToStored){
       return {name:'Huidige locatie', admin:'', country:''};
     }
-    const last=lastResolvedLocation();
-    return {name:last?.name || cleanLocationName(state.loc?.name,'Geselecteerde locatie'), admin:last?.admin || state.loc?.admin || '', country:last?.country || state.loc?.country || ''};
+    const last=lastResolvedLocation(lat,lon);
+    return {name:last?.name || 'Geselecteerde locatie', admin:last?.admin || '', country:last?.country || ''};
   }
 }
 
@@ -1456,7 +1525,7 @@ async function useCurrentBrowserLocation(){
   }
   // Belangrijk: als reverse geocoding faalt, nooit de laatst GEZOCHTE plaatsnaam hergebruiken.
   const g = await resolveGpsLocation(p.lat, p.lon);
-  await setLocation(p.lat, p.lon, g.name, g.admin, g.country, 'gps');
+  await setLocation(p.lat, p.lon, g.name, g.admin, g.country, 'gps', {accuracy:p.accuracy});
   if(box) box.classList.remove('show');
   $('#searchInput').value='';
   $('#clearSearch').style.display='none';
@@ -1512,15 +1581,14 @@ async function setLocation(lat, lon, name, admin, country='', status='manual', o
   let displayName = cleanLocationName(name, '');
   if(!displayName || (/huidige locatie/i.test(displayName) && status !== 'gps')){
     const resolved = await reverseGeocode(nextLat,nextLon);
-    displayName = cleanLocationName(resolved.name, lastResolvedLocation()?.name || 'Locatie bepalen…');
+    displayName = cleanLocationName(resolved.name, lastResolvedLocation(nextLat,nextLon)?.name || 'Locatie bepalen…');
     admin = admin || resolved.admin;
     country = country || resolved.country;
   }
   // Bij GPS mag een mislukte plaatsnaam-resolutie nooit terugvallen op de laatst handmatig gezochte plaats.
   if(status === 'gps' && !displayName) displayName = 'Huidige locatie';
-  state.locationStatus = status;
-  state.loc = {lat:nextLat, lon:nextLon, name:displayName, admin:admin || '', country:country || ''};
-  rememberResolvedLocation(displayName, state.loc.admin, state.loc.country);
+  commitCanonicalLocation({lat:nextLat, lon:nextLon, name:displayName, admin:admin || '', country:country || '', accuracy:options?.accuracy}, status, {persist:true, source:options?.fromTracking ? 'live-gps' : status});
+  rememberResolvedLocation(displayName, state.loc.admin, state.loc.country, nextLat, nextLon);
   state.rainEta = null;
   await loadWeather();
   if(state.map){ const rv = radarView(); state.map.setView(rv.center, rv.zoom); placeMarker(nextLat,nextLon,displayName); }
@@ -1638,13 +1706,13 @@ async function startCastReceiverMode(){
 async function applyCastReceiverLocation(location){
   const loc = window.WheaterflowCastService?.normalizeLocation(location);
   if(!loc) return;
-  state.loc = {
+  commitCanonicalLocation({
     lat:loc.latitude,
     lon:loc.longitude,
     name:loc.name,
     admin:loc.admin || [loc.country].filter(Boolean).join(', '),
     country:loc.country || ''
-  };
+  }, 'receiver', {persist:false, source:'cast-receiver'});
   await loadWeather();
   if(tv.map){
     const rv = tvRadarView();
@@ -5216,6 +5284,87 @@ function scrollProfileFavoritesIntoView(){
 function validateEmail(email){
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
+
+/* ---------------- reliable image preparation ----------------
+   Eén pipeline voor profielfoto's en Community. Op iPhone kunnen foto's
+   zeer groot zijn of als HEIC/HEIF binnenkomen; probeer ze lokaal te
+   verkleinen en val veilig terug op het originele bestand wanneer het
+   toestel het formaat niet kan decoderen maar de server het wel accepteert. */
+const WF_IMAGE_SOURCE_MAX_BYTES = 40 * 1024 * 1024;
+const WF_IMAGE_UPLOAD_SAFE_BYTES = 11 * 1024 * 1024;
+const WF_IMAGE_EXTENSIONS = new Set(['jpg','jpeg','png','webp','heic','heif']);
+
+function imageFileExtension(file){
+  return String(file?.name || '').split('.').pop()?.toLowerCase() || '';
+}
+function isSupportedImageFile(file){
+  if(!file) return false;
+  const type = String(file.type || '').toLowerCase();
+  return type.startsWith('image/') || WF_IMAGE_EXTENSIONS.has(imageFileExtension(file));
+}
+function formatFileSize(bytes){
+  const n = Number(bytes) || 0;
+  if(n < 1024) return `${n} B`;
+  if(n < 1024*1024) return `${Math.max(1,Math.round(n/1024))} KB`;
+  return `${(n/(1024*1024)).toFixed(n < 10*1024*1024 ? 1 : 0)} MB`;
+}
+function canvasBlob(canvas, type, quality){
+  return new Promise(resolve=>canvas.toBlob(resolve, type, quality));
+}
+async function loadImageDrawable(file){
+  if(typeof createImageBitmap === 'function'){
+    try{
+      const bitmap = await createImageBitmap(file, {imageOrientation:'from-image'});
+      return {source:bitmap, width:bitmap.width, height:bitmap.height, cleanup:()=>bitmap.close?.()};
+    }catch(e){ /* Safari/HEIC fallback hieronder */ }
+  }
+  return await new Promise((resolve,reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = ()=>resolve({source:img, width:img.naturalWidth, height:img.naturalHeight, cleanup:()=>URL.revokeObjectURL(url)});
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('image-decode')); };
+    img.src = url;
+  });
+}
+async function compressImageForUpload(file, {maxDimension=1920, quality=.84, keepSmall=true}={}){
+  if(!isSupportedImageFile(file)) throw new Error(tr('Kies een geldige foto (JPG, PNG, WebP of HEIC).'));
+  if(Number(file.size) > WF_IMAGE_SOURCE_MAX_BYTES) throw new Error(tr('Deze foto is te groot. Kies een foto kleiner dan 40 MB.'));
+  if(keepSmall && Number(file.size) <= 2.5*1024*1024 && /image\/(jpeg|jpg|png|webp)/i.test(file.type || '')) return file;
+
+  let drawable;
+  try{ drawable = await loadImageDrawable(file); }
+  catch(error){
+    // De backend accepteert ook HEIC/HEIF. Als Safari het bestand niet naar
+    // canvas kan decoderen, kan een redelijk groot origineel nog veilig door.
+    if(Number(file.size) <= WF_IMAGE_UPLOAD_SAFE_BYTES && isSupportedImageFile(file)) return file;
+    throw new Error(tr('Deze foto kan op dit toestel niet worden verwerkt. Kies een andere foto.'));
+  }
+  try{
+    const width = Math.max(1, Number(drawable.width)||1);
+    const height = Math.max(1, Number(drawable.height)||1);
+    const scale = Math.min(1, maxDimension / Math.max(width,height));
+    const outW = Math.max(1, Math.round(width*scale));
+    const outH = Math.max(1, Math.round(height*scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = outW; canvas.height = outH;
+    const ctx = canvas.getContext('2d', {alpha:false});
+    if(!ctx) throw new Error('canvas');
+    ctx.drawImage(drawable.source, 0, 0, outW, outH);
+    let blob = await canvasBlob(canvas, 'image/webp', quality);
+    if(!blob || !blob.size) blob = await canvasBlob(canvas, 'image/jpeg', Math.min(.9, quality+.03));
+    if(!blob || !blob.size) throw new Error('encode');
+    return blob;
+  }finally{ drawable.cleanup?.(); }
+}
+async function compressAvatar(file){
+  return compressImageForUpload(file, {maxDimension:900, quality:.82, keepSmall:false});
+}
+function uploadFilenameForBlob(blob, base='weather'){
+  const type = String(blob?.type || '').toLowerCase();
+  const ext = type.includes('webp') ? 'webp' : type.includes('png') ? 'png' : type.includes('heic') ? 'heic' : type.includes('heif') ? 'heif' : 'jpg';
+  return `${base}.${ext}`;
+}
 async function signInWithEmail(email,password){
   if(!validateEmail(email)) return updateAuthMessage('Vul een geldig e-mailadres in.','error');
   if(!password) return updateAuthMessage('Vul je wachtwoord in.','error');
@@ -5834,6 +5983,8 @@ function initCommunityUi(){
   $('#communityScrim')?.addEventListener('click', closeCommunityComposer);
   $('#communitySubmitPost')?.addEventListener('click', createCommunityPost);
   $('#communityPhotoInput')?.addEventListener('change', handleCommunityPhotoSelect);
+  $('#communityCameraInput')?.addEventListener('change', handleCommunityPhotoSelect);
+  $('#communityPhotoRemove')?.addEventListener('click', ()=>clearCommunityPhotoSelection());
   $('#communityUseGps')?.addEventListener('change', updateCommunityCapturedWeather);
   $('#communityLoadMore')?.addEventListener('click', ()=>loadCommunityPosts(false));
   $('#communitySearch')?.addEventListener('input', debounce(e=>{
@@ -6236,6 +6387,7 @@ function setCommunityComposerMode(mode='photo'){
 function openCommunityComposer(){
   if(!requireCommunityLogin()) return;
   lockPageScroll();
+  document.body.classList.add('community-composer-open');
   $('#communityComposer')?.classList.add('show');
   $('#communityScrim')?.classList.add('show');
   updateCommunityCapturedWeather();
@@ -6243,20 +6395,66 @@ function openCommunityComposer(){
 function closeCommunityComposer(){
   $('#communityComposer')?.classList.remove('show');
   $('#communityScrim')?.classList.remove('show');
+  document.body.classList.remove('community-composer-open');
   unlockPageScroll();
 }
 
-function handleCommunityPhotoSelect(e){
-  const file = e.target.files?.[0];
-  state.community.selectedFile = file || null;
-  const preview = $('#communityPhotoPreview');
-  if(file && preview){
-    preview.src = URL.createObjectURL(file);
-    preview.classList.remove('hidden');
-  }else if(preview){
-    preview.removeAttribute('src');
-    preview.classList.add('hidden');
+function revokeCommunityPhotoPreview(){
+  if(state.community.previewUrl){
+    try{ URL.revokeObjectURL(state.community.previewUrl); }catch(e){}
+    state.community.previewUrl = null;
   }
+}
+function clearCommunityPhotoSelection({clearMessage=true}={}){
+  revokeCommunityPhotoPreview();
+  state.community.selectedFile = null;
+  const preview = $('#communityPhotoPreview');
+  if(preview){ preview.removeAttribute('src'); preview.classList.remove('preview-unavailable'); }
+  $('#communityPhotoPreviewWrap')?.classList.add('hidden');
+  $('#communityPhotoEmpty')?.classList.remove('hidden');
+  if($('#communityPhotoInput')) $('#communityPhotoInput').value = '';
+  if($('#communityCameraInput')) $('#communityCameraInput').value = '';
+  if($('#communityPhotoMeta')) $('#communityPhotoMeta').textContent = tr('Foto geselecteerd');
+  if(clearMessage) setCommunityComposerMessage('');
+}
+function setCommunityPhotoFile(file){
+  if(!file) return clearCommunityPhotoSelection();
+  if(!isSupportedImageFile(file)){
+    clearCommunityPhotoSelection({clearMessage:false});
+    return setCommunityComposerMessage(tr('Kies een geldige foto (JPG, PNG, WebP of HEIC).'), 'error');
+  }
+  if(Number(file.size) > WF_IMAGE_SOURCE_MAX_BYTES){
+    clearCommunityPhotoSelection({clearMessage:false});
+    return setCommunityComposerMessage(tr('Deze foto is te groot. Kies een foto kleiner dan 40 MB.'), 'error');
+  }
+  revokeCommunityPhotoPreview();
+  state.community.selectedFile = file;
+  const preview = $('#communityPhotoPreview');
+  const previewWrap = $('#communityPhotoPreviewWrap');
+  const empty = $('#communityPhotoEmpty');
+  const meta = $('#communityPhotoMeta');
+  const url = URL.createObjectURL(file);
+  state.community.previewUrl = url;
+  if(preview){
+    preview.classList.remove('preview-unavailable');
+    preview.onload = ()=>preview.classList.remove('preview-unavailable');
+    preview.onerror = ()=>{
+      preview.classList.add('preview-unavailable');
+      if(meta) meta.textContent = `${file.name || tr('Foto geselecteerd')} · ${formatFileSize(file.size)} · ${tr('Preview niet beschikbaar, uploaden kan wel.')}`;
+    };
+    preview.src = url;
+  }
+  empty?.classList.add('hidden');
+  previewWrap?.classList.remove('hidden');
+  if(meta) meta.textContent = `${file.name || tr('Foto geselecteerd')} · ${formatFileSize(file.size)}`;
+  setCommunityComposerMessage(tr('Foto klaar om te plaatsen.'), 'ok');
+}
+function handleCommunityPhotoSelect(e){
+  const input = e.currentTarget || e.target;
+  const file = input?.files?.[0] || null;
+  if(file) setCommunityPhotoFile(file);
+  // Zelfde foto opnieuw kiezen moet ook een change-event kunnen geven.
+  if(input) input.value = '';
 }
 
 function updateCommunityCapturedWeather(){
@@ -6267,13 +6465,21 @@ function updateCommunityCapturedWeather(){
 
 async function createCommunityPost(){
   if(!requireCommunityLogin()) return;
+  if(state.community.uploading) return;
   const file = state.community.selectedFile;
   const caption = $('#communityCaption')?.value.trim() || '';
-  if(state.community.composerMode==='photo' && !file) return setCommunityComposerMessage('Kies eerst een foto voor een weerfotobericht.', 'error');
-  if(!file && caption.length < 3) return setCommunityComposerMessage('Beschrijf kort je waarneming.', 'error');
+  if(state.community.composerMode==='photo' && !file) return setCommunityComposerMessage(tr('Kies eerst een foto voor een weerfotobericht.'), 'error');
+  if(!file && caption.length < 3) return setCommunityComposerMessage(tr('Beschrijf kort je waarneming.'), 'error');
+
+  const submit = $('#communitySubmitPost');
+  state.community.uploading = true;
+  if(submit){ submit.disabled = true; submit.classList.add('sending'); submit.textContent = tr('Bezig…'); }
+  let controller, timeoutId;
   try{
-    setCommunityComposerMessage(file ? 'Foto voorbereiden...' : 'Bericht voorbereiden...');
-    const blob = file ? await compressAvatar(file) : null;
+    setCommunityComposerMessage(file ? tr('Foto optimaliseren…') : tr('Bericht voorbereiden…'));
+    const blob = file ? await compressImageForUpload(file, {maxDimension:1920, quality:.84, keepSmall:true}) : null;
+    if(blob && Number(blob.size) > WF_IMAGE_UPLOAD_SAFE_BYTES) throw new Error(tr('De foto blijft te groot om te uploaden. Kies een kleinere foto.'));
+
     const gps = $('#communityUseGps')?.checked ? await getBrowserLocation({fresh:true}) : null;
     const privacy = $('#communityLocationPrivacy')?.value || 'municipality';
     const loc = gps ? {lat:gps.lat, lon:gps.lon, ...(await resolveGpsLocation(gps.lat,gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
@@ -6281,7 +6487,7 @@ async function createCommunityPost(){
     let category = $('#communityCategorySelect')?.value || 'other';
     if(category === 'other' && /(^|\s|#)(zeevonk|seaspark|bioluminescentie|bioluminescence)(\s|$|[.,!?])/i.test(caption)) category = 'seaspark';
     const form = new FormData();
-    if(blob) form.append('photo', blob, 'weather.webp');
+    if(blob) form.append('photo', blob, uploadFilenameForBlob(blob, 'weather'));
     form.append('caption', caption);
     form.append('category', category);
     form.append('location_privacy', privacy);
@@ -6296,11 +6502,32 @@ async function createCommunityPost(){
     form.append('pressure', cur?.pressure_msl ?? '');
     form.append('weather_source', state.observation ? state.observation.source : 'KNMI HARMONIE');
     form.append('data_quality', 'community-waarneming');
-    await apiForm('/community/posts', form);
-    setCommunityComposerMessage('Geplaatst.', 'ok');
-    $('#communityCaption').value=''; $('#communityPhotoInput').value=''; $('#communityPhotoPreview')?.classList.add('hidden');
-    state.community.selectedFile=null; closeCommunityComposer(); await loadCommunityPosts(true); toast(file ? 'Weerfoto gedeeld.' : 'Weerbericht gedeeld.');
-  }catch(e){ console.warn('Community upload mislukt:', e?.message || e); setCommunityComposerMessage('Uploaden lukte niet. Controleer je verbinding.', 'error'); }
+
+    setCommunityComposerMessage(file ? tr('Foto uploaden…') : tr('Bericht plaatsen…'));
+    controller = new AbortController();
+    timeoutId = setTimeout(()=>controller.abort(), 75000);
+    await apiForm('/community/posts', form, {signal:controller.signal});
+    clearTimeout(timeoutId); timeoutId = null;
+
+    setCommunityComposerMessage(tr('Geplaatst.'), 'ok');
+    if($('#communityCaption')) $('#communityCaption').value='';
+    clearCommunityPhotoSelection({clearMessage:false});
+    closeCommunityComposer();
+    await loadCommunityPosts(true);
+    toast(file ? tr('Weerfoto gedeeld.') : tr('Weerbericht gedeeld.'));
+  }catch(e){
+    if(timeoutId) clearTimeout(timeoutId);
+    console.warn('Community upload mislukt:', e?.message || e);
+    let message = e?.message || tr('Uploaden lukte niet. Controleer je verbinding.');
+    if(e?.name === 'AbortError') message = tr('De upload duurde te lang. Controleer je verbinding en probeer opnieuw.');
+    else if(e?.status === 401) message = tr('Log opnieuw in om een foto te delen.');
+    else if(e?.status === 413 || /too large|file size|limit/i.test(String(e?.message||''))) message = tr('De foto is te groot om te uploaden. Kies een kleinere foto.');
+    else if(String(e?.message||'') === 'network') message = tr('Geen verbinding met Wheaterflow. Je foto is niet geplaatst.');
+    setCommunityComposerMessage(message, 'error');
+  }finally{
+    state.community.uploading = false;
+    if(submit){ submit.disabled = false; submit.classList.remove('sending'); submit.textContent = tr('Plaatsen'); }
+  }
 }
 
 function setCommunityComposerMessage(msg, type=''){
@@ -6390,6 +6617,23 @@ function rerenderForLanguageChange(){
   try{ window.WF_I18N?.translateDocument?.(); }catch(e){}
 }
 
+
+async function refreshCanonicalLocationLanguage(){
+  const loc = canonicalLocation();
+  if(!loc || !Number.isFinite(Number(loc.lat)) || !Number.isFinite(Number(loc.lon))) return;
+  // Een taalwissel mag nooit een oude plaatsnaam uit een andere locatie hergebruiken.
+  const resolved = await reverseGeocode(loc.lat, loc.lon, {fallbackToStored:false});
+  const name = cleanLocationName(resolved?.name, '');
+  if(!name || name === 'Huidige locatie') return;
+  commitCanonicalLocation({
+    lat:loc.lat, lon:loc.lon, name,
+    admin:resolved?.admin || loc.admin || '', country:resolved?.country || loc.country || ''
+  }, state.locationStatus, {persist:true, source:'language-refresh'});
+  rememberResolvedLocation(state.loc.name, state.loc.admin, state.loc.country, state.loc.lat, state.loc.lon);
+  try{ rerenderForLanguageChange(); }catch(e){}
+  try{ if(state.map) placeMarker(state.loc.lat,state.loc.lon,state.loc.name); }catch(e){}
+}
+
 function applyLanguageSetting(next, {showToast=true, syncCloud=true}={}){
   if(!window.WF_I18N?.isSupported?.(next)) return false;
   const lang = String(next).toLowerCase().split('-')[0];
@@ -6397,6 +6641,7 @@ function applyLanguageSetting(next, {showToast=true, syncCloud=true}={}){
   window.WF_I18N.setLanguage(lang, {persist:true, notify:false});
   refreshLanguageControls();
   rerenderForLanguageChange();
+  refreshCanonicalLocationLanguage().catch(()=>{});
   if(syncCloud) syncProfileSettingsToCloud?.();
   if(showToast){
     const messages = {nl:'Taal gewijzigd naar Nederlands',fr:'Langue définie sur Français',de:'Sprache auf Deutsch geändert',en:'Language changed to English'};
@@ -6424,6 +6669,7 @@ function wireLanguageSettings(){
       state.language = next;
       refreshLanguageControls();
       rerenderForLanguageChange();
+      refreshCanonicalLocationLanguage().catch(()=>{});
       syncProfileSettingsToCloud?.();
     });
   }
@@ -8799,26 +9045,25 @@ async function init(){
 
   await safeInitStep('Locatie ophalen', async ()=>{
     if(state.cast.receiver || state.tvPairing.receiver) return;
-    state.locationStatus = 'detecting';
-    state.loc = {...state.loc, name:'Locatie bepalen...', admin:'', country:''};
+    updateCanonicalLocationStatus('detecting', {persist:false, source:'startup'});
     if(isFirstRunOnboarding()){
-      state.locationStatus = 'onboarding';
+      updateCanonicalLocationStatus('onboarding', {persist:false, source:'onboarding'});
       return;
     }
     const p = await getBrowserLocation({fresh:true});
     if(p){
       const g = await resolveGpsLocation(p.lat, p.lon);
-      state.loc = {
+      commitCanonicalLocation({
         lat:p.lat,
         lon:p.lon,
         name:cleanLocationName(g?.name,'Huidige locatie'),
         admin:g?.admin || '',
-        country:g?.country || ''
-      };
+        country:g?.country || '',
+        accuracy:p.accuracy
+      }, 'gps', {persist:true, source:'startup-gps'});
       rememberResolvedLocation(state.loc.name, state.loc.admin, state.loc.country, p.lat, p.lon);
-      state.locationStatus = 'gps';
     }else{
-      state.locationStatus = 'denied';
+      updateCanonicalLocationStatus('denied', {persist:false, source:'startup-denied'});
     }
   });
   await loadWeather();
