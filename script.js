@@ -5984,6 +5984,26 @@ function initCommunityUi(){
   $('#communitySubmitPost')?.addEventListener('click', createCommunityPost);
   $('#communityPhotoInput')?.addEventListener('change', handleCommunityPhotoSelect);
   $('#communityCameraInput')?.addEventListener('change', handleCommunityPhotoSelect);
+  // Real buttons are more reliable than <label for=file> inside the iOS/PWA glass composer.
+  // Keep the input click synchronous with the user gesture so Safari opens Camera/Photos.
+  $('#communityCameraButton')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    const input=$('#communityCameraInput');
+    if(input){ input.value=''; input.click(); }
+  });
+  $('#communityGalleryButton')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    const input=$('#communityPhotoInput');
+    if(input){ input.value=''; input.click(); }
+  });
+  $('#communityPhotoReplace')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    const input=$('#communityPhotoInput');
+    if(input){ input.value=''; input.click(); }
+  });
   $('#communityPhotoRemove')?.addEventListener('click', ()=>clearCommunityPhotoSelection());
   $('#communityUseGps')?.addEventListener('change', updateCommunityCapturedWeather);
   $('#communityLoadMore')?.addEventListener('click', ()=>loadCommunityPosts(false));

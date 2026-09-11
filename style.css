@@ -11913,3 +11913,174 @@ body.auth-open #authSheet.auth-sheet.show .auth-scroll{
 }
 .community-photo-source-actions label.community-photo-source:active,
 .community-photo-preview-actions label:active{transform:scale(.98)}
+
+
+/* =====================================================================
+   2026-09-11 — Community photo composer v2
+   Fix iOS/PWA clipping + untappable source buttons + submit/checkbox clashes.
+   ===================================================================== */
+#communityComposer .community-photo-picker{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+  box-sizing:border-box!important;
+}
+#communityComposer .community-photo-empty{
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+  box-sizing:border-box!important;
+  padding:20px 16px 18px!important;
+}
+#communityComposer .community-photo-source-actions{
+  position:relative!important;
+  z-index:4!important;
+  width:100%!important;
+  max-width:430px!important;
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+  margin:8px auto 2px!important;
+  pointer-events:auto!important;
+}
+#communityComposer button.community-photo-source,
+#communityComposer .community-photo-preview-actions button{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:48px!important;
+  height:auto!important;
+  margin:0!important;
+  padding:12px 14px!important;
+  position:relative!important;
+  z-index:5!important;
+  border:1px solid rgba(218,240,255,.22)!important;
+  border-radius:15px!important;
+  background:rgba(255,255,255,.09)!important;
+  color:#fff!important;
+  font:800 14px/1.15 inherit!important;
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+#communityComposer button.community-photo-source.primary{
+  background:rgba(58,164,218,.28)!important;
+  border-color:rgba(130,226,255,.42)!important;
+}
+#communityComposer button.community-photo-source:active,
+#communityComposer .community-photo-preview-actions button:active{
+  transform:scale(.98)!important;
+}
+#communityComposer .community-photo-empty small{
+  display:block!important;
+  margin-top:5px!important;
+}
+#communityComposer .community-photo-preview-wrap{
+  overflow:hidden!important;
+  border-radius:19px!important;
+}
+
+/* communitySubmitPost reused the profile button class. A late profile rule
+   forced it to 42px wide, clipping "Plaatsen" on iPhone. */
+#communityComposerHead,
+#communityComposer .community-composer-head{
+  min-width:0!important;
+  overflow:visible!important;
+}
+#communityComposer #communitySubmitPost.profile-done-button{
+  width:auto!important;
+  min-width:82px!important;
+  max-width:none!important;
+  height:42px!important;
+  padding:0 13px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+  font-size:14px!important;
+  line-height:1!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+}
+
+/* The generic .community-composer input rule made the GPS checkbox 100% wide
+   and at least 46px high. Restore a normal touch-friendly checkbox. */
+#communityComposer .inline-check{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:10px!important;
+  width:100%!important;
+  min-height:44px!important;
+  margin:0!important;
+  padding:4px 2px!important;
+  box-sizing:border-box!important;
+  cursor:pointer!important;
+}
+#communityComposer .inline-check input[type="checkbox"]{
+  appearance:auto!important;
+  -webkit-appearance:checkbox!important;
+  flex:0 0 22px!important;
+  width:22px!important;
+  height:22px!important;
+  min-width:22px!important;
+  min-height:22px!important;
+  max-width:22px!important;
+  max-height:22px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  accent-color:#6fe4f7!important;
+}
+
+/* The composer is a full-screen modal on phones. Hide the app navigation
+   while it is open so it can never cover lower form controls. */
+body.community-composer-open .tabbar{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  transform:translateY(130%)!important;
+  translate:none!important;
+}
+
+@media(max-width:520px){
+  #communityComposer .community-photo-empty{
+    padding:18px 12px 16px!important;
+  }
+  #communityComposer .community-photo-picker-icon{
+    width:50px!important;
+    height:50px!important;
+  }
+  #communityComposer .community-photo-source-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #communityComposer button.community-photo-source{
+    min-height:48px!important;
+    font-size:13px!important;
+  }
+  #communityComposer .community-composer-head{
+    grid-template-columns:44px minmax(0,1fr) auto!important;
+    gap:8px!important;
+    padding-left:12px!important;
+    padding-right:12px!important;
+  }
+  #communityComposer .community-composer-head h3{
+    font-size:18px!important;
+    white-space:nowrap!important;
+  }
+}
