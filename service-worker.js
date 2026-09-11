@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260911-community-native-visible-v7";
+const CACHE_VERSION = "wheaterflow-v20260911-auth-login-clickfix-v8";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

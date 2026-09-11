@@ -5434,6 +5434,50 @@ async function signInWithEmail(email,password){
   updateAuthMessage('Inloggen...');
   try{ const data=await apiJson('/auth/login',{method:'POST',body:JSON.stringify({email,password})}); const session=makeLocalSession(data.token,data.user); saveOwnServerSession(session); await applyAuthSession(session); updateAuthMessage('Je bent ingelogd.','ok'); toast('Je bent ingelogd.'); }catch(error){ updateAuthMessage(dutchAuthError(error),'error'); }
 }
+
+/* iOS/Safari auth click reliability
+   De zichtbare inlogknop is bewust type=button. Een delegated capture handler
+   zorgt dat de actie niet verloren gaat wanneer Profiel na vertalen/renderen
+   opnieuw wordt opgebouwd of Safari een normale form-submit niet afvuurt. */
+let authLoginBusy = false;
+async function submitLoginFromUi(){
+  if(authLoginBusy) return;
+  const email = $('#loginEmail')?.value?.trim() || '';
+  const password = $('#loginPassword')?.value || '';
+  const button = $('#loginSubmitBtn');
+  authLoginBusy = true;
+  if(button){
+    button.disabled = true;
+    button.setAttribute('aria-busy','true');
+    button.dataset.originalText = button.dataset.originalText || button.textContent.trim();
+    button.textContent = tr('Inloggen...');
+  }
+  try{
+    await signInWithEmail(email,password);
+  }finally{
+    authLoginBusy = false;
+    if(button){
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.textContent = tr('Inloggen');
+    }
+  }
+}
+
+function wireLoginCaptureFallback(){
+  if(document.documentElement.dataset.loginCaptureWired === '1') return;
+  document.documentElement.dataset.loginCaptureWired = '1';
+  const activate = event => {
+    const button = event.target?.closest?.('#loginSubmitBtn');
+    if(!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    submitLoginFromUi();
+  };
+  document.addEventListener('pointerup', activate, true);
+  document.addEventListener('click', activate, true);
+}
+wireLoginCaptureFallback();
 async function signUpWithEmail(displayName,email,password,password2,privacyOk){
   displayName=String(displayName||'').trim();
   if(!displayName) return updateAuthMessage('Vul een weergavenaam in.','error');
@@ -5476,7 +5520,7 @@ function wireAuthUi(){
   $('#authSignupTab')?.addEventListener('click', ()=>setAuthMode('signup'));
   $('#loginForm')?.addEventListener('submit', e=>{
     e.preventDefault();
-    signInWithEmail($('#loginEmail')?.value.trim() || '', $('#loginPassword')?.value || '');
+    submitLoginFromUi();
   });
   $('#signupForm')?.addEventListener('submit', e=>{
     e.preventDefault();
