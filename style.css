@@ -12681,7 +12681,9 @@ body.community-composer-open #communityComposer .community-composer-body{
 /* =====================================================================
    2026-09-12 — Wheaterflow Intelligence custom icon v13 (cacheproof)
    ===================================================================== */
-#home .weather-summary-card .weather-intelligence-title{
+#home .weather-summary-card .weather-intelligence-title,
+#home .weather-summary-card .weather-intelligence-title::before,
+#home .weather-summary-card .weather-intelligence-title::after{
   display:flex!important;
   align-items:center!important;
   gap:10px!important;
@@ -12692,20 +12694,35 @@ body.community-composer-open #communityComposer .community-composer-body{
   padding:0!important;
   margin-bottom:12px!important;
 }
+#home .weather-summary-card .weather-intelligence-title img,
 #home .weather-summary-card .intelligence-title-icon{
-  width:42px!important;
-  height:32px!important;
+  width:44px!important;
+  height:34px!important;
+  min-width:44px!important;
+  min-height:34px!important;
+  max-width:44px!important;
+  max-height:34px!important;
   display:block!important;
-  flex:0 0 42px!important;
+  flex:0 0 44px!important;
   object-fit:contain!important;
   object-position:center!important;
   opacity:1!important;
   visibility:visible!important;
   transform:translateY(1px)!important;
-  filter:drop-shadow(0 0 10px rgba(82,218,255,.30))!important;
+  background:transparent!important;
+  background-image:none!important;
+  border:none!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  outline:none!important;
+  padding:0!important;
+  margin:0!important;
+  filter:drop-shadow(0 0 10px rgba(82,218,255,.24))!important;
 }
 #home .weather-summary-card .weather-intelligence-title > span{
   display:inline!important;
   background:transparent!important;
   background-image:none!important;
+  box-shadow:none!important;
+  border:none!important;
 }
