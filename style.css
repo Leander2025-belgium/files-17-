@@ -12684,19 +12684,28 @@ body.community-composer-open #communityComposer .community-composer-body{
 #home .weather-summary-card .weather-intelligence-title{
   display:flex!important;
   align-items:center!important;
-  gap:8px!important;
+  gap:10px!important;
+  background:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  border:none!important;
+  padding:0!important;
+  margin-bottom:12px!important;
 }
 #home .weather-summary-card .intelligence-title-icon{
-  width:28px!important;
-  height:20px!important;
+  width:42px!important;
+  height:32px!important;
   display:block!important;
-  flex:0 0 28px!important;
+  flex:0 0 42px!important;
   object-fit:contain!important;
   object-position:center!important;
   opacity:1!important;
   visibility:visible!important;
-  filter:drop-shadow(0 0 8px rgba(82,218,255,.32))!important;
+  transform:translateY(1px)!important;
+  filter:drop-shadow(0 0 10px rgba(82,218,255,.30))!important;
 }
 #home .weather-summary-card .weather-intelligence-title > span{
   display:inline!important;
+  background:transparent!important;
+  background-image:none!important;
 }

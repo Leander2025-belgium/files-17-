@@ -3233,7 +3233,7 @@ function wheaterflowAdminAlertsCard(){
 
 function weatherSummaryCard(){
   return `<div class="card weather-summary-card">
-    <div class="card-title weather-intelligence-title"><img alt="" aria-hidden="true" class="intelligence-title-icon" src="./assets/ui/home/wheaterflow-intelligence.png?v=20260912-intelligence-v13"/> <span>Wheaterflow Intelligence</span></div>
+    <div class="card-title weather-intelligence-title"><img alt="" aria-hidden="true" class="intelligence-title-icon" src="./assets/ui/home/wheaterflow-intelligence.png?v=20260912-intelligence-v14"/> <span>Wheaterflow Intelligence</span></div>
     <p>${esc(weatherTrendSummary())}</p>
   </div>`;
 }
