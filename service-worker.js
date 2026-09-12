@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260912-intelligence-v15";
+const CACHE_VERSION = "wheaterflow-v20260912-rain-icons-v16";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -96,6 +96,11 @@ const STATIC_ASSETS = [
   "./assets/ui/home/tv.png",
   "./assets/ui/home/settings.png",
   "./assets/ui/home/wheaterflow-intelligence.png",
+  "./assets/ui/rain/01-regen.png",
+  "./assets/ui/rain/02-droog.png",
+  "./assets/ui/rain/03-intensiteit.png",
+  "./assets/ui/rain/04-verwachting-2-uur.png",
+  "./assets/ui/rain/05-bijgewerkt.png",
   "./assets/ui/profile/location.png",
   "./assets/ui/profile/notifications.png",
   "./assets/ui/profile/preferences.png",

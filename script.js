@@ -2971,21 +2971,22 @@ function rainNowcastCard(){
     precipAmount = values.length ? values.reduce((a,b)=>a+Math.max(0,b),0) : null;
   }
 
-  const statusIcon = rainingNow ? icon('rain',true,29,'rain-status-icon') : icon('sun',true,28,'rain-status-icon');
+  const rainIcon = (name, cls='') => `<img src="./assets/ui/rain/${name}.png?v=20260912-rain-icons-v16" alt="" aria-hidden="true" class="rain-3d-icon ${cls}"/>`;
+  const statusIcon = rainingNow ? rainIcon('01-regen','rain-status-icon') : rainIcon('02-droog','rain-status-icon');
   const statusText = rainingNow ? 'Het regent nu' : 'Droog';
-  const intensityIcon = rainingNow ? icon('rain',true,27,'rain-metric-icon') : icon('drop',true,27,'rain-metric-icon');
+  const intensityIcon = rainIcon('03-intensiteit','rain-metric-icon');
 
   if(!rain || rain.status === 'unavailable'){
     return `<div class="card rain-now-card rain-reference-layout unavailable">
-      <div class="rain-now-top"><span class="rain-brand">${icon('rain',true,19)}<strong>WHEATERFLOW RAIN</strong></span><span class="rain-updated">${icon('gauge',true,15)}${esc(updateLabel)}</span></div>
-      <div class="rain-status-line">${icon('drop',true,28,'rain-status-icon')}<h3>Regengegevens niet beschikbaar</h3></div>
+      <div class="rain-now-top"><span class="rain-brand">${rainIcon('01-regen','rain-brand-icon')}<strong>WHEATERFLOW RAIN</strong></span><span class="rain-updated">${rainIcon('05-bijgewerkt','rain-updated-icon')}${esc(updateLabel)}</span></div>
+      <div class="rain-status-line">${rainIcon('01-regen','rain-status-icon')}<h3>Regengegevens niet beschikbaar</h3></div>
     </div>`;
   }
 
   return `<div class="card rain-now-card rain-reference-layout ${rain.status} ${rain.heavyShower?'heavy':''}">
     <div class="rain-now-top">
-      <span class="rain-brand">${icon('rain',true,19)}<strong>WHEATERFLOW RAIN</strong></span>
-      <span class="rain-updated">${icon('gauge',true,15)}${esc(updateLabel)}</span>
+      <span class="rain-brand">${rainIcon('01-regen','rain-brand-icon')}<strong>WHEATERFLOW RAIN</strong></span>
+      <span class="rain-updated">${rainIcon('05-bijgewerkt','rain-updated-icon')}${esc(updateLabel)}</span>
     </div>
 
     <div class="rain-status-line">${statusIcon}<h3>${esc(statusText)}</h3></div>
@@ -3000,7 +3001,7 @@ function rainNowcastCard(){
         </div>
       </div>
       <div class="rain-main-card change-card">
-        <div class="rain-main-card-icon">${icon('gauge',true,26,'rain-metric-icon')}</div>
+        <div class="rain-main-card-icon">${rainIcon('04-verwachting-2-uur','rain-metric-icon')}</div>
         <div class="rain-main-card-copy">
           <small>${esc(change.label)}</small>
           <strong>${esc(change.main)}</strong>
