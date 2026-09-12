@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260912-intelligence-icon-v12";
+const CACHE_VERSION = "wheaterflow-v20260912-intelligence-v13";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -95,6 +95,7 @@ const STATIC_ASSETS = [
     "./assets/ui/location/current-location-liquid-exact.png",
   "./assets/ui/home/tv.png",
   "./assets/ui/home/settings.png",
+  "./assets/ui/home/wheaterflow-intelligence.png",
   "./assets/ui/profile/location.png",
   "./assets/ui/profile/notifications.png",
   "./assets/ui/profile/preferences.png",
