@@ -3233,7 +3233,7 @@ function wheaterflowAdminAlertsCard(){
 
 function weatherSummaryCard(){
   return `<div class="card weather-summary-card">
-    <div class="card-title">${icon('gauge',true,13)} Wheaterflow Intelligence</div>
+    <div class="card-title"><img alt="" aria-hidden="true" class="intelligence-title-icon" src="./assets/ui/home/wheaterflow-intelligence.png"/> Wheaterflow Intelligence</div>
     <p>${esc(weatherTrendSummary())}</p>
   </div>`;
 }

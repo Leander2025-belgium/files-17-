@@ -12514,3 +12514,184 @@ body.community-composer-open #communityComposer .community-composer-body{
   #communityComposer .community-picker-actions{grid-template-columns:1fr 1fr!important;gap:10px!important}
   #communityComposer .community-picker-button{min-height:56px!important;font-size:16px!important;padding:0 10px!important}
 }
+
+
+/* =====================================================================
+   2026-09-11 — Community photo picker v11: prettier action buttons
+   Mooier, meer premium / Liquid Glass, betere icon-badges en spacing.
+   ===================================================================== */
+#communityComposer .community-photo-empty{
+  gap:10px!important;
+  padding:24px 18px 24px!important;
+}
+#communityComposer .community-photo-empty strong{
+  font-size:18px!important;
+  letter-spacing:-.01em!important;
+}
+#communityComposer .community-photo-empty > span{
+  max-width:470px!important;
+  font-size:14px!important;
+  color:rgba(237,246,255,.78)!important;
+}
+#communityComposer .community-photo-empty small{
+  display:block!important;
+  margin-top:12px!important;
+  font-size:10px!important;
+  color:rgba(222,238,255,.46)!important;
+}
+#communityComposer .community-picker-actions{
+  gap:14px!important;
+  max-width:560px!important;
+  margin:22px auto 10px!important;
+}
+#communityComposer .community-picker-button{
+  min-height:72px!important;
+  padding:0 20px!important;
+  border-radius:22px!important;
+  border:1px solid rgba(203,235,255,.22)!important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.18),
+    inset 0 -1px 0 rgba(255,255,255,.04),
+    0 10px 30px rgba(4,14,30,.18)!important;
+  backdrop-filter:blur(18px) saturate(135%)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(135%)!important;
+  font-size:17px!important;
+  letter-spacing:-.015em!important;
+  overflow:hidden!important;
+  transition:transform .16s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease!important;
+}
+#communityComposer .community-picker-button::after{
+  content:'';
+  position:absolute;
+  inset:1px 1px auto 1px;
+  height:48%;
+  border-radius:21px 21px 18px 18px;
+  background:linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,0));
+  pointer-events:none;
+  opacity:.9;
+}
+#communityComposer .community-picker-button.primary{
+  border-color:rgba(123,231,255,.42)!important;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(164,245,255,.20), transparent 34%),
+    linear-gradient(180deg, rgba(82,197,242,.42), rgba(39,137,196,.32))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.22),
+    inset 0 -1px 0 rgba(10,28,58,.08),
+    0 12px 30px rgba(14,84,127,.26),
+    0 0 0 1px rgba(107,215,255,.05)!important;
+}
+#communityComposer .community-picker-button:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.18),
+    inset 0 -1px 0 rgba(255,255,255,.04),
+    0 14px 34px rgba(4,14,30,.24)!important;
+}
+#communityComposer .community-picker-button.primary:hover{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.22),
+    inset 0 -1px 0 rgba(10,28,58,.08),
+    0 16px 34px rgba(14,84,127,.30),
+    0 0 0 1px rgba(107,215,255,.06)!important;
+}
+#communityComposer .community-picker-button:active{
+  transform:translateY(1px) scale(.985)!important;
+  background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.07))!important;
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,.10),
+    inset 0 1px 0 rgba(255,255,255,.14),
+    0 8px 20px rgba(4,14,30,.14)!important;
+}
+#communityComposer .community-picker-button.primary:active{
+  background:
+    radial-gradient(circle at 18% 18%, rgba(164,245,255,.14), transparent 34%),
+    linear-gradient(180deg, rgba(74,188,232,.40), rgba(36,126,187,.28))!important;
+}
+#communityComposer .community-picker-icon{
+  width:34px!important;
+  height:34px!important;
+  display:grid!important;
+  place-items:center!important;
+  flex:0 0 34px!important;
+  border-radius:12px!important;
+  background:rgba(255,255,255,.10)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14)!important;
+  font-size:0!important;
+  line-height:1!important;
+  position:relative!important;
+  z-index:1!important;
+}
+#communityComposer .community-picker-button.primary .community-picker-icon{
+  background:rgba(255,255,255,.16)!important;
+  border-color:rgba(215,247,255,.22)!important;
+}
+#communityComposer .community-picker-button[data-community-picker="camera"] .community-picker-icon::before,
+#communityComposer .community-picker-button[data-community-picker="library"] .community-picker-icon::before{
+  display:block;
+  color:#ffffff;
+  font-size:18px;
+  line-height:1;
+  text-shadow:0 1px 10px rgba(121,220,255,.22);
+}
+#communityComposer .community-picker-button[data-community-picker="camera"] .community-picker-icon::before{
+  content:'⌁';
+}
+#communityComposer .community-picker-button[data-community-picker="library"] .community-picker-icon::before{
+  content:'▣';
+  font-size:16px;
+}
+#communityComposer .community-picker-button > span:last-child{
+  position:relative!important;
+  z-index:1!important;
+}
+#communityComposer .community-photo-preview-actions .community-picker-button.compact,
+#communityComposer .community-picker-button.compact{
+  min-height:48px!important;
+  border-radius:16px!important;
+  font-size:14px!important;
+  padding:0 16px!important;
+}
+@media(max-width:520px){
+  #communityComposer .community-picker-actions{
+    gap:12px!important;
+    margin:18px auto 8px!important;
+  }
+  #communityComposer .community-picker-button{
+    min-height:64px!important;
+    border-radius:19px!important;
+    padding:0 14px!important;
+    font-size:16px!important;
+  }
+  #communityComposer .community-picker-button::after{
+    border-radius:18px 18px 15px 15px;
+  }
+  #communityComposer .community-picker-icon{
+    width:30px!important;
+    height:30px!important;
+    flex-basis:30px!important;
+    border-radius:11px!important;
+  }
+}
+
+
+/* =====================================================================
+   2026-09-12 — Wheaterflow Intelligence custom icon
+   Gebruikt het nieuwe blauwe cloud/sparkle-icoon in plaats van het gauge-icoon.
+   ===================================================================== */
+.intelligence-title-icon{
+  width:18px;
+  height:18px;
+  display:inline-block;
+  object-fit:contain;
+  filter:drop-shadow(0 0 10px rgba(91,221,255,.28));
+  flex:0 0 18px;
+  vertical-align:middle;
+  margin-top:-1px;
+}
+#home .weather-summary-card .card-title{
+  gap:8px;
+}
