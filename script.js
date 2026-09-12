@@ -9,7 +9,7 @@ const RADAR_MAX_AGE_MINUTES = 90;
 const WEATHERFLOW_RADAR_WORKER = 'https://weatherflow-radar.leanderdevriendt.workers.dev';
 const WEATHERFLOW_RADAR_OFFSETS = [-120,-110,-100,-90,-80,-70,-60,-50,-40,-30,-20,-10,0];
 const WHEATERFLOW_API_BASE = 'https://api.wheaterflow.be/api';
-/* WF_CURRENT_CONDITIONS_FUSION_APP_V19 */
+/* WF_CURRENT_CONDITIONS_FUSION_APP_V20 */
 const CURRENT_CONDITIONS_TTL_MS = 2 * 60 * 1000;
 const CURRENT_CONDITIONS_MAX_AGE_MS = 8 * 60 * 1000;
 const FUNCTION_BASE = WHEATERFLOW_API_BASE + '/';
@@ -187,6 +187,7 @@ function commitCanonicalLocation(input, status='manual', options={}){
     country:String(committed.country || payload.country || '').trim()
   };
   state.locationStatus = committed.status || status;
+  invalidateCurrentTruthForLocation(state.loc.lat, state.loc.lon);
   if(state.sharedWeather) state.sharedWeather.locationName = state.loc.name || state.sharedWeather.locationName;
   return {...state.loc, status:state.locationStatus};
 }
@@ -210,6 +211,7 @@ window.addEventListener('wheaterflow:location-changed', event=>{
   if(!loc || !Number.isFinite(Number(loc.lat)) || !Number.isFinite(Number(loc.lon))) return;
   state.loc = {lat:Number(loc.lat), lon:Number(loc.lon), name:String(loc.name||''), admin:String(loc.admin||''), country:String(loc.country||'')};
   state.locationStatus = loc.status || state.locationStatus;
+  invalidateCurrentTruthForLocation(state.loc.lat, state.loc.lon);
   if(state.sharedWeather) state.sharedWeather.locationName = state.loc.name || state.sharedWeather.locationName;
 });
 
@@ -844,6 +846,13 @@ function currentTruthLocKey(lat=state.loc?.lat, lon=state.loc?.lon){
   const a = Number(lat), b = Number(lon);
   if(!Number.isFinite(a) || !Number.isFinite(b)) return '';
   return `${a.toFixed(4)},${b.toFixed(4)}`;
+}
+
+function invalidateCurrentTruthForLocation(lat=state.loc?.lat, lon=state.loc?.lon){
+  const locKey = currentTruthLocKey(lat, lon);
+  if(!locKey) return;
+  if(state.currentTruth?.locKey === locKey) return;
+  state.currentTruth = {data:null, locKey, fetchedAt:0, error:null};
 }
 
 function currentConditionsTruth({maxAgeMs=CURRENT_CONDITIONS_MAX_AGE_MS}={}){
@@ -3421,14 +3430,17 @@ function weatherTrendSummary(){
     const km = Number(truth?.precipitation?.nearestEchoKm);
 
     if(truth?.precipitation?.nearby && Number.isFinite(km)){
-      sentences.push(`Het is nu droog op jouw locatie; de radar ziet neerslag op ongeveer ${Math.max(1,Math.round(km))} km afstand.`);
+      sentences.push(`Voorlopig droog op jouw locatie. De radar ziet neerslag op ongeveer ${Math.max(1,Math.round(km))} km afstand.`);
     }else{
       const model = modelRainSignalWithin(2);
       sentences.push(
         model.elevated
-          ? 'Het is nu droog, maar later in de komende twee uur neemt de kans op regen toe.'
-          : 'Het blijft volgens de actuele radar de komende twee uur waarschijnlijk droog.'
+          ? 'De actuele radar is droog op jouw locatie, maar een weermodel ziet later neerslag. Wheaterflow houdt het daarom voorlopig op droog.'
+          : 'De actuele radar ziet geen regen op jouw locatie; voorlopig blijft het waarschijnlijk droog.'
       );
+    }
+    if(Array.isArray(truth?.conflicts) && truth.conflicts.length){
+      sentences.push('Radar en model spreken elkaar deels tegen; voor “nu” krijgt de verse radar voorrang.');
     }
   }
 
@@ -3795,14 +3807,16 @@ html += rainNowcastCard();
   for(let i=nowIdx; i<Math.min(nowIdx+24, hourly.time.length); i++){
     const t = new Date(hourly.time[i]);
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
-    const hwc = wcInfo(hourly.weather_code[i]);
-    const hIsDay = isDayForTime(hourly.time[i]);
+    const isCurrentHour = i === nowIdx;
+    const hwc = isCurrentHour ? wcInfo(cur.weather_code) : wcInfo(hourly.weather_code[i]);
+    const hIsDay = isCurrentHour ? isDay : isDayForTime(hourly.time[i]);
     const pop = validNumber(hourly.precipitation_probability?.[i]);
-    html += `<div class="hour-item ${i===nowIdx?'now':''}">
+    const hourTemp = isCurrentHour ? cur.temperature_2m : hourly.temperature_2m[i];
+    html += `<div class="hour-item ${isCurrentHour?'now':''}">
       <div class="t">${esc(label)}</div>
       <div class="hour-icon-wrap">${icon(hwc.ic, hIsDay, 26)}</div>
-      <div class="pop">${pop!=null && pop>=10 ? Math.round(Math.max(0,Math.min(100,pop)))+'%' : ''}</div>
-      <div class="v">${fmtTemp(hourly.temperature_2m[i])}</div>
+      <div class="pop">${!isCurrentHour && pop!=null && pop>=10 ? Math.round(Math.max(0,Math.min(100,pop)))+'%' : ''}</div>
+      <div class="v">${fmtTemp(hourTemp)}</div>
     </div>`;
   }
   html += `</div></div>`;
@@ -5607,7 +5621,7 @@ async function handleProfileFavoriteAction(target){
 }
 
 function renderProfileWeatherToday(){
-  const cur = state.current || {};
+  const cur = liveWeatherSnapshot() || {};
   const code = effectiveCurrentWeatherCode(cur);
   const info = wcInfo(code);
   const temp = Number(cur.temperature_2m);
@@ -9145,9 +9159,12 @@ function renderTV(){
   for(let i=nowIdx; i<Math.min(nowIdx+8, hourly.time.length); i++){
     const t = new Date(hourly.time[i]);
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
-    const hwc = wcInfo(hourly.weather_code[i]);
-    const hIsDay = isDayForTime(hourly.time[i]);
-    hh += `<div class="hitem ${i===nowIdx?'now':''}"><div class="t">${label}</div>${icon(hwc.ic,hIsDay,24)}<div class="p">${hourly.precipitation_probability[i]>10?hourly.precipitation_probability[i]+'%':''}</div><div class="v">${fmtTemp(hourly.temperature_2m[i])}</div></div>`;
+    const isCurrentHour = i === nowIdx;
+    const hwc = isCurrentHour ? wcInfo(cur.weather_code) : wcInfo(hourly.weather_code[i]);
+    const hIsDay = isCurrentHour ? isDay : isDayForTime(hourly.time[i]);
+    const hourTemp = isCurrentHour ? cur.temperature_2m : hourly.temperature_2m[i];
+    const hourPop = !isCurrentHour && hourly.precipitation_probability[i] > 10 ? hourly.precipitation_probability[i]+'%' : '';
+    hh += `<div class="hitem ${isCurrentHour?'now':''}"><div class="t">${label}</div>${icon(hwc.ic,hIsDay,24)}<div class="p">${hourPop}</div><div class="v">${fmtTemp(hourTemp)}</div></div>`;
   }
   $('#tvHourly').innerHTML = hh;
 
