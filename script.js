@@ -9,6 +9,9 @@ const RADAR_MAX_AGE_MINUTES = 90;
 const WEATHERFLOW_RADAR_WORKER = 'https://weatherflow-radar.leanderdevriendt.workers.dev';
 const WEATHERFLOW_RADAR_OFFSETS = [-120,-110,-100,-90,-80,-70,-60,-50,-40,-30,-20,-10,0];
 const WHEATERFLOW_API_BASE = 'https://api.wheaterflow.be/api';
+/* WF_CURRENT_CONDITIONS_FUSION_APP_V19 */
+const CURRENT_CONDITIONS_TTL_MS = 2 * 60 * 1000;
+const CURRENT_CONDITIONS_MAX_AGE_MS = 8 * 60 * 1000;
 const FUNCTION_BASE = WHEATERFLOW_API_BASE + '/';
 const PUSH_FUNCTION_BASE = FUNCTION_BASE;
 const ONBOARDING_STORAGE_KEY = 'wheaterflow:onboarding:v1';
@@ -123,6 +126,7 @@ const state = {
   language: window.WF_I18N?.language || 'nl',
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
   current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
+  currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
   observation: null, marine: null, seaspark: null, air: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
@@ -835,6 +839,146 @@ function metarWeatherCode(m){
   return null;
 }
 
+
+function currentTruthLocKey(lat=state.loc?.lat, lon=state.loc?.lon){
+  const a = Number(lat), b = Number(lon);
+  if(!Number.isFinite(a) || !Number.isFinite(b)) return '';
+  return `${a.toFixed(4)},${b.toFixed(4)}`;
+}
+
+function currentConditionsTruth({maxAgeMs=CURRENT_CONDITIONS_MAX_AGE_MS}={}){
+  const holder = state.currentTruth;
+  if(!holder?.data) return null;
+  if(holder.locKey !== currentTruthLocKey()) return null;
+  const age = Date.now() - Number(holder.fetchedAt || 0);
+  if(age < 0 || age > maxAgeMs) return null;
+  return holder.data;
+}
+
+function truthSourceWeatherCode(truth){
+  const candidates = [
+    truth?.sources?.bestMatch?.weatherCode,
+    truth?.sources?.harmonie?.weatherCode
+  ].map(Number).filter(Number.isFinite);
+  return candidates.length ? candidates[0] : null;
+}
+
+function truthWeatherCode(truth, fallbackCode=0){
+  if(!truth) return Number.isFinite(Number(fallbackCode)) ? Number(fallbackCode) : 0;
+
+  const sourceCode = truthSourceWeatherCode(truth);
+  const conditionId = String(truth?.condition?.id || '').toLowerCase();
+
+  // Behoud winterse neerslag wanneer het model daar duidelijk op wijst.
+  if(truth.isRaining && [71,73,75,77,85,86].includes(sourceCode)) return sourceCode;
+  if(truth.isRaining && [66,67].includes(sourceCode)) return sourceCode;
+
+  if(truth.isRaining){
+    if(conditionId === 'light_rain') return 61;
+    const mm = Math.max(0, Number(truth?.precipitation?.now) || 0);
+    if(mm >= 7.5) return 65;
+    if(mm >= 2) return 63;
+    return 61;
+  }
+
+  const map = {
+    clear:0,
+    mostly_clear:1,
+    partly_cloudy:2,
+    cloudy:3,
+    fog:45
+  };
+  if(Object.prototype.hasOwnProperty.call(map, conditionId)) return map[conditionId];
+
+  if([45,48].includes(sourceCode)) return sourceCode;
+
+  const cloud = Number(truth?.cloudCover);
+  if(Number.isFinite(cloud)){
+    if(cloud >= 85) return 3;
+    if(cloud >= 45) return 2;
+    if(cloud >= 15) return 1;
+    return 0;
+  }
+
+  return Number.isFinite(Number(fallbackCode)) ? Number(fallbackCode) : 0;
+}
+
+async function loadCurrentConditionsTruth({force=false}={}){
+  const lat = Number(state.loc?.lat);
+  const lon = Number(state.loc?.lon);
+  const locKey = currentTruthLocKey(lat, lon);
+  if(!locKey) return null;
+
+  const holder = state.currentTruth || {};
+  if(
+    !force &&
+    holder.data &&
+    holder.locKey === locKey &&
+    Date.now() - Number(holder.fetchedAt || 0) < CURRENT_CONDITIONS_TTL_MS
+  ){
+    return holder.data;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 8000);
+
+  try{
+    const url = new URL(WHEATERFLOW_API_BASE + '/weather/current');
+    url.searchParams.set('lat', String(lat));
+    url.searchParams.set('lon', String(lon));
+    url.searchParams.set('_', String(Date.now()));
+
+    const response = await fetch(url.href, {
+      cache:'no-store',
+      signal:controller.signal,
+      headers:{'accept':'application/json'}
+    });
+
+    let data = null;
+    try{ data = await response.json(); }catch(e){}
+
+    if(!response.ok){
+      throw new Error(data?.error || `Current Conditions HTTP ${response.status}`);
+    }
+
+    if(
+      !data ||
+      data.status !== 'ok' ||
+      typeof data.isRaining !== 'boolean' ||
+      !data.condition
+    ){
+      throw new Error('Ongeldige Current Conditions Fusion response');
+    }
+
+    // Alleen bewaren wanneer de gebruiker intussen niet van locatie veranderde.
+    if(currentTruthLocKey() === locKey){
+      state.currentTruth = {
+        data,
+        locKey,
+        fetchedAt:Date.now(),
+        error:null
+      };
+    }
+
+    return data;
+
+  }catch(error){
+    if(currentTruthLocKey() === locKey){
+      const previous = state.currentTruth || {};
+      const sameLocation = previous.locKey === locKey;
+      state.currentTruth = {
+        data:sameLocation ? (previous.data || null) : null,
+        locKey,
+        fetchedAt:sameLocation ? Number(previous.fetchedAt || 0) : 0,
+        error:error?.message || String(error)
+      };
+    }
+    throw error;
+  }finally{
+    clearTimeout(timeout);
+  }
+}
+
 async function loadCurrentObservation(){
   state.observation = null;
   const station = nearestMetarStation();
@@ -870,73 +1014,122 @@ async function loadCurrentObservation(){
 
 function liveWeatherSnapshot(){
   const cur = {...(state.current || {})};
+
   if(state.minutely && state.minutely.time && state.minutely.time.length){
     const targetMs = Date.now();
     const idx = closestIndex(state.minutely.time, targetMs);
     const minuteAge = Math.abs(new Date(state.minutely.time[idx]).getTime() - targetMs) / 60000;
+
     if(minuteAge <= 35){
-      // minutely_15 is een korte-termijnVOORSPELLING, geen actuele meting.
-      // Gebruik hem nooit om 'regen nu' of de huidige weather_code te forceren.
-      // Temperatuur/wind mogen wel als fijnere modelupdate worden gebruikt.
+      // minutely_15 is VOORSPELLING, geen actuele meting.
       ['temperature_2m','wind_speed_10m','wind_gusts_10m'].forEach(k=>{
         if(state.minutely[k] && state.minutely[k][idx] != null) cur[k] = state.minutely[k][idx];
       });
     }
   }
+
+  const truth = currentConditionsTruth();
+
+  // Wheaterflow Fusion levert de centrale actuele toestand.
+  // Nabije echte METAR-metingen mogen temperatuur/wind nog verfijnen,
+  // maar NIET opnieuw bepalen of het op de GPS-locatie regent.
+  if(truth){
+    if(truth.temperature != null) cur.temperature_2m = Number(truth.temperature);
+    if(truth.apparentTemperature != null) cur.apparent_temperature = Number(truth.apparentTemperature);
+    if(truth.humidity != null) cur.relative_humidity_2m = Number(truth.humidity);
+    if(truth.cloudCover != null) cur.cloud_cover = Number(truth.cloudCover);
+    if(truth.windSpeed != null) cur.wind_speed_10m = Number(truth.windSpeed);
+    if(truth.windGusts != null) cur.wind_gusts_10m = Number(truth.windGusts);
+  }
+
   const obs = state.observation;
   if(obs){
     ['temperature_2m','dew_point_2m','wind_direction_10m','wind_speed_10m','pressure_msl'].forEach(k=>{
       if(obs[k] != null) cur[k] = obs[k];
     });
-    if(obs.weather_code != null) cur.weather_code = obs.weather_code;
+    if(obs.weather_code != null && !truth) cur.weather_code = obs.weather_code;
   }
+
+  if(truth){
+    const truthMm = Math.max(0, Number(truth?.precipitation?.now) || 0);
+    cur.precipitation = truth.isRaining ? truthMm : 0;
+    cur.rain = truth.isRaining ? truthMm : 0;
+    cur.showers = truth.isRaining ? truthMm : 0;
+    cur.weather_code = truthWeatherCode(truth, cur.weather_code);
+    cur._wheaterflowFusion = truth;
+  }
+
   cur.weather_code = effectiveCurrentWeatherCode(cur);
   return cur;
 }
 
 function precipitationSignal(cur=state.current || {}){
-  const signal = {now:0, soon:0, pop:0, thunder:false, radarNow:false, observationWet:false, observationDry:false};
+  const signal = {
+    now:0,
+    soon:0,
+    pop:0,
+    thunder:false,
+    radarNow:false,
+    radarDry:false,
+    observationWet:false,
+    observationDry:false,
+    serverTruth:false,
+    nearby:false,
+    nearestEchoKm:null,
+    confidence:null
+  };
 
-  // Open-Meteo `current` blijft een modelanalyse. Behandel minutely_15 nooit als
-  // een actuele meting; die data is uitsluitend een korte-termijnvoorspelling.
+  // Open-Meteo `current` blijft een modelanalyse. minutely_15 is uitsluitend
+  // toekomstdata en mag nooit zelfstandig "regen nu" bewijzen.
   const snapshotPrecip = Number(cur?.precipitation) || 0;
   const snapshotRain = Number(cur?.rain) || 0;
   const snapshotShowers = Number(cur?.showers) || 0;
   const currentPrecip = Number(state.current?.precipitation) || 0;
   const currentRain = Number(state.current?.rain) || 0;
   const currentShowers = Number(state.current?.showers) || 0;
-  const modelNow = Math.max(snapshotPrecip, snapshotRain, snapshotShowers, currentPrecip, currentRain, currentShowers);
+  const modelNow = Math.max(
+    snapshotPrecip,
+    snapshotRain,
+    snapshotShowers,
+    currentPrecip,
+    currentRain,
+    currentShowers
+  );
 
   const obs = state.observation;
   const obsAgeMs = obs?.time ? Date.now() - Number(obs.time) : Infinity;
   const obsFresh = Boolean(
     obs &&
     Number.isFinite(Number(obs.weather_code)) &&
-    Number(obs.distanceKm) <= 45 &&
-    obsAgeMs >= 0 && obsAgeMs <= 60*60*1000
+    Number(obs.distanceKm) <= 25 &&
+    obsAgeMs >= 0 &&
+    obsAgeMs <= 60*60*1000
   );
   const wetObsCodes = [51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99];
   signal.observationWet = obsFresh && wetObsCodes.includes(Number(obs.weather_code));
   signal.observationDry = obsFresh && !signal.observationWet;
 
-  // Een verse, nabije droge waarneming mag een heel zwak modelregensignaal
-  // tegenhouden. Een sterk modelsignaal (>=1 mm/u) blijft staan omdat een lokale
-  // bui tussen station en gebruiker mogelijk is.
   if(signal.observationWet){
     signal.now = Math.max(modelNow, 0.2);
   }else if(!signal.observationDry || modelNow >= 1.0){
     signal.now = Math.max(signal.now, modelNow);
   }
+
   signal.soon = Math.max(signal.soon, modelNow);
 
   const targetMs = Date.now();
+
   if(state.minutely?.time?.length){
     const idx = closestIndex(state.minutely.time, targetMs);
     const minuteAge = Math.abs(new Date(state.minutely.time[idx]).getTime() - targetMs) / 60000;
+
     if(minuteAge <= 35){
-      // mm per kwartier -> mm/u, maar ALLEEN als toekomstsignaal.
-      const slots = state.minutely.precipitation.slice(idx, idx + 4).map(v=>(Number(v) || 0) * 4);
+      const slots = state.minutely.precipitation
+        .slice(idx, idx + 4)
+        .map(v=>(Number(v) || 0) * 4);
+
       signal.soon = Math.max(signal.soon, ...slots);
+
       const codes = state.minutely.weather_code?.slice(idx, idx + 4) || [];
       signal.thunder = codes.some(c=>[95,96,99].includes(Number(c)));
     }
@@ -948,21 +1141,80 @@ function precipitationSignal(cur=state.current || {}){
     const nextPrecip = Number(state.hourly.precipitation?.[idx + 1]) || 0;
     signal.soon = Math.max(signal.soon, hourPrecip, nextPrecip);
     signal.pop = Number(state.hourly.precipitation_probability?.[idx]) || 0;
-    signal.thunder = signal.thunder || [95,96,99].includes(Number(state.hourly.weather_code?.[idx]));
+    signal.thunder =
+      signal.thunder ||
+      [95,96,99].includes(Number(state.hourly.weather_code?.[idx]));
   }
 
-  // Verse live radar mag 'regen nu' bevestigen wanneer echo's echt boven de
-  // gebruiker liggen. De radar bepaalt hier OF het regent, niet exact hoeveel.
+  // Bestaande lokale radar-engine blijft nuttig voor richting/ETA.
   const rp = state.radar?.proximity;
-  const radarFresh = rp && Date.now() - Number(rp.checkedAt || 0) < 10*60*1000;
+  const radarFresh =
+    rp &&
+    Date.now() - Number(rp.checkedAt || 0) < 10*60*1000;
+
   if(radarFresh){
     signal.radarDistanceKm = Number(rp.distanceKm);
     signal.radarLevel = rp.localIntensity || rp.intensity || 'light';
-    signal.radarNow = Boolean(rp.atLocation || (Number.isFinite(signal.radarDistanceKm) && signal.radarDistanceKm <= 4));
+    signal.radarNow = Boolean(
+      rp.atLocation ||
+      (
+        Number.isFinite(signal.radarDistanceKm) &&
+        signal.radarDistanceKm <= 4
+      )
+    );
+    signal.radarDry =
+      Boolean(rp.dryAtLocation) ||
+      (
+        !signal.radarNow &&
+        (
+          !Number.isFinite(signal.radarDistanceKm) ||
+          signal.radarDistanceKm > 4
+        )
+      );
+
     if(signal.radarNow){
-      const radarMm = 0.2;
-      signal.now = Math.max(signal.now, radarMm);
-      signal.soon = Math.max(signal.soon, radarMm);
+      signal.now = Math.max(signal.now, 0.2);
+      signal.soon = Math.max(signal.soon, 0.2);
+    }
+
+    if(signal.radarDry && signal.observationDry && !signal.observationWet){
+      signal.now = 0;
+    }
+  }
+
+  /*
+   * CENTRALE WAARHEID:
+   * Wanneer de server-Fusion vers beschikbaar is, bepaalt die definitief
+   * of het NU regent. Modellen blijven alleen voor "straks" meetellen.
+   */
+  const truth = currentConditionsTruth();
+
+  if(truth){
+    signal.serverTruth = true;
+    signal.confidence = Number(truth.confidence);
+    signal.nearby = Boolean(truth?.precipitation?.nearby);
+    signal.nearestEchoKm = Number.isFinite(Number(truth?.precipitation?.nearestEchoKm))
+      ? Number(truth.precipitation.nearestEchoKm)
+      : null;
+
+    if(truth?.radar?.available){
+      signal.radarDry = !truth.isRaining;
+      signal.radarNow = Boolean(truth.isRaining);
+    }
+
+    const truthModelValue = Math.max(
+      0,
+      Number(truth?.precipitation?.modelValue) || 0
+    );
+    signal.soon = Math.max(signal.soon, truthModelValue);
+
+    if(truth.isRaining){
+      signal.now = Math.max(
+        0.2,
+        Number(truth?.precipitation?.now) || 0
+      );
+    }else{
+      signal.now = 0;
     }
   }
 
@@ -972,6 +1224,13 @@ function precipitationSignal(cur=state.current || {}){
 
 function effectiveCurrentWeatherCode(cur=state.current || {}){
   const code = Number(cur.weather_code);
+  const truth = currentConditionsTruth();
+
+  // Als de server-Fusion vers is, is dit de centrale actuele toestand.
+  if(truth){
+    return truthWeatherCode(truth, code);
+  }
+
   const drizzleCodes = [51,53,55,56,57];
   const rainCodes = [61,63,65,66,67,80,81,82];
   const snowCodes = [71,73,75,77,85,86];
@@ -987,10 +1246,12 @@ function effectiveCurrentWeatherCode(cur=state.current || {}){
   if(p.now >= 2.0) return 63;
   if(p.now >= 0.1) return 61;
 
-  // Een model-weather_code met regen mag zonder actuele regenbevestiging niet
-  // langer 'Lichte regen' op Home zetten. Val terug op de bewolkingsgraad.
   if(drizzleCodes.includes(code) || rainCodes.includes(code) || [95,96,99].includes(code)){
-    const cloud = Number(cur.cloud_cover ?? state.current?.cloud_cover ?? state.hourly?.cloud_cover?.[nowIndexInHourly()]);
+    const cloud = Number(
+      cur.cloud_cover ??
+      state.current?.cloud_cover ??
+      state.hourly?.cloud_cover?.[nowIndexInHourly()]
+    );
     if(Number.isFinite(cloud)){
       if(cloud >= 85) return 3;
       if(cloud >= 45) return 2;
@@ -999,6 +1260,7 @@ function effectiveCurrentWeatherCode(cur=state.current || {}){
     }
     return 0;
   }
+
   return Number.isFinite(code) ? code : 0;
 }
 
@@ -2020,6 +2282,7 @@ async function loadWeather(){
     state.tz = d.timezone; state.utcOffsetSec = d.utc_offset_seconds;
     state.lastUpdated = Date.now();
 const optionalResults = await Promise.allSettled([
+  loadCurrentConditionsTruth({force:true}),
   loadCurrentObservation(),
   loadMarine(),
   loadAirQuality(),
@@ -2033,6 +2296,7 @@ const optionalResults = await Promise.allSettled([
       if(result.status === 'rejected'){
 console.warn(
   [
+    'Current Conditions Fusion',
     'METAR',
     'Marine',
     'Luchtkwaliteit',
@@ -2216,14 +2480,29 @@ function calculateRainEtaRaw(){
  * current-data en de meest recente minutely-data.
  */
 const currentSignal = precipitationSignal(liveWeatherSnapshot());
+const truth = currentConditionsTruth();
 
 const rainingNow = currentSignal.now >= 0.1;
 
 /*
  * minutely_15 is forecastdata: het eerste forecastslot mag niet zelfstandig
- * bewijzen dat het nu regent. Zoek bij droog weer pas naar een echt toekomstslot.
+ * bewijzen dat het nu regent.
+ *
+ * Wanneer de server-Fusion met verse radar expliciet zegt dat de locatie droog
+ * is, accepteren we geen model-ETA in de eerste 30 minuten zonder aanvullende
+ * radarondersteuning. Dat voorkomt 'regen over 5 min' terwijl de live radar
+ * boven de gebruiker nog droog is.
  */
-const firstWetFromForecast = slots.find(s => s.wet && Number(s.minutes) >= 5);
+const serverRadarDry = Boolean(
+  truth &&
+  truth?.radar?.available &&
+  !truth.isRaining
+);
+
+const firstForecastMinute = serverRadarDry ? 30 : 5;
+const firstWetFromForecast = slots.find(
+  s => s.wet && Number(s.minutes) >= firstForecastMinute
+);
 
 const firstWet = rainingNow
   ? {
@@ -2322,7 +2601,23 @@ output.endsInMinutes =
   output.confidence = radarApproaching && !firstWet ? Math.max(.62, confidence) : confidence;
   output.heavyShower = heavyShower;
   output.thunderPossible = thunderPossible;
-  output.source = radarApproaching ? 'RainViewer radar + Open-Meteo minutely_15 + Wheaterflow intelligence' : 'Open-Meteo minutely_15 + Wheaterflow intelligence';
+  output.source = truth
+    ? 'Wheaterflow Current Conditions Fusion + radar + korte-termijnverwachting'
+    : (
+        radarApproaching
+          ? 'RainViewer radar + Open-Meteo minutely_15 + Wheaterflow intelligence'
+          : 'Open-Meteo minutely_15 + Wheaterflow intelligence'
+      );
+  output.serverTruth = truth
+    ? {
+        isRaining:Boolean(truth.isRaining),
+        confidence:Number(truth.confidence),
+        nearby:Boolean(truth?.precipitation?.nearby),
+        nearestEchoKm:Number.isFinite(Number(truth?.precipitation?.nearestEchoKm))
+          ? Number(truth.precipitation.nearestEchoKm)
+          : null
+      }
+    : null;
   output.slots = slots.map(s=>({time:s.time.toISOString(), minutes:s.minutes, precipitation:s.precipitation, wet:s.wet, weatherCode:s.weatherCode}));
 
   if(output.status === 'raining'){
@@ -2337,7 +2632,15 @@ output.endsInMinutes =
       : `${intensity.label}. Aankomst over ${range}, waarschijnlijk ${rainDurationText(output)}.`;
   }else{
     output.title = 'Droog';
-    output.summary = `Minstens ${output.dryWindowMinutes} minuten geen regen verwacht.`;
+    if(
+      truth?.precipitation?.nearby &&
+      Number.isFinite(Number(truth?.precipitation?.nearestEchoKm))
+    ){
+      const km = Math.max(1, Math.round(Number(truth.precipitation.nearestEchoKm)));
+      output.summary = `Het is nu droog op jouw locatie. De radar ziet neerslag op ongeveer ${km} km afstand.`;
+    }else{
+      output.summary = `Minstens ${output.dryWindowMinutes} minuten geen regen verwacht.`;
+    }
   }
   if(thunderPossible) output.summary += ' Onweer mogelijk.';
   return output;
@@ -2396,7 +2699,8 @@ function rainEtaReliabilityText(rain=nowcastEngine()){
 
 function nowcastEngine(){
   const radarStamp=Number(state.radar?.proximity?.checkedAt||0);
-  const key=`${state.lastUpdated||0}:${radarStamp}:${state.loc?.lat}:${state.loc?.lon}`;
+  const truthStamp=Number(state.currentTruth?.fetchedAt||0);
+  const key=`${state.lastUpdated||0}:${radarStamp}:${truthStamp}:${state.loc?.lat}:${state.loc?.lon}`;
   if(state.rainEta?.cacheKey===key) return state.rainEta;
   const eta=calculateRainEtaRaw();
   eta.cacheKey=key;
@@ -2864,6 +3168,7 @@ function nowcastText(){
 
 function rainNowcastCard(){
   const rain = nowcastEngine();
+  const truth = currentConditionsTruth();
   const slots = Array.isArray(rain?.slots)
     ? rain.slots.filter(slot=>slot && Number.isFinite(Number(slot.precipitation)) && Number(slot.minutes) <= 120)
     : [];
@@ -2924,6 +3229,17 @@ function rainNowcastCard(){
         label:'REGEN ROND',
         main:`~${Math.max(0,Math.round(Number(rain.startsInMinutes)))} min`,
         sub:`Rond ${formatShortTime(rain.startTime)}`
+      };
+    }
+    if(
+      truth?.precipitation?.nearby &&
+      Number.isFinite(Number(truth?.precipitation?.nearestEchoKm))
+    ){
+      const km = Math.max(1, Math.round(Number(truth.precipitation.nearestEchoKm)));
+      return {
+        label:'NEERSLAG IN OMGEVING',
+        main:`~${km} km`,
+        sub:'Nu droog op jouw locatie'
       };
     }
     return {label:'GEEN REGEN VERWACHT', main:'Komende 2 uur', sub:''};
@@ -3027,10 +3343,18 @@ function weatherHeroLine(cur, rain){
   const parts = [];
   if(wx.feelsLike != null) parts.push(`Voelt als ${fmtTemp(wx.feelsLike)}`);
   const central = rain || wx.rainEta;
+
   if(central?.status === 'raining' || central?.status === 'rain_soon'){
     const eta = centralRainEtaText(central, {short:true});
     if(eta) parts.push(eta);
+  }else{
+    const truth = currentConditionsTruth();
+    const km = Number(truth?.precipitation?.nearestEchoKm);
+    if(truth?.precipitation?.nearby && Number.isFinite(km)){
+      parts.push(`Neerslag op ±${Math.max(1,Math.round(km))} km`);
+    }
   }
+
   return parts.join(' · ');
 }
 
@@ -3093,8 +3417,19 @@ function weatherTrendSummary(){
     const when = rain.startTime ? formatShortTime(rain.startTime) : null;
     sentences.push(when ? `Vanaf ongeveer ${when} neemt de kans op regen duidelijk toe.` : 'Binnenkort neemt de kans op regen duidelijk toe.');
   }else{
-    const model = modelRainSignalWithin(2);
-    sentences.push(model.elevated ? 'Het is nu droog, maar later in de komende twee uur neemt de kans op regen toe.' : 'Het blijft volgens de actuele radar de komende twee uur waarschijnlijk droog.');
+    const truth = currentConditionsTruth();
+    const km = Number(truth?.precipitation?.nearestEchoKm);
+
+    if(truth?.precipitation?.nearby && Number.isFinite(km)){
+      sentences.push(`Het is nu droog op jouw locatie; de radar ziet neerslag op ongeveer ${Math.max(1,Math.round(km))} km afstand.`);
+    }else{
+      const model = modelRainSignalWithin(2);
+      sentences.push(
+        model.elevated
+          ? 'Het is nu droog, maar later in de komende twee uur neemt de kans op regen toe.'
+          : 'Het blijft volgens de actuele radar de komende twee uur waarschijnlijk droog.'
+      );
+    }
   }
 
   const futureTemps=[];
@@ -3424,7 +3759,14 @@ function renderHome(){
   const intel = weatherIntelligence();
   const rain = intel.rain;
   const todayMax = daily.temperature_2m_max[0], todayMin = daily.temperature_2m_min[0];
-  const currentSource = state.observation ? `${state.observation.source} - ${Math.round(state.observation.distanceKm)} km` : 'Harmonie (Benelux)';
+  const truth = currentConditionsTruth();
+  const currentSource = truth
+    ? 'Wheaterflow Fusion'
+    : (
+        state.observation
+          ? `${state.observation.source} - ${Math.round(state.observation.distanceKm)} km`
+          : 'Harmonie (Benelux)'
+      );
 
   applyWeatherBG(cur.weather_code, isDay, cur.cloud_cover);
 
@@ -3435,7 +3777,7 @@ function renderHome(){
     <div class="bignum display">${fmtTemp(cur.temperature_2m)}</div>
     <div class="cond">${wc.l}</div>
     <div class="hilo">${esc(weatherHeroLine(cur, rain))}</div>
-    <div class="updated"><span id="updatedText">Zojuist bijgewerkt</span>${state.loc.admin ? ' · ' + esc(state.loc.admin) : ''} · Model: ${esc(currentSource)}</div>
+    <div class="updated"><span id="updatedText">Zojuist bijgewerkt</span>${state.loc.admin ? ' · ' + esc(state.loc.admin) : ''} · ${truth ? 'Bron' : 'Model'}: ${esc(currentSource)}</div>
   </div>`;
 
 html += wheaterflowAdminAlertsCard();
@@ -8225,7 +8567,25 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       if(local && (!best || local.distPx<best.distPx)) best=local;
       if(near && (!nearUserBest || near.rank>nearUserBest.rank)) nearUserBest=near;
     }
-    if(!best){ state.radar.proximity=null; return null; }
+    if(!best){
+      // Belangrijk: geen echo gevonden is óók bruikbare live informatie.
+      // Bewaar dit als een expliciete droge radarwaarneming in plaats van null,
+      // zodat een regenachtig weermodel Home niet onterecht op 'regen nu' zet.
+      const dryProximity = {
+        distanceKm:null,
+        etaMinutes:null,
+        bearing:null,
+        upwind:false,
+        frameTime:latest.time*1000,
+        checkedAt:Date.now(),
+        intensity:null,
+        localIntensity:null,
+        atLocation:false,
+        dryAtLocation:true
+      };
+      state.radar.proximity=dryProximity;
+      return dryProximity;
+    }
     const distanceKm=best.distPx*groundMPerPx/1000;
     const bearing=radarBearingFromPixel(best.dx,best.dy);
     const windFrom=Number(state.current?.wind_direction_10m);
@@ -9608,3 +9968,89 @@ function forecastDayDetailCard(i){
 function openForecastDayDetail(i){ document.querySelector('.forecast-day-sheet-backdrop')?.remove(); document.body.insertAdjacentHTML('beforeend',forecastDayDetailCard(i)); }
 document.addEventListener('click',e=>{ const row=e.target.closest?.('.daily-row[data-day-index]'); if(row){ openForecastDayDetail(Number(row.dataset.dayIndex)); return; } if(e.target.matches?.('[data-close-day-detail]')) document.querySelector('.forecast-day-sheet-backdrop')?.remove(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelector('.forecast-day-sheet-backdrop')?.remove(); if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('.daily-row[data-day-index]')){e.preventDefault();openForecastDayDetail(Number(e.target.dataset.dayIndex));} });
+
+/* =====================================================================
+   2026-09-12 — visual viewport/orientation hardening v17
+   iOS can keep the old landscape layout viewport for a short time after
+   rotating back to portrait. A `bottom:` fixed bar can then appear halfway
+   up the screen. Position it from the actual visual viewport instead.
+   ===================================================================== */
+(() => {
+  const root = document.documentElement;
+  let frame = 0;
+  let timers = [];
+
+  const viewportCandidates = () => {
+    const vv = window.visualViewport;
+    return [
+      Number(vv?.height) || 0,
+      Number(window.innerHeight) || 0,
+      Number(document.documentElement?.clientHeight) || 0
+    ].filter(v => Number.isFinite(v) && v > 120);
+  };
+
+  const sync = () => {
+    frame = 0;
+    const vv = window.visualViewport;
+    const candidates = viewportCandidates();
+    if(!candidates.length) return;
+
+    // During the brief stale period after a rotation, one API may still report
+    // the previous orientation. In portrait the real height is the largest
+    // candidate; in landscape it is the smallest. This avoids the exact
+    // mid-screen navbar failure seen on iOS.
+    const portrait = window.matchMedia?.('(orientation: portrait)')?.matches ?? (window.innerHeight >= window.innerWidth);
+    const height = portrait ? Math.max(...candidates) : Math.min(...candidates);
+    const top = Number(vv?.offsetTop) || 0;
+
+    root.style.setProperty('--wf-vv-height', `${Math.round(height * 100) / 100}px`);
+    root.style.setProperty('--wf-vv-top', `${Math.round(top * 100) / 100}px`);
+
+    const bar = document.querySelector('.tabbar');
+    if(bar){
+      // Measure after CSS/media-query changes for the new orientation.
+      const h = Math.max(1, bar.getBoundingClientRect().height || bar.offsetHeight || 78);
+      root.style.setProperty('--wf-tabbar-height', `${Math.ceil(h)}px`);
+      // Force a WebKit layout read so the new fixed geometry is committed now.
+      void bar.offsetTop;
+    }
+
+    // Maps/charts also need a fresh layout after a rotation.
+    if(state?.activeTab === 'radarscreen'){
+      try { refreshRadarLayout(); } catch (_) {}
+    }
+    if(state?.community?.view === 'map'){
+      try { state.community.map?.invalidateSize?.({pan:false}); } catch (_) {}
+    }
+  };
+
+  const requestSync = () => {
+    if(frame) cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => requestAnimationFrame(sync));
+  };
+
+  const settleAfterRotation = () => {
+    timers.forEach(clearTimeout);
+    timers = [];
+    requestSync();
+    // iOS updates visualViewport/layoutViewport in stages; keep rechecking
+    // through the full settling window instead of trusting one resize event.
+    [40, 120, 260, 500, 850, 1300].forEach(ms => timers.push(setTimeout(requestSync, ms)));
+  };
+
+  window.addEventListener('resize', requestSync, {passive:true});
+  window.addEventListener('orientationchange', settleAfterRotation, {passive:true});
+  window.visualViewport?.addEventListener('resize', requestSync, {passive:true});
+  window.visualViewport?.addEventListener('scroll', requestSync, {passive:true});
+  screen.orientation?.addEventListener?.('change', settleAfterRotation);
+  window.addEventListener('pageshow', settleAfterRotation, {passive:true});
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') settleAfterRotation();
+  });
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', settleAfterRotation, {once:true});
+  }else{
+    settleAfterRotation();
+  }
+})();
