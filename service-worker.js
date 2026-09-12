@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260912-fusion-everywhere-v20";
+const CACHE_VERSION = "wheaterflow-v20260912-fusion-nearby-v21";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

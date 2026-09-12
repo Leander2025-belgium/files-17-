@@ -864,6 +864,23 @@ function currentConditionsTruth({maxAgeMs=CURRENT_CONDITIONS_MAX_AGE_MS}={}){
   return holder.data;
 }
 
+function truthImmediateVicinity(truth=currentConditionsTruth()){
+  if(!truth || truth.isRaining) return false;
+  if(truth?.precipitation?.immediateVicinity === true) return true;
+  if(truth?.radar?.immediateVicinityDetected === true) return true;
+
+  // Compatibiliteit met Fusion V2: herken dezelfde tussenzone lokaal wanneer
+  // de server nog net geen expliciete V3-vlag meestuurt.
+  const km = Number(truth?.precipitation?.nearestEchoKm ?? truth?.radar?.nearestEchoKm);
+  const localWet = Number(truth?.radar?.localWetFraction);
+  return Boolean(
+    truth?.radar?.available &&
+    truth?.precipitation?.nearby &&
+    Number.isFinite(km) && km <= 3 &&
+    Number.isFinite(localWet) && localWet >= 0.025
+  );
+}
+
 function truthSourceWeatherCode(truth){
   const candidates = [
     truth?.sources?.bestMatch?.weatherCode,
@@ -3178,6 +3195,7 @@ function nowcastText(){
 function rainNowcastCard(){
   const rain = nowcastEngine();
   const truth = currentConditionsTruth();
+  const immediateVicinity = truthImmediateVicinity(truth);
   const slots = Array.isArray(rain?.slots)
     ? rain.slots.filter(slot=>slot && Number.isFinite(Number(slot.precipitation)) && Number(slot.minutes) <= 120)
     : [];
@@ -3245,11 +3263,17 @@ function rainNowcastCard(){
       Number.isFinite(Number(truth?.precipitation?.nearestEchoKm))
     ){
       const km = Math.max(1, Math.round(Number(truth.precipitation.nearestEchoKm)));
-      return {
-        label:'NEERSLAG IN OMGEVING',
-        main:`~${km} km`,
-        sub:'Nu droog op jouw locatie'
-      };
+      return immediateVicinity
+        ? {
+            label:'REGEN VLAKBIJ',
+            main:`~${km} km`,
+            sub:'Radar raakt de directe omgeving'
+          }
+        : {
+            label:'NEERSLAG IN OMGEVING',
+            main:`~${km} km`,
+            sub:'Nu droog op jouw locatie'
+          };
     }
     return {label:'GEEN REGEN VERWACHT', main:'Komende 2 uur', sub:''};
   })();
@@ -3297,8 +3321,17 @@ function rainNowcastCard(){
   }
 
   const rainIcon = (name, cls='') => `<img src="./assets/ui/rain/${name}.png?v=20260912-rain-icons-v16" alt="" aria-hidden="true" class="rain-3d-icon ${cls}"/>`;
-  const statusIcon = rainingNow ? rainIcon('01-regen','rain-status-icon') : rainIcon('02-droog','rain-status-icon');
-  const statusText = rainingNow ? 'Het regent nu' : 'Droog';
+  const statusIcon = (rainingNow || immediateVicinity)
+    ? rainIcon('01-regen','rain-status-icon')
+    : rainIcon('02-droog','rain-status-icon');
+  const statusText = rainingNow
+    ? 'Het regent nu'
+    : immediateVicinity
+      ? 'Regen vlakbij'
+      : 'Droog';
+  const displayedIntensity = immediateVicinity && !rainingNow
+    ? {id:'nearby', label:'Niet bevestigd op locatie'}
+    : intensity;
   const intensityIcon = rainIcon('03-intensiteit','rain-metric-icon');
 
   if(!rain || rain.status === 'unavailable'){
@@ -3321,7 +3354,7 @@ function rainNowcastCard(){
         <div class="rain-main-card-icon">${intensityIcon}</div>
         <div class="rain-main-card-copy">
           <small>INTENSITEIT</small>
-          <strong>${esc(intensity.label)}</strong>
+          <strong>${esc(displayedIntensity.label)}</strong>
           <span>${currentMm.toFixed(1)} mm/u</span>
         </div>
       </div>
@@ -3360,7 +3393,11 @@ function weatherHeroLine(cur, rain){
     const truth = currentConditionsTruth();
     const km = Number(truth?.precipitation?.nearestEchoKm);
     if(truth?.precipitation?.nearby && Number.isFinite(km)){
-      parts.push(`Neerslag op ±${Math.max(1,Math.round(km))} km`);
+      parts.push(
+        truthImmediateVicinity(truth)
+          ? `Radarneerslag vlakbij · ±${Math.max(1,Math.round(km))} km`
+          : `Neerslag op ±${Math.max(1,Math.round(km))} km`
+      );
     }
   }
 
@@ -3430,7 +3467,11 @@ function weatherTrendSummary(){
     const km = Number(truth?.precipitation?.nearestEchoKm);
 
     if(truth?.precipitation?.nearby && Number.isFinite(km)){
-      sentences.push(`Voorlopig droog op jouw locatie. De radar ziet neerslag op ongeveer ${Math.max(1,Math.round(km))} km afstand.`);
+      if(truthImmediateVicinity(truth)){
+        sentences.push(`Radarneerslag ligt vlak naast jouw locatie, op ongeveer ${Math.max(1,Math.round(km))} km. Op het exacte punt is regen nog niet bevestigd, maar de situatie kan snel veranderen.`);
+      }else{
+        sentences.push(`Voorlopig droog op jouw locatie. De radar ziet neerslag op ongeveer ${Math.max(1,Math.round(km))} km afstand.`);
+      }
     }else{
       const model = modelRainSignalWithin(2);
       sentences.push(
@@ -3772,6 +3813,9 @@ function renderHome(){
   const rain = intel.rain;
   const todayMax = daily.temperature_2m_max[0], todayMin = daily.temperature_2m_min[0];
   const truth = currentConditionsTruth();
+  const currentConditionLabel = truthImmediateVicinity(truth)
+    ? (truth?.condition?.label || 'Regen vlakbij')
+    : (truth?.condition?.label || wc.l);
   const currentSource = truth
     ? 'Wheaterflow Fusion'
     : (
@@ -3787,7 +3831,7 @@ function renderHome(){
     <div class="hero-kicker">MIJN LOCATIE</div>
     <div class="locname">${esc(locationDisplayName('Locatie bepalen...'))}</div>
     <div class="bignum display">${fmtTemp(cur.temperature_2m)}</div>
-    <div class="cond">${wc.l}</div>
+    <div class="cond">${esc(currentConditionLabel)}</div>
     <div class="hilo">${esc(weatherHeroLine(cur, rain))}</div>
     <div class="updated"><span id="updatedText">Zojuist bijgewerkt</span>${state.loc.admin ? ' · ' + esc(state.loc.admin) : ''} · ${truth ? 'Bron' : 'Model'}: ${esc(currentSource)}</div>
   </div>`;
