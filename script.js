@@ -8712,23 +8712,28 @@ function updateRadarLocationUi(){
 async function loadRadarFrames(keepFrame=false){
   updateRadarLocationUi();
   if(state.radar.layer === 'precip'){
-    try{
-      rainviewerMeta = await fetchRainviewerMeta();
+    const [rainResult] = await Promise.allSettled([
+      fetchRainviewerMeta(),
+      loadWfSmartRadarMeta(true)
+    ]);
+
+    if(rainResult.status === 'fulfilled'){
+      rainviewerMeta = rainResult.value;
       refreshRadarProximity(rainviewerMeta).then(()=>{ try{ renderHome(); updateRadarLocationUi(); }catch(_){} });
-      buildFrameList(keepFrame);
-    }catch(e){
-      console.error('RainViewer radarframes konden niet laden, worker-fallback wordt geprobeerd', e);
+    }else{
+      console.error('RainViewer radarframes konden niet laden; Smart Radar/fallback wordt gebruikt', rainResult.reason);
       rainviewerMeta = null;
-      buildFrameList(keepFrame);
     }
+
+    buildFrameList(keepFrame);
     return;
   }
   try{
     rainviewerMeta = await fetchRainviewerMeta();
     buildFrameList(keepFrame);
   }catch(e){
-    console.error('Satellietframes konden niet laden', e);
-    $('#timeline').innerHTML = '';
+    console.error('Satellietframes konden niet laden',e);
+    $('#timeline').innerHTML='';
     toast('Kaartdata kon niet geladen worden');
   }
 }
@@ -8741,26 +8746,158 @@ function isFreshRadarFrame(frame){
   const ageMinutes = (Date.now()/1000 - frame.time) / 60;
   return ageMinutes >= -10 && ageMinutes <= RADAR_MAX_AGE_MINUTES;
 }
+
+/* ============================================================
+   WF_SMART_RADAR_FRONTEND_V22
+   Wheaterflow toekomstige buienradar: gemeten RainViewer + eigen +2u nowcast.
+   ============================================================ */
+const WF_SMART_RADAR_API = 'https://api.wheaterflow.be/api/radar/smart';
+let wfSmartRadarMeta = null;
+let wfSmartRadarLastLoad = 0;
+
+async function loadWfSmartRadarMeta(force=false){
+  const now = Date.now();
+  if(!force && wfSmartRadarMeta && now - wfSmartRadarLastLoad < 120000){
+    return wfSmartRadarMeta;
+  }
+  try{
+    const response = await fetch(`${WF_SMART_RADAR_API}/meta?t=${now}`, {cache:'no-store'});
+    if(!response.ok) throw new Error(`Smart Radar HTTP ${response.status}`);
+    const meta = await response.json();
+    if(!meta || meta.status !== 'ok' || !Array.isArray(meta.forecastLeadsMinutes) || !Number(meta.latestSourceTime)){
+      throw new Error('Ongeldige Smart Radar metadata');
+    }
+    wfSmartRadarMeta = meta;
+    wfSmartRadarLastLoad = now;
+    return meta;
+  }catch(error){
+    console.warn('Smart Radar metadata niet beschikbaar:', error);
+    return wfSmartRadarMeta;
+  }
+}
+
+function wfSmartRadarFrames(){
+  const meta = wfSmartRadarMeta;
+  if(!meta) return [];
+  const baseTime = Number(meta.latestSourceTime);
+  if(!Number.isFinite(baseTime)) return [];
+  const ageMinutes = (Date.now()/1000 - baseTime) / 60;
+  // Geen oude voorspelling als actuele toekomst blijven tonen.
+  if(ageMinutes < -10 || ageMinutes > 25) return [];
+  const confidence = meta.confidence || {};
+  return meta.forecastLeadsMinutes
+    .map(Number)
+    .filter(lead => Number.isFinite(lead) && lead >= 0 && lead <= 120 && lead % 10 === 0)
+    .map(lead => ({
+      source:'wheaterflow-smart',
+      time:baseTime + lead*60,
+      leadMinutes:lead,
+      offset:lead,
+      confidence:Number(confidence[String(lead)] || 0),
+      isNow:lead === 0,
+      isNowcast:lead > 0,
+      smartRadar:true
+    }))
+    // Extreem lage vaardigheid niet als bruikbare +2u-radar verkopen.
+    .filter(frame => frame.leadMinutes === 0 || frame.confidence >= 0.15);
+}
+
+function wfSmartRadarTileUrl(frame){
+  const generation = wfSmartRadarMeta?.generatedAt || Date.now();
+  return `${WF_SMART_RADAR_API}/tiles/${Number(frame.leadMinutes||0)}/{z}/{x}/{y}.png?g=${generation}`;
+}
+
+function wfLeadLabel(minutes){
+  const lead = Number(minutes || 0);
+  if(lead <= 0) return 'Nu';
+  if(lead < 60) return `+${lead}m`;
+  const hours = Math.floor(lead/60);
+  const rest = lead % 60;
+  return rest ? `+${hours}u${String(rest).padStart(2,'0')}` : `+${hours}u`;
+}
+
+function wfConfidencePercent(value){
+  return Math.round(Math.max(0,Math.min(1,Number(value||0)))*100);
+}
+
+function wfRadarFrameTitle(frame){
+  if(!frame) return '';
+  const clock = new Date(Number(frame.time||0)*1000).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
+  if(frame.source === 'wheaterflow-smart' && frame.leadMinutes > 0){
+    return `${clock} · ${wfLeadLabel(frame.leadMinutes)} voorspelling · ${wfConfidencePercent(frame.confidence)}% modelvertrouwen`;
+  }
+  if(frame.isNow) return `${clock} · actuele radar`;
+  return `${clock} · gemeten radar`;
+}
+
+function nearestRainviewerNowcastUrl(frame){
+  if(!rainviewerMeta || !frame?.time) return '';
+  const candidates = rainviewerRadarFrames(rainviewerMeta).filter(x=>x.isNowcast);
+  if(!candidates.length) return '';
+  let best=null;
+  for(const candidate of candidates){
+    const diff=Math.abs(Number(candidate.time)-Number(frame.time));
+    if(!best || diff<best.diff) best={candidate,diff};
+  }
+  // Alleen als RainViewer ongeveer hetzelfde toekomstmoment heeft.
+  return best && best.diff <= 12*60 ? rainviewerTileUrl(best.candidate,'future-fallback') : '';
+}
+
+async function refreshWfSmartRadar(rebuild=true){
+  const before = wfSmartRadarMeta?.generatedAt || 0;
+  await loadWfSmartRadarMeta(true);
+  const after = wfSmartRadarMeta?.generatedAt || 0;
+  if(rebuild && state?.radar?.layer === 'precip' && typeof buildFrameList === 'function'){
+    const hasSmart = state.radar.frames?.some(frame=>frame.source==='wheaterflow-smart');
+    if(after !== before || !hasSmart) buildFrameList(true);
+  }
+  return wfSmartRadarMeta;
+}
+
 function currentFrameSet(){
   if(state.radar.layer === 'precip'){
-    if(!rainviewerMeta) return weatherflowRadarFrames();
-    const frames = rainviewerRadarFrames(rainviewerMeta);
-    const observed = frames.filter(f=>!f.isNowcast);
-    const latest = observed[observed.length - 1] || null;
-    return isFreshRadarFrame(latest) ? frames : weatherflowRadarFrames();
+    const smart = wfSmartRadarFrames();
+
+    if(!rainviewerMeta){
+      return smart.length ? smart : weatherflowRadarFrames();
+    }
+
+    const rainviewer = rainviewerRadarFrames(rainviewerMeta);
+    let observed = rainviewer.filter(frame=>!frame.isNowcast);
+    const latestObserved = observed[observed.length-1] || null;
+
+    if(!isFreshRadarFrame(latestObserved)){
+      return smart.length ? smart : weatherflowRadarFrames();
+    }
+
+    if(state.radar.duration === 1){
+      // Live radar: ongeveer één uur gemeten historie + maximaal twee uur vooruit.
+      const cutoff = Date.now()/1000 - 60*60;
+      observed = observed.filter(frame=>Number(frame.time)>=cutoff);
+    }
+
+    if(!smart.length){
+      // Eigen nowcast tijdelijk niet beschikbaar: RainViewer-nowcast blijft werken.
+      const nowcast = rainviewer.filter(frame=>frame.isNowcast);
+      return observed.concat(nowcast);
+    }
+
+    // Voor 'Nu' blijft de echte gemeten RainViewer-radar leidend.
+    // De eigen Smart Radar start pas bij +10 min en voorkomt dubbele NU-frames.
+    const future = smart.filter(frame=>frame.leadMinutes>0);
+    return observed.concat(future);
   }
+
   if(!rainviewerMeta) return [];
   if(state.radar.layer === 'satellite'){
     return (rainviewerMeta.satellite && rainviewerMeta.satellite.infrared) || [];
   }
   const past = (rainviewerMeta.radar && rainviewerMeta.radar.past) || [];
   const nowcast = (rainviewerMeta.radar && rainviewerMeta.radar.nowcast) || [];
-  let all = past.concat(nowcast.map(f=>({...f, isNowcast:true})));
+  let all = past.concat(nowcast.map(f=>({...f,isNowcast:true})));
   if(state.radar.duration === 1){
-    // "1 uur": alleen de meest recente ~60 minuten historie + de volledige prognose
-    const cutoff = (Date.now()/1000) - 60*60;
-    const recentPast = past.filter(f=>f.time >= cutoff);
-    all = recentPast.concat(nowcast.map(f=>({...f, isNowcast:true})));
+    const cutoff = Date.now()/1000 - 60*60;
+    all = past.filter(f=>f.time>=cutoff).concat(nowcast.map(f=>({...f,isNowcast:true})));
   }
   return all;
 }
@@ -8788,60 +8925,71 @@ function buildFrameList(keepFrame=false){
   setFrame(state.radar.index);
 }
 function renderTimeline(){
-  const tl = $('#timeline'); tl.innerHTML='';
-  const observedCount = state.radar.frames.filter(f=>!f.isNowcast).length;
-  tl.style.setProperty('--observed-count', observedCount || state.radar.frames.length);
-  tl.style.setProperty('--frame-count', state.radar.frames.length || 1);
-  const slider = $('#radarFrameSlider');
+  const tl=$('#timeline'); tl.innerHTML='';
+  const observedCount=state.radar.frames.filter(f=>!f.isNowcast).length;
+  tl.style.setProperty('--observed-count',observedCount||state.radar.frames.length);
+  tl.style.setProperty('--frame-count',state.radar.frames.length||1);
+  const slider=$('#radarFrameSlider');
   if(slider){
-    slider.max = String(Math.max(0, state.radar.frames.length - 1));
-    slider.value = String(state.radar.index);
+    slider.max=String(Math.max(0,state.radar.frames.length-1));
+    slider.value=String(state.radar.index);
   }
   state.radar.frames.forEach((f,i)=>{
-    const b = document.createElement('div');
-    b.className = 'tframe' + (f.isNowcast ? ' nowcast':'') + (f.isNow ? ' now':'') + (i===state.radar.index?' active':'');
-    const d = new Date(f.time*1000);
-    b.title = state.radar.layer === 'precip'
-      ? (f.source === 'rainviewer' ? d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`))
-      : d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast ? ' verwacht' : ' gemeten');
-    b.addEventListener('click', ()=>{ stopPlaying(); setFrame(i); });
+    const b=document.createElement('div');
+    b.className='tframe'+(f.isNowcast?' nowcast':'')+(f.isNow?' now':'')+(i===state.radar.index?' active':'');
+    b.title=wfRadarFrameTitle(f);
+    b.addEventListener('click',()=>{stopPlaying();setFrame(i);});
     tl.appendChild(b);
   });
 }
 function setFrame(i){
   if(!state.radar.frames.length || !state.map) return;
-  state.radar.index = i;
-  const f = state.radar.frames[i];
-  let url = '';
-  if(state.radar.layer === 'precip'){
-    url = f.source === 'rainviewer' ? rainviewerTileUrl(f) : weatherflowRadarTileUrl(f.offset);
-    if(f.source === 'rainviewer'){
+  state.radar.index=i;
+  const f=state.radar.frames[i];
+  if(!f) return;
+
+  let url='';
+  let fallbackUrl='';
+  if(state.radar.layer==='precip'){
+    if(f.source==='wheaterflow-smart'){
+      url=wfSmartRadarTileUrl(f);
+      fallbackUrl=nearestRainviewerNowcastUrl(f);
       clearOpenMeteoRadarLayer();
+    }else if(f.source==='rainviewer'){
+      url=rainviewerTileUrl(f);
+      clearOpenMeteoRadarLayer();
+      const minutesFromNow=(f.time*1000-Date.now())/60000;
+      if(!f.isNowcast){
+        const roundedOffset=Math.max(-120,Math.min(0,Math.round(minutesFromNow/10)*10));
+        fallbackUrl=weatherflowRadarTileUrl(roundedOffset);
+      }
     }else{
-      refreshOpenMeteoRadarLayer().catch(err=>console.warn('Open-Meteo radar fallback kon niet laden', err));
+      url=weatherflowRadarTileUrl(f.offset);
+      refreshOpenMeteoRadarLayer().catch(err=>console.warn('Open-Meteo radar fallback kon niet laden',err));
     }
   }else{
     clearOpenMeteoRadarLayer();
     if(!rainviewerMeta) return;
-    const host = rainviewerMeta.host;
-    url = `${host}${f.path}/256/{z}/{x}/{y}/0/0_0.png?rv=${f.time}-${Date.now()}`;
+    url=`${rainviewerMeta.host}${f.path}/256/{z}/{x}/{y}/0/0_0.png?rv=${f.time}-${Date.now()}`;
   }
-  if(!state.radar.animator) state.radar.animator = createRadarAnimator(state.map);
-  let fallbackUrl = '';
-  if(state.radar.layer === 'precip' && f.source === 'rainviewer'){
-    const minutesFromNow = (f.time * 1000 - Date.now()) / 60000;
-    const roundedOffset = Math.max(-120, Math.min(0, Math.round(minutesFromNow / 10) * 10));
-    fallbackUrl = weatherflowRadarTileUrl(roundedOffset);
+
+  if(!state.radar.animator) state.radar.animator=createRadarAnimator(state.map);
+  state.radar.animator.showFrame(url,state.radar.opacity,fallbackUrl);
+
+  const d=new Date(f.time*1000);
+  let label='';
+  if(state.radar.layer==='precip' && f.source==='wheaterflow-smart' && f.leadMinutes>0){
+    label=wfLeadLabel(f.leadMinutes);
+  }else if(state.radar.layer==='precip' && f.isNow){
+    label='Nu';
+  }else{
+    label=d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
   }
-  state.radar.animator.showFrame(url, state.radar.opacity, fallbackUrl);
-  const d = new Date(f.time*1000);
-  const label = state.radar.layer === 'precip'
-    ? (f.source === 'rainviewer' ? d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : (f.isNow ? 'Nu' : `${Math.abs(f.offset)} min geleden`))
-    : d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) + (f.isNowcast?' verwacht':'');
-  $('#timeLabel').textContent = label;
-  $('#radarNowBadge')?.classList.toggle('show', state.radar.layer === 'precip' && f.isNow);
-  if($('#radarFrameSlider')) $('#radarFrameSlider').value = String(i);
-  $$('.tframe').forEach((el,idx)=>el.classList.toggle('active', idx===i));
+  $('#timeLabel').textContent=label;
+  $('#timeLabel').title=wfRadarFrameTitle(f);
+  $('#radarNowBadge')?.classList.toggle('show',state.radar.layer==='precip'&&Boolean(f.isNow));
+  if($('#radarFrameSlider')) $('#radarFrameSlider').value=String(i);
+  $$('.tframe').forEach((el,idx)=>el.classList.toggle('active',idx===i));
 }
 function stopPlaying(){
   state.radar.playing = false;
@@ -10115,3 +10263,17 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySele
     settleAfterRotation();
   }
 })();
+
+
+/* WF_SMART_RADAR_AUTO_REFRESH_V22 */
+setTimeout(()=>{
+  if(document.hidden) return;
+  loadWfSmartRadarMeta(true).then(()=>{
+    if(state.radar.layer==='precip' && state.map) buildFrameList(true);
+  }).catch(error=>console.warn('Eerste Smart Radar refresh mislukt',error));
+},1500);
+
+setInterval(()=>{
+  if(document.hidden) return;
+  refreshWfSmartRadar(true).catch(error=>console.warn('Smart Radar refresh mislukt',error));
+},5*60*1000);

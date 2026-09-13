@@ -323,7 +323,7 @@
 <button class="chip" id="radarQuickLightning" type="button">Bliksem</button>
 </div>
 <div class="chip-row radar-duration-row" id="durationRow">
-<button class="chip active" data-dur="1">1 uur</button><button class="chip" data-dur="6">6 uur</button><button class="chip" data-dur="12">12 uur</button><button class="chip" data-dur="24">24 uur</button>
+<button class="chip active" data-dur="1">Radar +2u</button><button class="chip" data-dur="6">6 uur</button><button class="chip" data-dur="12">12 uur</button><button class="chip" data-dur="24">24 uur</button>
 </div>
 <div class="radar-utility-row"><button class="chip radar-compat-hidden" id="chipScheme" type="button"><span id="schemeLabel">Helder</span></button><button class="chip" id="chipLocate" type="button">Mijn locatie</button><button class="chip" id="radarFullscreen" type="button">Volledig scherm</button></div>
 <div aria-label="Professionele weerlagen" class="xweather-layerbar radar-hidden-layerbar" id="xweatherLayerBar"></div>
@@ -430,14 +430,13 @@
 </div>
 <input aria-label="Radartijdlijn" class="radar-frame-slider" id="radarFrameSlider" max="12" min="0" type="range" value="12"/>
 <div class="radar-axis">
-<span>-2u</span>
 <span>-1u</span>
 <span>Nu</span>
+<span>+1u</span>
+<span>+2u</span>
 </div>
 <div class="radar-note">
-            Wheaterflow radar: laatste 2 uur neerslag,
-            per 10 minuten. Beweeg de schuif om een frame
-            vast te zetten.
+            Wheaterflow radar: gemeten neerslag en een slimme verwachting tot 2 uur vooruit. Toekomstframes zijn voorspellingen, geen metingen.
           </div>
 </div>
 <div id="hourlyChartPanel">
@@ -1616,6 +1615,6 @@
 <script src="location-engine.js?v=20260911-location-i18n-v2"></script>
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260912-fusion-nearby-v21"></script>
+<script src="script.js?v=20260913-future-radar-v22"></script>
 </body>
 </html>
