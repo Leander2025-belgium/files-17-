@@ -8684,7 +8684,13 @@ function rainviewerRadarFrames(meta){
   return all.map(f=>({
     ...f,
     source:'rainviewer',
-    isNow:latestObservedTime != null && f.time === latestObservedTime && !f.isNowcast
+    isNow:latestObservedTime != null && f.time === latestObservedTime && !f.isNowcast,
+    // Bewaar ook de echte vooruitlooptijd van de native RainViewer-nowcast.
+    // Zo kan +10/+20/+30 duidelijk als voorspelling worden getoond en niet als
+    // een gemeten frame met enkel een kloktijd.
+    leadMinutes:f.isNowcast && latestObservedTime != null
+      ? Math.max(0,Math.round((Number(f.time)-Number(latestObservedTime))/60))
+      : 0
   }));
 }
 async function fetchLatestRainviewerRadarFrame(){
@@ -8748,7 +8754,7 @@ function isFreshRadarFrame(frame){
 }
 
 /* ============================================================
-   WF_SMART_RADAR_FRONTEND_V22
+   WF_SMART_RADAR_FRONTEND_V23_HYBRID
    Wheaterflow toekomstige buienradar: gemeten RainViewer + eigen +2u nowcast.
    ============================================================ */
 const WF_SMART_RADAR_API = 'https://api.wheaterflow.be/api/radar/smart';
@@ -8826,6 +8832,9 @@ function wfRadarFrameTitle(frame){
   if(frame.source === 'wheaterflow-smart' && frame.leadMinutes > 0){
     return `${clock} · ${wfLeadLabel(frame.leadMinutes)} voorspelling · ${wfConfidencePercent(frame.confidence)}% modelvertrouwen`;
   }
+  if(frame.source === 'rainviewer' && frame.isNowcast){
+    return `${clock} · ${wfLeadLabel(frame.leadMinutes)} RainViewer-nowcast`;
+  }
   if(frame.isNow) return `${clock} · actuele radar`;
   return `${clock} · gemeten radar`;
 }
@@ -8876,16 +8885,31 @@ function currentFrameSet(){
       observed = observed.filter(frame=>Number(frame.time)>=cutoff);
     }
 
+    const nativeNowcast = rainviewer
+      .filter(frame=>frame.isNowcast)
+      .filter(frame=>!latestObserved || Number(frame.time)>Number(latestObserved.time))
+      .sort((a,b)=>Number(a.time)-Number(b.time));
+
     if(!smart.length){
-      // Eigen nowcast tijdelijk niet beschikbaar: RainViewer-nowcast blijft werken.
-      const nowcast = rainviewer.filter(frame=>frame.isNowcast);
-      return observed.concat(nowcast);
+      // Eigen nowcast tijdelijk niet beschikbaar: gebruik de native RainViewer-
+      // toekomstframes. Die bevatten echte bewegingsinformatie en zijn vooral
+      // voor de eerste tientallen minuten betrouwbaarder dan een simpele extrapolatie.
+      return observed.concat(nativeNowcast);
     }
 
-    // Voor 'Nu' blijft de echte gemeten RainViewer-radar leidend.
-    // De eigen Smart Radar start pas bij +10 min en voorkomt dubbele NU-frames.
-    const future = smart.filter(frame=>frame.leadMinutes>0);
-    return observed.concat(future);
+    // HYBRIDE TOEKOMSTRADAR:
+    // 1) Nu + historie = gemeten RainViewer.
+    // 2) De eerste toekomstminuten = native RainViewer-nowcast (dus +30 beweegt echt).
+    // 3) Pas na het laatste native toekomstframe neemt Wheaterflow Smart Radar over
+    //    om de tijdlijn door te trekken tot maximaal +2 uur.
+    const lastNativeFutureTime = nativeNowcast.length
+      ? Number(nativeNowcast[nativeNowcast.length-1].time)
+      : null;
+    const smartFuture = smart
+      .filter(frame=>frame.leadMinutes>0)
+      .filter(frame=>lastNativeFutureTime == null || Number(frame.time)>lastNativeFutureTime+60);
+
+    return observed.concat(nativeNowcast, smartFuture);
   }
 
   if(!rainviewerMeta) return [];
@@ -8978,7 +9002,7 @@ function setFrame(i){
 
   const d=new Date(f.time*1000);
   let label='';
-  if(state.radar.layer==='precip' && f.source==='wheaterflow-smart' && f.leadMinutes>0){
+  if(state.radar.layer==='precip' && f.isNowcast && Number(f.leadMinutes)>0){
     label=wfLeadLabel(f.leadMinutes);
   }else if(state.radar.layer==='precip' && f.isNow){
     label='Nu';
@@ -10265,7 +10289,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySele
 })();
 
 
-/* WF_SMART_RADAR_AUTO_REFRESH_V22 */
+/* WF_SMART_RADAR_AUTO_REFRESH_V23_HYBRID */
 setTimeout(()=>{
   if(document.hidden) return;
   loadWfSmartRadarMeta(true).then(()=>{
