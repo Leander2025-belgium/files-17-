@@ -864,13 +864,60 @@ function currentConditionsTruth({maxAgeMs=CURRENT_CONDITIONS_MAX_AGE_MS}={}){
   return holder.data;
 }
 
+function nearbyRadarDistanceSignal(truth=currentConditionsTruth()){
+  const rp = state.radar?.proximity;
+  const locKey = currentTruthLocKey();
+  const now = Date.now();
+  const checkedAt = Number(rp?.checkedAt || 0);
+  const frameTime = Number(rp?.frameTime || 0);
+  const sameLocation = Boolean(rp && rp.locKey && rp.locKey === locKey);
+  const checkedFresh = checkedAt > 0 && now - checkedAt <= 6 * 60 * 1000;
+  const frameFresh = frameTime > 0 && Math.abs(now - frameTime) <= 20 * 60 * 1000;
+
+  // Dezelfde RainViewer-frame/laag als op het radarscherm krijgt voorrang.
+  // Zo kan Home niet meer bijvoorbeeld 13 km tonen terwijl de kaart iets anders laat zien.
+  if(rp && sameLocation && checkedFresh && frameFresh){
+    const km = Number(rp.distanceKm);
+    return {
+      available:true,
+      km:Number.isFinite(km) ? km : null,
+      nearby:Number.isFinite(km) && km <= 75,
+      immediate:Boolean(rp.atLocation || (Number.isFinite(km) && km <= 3)),
+      source:'RainViewer live radar'
+    };
+  }
+
+  // Alleen als de lokale RainViewer-afstand niet actueel beschikbaar is,
+  // gebruiken we de server-Fusion als fallback.
+  const serverKm = Number(truth?.precipitation?.nearestEchoKm ?? truth?.radar?.nearestEchoKm);
+  if(
+    truth?.radar?.available &&
+    truth?.precipitation?.nearby &&
+    Number.isFinite(serverKm) &&
+    serverKm <= 75
+  ){
+    return {
+      available:true,
+      km:serverKm,
+      nearby:true,
+      immediate:Boolean(truth?.precipitation?.immediateVicinity || truth?.radar?.immediateVicinityDetected || serverKm <= 3),
+      source:'Wheaterflow Fusion radar'
+    };
+  }
+
+  return {available:false,km:null,nearby:false,immediate:false,source:null};
+}
+
 function truthImmediateVicinity(truth=currentConditionsTruth()){
-  if(!truth || truth.isRaining) return false;
+  if(truth?.isRaining) return false;
+
+  const live = nearbyRadarDistanceSignal(truth);
+  if(live.available) return live.immediate;
+
+  if(!truth) return false;
   if(truth?.precipitation?.immediateVicinity === true) return true;
   if(truth?.radar?.immediateVicinityDetected === true) return true;
 
-  // Compatibiliteit met Fusion V2: herken dezelfde tussenzone lokaal wanneer
-  // de server nog net geen expliciete V3-vlag meestuurt.
   const km = Number(truth?.precipitation?.nearestEchoKm ?? truth?.radar?.nearestEchoKm);
   const localWet = Number(truth?.radar?.localWetFraction);
   return Boolean(
@@ -2658,12 +2705,12 @@ output.endsInMinutes =
       : `${intensity.label}. Aankomst over ${range}, waarschijnlijk ${rainDurationText(output)}.`;
   }else{
     output.title = 'Droog';
-    if(
-      truth?.precipitation?.nearby &&
-      Number.isFinite(Number(truth?.precipitation?.nearestEchoKm))
-    ){
-      const km = Math.max(1, Math.round(Number(truth.precipitation.nearestEchoKm)));
-      output.summary = `Het is nu droog op jouw locatie. De radar ziet neerslag op ongeveer ${km} km afstand.`;
+    const nearby = nearbyRadarDistanceSignal(truth);
+    if(nearby.available && nearby.nearby && Number.isFinite(nearby.km)){
+      const km = Math.max(1, Math.round(nearby.km));
+      output.summary = nearby.immediate
+        ? `Het is op jouw exacte punt nog droog, maar radarneerslag ligt vlakbij op ongeveer ${km} km.`
+        : `Het is nu droog op jouw locatie. De live radar ziet neerslag op ongeveer ${km} km afstand.`;
     }else{
       output.summary = `Minstens ${output.dryWindowMinutes} minuten geen regen verwacht.`;
     }
@@ -3391,12 +3438,13 @@ function weatherHeroLine(cur, rain){
     if(eta) parts.push(eta);
   }else{
     const truth = currentConditionsTruth();
-    const km = Number(truth?.precipitation?.nearestEchoKm);
-    if(truth?.precipitation?.nearby && Number.isFinite(km)){
+    const nearby = nearbyRadarDistanceSignal(truth);
+    if(nearby.available && nearby.nearby && Number.isFinite(nearby.km)){
+      const km = Math.max(1,Math.round(nearby.km));
       parts.push(
-        truthImmediateVicinity(truth)
-          ? `Radarneerslag vlakbij · ±${Math.max(1,Math.round(km))} km`
-          : `Neerslag op ±${Math.max(1,Math.round(km))} km`
+        nearby.immediate
+          ? `Radarneerslag vlakbij · ±${km} km`
+          : `Neerslag op ±${km} km`
       );
     }
   }
@@ -3464,13 +3512,14 @@ function weatherTrendSummary(){
     sentences.push(when ? `Vanaf ongeveer ${when} neemt de kans op regen duidelijk toe.` : 'Binnenkort neemt de kans op regen duidelijk toe.');
   }else{
     const truth = currentConditionsTruth();
-    const km = Number(truth?.precipitation?.nearestEchoKm);
+    const nearby = nearbyRadarDistanceSignal(truth);
 
-    if(truth?.precipitation?.nearby && Number.isFinite(km)){
-      if(truthImmediateVicinity(truth)){
-        sentences.push(`Radarneerslag ligt vlak naast jouw locatie, op ongeveer ${Math.max(1,Math.round(km))} km. Op het exacte punt is regen nog niet bevestigd, maar de situatie kan snel veranderen.`);
+    if(nearby.available && nearby.nearby && Number.isFinite(nearby.km)){
+      const km = Math.max(1,Math.round(nearby.km));
+      if(nearby.immediate){
+        sentences.push(`Radarneerslag ligt vlak naast jouw locatie, op ongeveer ${km} km. Op het exacte punt is regen nog niet bevestigd, maar de situatie kan snel veranderen.`);
       }else{
-        sentences.push(`Voorlopig droog op jouw locatie. De radar ziet neerslag op ongeveer ${Math.max(1,Math.round(km))} km afstand.`);
+        sentences.push(`Voorlopig droog op jouw locatie. De live radar ziet neerslag op ongeveer ${km} km afstand.`);
       }
     }else{
       const model = modelRainSignalWithin(2);
@@ -8580,7 +8629,9 @@ async function refreshRadarProximity(meta=rainviewerMeta){
     if(!Number.isFinite(lat) || !Number.isFinite(lon) || !meta?.host) return null;
     const latest = latestRainviewerObservedFrame(meta);
     if(!isFreshRadarFrame(latest)) return null;
-    const z = 7;
+    // Zoom 9 geeft rond België ~190 m per pixel i.p.v. ~760 m op zoom 7.
+    // Daardoor springt de afstand niet meer grof tussen steeds dezelfde waarden.
+    const z = 9;
     const t = webMercatorTilePoint(lat, lon, z);
     const baseX = Math.floor(t.x), baseY = Math.floor(t.y);
     const userPxX = t.x * 256, userPxY = t.y * 256;
@@ -8589,7 +8640,8 @@ async function refreshRadarProximity(meta=rainviewerMeta){
     const jobs=[];
     for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++) jobs.push([baseX+ox,baseY+oy]);
     const results = await Promise.allSettled(jobs.map(async ([x,y])=>{
-      const url = `${meta.host}${latest.path}/256/${z}/${x}/${y}/4/1_1.png?prox=${latest.time}-${Date.now()}`;
+      // Gebruik exact hetzelfde RainViewer-kleurenschema als de zichtbare radarlaag.
+      const url = `${meta.host}${latest.path}/256/${z}/${x}/${y}/2/1_1.png?prox=${latest.time}`;
       const r = await fetch(url,{cache:'no-store',mode:'cors'});
       if(!r.ok) throw new Error('radar tile '+r.status);
       const bmp = await createImageBitmap(await r.blob());
@@ -8599,11 +8651,22 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       let local=null;
       let nearUser=null;
       const nearRadiusPx=Math.max(3,4000/groundMPerPx);
-      for(let py=1;py<256;py+=3){
-        for(let px=1;px<256;px+=3){
+      const wetAt = (px,py) => {
+        if(px<0 || py<0 || px>=256 || py>=256) return false;
+        return data[(py*256+px)*4+3] >= 42;
+      };
+      const supportedWet = (px,py) => {
+        // Negeer losse radarspikkels/noise: minstens één naburige natte sample.
+        return wetAt(px,py) && (
+          wetAt(px-2,py) || wetAt(px+2,py) || wetAt(px,py-2) || wetAt(px,py+2) ||
+          wetAt(px-2,py-2) || wetAt(px+2,py-2) || wetAt(px-2,py+2) || wetAt(px+2,py+2)
+        );
+      };
+      for(let py=1;py<256;py+=2){
+        for(let px=1;px<256;px+=2){
           const off=(py*256+px)*4;
           const r=data[off],g=data[off+1],b=data[off+2],a=data[off+3];
-          if(a < 32) continue;
+          if(a < 42 || !supportedWet(px,py)) continue;
           const gx=x*256+px, gy=y*256+py;
           const dx=gx-userPxX, dy=gy-userPxY;
           const distPx=Math.hypot(dx,dy);
@@ -8630,6 +8693,7 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       // Bewaar dit als een expliciete droge radarwaarneming in plaats van null,
       // zodat een regenachtig weermodel Home niet onterecht op 'regen nu' zet.
       const dryProximity = {
+        locKey:currentTruthLocKey(lat,lon),
         distanceKm:null,
         etaMinutes:null,
         bearing:null,
@@ -8651,7 +8715,7 @@ async function refreshRadarProximity(meta=rainviewerMeta){
     const gust=Math.max(Number(state.current?.wind_gusts_10m)||0, Number(state.current?.wind_speed_10m)||0);
     const motionKmh=Math.max(40,Math.min(75,gust*1.15 || 45));
     const etaMinutes=Math.max(1,Math.round(distanceKm/motionKmh*60));
-    const proximity={distanceKm,etaMinutes,bearing,upwind,frameTime:latest.time*1000,checkedAt:Date.now(),intensity:best.intensity||'light',localIntensity:nearUserBest?.intensity||null,atLocation:Boolean(nearUserBest||distanceKm<=4)};
+    const proximity={locKey:currentTruthLocKey(lat,lon),distanceKm,etaMinutes,bearing,upwind,frameTime:latest.time*1000,checkedAt:Date.now(),intensity:best.intensity||'light',localIntensity:nearUserBest?.intensity||null,atLocation:Boolean(nearUserBest||distanceKm<=4)};
     state.radar.proximity=proximity;
     return proximity;
   }catch(error){
@@ -8662,8 +8726,11 @@ async function refreshRadarProximity(meta=rainviewerMeta){
 }
 
 async function refreshRadarProximityIfStale(){
-  const last=Number(state.radar?.proximity?.checkedAt)||0;
-  if(Date.now()-last < 4*60*1000) return state.radar.proximity;
+  const proximity = state.radar?.proximity;
+  const last=Number(proximity?.checkedAt)||0;
+  const sameLocation = Boolean(proximity?.locKey && proximity.locKey === currentTruthLocKey());
+  const frameAge = proximity?.frameTime ? Math.abs(Date.now()-Number(proximity.frameTime)) : Infinity;
+  if(sameLocation && Date.now()-last < 4*60*1000 && frameAge <= 20*60*1000) return proximity;
   const meta=await fetchRainviewerMeta();
   rainviewerMeta=meta;
   return refreshRadarProximity(meta);
