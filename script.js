@@ -8616,111 +8616,531 @@ function radarBearingFromPixel(dx,dy){
   return (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
 }
 function radarColorToIntensity(r,g,b,a=255){
-  if(a < 32) return null;
-  if(r > 180 && g < 150) return 'heavy';
-  if(r > 170 && g > 130 && b < 130) return 'heavy';
-  if(g > 135 && r < 170 && b < 190) return 'moderate';
+  /*
+   * WF_RADAR_DISTANCE_V4
+   *
+   * RainViewer Universal Blue:
+   * alpha >= 150 komt ongeveer overeen met 10 dBZ of sterker.
+   *
+   * Zwakkere echo's worden niet gebruikt voor de melding
+   * "bui op X km", omdat extreem zwakke radarreflecties,
+   * clutter en andere ruis anders vals alarm kunnen geven.
+   */
+  if(a < 150) return null;
+
+  if(
+    (r >= 180 && g < 100 && b < 130) ||
+    (r >= 180 && b >= 130 && g < 190) ||
+    (r > 240 && g > 240 && b > 240)
+  ){
+    return 'heavy';
+  }
+
+  if(
+    (r < 30 && g < 115 && b >= 100) ||
+    (r >= 200 && g >= 100 && b < 100)
+  ){
+    return 'moderate';
+  }
+
   return 'light';
+}
+
+function radarPixelEdgeDistancePx(gx,gy,userPxX,userPxY){
+  /*
+   * Meet tot de RAND van de radarcel.
+   * Niet tot het midden van de radarcel.
+   */
+  const cx=gx+0.5;
+  const cy=gy+0.5;
+
+  const dx=Math.max(
+    Math.abs(cx-userPxX)-0.5,
+    0
+  );
+
+  const dy=Math.max(
+    Math.abs(cy-userPxY)-0.5,
+    0
+  );
+
+  return Math.hypot(dx,dy);
+}
+
+function radarPixelSupport(mask,gx,gy){
+  let count=0;
+
+  for(let yy=gy-1;yy<=gy+1;yy++){
+    for(let xx=gx-1;xx<=gx+1;xx++){
+      if(mask.has(`${xx}:${yy}`)){
+        count++;
+      }
+    }
+  }
+
+  return count;
 }
 
 async function refreshRadarProximity(meta=rainviewerMeta){
   try{
-    const lat = Number(state.loc?.lat), lon = Number(state.loc?.lon);
-    if(!Number.isFinite(lat) || !Number.isFinite(lon) || !meta?.host) return null;
-    const latest = latestRainviewerObservedFrame(meta);
-    if(!isFreshRadarFrame(latest)) return null;
-    // Zoom 9 geeft rond België ~190 m per pixel i.p.v. ~760 m op zoom 7.
-    // Daardoor springt de afstand niet meer grof tussen steeds dezelfde waarden.
-    const z = 9;
-    const t = webMercatorTilePoint(lat, lon, z);
-    const baseX = Math.floor(t.x), baseY = Math.floor(t.y);
-    const userPxX = t.x * 256, userPxY = t.y * 256;
-    const groundMPerPx = 156543.03392 * Math.cos(lat*Math.PI/180) / (2**z);
-    let best = null;
+    const lat=Number(state.loc?.lat);
+    const lon=Number(state.loc?.lon);
+
+    if(
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      !meta?.host
+    ){
+      state.radar.proximity=null;
+      return null;
+    }
+
+    const latest=latestRainviewerObservedFrame(meta);
+
+    if(!isFreshRadarFrame(latest)){
+      state.radar.proximity=null;
+      return null;
+    }
+
+    /*
+     * RainViewer publieke API:
+     * maximale zoom = 7.
+     *
+     * Zoom 9 uit de vorige versie is niet geldig.
+     */
+    const z=7;
+
+    const MAX_DISTANCE_M=30000;
+
+    const t=webMercatorTilePoint(lat,lon,z);
+
+    const baseX=Math.floor(t.x);
+    const baseY=Math.floor(t.y);
+
+    const userPxX=t.x*256;
+    const userPxY=t.y*256;
+
+    const groundMPerPx=
+      156543.03392 *
+      Math.cos(lat*Math.PI/180) /
+      (2**z);
+
+    const maxDistancePx=
+      MAX_DISTANCE_M /
+      groundMPerPx;
+
+    /*
+     * 3x3 tiles zodat ook bij een tilegrens de
+     * volledige 30-km-zone rond de gebruiker aanwezig is.
+     */
     const jobs=[];
-    for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++) jobs.push([baseX+ox,baseY+oy]);
-    const results = await Promise.allSettled(jobs.map(async ([x,y])=>{
-      // Gebruik exact hetzelfde RainViewer-kleurenschema als de zichtbare radarlaag.
-      const url = `${meta.host}${latest.path}/256/${z}/${x}/${y}/2/1_1.png?prox=${latest.time}`;
-      const r = await fetch(url,{cache:'no-store',mode:'cors'});
-      if(!r.ok) throw new Error('radar tile '+r.status);
-      const bmp = await createImageBitmap(await r.blob());
-      const c = document.createElement('canvas'); c.width=256; c.height=256;
-      const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.drawImage(bmp,0,0);
-      const data=ctx.getImageData(0,0,256,256).data;
-      let local=null;
-      let nearUser=null;
-      const nearRadiusPx=Math.max(3,4000/groundMPerPx);
-      const wetAt = (px,py) => {
-        if(px<0 || py<0 || px>=256 || py>=256) return false;
-        return data[(py*256+px)*4+3] >= 42;
-      };
-      const supportedWet = (px,py) => {
-        // Negeer losse radarspikkels/noise: minstens één naburige natte sample.
-        return wetAt(px,py) && (
-          wetAt(px-2,py) || wetAt(px+2,py) || wetAt(px,py-2) || wetAt(px,py+2) ||
-          wetAt(px-2,py-2) || wetAt(px+2,py-2) || wetAt(px-2,py+2) || wetAt(px+2,py+2)
-        );
-      };
-      for(let py=1;py<256;py+=2){
-        for(let px=1;px<256;px+=2){
-          const off=(py*256+px)*4;
-          const r=data[off],g=data[off+1],b=data[off+2],a=data[off+3];
-          if(a < 42 || !supportedWet(px,py)) continue;
-          const gx=x*256+px, gy=y*256+py;
-          const dx=gx-userPxX, dy=gy-userPxY;
-          const distPx=Math.hypot(dx,dy);
-          const intensity=radarColorToIntensity(r,g,b,a);
-          if(!local || distPx<local.distPx) local={distPx,dx,dy,intensity};
-          if(distPx<=nearRadiusPx){
-            const rank={light:1,moderate:2,heavy:3}[intensity]||1;
-            if(!nearUser || rank>nearUser.rank) nearUser={rank,intensity,distPx};
+
+    for(let oy=-1;oy<=1;oy++){
+      for(let ox=-1;ox<=1;ox++){
+        jobs.push([
+          baseX+ox,
+          baseY+oy
+        ]);
+      }
+    }
+
+    const results=
+      await Promise.allSettled(
+        jobs.map(async ([x,y])=>{
+
+          /*
+           * 2   = Universal Blue
+           * 0_0 = geen smoothing
+           *
+           * Voor afstand is een ongesmoothde radarlaag
+           * veel geschikter dan de visuele smooth-laag.
+           */
+          const url=
+            `${meta.host}${latest.path}/256/${z}/${x}/${y}/2/0_0.png`;
+
+          const response=
+            await fetch(url,{
+              cache:'default',
+              mode:'cors'
+            });
+
+          if(!response.ok){
+            throw new Error(
+              `radar tile ${response.status}`
+            );
           }
+
+          const bmp=
+            await createImageBitmap(
+              await response.blob()
+            );
+
+          const canvas=
+            document.createElement('canvas');
+
+          canvas.width=256;
+          canvas.height=256;
+
+          const ctx=
+            canvas.getContext(
+              '2d',
+              {willReadFrequently:true}
+            );
+
+          ctx.drawImage(bmp,0,0);
+
+          const data=
+            ctx.getImageData(
+              0,
+              0,
+              256,
+              256
+            ).data;
+
+          bmp.close?.();
+
+          return {
+            x,
+            y,
+            data
+          };
+        })
+      );
+
+    /*
+     * Alle bruikbare regenpixels binnen de zoekzone.
+     */
+    const rainMask=new Map();
+
+    const marginPx=2;
+
+    for(const result of results){
+      if(result.status!=='fulfilled'){
+        continue;
+      }
+
+      const {x,y,data}=result.value;
+
+      for(let py=0;py<256;py++){
+
+        const gy=
+          y*256+py;
+
+        if(
+          Math.abs(gy-userPxY) >
+          maxDistancePx+marginPx
+        ){
+          continue;
+        }
+
+        for(let px=0;px<256;px++){
+
+          const gx=
+            x*256+px;
+
+          if(
+            Math.abs(gx-userPxX) >
+            maxDistancePx+marginPx
+          ){
+            continue;
+          }
+
+          const off=
+            (py*256+px)*4;
+
+          const r=data[off];
+          const g=data[off+1];
+          const b=data[off+2];
+          const a=data[off+3];
+
+          const intensity=
+            radarColorToIntensity(
+              r,g,b,a
+            );
+
+          if(!intensity){
+            continue;
+          }
+
+          rainMask.set(
+            `${gx}:${gy}`,
+            {
+              gx,
+              gy,
+              intensity
+            }
+          );
         }
       }
-      bmp.close?.();
-      return {local,nearUser};
-    }));
-    let nearUserBest=null;
-    for(const res of results){
-      if(res.status!=='fulfilled' || !res.value) continue;
-      const local=res.value.local, near=res.value.nearUser;
-      if(local && (!best || local.distPx<best.distPx)) best=local;
-      if(near && (!nearUserBest || near.rank>nearUserBest.rank)) nearUserBest=near;
     }
+
+    let best=null;
+    let nearUserBest=null;
+
+    const rank={
+      light:1,
+      moderate:2,
+      heavy:3
+    };
+
+    for(const pixel of rainMask.values()){
+
+      /*
+       * Minstens één naastliggende regenpixel.
+       * Daarmee verdwijnt een losse radarspikkel.
+       */
+      const support=
+        radarPixelSupport(
+          rainMask,
+          pixel.gx,
+          pixel.gy
+        );
+
+      if(support<2){
+        continue;
+      }
+
+      const distancePx=
+        radarPixelEdgeDistancePx(
+          pixel.gx,
+          pixel.gy,
+          userPxX,
+          userPxY
+        );
+
+      const distanceM=
+        distancePx *
+        groundMPerPx;
+
+      /*
+       * Absoluut nooit een bui buiten 30 km.
+       */
+      if(
+        !Number.isFinite(distanceM) ||
+        distanceM<0 ||
+        distanceM>MAX_DISTANCE_M
+      ){
+        continue;
+      }
+
+      const dx=
+        (pixel.gx+0.5) -
+        userPxX;
+
+      const dy=
+        (pixel.gy+0.5) -
+        userPxY;
+
+      const candidate={
+        ...pixel,
+        support,
+        distanceM,
+        dx,
+        dy
+      };
+
+      if(
+        !best ||
+        candidate.distanceM <
+          best.distanceM
+      ){
+        best=candidate;
+      }
+
+      if(distanceM<=4000){
+        if(
+          !nearUserBest ||
+          (rank[pixel.intensity]||1) >
+          (rank[nearUserBest.intensity]||1)
+        ){
+          nearUserBest=candidate;
+        }
+      }
+    }
+
+    /*
+     * Geen geldige radar-bui binnen 30 km.
+     *
+     * Expliciet opslaan als droge radarwaarneming.
+     * Zo kan de UI niet per ongeluk een oude afstand,
+     * 5 km, 13 km of een modelwaarde blijven tonen.
+     */
     if(!best){
-      // Belangrijk: geen echo gevonden is óók bruikbare live informatie.
-      // Bewaar dit als een expliciete droge radarwaarneming in plaats van null,
-      // zodat een regenachtig weermodel Home niet onterecht op 'regen nu' zet.
-      const dryProximity = {
-        locKey:currentTruthLocKey(lat,lon),
+      const dryProximity={
+        locKey:
+          currentTruthLocKey(
+            lat,
+            lon
+          ),
+
         distanceKm:null,
         etaMinutes:null,
         bearing:null,
         upwind:false,
-        frameTime:latest.time*1000,
-        checkedAt:Date.now(),
+
+        frameTime:
+          latest.time*1000,
+
+        checkedAt:
+          Date.now(),
+
         intensity:null,
         localIntensity:null,
         atLocation:false,
-        dryAtLocation:true
+
+        dryAtLocation:true,
+
+        method:
+          'nearest-unsmoothed-radar-edge-v4',
+
+        maxDistanceKm:30,
+
+        radarZoom:z,
+
+        sourceResolutionKm:
+          Math.round(
+            groundMPerPx/100
+          )/10
       };
-      state.radar.proximity=dryProximity;
+
+      state.radar.proximity=
+        dryProximity;
+
       return dryProximity;
     }
-    const distanceKm=best.distPx*groundMPerPx/1000;
-    const bearing=radarBearingFromPixel(best.dx,best.dy);
-    const windFrom=Number(state.current?.wind_direction_10m);
-    const upwind = !Number.isFinite(windFrom) || angleDiff(bearing,windFrom) <= 75;
-    const gust=Math.max(Number(state.current?.wind_gusts_10m)||0, Number(state.current?.wind_speed_10m)||0);
-    const motionKmh=Math.max(40,Math.min(75,gust*1.15 || 45));
-    const etaMinutes=Math.max(1,Math.round(distanceKm/motionKmh*60));
-    const proximity={locKey:currentTruthLocKey(lat,lon),distanceKm,etaMinutes,bearing,upwind,frameTime:latest.time*1000,checkedAt:Date.now(),intensity:best.intensity||'light',localIntensity:nearUserBest?.intensity||null,atLocation:Boolean(nearUserBest||distanceKm<=4)};
-    state.radar.proximity=proximity;
+
+    /*
+     * Afronden op 0,5 km.
+     *
+     * Kleinere decimalen zouden schijnnauwkeurigheid geven
+     * omdat de publieke radar op zoom 7 werkt.
+     */
+    const distanceKm=
+      Math.round(
+        best.distanceM/500
+      )/2;
+
+    const bearing=
+      radarBearingFromPixel(
+        best.dx,
+        best.dy
+      );
+
+    const windFrom=
+      Number(
+        state.current
+          ?.wind_direction_10m
+      );
+
+    const upwind=
+      !Number.isFinite(windFrom) ||
+      angleDiff(
+        bearing,
+        windFrom
+      )<=75;
+
+    const gust=
+      Math.max(
+        Number(
+          state.current
+            ?.wind_gusts_10m
+        )||0,
+
+        Number(
+          state.current
+            ?.wind_speed_10m
+        )||0
+      );
+
+    const motionKmh=
+      Math.max(
+        40,
+        Math.min(
+          75,
+          gust*1.15 || 45
+        )
+      );
+
+    const etaMinutes=
+      Math.max(
+        1,
+        Math.round(
+          distanceKm /
+          motionKmh *
+          60
+        )
+      );
+
+    const proximity={
+
+      locKey:
+        currentTruthLocKey(
+          lat,
+          lon
+        ),
+
+      distanceKm,
+      etaMinutes,
+      bearing,
+      upwind,
+
+      frameTime:
+        latest.time*1000,
+
+      checkedAt:
+        Date.now(),
+
+      intensity:
+        best.intensity ||
+        'light',
+
+      localIntensity:
+        nearUserBest
+          ?.intensity ||
+        null,
+
+      atLocation:Boolean(
+        nearUserBest ||
+        distanceKm<=4
+      ),
+
+      dryAtLocation:false,
+
+      method:
+        'nearest-unsmoothed-radar-edge-v4',
+
+      maxDistanceKm:30,
+
+      radarZoom:z,
+
+      sourceResolutionKm:
+        Math.round(
+          groundMPerPx/100
+        )/10,
+
+      supportPixels:
+        best.support
+    };
+
+    state.radar.proximity=
+      proximity;
+
+    console.debug(
+      '[Wheaterflow Radar Distance V4]',
+      proximity
+    );
+
     return proximity;
+
   }catch(error){
-    console.warn('Radar-nabijheid kon niet worden bepaald:',error);
+
+    console.warn(
+      'Radar-nabijheid kon niet worden bepaald:',
+      error
+    );
+
     state.radar.proximity=null;
+
     return null;
   }
 }
