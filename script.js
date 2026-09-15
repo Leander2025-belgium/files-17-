@@ -877,7 +877,7 @@ function nearbyRadarDistanceSignal(truth=currentConditionsTruth()){
   // Dezelfde RainViewer-frame/laag als op het radarscherm krijgt voorrang.
   // Zo kan Home niet meer bijvoorbeeld 13 km tonen terwijl de kaart iets anders laat zien.
   if(rp && sameLocation && checkedFresh && frameFresh){
-    const km = Number(rp.distanceKm);
+    const km = rp.distanceKm == null ? null : Number(rp.distanceKm);
     return {
       available:true,
       km:Number.isFinite(km) ? km : null,
@@ -1226,7 +1226,7 @@ function precipitationSignal(cur=state.current || {}){
     Date.now() - Number(rp.checkedAt || 0) < 10*60*1000;
 
   if(radarFresh){
-    signal.radarDistanceKm = Number(rp.distanceKm);
+    signal.radarDistanceKm = rp.distanceKm == null ? null : Number(rp.distanceKm);
     signal.radarLevel = rp.localIntensity || rp.intensity || 'light';
     signal.radarNow = Boolean(
       rp.atLocation ||
@@ -2875,7 +2875,7 @@ function nowcastConfidence(slots, maxRain){
   if(radarFresh){
     if(radar.upwind && radar.distanceKm <= 20) radarAdjustment += .08;
     else if(radar.upwind && radar.distanceKm <= 45) radarAdjustment += .05;
-    else if(radar.distanceKm <= 25 && !radar.upwind) radarAdjustment -= .04;
+    else if(Number.isFinite(radar.distanceKm) && radar.distanceKm <= 25 && !radar.upwind) radarAdjustment -= .04;
     if(radarAgeMin > 12) radarAdjustment -= .04;
   }else{
     radarAdjustment -= .07;
