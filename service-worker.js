@@ -140,7 +140,6 @@ function isLiveDataRequest(url) {
     "air-quality-api.open-meteo.com",
     "marine-api.open-meteo.com",
     "api.rainviewer.com",
-    "weatherflow-radar.leanderdevriendt.workers.dev",
     "api.dataplatform.knmi.nl",
     "aviationweather.gov",
     "api.wheaterflow.be"
