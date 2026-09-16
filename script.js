@@ -24,7 +24,6 @@ const XWEATHER_SDK_VERSION = '1.9.3';
 const XWEATHER_SDK_BASE = `https://cdn.jsdelivr.net/npm/@xweather/mapsgl@${XWEATHER_SDK_VERSION}/dist/`;
 const ASTRO_EVENTS_URL = 'assets/data/astro-events.json';
 const CAST_CONFIG_URLS = [
-  new URL('/api/cast-config', location.origin).href,
   FUNCTION_BASE + 'cast-config'
 ];
 const TV_PAIRING_API_URLS = [
