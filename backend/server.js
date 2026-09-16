@@ -638,6 +638,33 @@ app.post('/api/admin-push',async(req,res)=>{
 
 app.get('/api/xweather-config',(req,res)=>res.json({configured:Boolean(process.env.XWEATHER_CLIENT_ID&&process.env.XWEATHER_CLIENT_SECRET),clientId:process.env.XWEATHER_CLIENT_ID||null,clientSecret:process.env.XWEATHER_CLIENT_SECRET||null}));
 
+
+app.get('/api/lightning', async (req,res)=>{
+  const lat=Number(req.query.lat ?? req.query.latitude), lon=Number(req.query.lon ?? req.query.longitude);
+  const radius=Math.min(100,Math.max(5,Number(req.query.radius)||100));
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat < -90||lat > 90||lon < -180||lon > 180) return res.status(400).json({ok:false,error:'Ongeldige latitude/longitude'});
+  const clientId=process.env.XWEATHER_CLIENT_ID||'', clientSecret=process.env.XWEATHER_CLIENT_SECRET||'';
+  if(!clientId||!clientSecret) return res.json({ok:true,available:false,configured:false,updated:new Date().toISOString(),strikes:[],nearest:null,summary:{count:0,radiusKm:radius},threat:null,source:'Xweather Vaisala lightning',provider:'xweather'});
+  const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),8000);
+  const auth=`client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+  const point=`${lat.toFixed(5)},${lon.toFixed(5)}`;
+  const get=async url=>{const r=await fetch(url,{signal:controller.signal,headers:{Accept:'application/json'}});const j=await r.json().catch(()=>({}));if(!r.ok||j.success===false)throw new Error(j?.error?.description||j?.error||`Xweather ${r.status}`);return Array.isArray(j.response)?j.response:[]};
+  const inRing=(ring=[])=>{let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const [xi,yi]=ring[i]||[],[xj,yj]=ring[j]||[];if(![xi,yi,xj,yj].every(Number.isFinite))continue;if(((yi>lat)!==(yj>lat))&&(lon<(xj-xi)*(lat-yi)/((yj-yi)||1e-12)+xi))inside=!inside;}return inside};
+  const km=(a,b,c,d)=>{const R=6371,r=x=>x*Math.PI/180,q=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2;return 2*R*Math.asin(Math.sqrt(q))};
+  try{
+    const [sr,tr]=await Promise.allSettled([
+      get(`https://data.api.xweather.com/lightning/closest?p=${encodeURIComponent(point)}&radius=${radius}km&limit=1000&filter=all&${auth}`),
+      get(`https://data.api.xweather.com/lightning/threats/closest?p=${encodeURIComponent(point)}&radius=${radius}km&limit=5&${auth}`)
+    ]);
+    const strikes=(sr.status==='fulfilled'?sr.value:[]).map(s=>({id:s.id||null,lat:Number(s?.loc?.lat),lon:Number(s?.loc?.long),distanceKm:Number(s?.relativeTo?.distanceKM),bearing:Number(s?.relativeTo?.bearing),direction:s?.relativeTo?.bearingENG||null,ageSec:Number(s?.ob?.age),time:s?.ob?.dateTimeISO||null,type:String(s?.ob?.pulse?.type||'').toUpperCase()||null,peakAmp:Number(s?.ob?.pulse?.peakamp)})).filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon)).sort((a,b)=>(a.distanceKm||9999)-(b.distanceKm||9999));
+    const now=Math.floor(Date.now()/1000);
+    const threats=(tr.status==='fulfilled'?tr.value:[]).map(t=>{let etaMinutes=null,affectsNow=false,nearestDistanceKm=null;for(const p of (t.periods||[])){const ring=p?.polygon?.coordinates?.[0]||[],inside=inRing(ring),min=Number(p?.range?.minTimestamp),max=Number(p?.range?.maxTimestamp);if(inside){if(now>=min&&now<=max)affectsNow=true;const eta=Math.max(0,Math.round((min-now)/60));if(Number.isFinite(eta)&&(etaMinutes==null||eta<etaMinutes))etaMinutes=eta;}const c=p?.centroid?.coordinates;if(Array.isArray(c)){const d=km(lat,lon,Number(c[1]),Number(c[0]));if(Number.isFinite(d)&&(nearestDistanceKm==null||d<nearestDistanceKm))nearestDistanceKm=d;}}const m=t?.details?.movement||{};return {id:t.id||t?.details?.stormId||null,severe:Boolean(t?.details?.severe),affectsNow,etaMinutes,nearestDistanceKm,movement:{dir:m.dir||null,dirTo:m.dirTo||null,speedKph:Number.isFinite(Number(m.speedKPH))?Number(m.speedKPH):null,reliability:m.reliability||null},issued:t?.details?.issuedDateTimeISO||null,validUntil:t?.details?.range?.maxDateTimeISO||null}}).sort((a,b)=>(a.etaMinutes??9999)-(b.etaMinutes??9999)||(a.nearestDistanceKm??9999)-(b.nearestDistanceKm??9999));
+    const available=sr.status==='fulfilled'||tr.status==='fulfilled';
+    res.set('Cache-Control','public, max-age=30, s-maxage=60, stale-while-revalidate=120');
+    res.json({ok:true,available,configured:true,updated:new Date().toISOString(),strikes,nearest:strikes[0]||null,summary:{count:strikes.length,radiusKm:radius,cloudToGround:strikes.filter(s=>s.type==='CG').length,intracloud:strikes.filter(s=>s.type==='IC').length},threat:threats[0]||null,source:'Xweather · Vaisala lightning',provider:'xweather',fallback:false,error:available?null:'Live bliksemdata tijdelijk niet beschikbaar'});
+  }catch(e){res.status(e?.name==='AbortError'?504:502).json({ok:false,available:false,error:'Live bliksemdata tijdelijk niet beschikbaar'});}finally{clearTimeout(timeout);}
+});
+
 // Officiële KMI-waarschuwingen voor België.
 // KMI publiceert waarschuwingen tot 48 uur vooraf. Wheaterflow toont ze dus
 // zodra ze gepubliceerd zijn, ook als de geldigheidsperiode pas later start.
