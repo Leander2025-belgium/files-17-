@@ -4279,7 +4279,10 @@ async function updateHomeMapLayerAvailability(){
   try{
     const config=await fetchXweatherConfig();
     if(!config?.configured) return;
-    const defs=availableXweatherLayerDefinitions?.() || [];
+    const defs=
+      typeof availableXweatherLayerDefinitions === 'function'
+        ? availableXweatherLayerDefinitions()
+        : [];
     const ids=new Set(defs.map(d=>d.id));
     buttons.forEach(btn=>{
       const id=btn.dataset.homeLayer;
