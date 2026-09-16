@@ -8619,16 +8619,24 @@ function radarBearingFromPixel(dx,dy){
 }
 function radarColorToIntensity(r,g,b,a=255){
   /*
-   * WF_RADAR_DISTANCE_V4
+   * WF_RADAR_DISTANCE_V4_2
    *
-   * RainViewer Universal Blue:
-   * alpha >= 150 komt ongeveer overeen met 10 dBZ of sterker.
-   *
-   * Zwakkere echo's worden niet gebruikt voor de melding
-   * "bui op X km", omdat extreem zwakke radarreflecties,
-   * clutter en andere ruis anders vals alarm kunnen geven.
+   * Belangrijk:
+   * een hoge alpha alleen bewijst NIET dat een pixel regen is.
+   * Neutrale grijze/kaart/artefactpixels mogen daarom nooit
+   * automatisch als "light" worden geclassificeerd.
    */
   if(a < 150) return null;
+
+  const max=Math.max(r,g,b);
+  const min=Math.min(r,g,b);
+  const chroma=max-min;
+
+  /*
+   * Neutrale grijswaarden en bijna-kleurloze pixels uitsluiten.
+   * Dit voorkomt de valse grijze echo die V4 als lichte regen zag.
+   */
+  if(chroma < 18) return null;
 
   if(
     (r >= 180 && g < 100 && b < 130) ||
@@ -8645,7 +8653,20 @@ function radarColorToIntensity(r,g,b,a=255){
     return 'moderate';
   }
 
-  return 'light';
+  /*
+   * Universal Blue lichte echo:
+   * blauw/cyaan moet daadwerkelijk dominant aanwezig zijn.
+   * Onbekende kleuren worden NIET meer automatisch regen.
+   */
+  if(
+    b >= 80 &&
+    b >= r + 12 &&
+    b >= g - 20
+  ){
+    return 'light';
+  }
+
+  return null;
 }
 
 function radarPixelEdgeDistancePx(gx,gy,userPxX,userPxY){
@@ -8993,7 +9014,7 @@ async function refreshRadarProximity(meta=rainviewerMeta){
         dryAtLocation:true,
 
         method:
-          'nearest-unsmoothed-radar-edge-v4',
+          'nearest-unsmoothed-radar-edge-v4.2',
 
         maxDistanceKm:30,
 
@@ -9064,14 +9085,16 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       );
 
     const etaMinutes=
-      Math.max(
-        1,
-        Math.round(
-          distanceKm /
-          motionKmh *
-          60
-        )
-      );
+      upwind
+        ? Math.max(
+            1,
+            Math.round(
+              distanceKm /
+              motionKmh *
+              60
+            )
+          )
+        : null;
 
     const proximity={
 
@@ -9109,7 +9132,7 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       dryAtLocation:false,
 
       method:
-        'nearest-unsmoothed-radar-edge-v4',
+        'nearest-unsmoothed-radar-edge-v4.2',
 
       maxDistanceKm:30,
 
