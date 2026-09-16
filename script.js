@@ -8338,8 +8338,10 @@ function createRadarAnimator(map){
         pane:'radarPane',
         className:'radar-tile-layer',
         crossOrigin:true,
-        keepBuffer:6,
-        updateWhenIdle:true,
+        keepBuffer:4,
+        // Op mobiel niet wachten tot pan/zoom volledig gestopt is. Leaflet mag
+        // de zichtbare radar-tegels meteen beginnen ophalen.
+        updateWhenIdle:false,
         updateWhenZooming:false
       });
       configureLayer(layer, fallbackUrl);
@@ -9156,10 +9158,44 @@ async function refreshRadarProximityIfStale(){
   return refreshRadarProximity(meta);
 }
 
-async function fetchRainviewerMeta(){
-  const r = await fetch('https://api.rainviewer.com/public/weather-maps.json?ts=' + Date.now(), {cache:'no-store'});
-  if(!r.ok) throw new Error('RainViewer '+r.status);
-  return r.json();
+// WF_RADAR_LOAD_RELIABILITY_V5
+// Houd metadata kort in geheugen, deel gelijktijdige requests en laat een trage
+// externe bron de radar niet onbeperkt blokkeren.
+let rainviewerMetaCache = null;
+let rainviewerMetaCacheAt = 0;
+let rainviewerMetaRequest = null;
+async function fetchRainviewerMeta(force=false){
+  const now = Date.now();
+  if(!force && rainviewerMetaCache && now-rainviewerMetaCacheAt < 2*60*1000){
+    return rainviewerMetaCache;
+  }
+  if(rainviewerMetaRequest) return rainviewerMetaRequest;
+
+  rainviewerMetaRequest = (async()=>{
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), 4500);
+    try{
+      const r = await fetch('https://api.rainviewer.com/public/weather-maps.json', {
+        cache:'no-store',
+        signal:controller.signal
+      });
+      if(!r.ok) throw new Error('RainViewer '+r.status);
+      const meta = await r.json();
+      if(!meta?.host || !meta?.radar?.past?.length) throw new Error('RainViewer metadata onvolledig');
+      rainviewerMetaCache = meta;
+      rainviewerMetaCacheAt = Date.now();
+      return meta;
+    }catch(error){
+      // Bij een korte netwerkstoring liever het laatst geldige frame behouden
+      // dan de radar leeg maken.
+      if(rainviewerMetaCache) return rainviewerMetaCache;
+      throw error;
+    }finally{
+      clearTimeout(timer);
+      rainviewerMetaRequest = null;
+    }
+  })();
+  return rainviewerMetaRequest;
 }
 function rainviewerRadarFrames(meta){
   const past = (meta?.radar && meta.radar.past) || [];
@@ -9209,7 +9245,8 @@ async function loadRadarFrames(keepFrame=false){
       refreshRadarProximity(rainviewerMeta).then(()=>{ try{ renderHome(); updateRadarLocationUi(); }catch(_){} });
     }else{
       console.error('RainViewer radarframes konden niet laden; Smart Radar/fallback wordt gebruikt', rainResult.reason);
-      rainviewerMeta = null;
+      // Wis een eerder goed radarbeeld niet door één mislukte refresh.
+      if(!rainviewerMeta) rainviewerMeta = rainviewerMetaCache;
     }
 
     buildFrameList(keepFrame);
