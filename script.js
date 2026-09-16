@@ -2939,7 +2939,8 @@ async function loadLightning(force=false){
   if(!force && lastUpdate && Date.now() - lastUpdate < 90 * 1000) return state.lightning;
   state.lightning.loading = true;
   try{
-    const r = await fetch(`/api/lightning?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=100`, {cache:'default'});
+    const lightningUrl = `https://api.wheaterflow.be/api/lightning?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=100`;
+    const r = await fetch(lightningUrl, {cache:'no-store'});
     const data = await r.json().catch(()=>({}));
     if(!r.ok || data.ok === false) throw new Error(data.error || `Lightning API ${r.status}`);
     state.lightning = {
@@ -3007,10 +3008,23 @@ function stormEngine(){
 
   const movement = stormDirectionText(threat);
   const movementSpeedKph = Number(threat?.movement?.speedKph);
-  const lightningDistanceKm = Number(nearest?.distanceKm);
-  const lightningAgeSec = Number(nearest?.ageSec);
+  const lightningDistanceRaw = nearest?.distanceKm;
+  const lightningAgeRaw = nearest?.ageSec;
+  const lightningDistanceKm =
+    lightningDistanceRaw != null && Number.isFinite(Number(lightningDistanceRaw))
+      ? Number(lightningDistanceRaw)
+      : null;
+  const lightningAgeSec =
+    lightningAgeRaw != null && Number.isFinite(Number(lightningAgeRaw))
+      ? Number(lightningAgeRaw)
+      : null;
   const intensity = stormIntensityFromLightning(lightning, maxCape, maxGust);
-  const count5m = strikeCount;
+  const count5m = Array.isArray(lightning.strikes)
+    ? lightning.strikes.filter(strike => {
+        const ageSec = Number(strike?.ageSec);
+        return Number.isFinite(ageSec) && ageSec >= 0 && ageSec <= 300;
+      }).length
+    : 0;
 
   let summaryText;
   if(lightning.available && Number.isFinite(lightningDistanceKm)){
