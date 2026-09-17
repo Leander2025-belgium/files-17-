@@ -13051,3 +13051,17 @@ body.community-composer-open #communityComposer .community-composer-body{
     padding:13px !important;
   }
 }
+
+/* =====================================================================
+   2026-09-17 — iOS 27 radar safe-area correction
+   Keep the radar UI below the translucent status/Dynamic Island region.
+   Visual styling is intentionally unchanged; only vertical positioning.
+   ===================================================================== */
+@media (max-width: 900px){
+  #radarscreen.active .radar-top{
+    top:calc(var(--wf-safe-top) + 38px)!important;
+  }
+  #radarscreen.active .radar-eta-line{
+    top:calc(var(--wf-safe-top) + 184px)!important;
+  }
+}
