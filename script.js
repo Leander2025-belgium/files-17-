@@ -8705,6 +8705,46 @@ function radarPixelSupport(mask,gx,gy){
   return count;
 }
 
+// WF_RADAR_DISTANCE_V5: groepeer pixels tot echte aaneengesloten neerslagzones.
+// Een paar losse/gesmoothde pixels mogen nooit meer als een bui op 3/5/13 km gelden.
+function radarBuildComponents(mask){
+  const componentByKey=new Map();
+  const components=[];
+  let id=0;
+  for(const [startKey,startPixel] of mask){
+    if(componentByKey.has(startKey)) continue;
+    const component={id:id++, pixels:0, light:0, moderate:0, heavy:0};
+    const queue=[startPixel];
+    componentByKey.set(startKey,component);
+    for(let qi=0;qi<queue.length;qi++){
+      const pixel=queue[qi];
+      component.pixels++;
+      component[pixel.intensity]=(component[pixel.intensity]||0)+1;
+      for(let yy=pixel.gy-1;yy<=pixel.gy+1;yy++){
+        for(let xx=pixel.gx-1;xx<=pixel.gx+1;xx++){
+          if(xx===pixel.gx && yy===pixel.gy) continue;
+          const key=`${xx}:${yy}`;
+          const next=mask.get(key);
+          if(next && !componentByKey.has(key)){
+            componentByKey.set(key,component);
+            queue.push(next);
+          }
+        }
+      }
+    }
+    components.push(component);
+  }
+  return {componentByKey,components};
+}
+
+function radarComponentIsRain(component){
+  if(!component) return false;
+  // Lichte echo moet een duidelijke zone zijn; sterkere echo mag compacter zijn.
+  if(component.heavy>0) return component.pixels>=4;
+  if(component.moderate>0) return component.pixels>=5;
+  return component.pixels>=8;
+}
+
 async function refreshRadarProximity(meta=rainviewerMeta){
   try{
     const lat=Number(state.loc?.lat);
@@ -8774,13 +8814,13 @@ async function refreshRadarProximity(meta=rainviewerMeta){
 
           /*
            * 2   = Universal Blue
-           * 0_0 = geen smoothing
+           * 1_1 = exact dezelfde smoothing als de zichtbare radarkaart.
            *
-           * Voor afstand is een ongesmoothde radarlaag
-           * veel geschikter dan de visuele smooth-laag.
+           * Afstand en kaart gebruiken hierdoor hetzelfde radarbeeld;
+           * clusterfiltering hieronder verwijdert smoothing-ruis.
            */
           const url=
-            `${meta.host}${latest.path}/256/${z}/${x}/${y}/2/0_0.png`;
+            `${meta.host}${latest.path}/256/${z}/${x}/${y}/2/1_1.png`;
 
           const response=
             await fetch(url,{
@@ -8898,6 +8938,8 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       }
     }
 
+    const {componentByKey}=radarBuildComponents(rainMask);
+
     let best=null;
     let nearUserBest=null;
 
@@ -8921,6 +8963,11 @@ async function refreshRadarProximity(meta=rainviewerMeta){
         );
 
       if(support<2){
+        continue;
+      }
+
+      const component=componentByKey.get(`${pixel.gx}:${pixel.gy}`);
+      if(!radarComponentIsRain(component)){
         continue;
       }
 
@@ -8958,6 +9005,7 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       const candidate={
         ...pixel,
         support,
+        componentPixels:component?.pixels||0,
         distanceM,
         dx,
         dy
@@ -9015,7 +9063,7 @@ async function refreshRadarProximity(meta=rainviewerMeta){
         dryAtLocation:true,
 
         method:
-          'nearest-unsmoothed-radar-edge-v4.2',
+          'display-parity-clustered-radar-edge-v5.0',
 
         maxDistanceKm:30,
 
@@ -9125,15 +9173,16 @@ async function refreshRadarProximity(meta=rainviewerMeta){
           ?.intensity ||
         null,
 
+      // Alleen regen OP de locatie wanneer de radarcel de locatie werkelijk raakt.
+      // De oude <=4 km-regel maakte "vlakbij" ten onrechte gelijk aan "hier".
       atLocation:Boolean(
-        nearUserBest ||
-        distanceKm<=4
+        best.distanceM <= Math.max(groundMPerPx*0.35, 250)
       ),
 
       dryAtLocation:false,
 
       method:
-        'nearest-unsmoothed-radar-edge-v4.2',
+        'display-parity-clustered-radar-edge-v5.0',
 
       maxDistanceKm:30,
 
@@ -9145,7 +9194,15 @@ async function refreshRadarProximity(meta=rainviewerMeta){
         )/10,
 
       supportPixels:
-        best.support
+        best.support,
+
+      clusterPixels:
+        best.componentPixels,
+
+      rawDistanceKm:
+        Math.round((best.distanceM/1000)*100)/100,
+
+      parityWithDisplayedRadar:true
     };
 
     state.radar.proximity=
