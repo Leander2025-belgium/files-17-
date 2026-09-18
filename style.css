@@ -13065,3 +13065,142 @@ body.community-composer-open #communityComposer .community-composer-body{
     top:calc(var(--wf-safe-top) + 184px)!important;
   }
 }
+
+
+/* =====================================================================
+   Wheaterflow — Clear Liquid Glass navigation · 2026-09-18
+   Append-only material override, based on iOS safe-area patch V9.
+   No central blur: underlying text keeps its original sharp edges.
+   Existing positioning, visibility, click handlers and icons stay in charge.
+   ===================================================================== */
+body .tabbar,
+body .tabbar.glass-touching{
+  background:linear-gradient(180deg,
+    rgba(255,255,255,.065),
+    rgba(255,255,255,.012) 24%,
+    rgba(255,255,255,.008) 72%,
+    rgba(255,255,255,.035))!important;
+  border:1px solid rgba(255,255,255,.46)!important;
+  box-shadow:
+    0 8px 24px rgba(3,12,26,.13),
+    0 2px 5px rgba(3,12,26,.07),
+    inset 0 1px 0 rgba(255,255,255,.72),
+    inset 1px 0 0 rgba(255,255,255,.16),
+    inset -1px 0 0 rgba(255,255,255,.09),
+    inset 0 -1px 0 rgba(7,18,32,.20)!important;
+  -webkit-backdrop-filter:saturate(112%) brightness(1.02)!important;
+  backdrop-filter:saturate(112%) brightness(1.02)!important;
+  /* Rounded overflow already clips the material; allow the outer shadow. */
+  clip-path:none!important;
+  contain:none!important;
+}
+
+/* A moving reflection restricted to the thin rim, not a white veil. */
+body .tabbar::before{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  width:auto!important;
+  height:auto!important;
+  padding:2px!important;
+  border:0!important;
+  border-radius:inherit!important;
+  background:
+    radial-gradient(140px 60px at var(--glass-x,50%) var(--glass-y,0%),
+      rgba(255,255,255,.90),rgba(255,255,255,.12) 60%,transparent 100%),
+    linear-gradient(125deg,rgba(255,255,255,.62),transparent 28%,
+      transparent 67%,rgba(255,255,255,.28))!important;
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)!important;
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)!important;
+  -webkit-mask-composite:xor!important;
+  mask-composite:exclude!important;
+  opacity:.78!important;
+  filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  mix-blend-mode:normal!important;
+  transform:none!important;
+  animation:none!important;
+  pointer-events:none!important;
+  z-index:0!important;
+}
+body .tabbar::after{
+  content:none!important;
+  display:none!important;
+}
+body .tabbar .tab-glass-indicator{
+  display:none!important;
+}
+
+body .tabbar .tabbtn{
+  background:transparent!important;
+  color:#fff!important;
+  font-weight:650!important;
+  /* Contrast stays local to the labels, so the glass itself stays clear. */
+  text-shadow:0 1px 2px rgba(0,10,24,.95),0 0 4px rgba(0,10,24,.75)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  transition:transform .18s ease,color .18s ease!important;
+}
+body .tabbar .tabbtn.active::before{
+  background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.035))!important;
+  border:1px solid rgba(255,255,255,.54)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.52),
+    inset 0 -1px 0 rgba(14,41,57,.12),0 2px 6px rgba(0,15,28,.06)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  filter:none!important;
+  opacity:1!important;
+  animation:none!important;
+}
+body .tabbar .tabbtn.active::after{
+  /* Small selected-state marker; no second glowing/blurred glass layer. */
+  content:""!important;
+  position:absolute!important;
+  top:auto!important;
+  bottom:2px!important;
+  left:calc(50% - 7px)!important;
+  right:auto!important;
+  width:14px!important;
+  height:2px!important;
+  border-radius:2px!important;
+  background:#b7fff1!important;
+  box-shadow:0 1px 2px rgba(0,32,45,.55)!important;
+  filter:none!important;
+  opacity:1!important;
+  transform:none!important;
+  pointer-events:none!important;
+}
+body .tabbar .tabbtn .tab-icon-img{
+  filter:drop-shadow(0 1px 2px rgba(0,14,30,.38))!important;
+}
+body .tabbar .tabbtn:focus-visible{
+  outline:2px solid #c4fff4!important;
+  outline-offset:-3px!important;
+}
+@media(hover:hover){
+  body .tabbar .tabbtn:hover{background:rgba(255,255,255,.055)!important;}
+}
+@supports not ((mask-composite:exclude) or (-webkit-mask-composite:xor)){
+  body .tabbar::before{display:none!important;}
+}
+@media(prefers-reduced-motion:reduce){
+  body .tabbar,body .tabbar .tabbtn,body .tabbar .tab-icon-img{
+    transition:none!important;
+    animation:none!important;
+  }
+}
+@media(prefers-reduced-transparency:reduce){
+  body .tabbar,body .tabbar.glass-touching{
+    background:#20384d!important;
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+  }
+}
+@media(forced-colors:active){
+  body .tabbar{background:Canvas!important;border-color:CanvasText!important;}
+  body .tabbar::before{display:none!important;}
+  body .tabbar .tabbtn{color:ButtonText!important;text-shadow:none!important;}
+  body .tabbar .tabbtn.active::before{border:2px solid Highlight!important;}
+  body .tabbar .tabbtn:focus-visible{outline-color:Highlight!important;}
+}
