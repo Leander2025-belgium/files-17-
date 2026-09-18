@@ -2313,13 +2313,11 @@ async function notifyTvPairingLocationChanged(){
 /* ---------------- weather fetch ---------------- */
 function buildForecastUrl(model){
   const {lat, lon} = state.loc;
-  return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-    `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m`+
-    `&minutely_15=precipitation,weather_code,temperature_2m,wind_speed_10m,wind_gusts_10m`+
-    `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape,lifted_index,freezing_level_height,relative_humidity_2m,dew_point_2m,uv_index,cloud_cover`+
-    `&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,daylight_duration,sunshine_duration`+
-    `&timezone=auto&forecast_days=14&wind_speed_unit=kmh`+
-    (model && model !== 'best_match' ? `&models=${model}` : '');
+  const q = new URLSearchParams({lat:String(lat), lon:String(lon)});
+  if(model && model !== 'best_match') q.set('model', model);
+  // Forecasts always pass through the Wheaterflow server. The server shares one
+  // cache between users and protects the external provider against request storms.
+  return `${WHEATERFLOW_API_BASE}/forecast?${q.toString()}`;
 }
 
 const FORECAST_CACHE_KEY = 'wheaterflow:forecast-cache:v2';
