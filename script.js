@@ -3316,12 +3316,12 @@ function rainNowcastCard(){
         sub:`Rond ${formatShortTime(rain.startTime)}`
       };
     }
-    if(
-      truth?.precipitation?.nearby &&
-      Number.isFinite(Number(truth?.precipitation?.nearestEchoKm))
-    ){
-      const km = Math.max(1, Math.round(Number(truth.precipitation.nearestEchoKm)));
-      return immediateVicinity
+    // Gebruik exact dezelfde centrale radarafstand als Hero en Intelligence.
+    // Geen tweede server-/legacywaarde (bv. 13 km) meer in deze kaart.
+    const nearby = nearbyRadarDistanceSignal(truth);
+    if(nearby.available && nearby.nearby && Number.isFinite(nearby.km)){
+      const km = Math.max(1, Math.round(nearby.km));
+      return nearby.immediate
         ? {
             label:'REGEN VLAKBIJ',
             main:`~${km} km`,
