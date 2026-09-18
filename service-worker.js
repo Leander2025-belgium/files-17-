@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20260914-radar-distance-v1";
+const CACHE_VERSION = "wheaterflow-v20260918-api-cache-v7";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

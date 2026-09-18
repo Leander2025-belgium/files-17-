@@ -498,7 +498,13 @@ async function loadCloudProfileAndFavorites(){
     rerenderForLanguageChange();
     if(Array.isArray(data.favorites)){
       state.favorites = data.favorites.map(f=>({id:f.id, name:f.name, lat:+f.latitude, lon:+f.longitude, admin:f.country || ''}));
-      await window.storage.set('weerscoop:favorites', JSON.stringify(state.favorites)).catch(()=>undefined);
+      // window.storage bestaat niet in elke browser/runtime (o.a. gewone Safari/PWA).
+      // Favorieten mogen de volledige profielsync nooit laten crashen.
+      if(window.storage && typeof window.storage.set === 'function'){
+        await Promise.resolve(window.storage.set('weerscoop:favorites', JSON.stringify(state.favorites))).catch(()=>undefined);
+      }else{
+        try{ localStorage.setItem('weerscoop:favorites', JSON.stringify(state.favorites)); }catch(_e){}
+      }
     }
   }catch(e){
     console.warn('Profielsync mislukt:', e?.message || e);
@@ -2316,18 +2322,42 @@ function buildForecastUrl(model){
     (model && model !== 'best_match' ? `&models=${model}` : '');
 }
 
+const FORECAST_CACHE_KEY = 'wheaterflow:forecast-cache:v2';
+const FORECAST_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+function saveForecastCache(data){
+  if(!data?.current || !data?.hourly || !data?.daily) return;
+  try{
+    localStorage.setItem(FORECAST_CACHE_KEY, JSON.stringify({
+      savedAt: Date.now(), lat: Number(state.loc?.lat), lon: Number(state.loc?.lon), data
+    }));
+  }catch(_e){}
+}
+
+function loadForecastCache(){
+  try{
+    const cached = JSON.parse(localStorage.getItem(FORECAST_CACHE_KEY) || 'null');
+    if(!cached?.data?.current || !cached?.data?.hourly || !cached?.data?.daily) return null;
+    if(Date.now() - Number(cached.savedAt || 0) > FORECAST_CACHE_MAX_AGE_MS) return null;
+    const latDiff = Math.abs(Number(cached.lat) - Number(state.loc?.lat));
+    const lonDiff = Math.abs(Number(cached.lon) - Number(state.loc?.lon));
+    // Ongeveer max. 25 km: voorkom dat oude data van een verre locatie wordt getoond.
+    if(!Number.isFinite(latDiff) || !Number.isFinite(lonDiff) || latDiff > 0.23 || lonDiff > 0.36) return null;
+    return cached.data;
+  }catch(_e){ return null; }
+}
+
 async function fetchForecast(model){
   const response = await fetch(buildForecastUrl(model), {cache:'no-store'});
   let data = null;
-  try{
-    data = await response.json();
-  }catch(error){
-    throw new Error(`Weerdata kon niet worden gelezen (${response.status})`);
-  }
+  try{ data = await response.json(); }catch(error){}
   if(!response.ok || data?.error || !data?.current || !data?.hourly || !data?.daily){
     const reason = data?.reason || data?.error || `HTTP ${response.status}`;
-    throw new Error(reason);
+    const err = new Error(reason);
+    err.status = response.status;
+    throw err;
   }
+  saveForecastCache(data);
   return data;
 }
 
@@ -2335,9 +2365,32 @@ async function fetchForecastWithFallback(model){
   try{
     return await fetchForecast(model);
   }catch(error){
+    // Een 429 is een quota/rate-limit van dezelfde Open-Meteo API. Meteen nog een
+    // tweede request doen maakt het probleem erger en kan dezelfde limiet opnieuw raken.
+    if(error?.status === 429 || /limit|too many requests|429/i.test(String(error?.message || ''))){
+      const cached = loadForecastCache();
+      if(cached){
+        console.warn('Open-Meteo limiet bereikt; laatst geldige lokale weerdata wordt gebruikt.');
+        return cached;
+      }
+      throw error;
+    }
     if(model && model !== 'best_match'){
       console.warn(`${model} faalde, standaard weermodel wordt geprobeerd:`, error);
-      return fetchForecast('best_match');
+      try{ return await fetchForecast('best_match'); }
+      catch(fallbackError){
+        const cached = loadForecastCache();
+        if(cached){
+          console.warn('Weermodel-fallback faalde; laatst geldige lokale weerdata wordt gebruikt.', fallbackError);
+          return cached;
+        }
+        throw fallbackError;
+      }
+    }
+    const cached = loadForecastCache();
+    if(cached){
+      console.warn('Live weerdata niet bereikbaar; laatst geldige lokale weerdata wordt gebruikt.', error);
+      return cached;
     }
     throw error;
   }
@@ -3316,12 +3369,12 @@ function rainNowcastCard(){
         sub:`Rond ${formatShortTime(rain.startTime)}`
       };
     }
-    // Gebruik exact dezelfde centrale radarafstand als Hero en Intelligence.
-    // Geen tweede server-/legacywaarde (bv. 13 km) meer in deze kaart.
-    const nearby = nearbyRadarDistanceSignal(truth);
-    if(nearby.available && nearby.nearby && Number.isFinite(nearby.km)){
-      const km = Math.max(1, Math.round(nearby.km));
-      return nearby.immediate
+    if(
+      truth?.precipitation?.nearby &&
+      Number.isFinite(Number(truth?.precipitation?.nearestEchoKm))
+    ){
+      const km = Math.max(1, Math.round(Number(truth.precipitation.nearestEchoKm)));
+      return immediateVicinity
         ? {
             label:'REGEN VLAKBIJ',
             main:`~${km} km`,
