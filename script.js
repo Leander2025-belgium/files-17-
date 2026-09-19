@@ -3927,13 +3927,10 @@ function renderHome(){
   const currentConditionLabel = truthImmediateVicinity(truth)
     ? (truth?.condition?.label || 'Regen vlakbij')
     : (truth?.condition?.label || wc.l);
-  const currentSource = truth
-    ? 'Wheaterflow Fusion'
-    : (
-        state.observation
-          ? `${state.observation.source} - ${Math.round(state.observation.distanceKm)} km`
-          : 'Harmonie (Benelux)'
-      );
+  // The home hero represents Wheaterflow's fused weather result.
+  // Do not expose the temporary/raw fallback model here when Fusion truth
+  // is still loading; that caused the label to jump back to HARMONIE.
+  const currentSource = 'Wheaterflow Fusion';
 
   applyWeatherBG(cur.weather_code, isDay, cur.cloud_cover);
 
@@ -3944,7 +3941,7 @@ function renderHome(){
     <div class="bignum display">${fmtTemp(cur.temperature_2m)}</div>
     <div class="cond">${esc(currentConditionLabel)}</div>
     <div class="hilo">${esc(weatherHeroLine(cur, rain))}</div>
-    <div class="updated"><span id="updatedText">Zojuist bijgewerkt</span>${state.loc.admin ? ' · ' + esc(state.loc.admin) : ''} · ${truth ? 'Bron' : 'Model'}: ${esc(currentSource)}</div>
+    <div class="updated"><span id="updatedText">Zojuist bijgewerkt</span>${state.loc.admin ? ' · ' + esc(state.loc.admin) : ''} · Bron: ${esc(currentSource)}</div>
   </div>`;
 
 html += wheaterflowAdminAlertsCard();
