@@ -2313,7 +2313,7 @@ async function notifyTvPairingLocationChanged(){
 /* ---------------- weather fetch ---------------- */
 function buildForecastUrl(model){
   const {lat, lon} = state.loc;
-  const q = new URLSearchParams({lat:String(lat), lon:String(lon)});
+  const q = new URLSearchParams({latitude:String(lat), longitude:String(lon)});
   if(model && model !== 'best_match') q.set('model', model);
   // Forecasts always pass through the Wheaterflow server. The server shares one
   // cache between users and protects the external provider against request storms.
@@ -5130,7 +5130,7 @@ async function travelGeocode(q){
 }
 async function travelPointWeather(point, when){
   const date=new Date(when);
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lon}&hourly=temperature_2m,weather_code,precipitation_probability,wind_speed_10m,wind_gusts_10m&forecast_days=3&timezone=auto`;
+  const url=`${WHEATERFLOW_API_BASE}/forecast?latitude=${encodeURIComponent(point.lat)}&longitude=${encodeURIComponent(point.lon)}`;
   const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('Weerdata niet beschikbaar');
   const d=await r.json(); const i=closestIndex(d.hourly.time,date.getTime());
   return {point,time:d.hourly.time[i],temperature:d.hourly.temperature_2m?.[i],code:d.hourly.weather_code?.[i],pop:d.hourly.precipitation_probability?.[i],wind:d.hourly.wind_speed_10m?.[i],gust:d.hourly.wind_gusts_10m?.[i]};
@@ -7805,7 +7805,7 @@ function initMapIfNeeded(){
       return;
     }
     try{
-      const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto&models=knmi_seamless`);
+      const r = await fetch(`${WHEATERFLOW_API_BASE}/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&model=knmi_seamless`, {cache:'no-store'});
       const d = await r.json();
       const wc = wcInfo(d.current.weather_code);
       showRadarInfo(`<b>${wc.l}</b><br>${fmtTemp(d.current.temperature_2m)} - ${fmtWind(d.current.wind_speed_10m)}<br><a href="#" id="useHereLink" style="color:#35d0c4;">Gebruik als locatie</a>`, lat, lng);
