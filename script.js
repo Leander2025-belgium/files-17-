@@ -4193,9 +4193,6 @@ function savePushSettings(){
 
 function appSections(){
   return `
-    <nav class="section-nav" aria-label="Weersecties">
-      ${['Kaarten','Meer weerdata'].map((n,i)=>`<a href="#sec${i+1}">${n}</a>`).join('')}
-    </nav>
     <section id="sec1" class="app-section">${mapLayerSection()}</section>
     <section id="sec2" class="app-section more-weather-sections">
       <div class="more-weather-head">
