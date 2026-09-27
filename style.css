@@ -13361,3 +13361,161 @@ body .tabbar .tabbtn:focus-visible{
     flex-basis:24px!important;
   }
 }
+
+/* =====================================================================
+   2026-09-27 — Community photo buttons v14
+   Definitieve compacte layout: knoppen volledig binnen de fotokaart.
+   ===================================================================== */
+#communityComposer #communityPhotoPicker.community-photo-picker{
+  overflow:hidden!important;
+  height:auto!important;
+  min-height:0!important;
+}
+
+#communityComposer #communityPhotoEmpty.community-photo-empty{
+  position:relative!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  padding:20px 16px 16px!important;
+  gap:0!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+
+#communityComposer #communityPhotoEmpty .community-photo-picker-icon{
+  width:48px!important;
+  height:48px!important;
+  margin:0 0 12px!important;
+  border-radius:16px!important;
+  font-size:23px!important;
+}
+
+#communityComposer #communityPhotoEmpty > strong{
+  display:block!important;
+  margin:0 0 7px!important;
+  font-size:17px!important;
+  line-height:1.2!important;
+}
+
+#communityComposer #communityPhotoEmpty > span{
+  display:block!important;
+  max-width:390px!important;
+  margin:0 0 14px!important;
+  font-size:13px!important;
+  line-height:1.42!important;
+}
+
+#communityComposer .community-photo-source-actions.community-picker-actions{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:100%!important;
+  max-width:300px!important;
+  margin:0 auto 9px!important;
+  gap:10px!important;
+}
+
+#communityComposer .community-photo-source-actions .community-picker-button{
+  flex:1 1 0!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:145px!important;
+  height:44px!important;
+  min-height:44px!important;
+  padding:0 12px!important;
+  gap:7px!important;
+  border-radius:15px!important;
+  font-size:14px!important;
+  font-weight:700!important;
+  letter-spacing:-.01em!important;
+  background:rgba(255,255,255,.065)!important;
+  border:1px solid rgba(222,240,255,.18)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12)!important;
+  -webkit-backdrop-filter:blur(12px) saturate(115%)!important;
+  backdrop-filter:blur(12px) saturate(115%)!important;
+}
+
+#communityComposer .community-photo-source-actions .community-picker-button.primary{
+  background:linear-gradient(180deg,rgba(62,176,226,.25),rgba(31,122,177,.18))!important;
+  border-color:rgba(108,218,255,.32)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.15)!important;
+}
+
+#communityComposer .community-photo-source-actions .community-picker-icon{
+  width:19px!important;
+  height:19px!important;
+  flex:0 0 19px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+
+#communityComposer .community-picker-button[data-community-picker="camera"] .community-picker-icon::before{
+  left:1px!important;
+  top:4px!important;
+  width:17px!important;
+  height:11px!important;
+  border-width:1.5px!important;
+  border-radius:3px!important;
+}
+#communityComposer .community-picker-button[data-community-picker="camera"] .community-picker-icon::after{
+  left:6px!important;
+  top:6px!important;
+  width:6px!important;
+  height:6px!important;
+  border-width:1.4px!important;
+}
+#communityComposer .community-picker-button[data-community-picker="library"] .community-picker-icon::before{
+  left:2px!important;
+  top:2px!important;
+  width:15px!important;
+  height:15px!important;
+  border-width:1.5px!important;
+  border-radius:3px!important;
+}
+#communityComposer .community-picker-button[data-community-picker="library"] .community-picker-icon::after{
+  left:5px!important;
+  top:9px!important;
+  width:9px!important;
+  height:5px!important;
+  border-width:0 0 1.5px 1.5px!important;
+}
+
+#communityComposer #communityPhotoEmpty > small{
+  position:static!important;
+  display:block!important;
+  width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  font-size:9.5px!important;
+  line-height:1.3!important;
+  color:rgba(222,238,255,.42)!important;
+  text-align:center!important;
+}
+
+#communityComposer .community-photo-picker + label{
+  margin-top:14px!important;
+}
+
+@media(max-width:390px){
+  #communityComposer #communityPhotoEmpty.community-photo-empty{
+    padding:18px 13px 15px!important;
+  }
+  #communityComposer .community-photo-source-actions.community-picker-actions{
+    max-width:286px!important;
+    gap:8px!important;
+  }
+  #communityComposer .community-photo-source-actions .community-picker-button{
+    max-width:139px!important;
+    height:42px!important;
+    min-height:42px!important;
+    padding:0 10px!important;
+    font-size:13.5px!important;
+  }
+}
