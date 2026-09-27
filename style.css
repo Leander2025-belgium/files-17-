@@ -13210,56 +13210,154 @@ body .tabbar .tabbtn:focus-visible{
 \n\n/* =====================================================================\n   2026-09-18 — Navigation polish V13\n   Iets meer echte glasblur + dezelfde rustige Inter-typografie als de app.\n   ===================================================================== */\nbody .tabbar,\nbody .tabbar.glass-touching{\n  -webkit-backdrop-filter:blur(5px) saturate(112%)!important;\n  backdrop-filter:blur(5px) saturate(112%)!important;\n  background:rgba(255,255,255,.018)!important;\n}\nbody .tabbar .tabbtn{\n  font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif!important;\n  font-size:12.5px!important;\n  font-weight:520!important;\n  letter-spacing:-.015em!important;\n  line-height:1.18!important;\n  text-shadow:0 1px 2px rgba(0,18,36,.24)!important;\n}\nbody .tabbar .tabbtn.active{font-weight:650!important;}\n
 
 /* =====================================================================
-   2026-09-26 — Community photo actions v12
-   Compactere Liquid Glass knoppen voor iPhone.
+   2026-09-27 — Community photo buttons v13
+   Compact, rustig Liquid Glass en volledig binnen de fotokaart.
    ===================================================================== */
-#communityComposer .community-picker-actions{
-  gap:10px!important;
-  max-width:500px!important;
-  margin:16px auto 12px!important;
+#communityComposer #communityPhotoEmpty.community-photo-empty{
+  padding:22px 16px 22px!important;
+  gap:9px!important;
 }
-#communityComposer .community-picker-button{
-  min-height:52px!important;
-  padding:0 13px!important;
+
+#communityComposer .community-photo-source-actions.community-picker-actions{
+  width:min(100%,330px)!important;
+  max-width:330px!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+  margin:14px auto 0!important;
+  align-items:center!important;
+}
+
+#communityComposer .community-photo-source-actions .community-picker-button{
+  width:100%!important;
+  min-width:0!important;
+  min-height:48px!important;
+  height:48px!important;
+  padding:0 12px!important;
   gap:8px!important;
-  border-radius:17px!important;
-  font-size:15px!important;
-  font-weight:760!important;
+  border-radius:15px!important;
+  border:1px solid rgba(220,240,255,.20)!important;
+  background:rgba(255,255,255,.075)!important;
+  color:#fff!important;
+  font:750 14px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
   letter-spacing:-.012em!important;
   box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.14),
+    0 4px 12px rgba(3,14,30,.12)!important;
+  -webkit-backdrop-filter:blur(12px) saturate(120%)!important;
+  backdrop-filter:blur(12px) saturate(120%)!important;
+  overflow:hidden!important;
+}
+
+#communityComposer .community-photo-source-actions .community-picker-button::after{
+  content:none!important;
+  display:none!important;
+}
+
+#communityComposer .community-photo-source-actions .community-picker-button.primary{
+  border-color:rgba(111,218,255,.34)!important;
+  background:
+    linear-gradient(180deg,rgba(70,181,229,.28),rgba(38,129,185,.20))!important;
+  box-shadow:
     inset 0 1px 0 rgba(255,255,255,.18),
-    0 7px 20px rgba(4,14,30,.16)!important;
+    0 4px 14px rgba(17,94,139,.16)!important;
 }
-#communityComposer .community-picker-button::after{
-  border-radius:16px 16px 13px 13px!important;
+
+#communityComposer .community-photo-source-actions .community-picker-icon{
+  position:relative!important;
+  width:25px!important;
+  height:25px!important;
+  flex:0 0 25px!important;
+  border-radius:8px!important;
+  background:rgba(255,255,255,.08)!important;
+  border:1px solid rgba(255,255,255,.11)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10)!important;
+  font-size:0!important;
 }
-#communityComposer .community-picker-icon{
-  width:28px!important;
-  height:28px!important;
-  flex:0 0 28px!important;
-  border-radius:9px!important;
+
+#communityComposer .community-photo-source-actions .community-picker-button.primary .community-picker-icon{
+  background:rgba(255,255,255,.11)!important;
+  border-color:rgba(225,249,255,.16)!important;
 }
+
+/* Strakke lijniconen i.p.v. de oude ⌁ / ▣ symbolen. */
 #communityComposer .community-picker-button[data-community-picker="camera"] .community-picker-icon::before{
-  font-size:15px!important;
+  content:''!important;
+  position:absolute!important;
+  left:5px!important;
+  top:7px!important;
+  width:13px!important;
+  height:9px!important;
+  border:1.6px solid rgba(255,255,255,.94)!important;
+  border-radius:3px!important;
+  background:transparent!important;
+  box-sizing:border-box!important;
 }
+#communityComposer .community-picker-button[data-community-picker="camera"] .community-picker-icon::after{
+  content:''!important;
+  position:absolute!important;
+  left:9px!important;
+  top:9px!important;
+  width:5px!important;
+  height:5px!important;
+  border:1.4px solid rgba(255,255,255,.94)!important;
+  border-radius:50%!important;
+  box-sizing:border-box!important;
+}
+
 #communityComposer .community-picker-button[data-community-picker="library"] .community-picker-icon::before{
-  font-size:14px!important;
+  content:''!important;
+  position:absolute!important;
+  left:5px!important;
+  top:5px!important;
+  width:13px!important;
+  height:13px!important;
+  border:1.6px solid rgba(255,255,255,.94)!important;
+  border-radius:3px!important;
+  background:transparent!important;
+  box-sizing:border-box!important;
 }
-@media(max-width:520px){
-  #communityComposer .community-picker-actions{
-    gap:9px!important;
-    margin:14px auto 12px!important;
+#communityComposer .community-picker-button[data-community-picker="library"] .community-picker-icon::after{
+  content:''!important;
+  position:absolute!important;
+  left:8px!important;
+  top:11px!important;
+  width:8px!important;
+  height:5px!important;
+  border-left:1.6px solid rgba(255,255,255,.94)!important;
+  border-bottom:1.6px solid rgba(255,255,255,.94)!important;
+  transform:skewY(-34deg) rotate(-8deg)!important;
+  border-radius:1px!important;
+  box-sizing:border-box!important;
+}
+
+#communityComposer .community-photo-source-actions .community-picker-button:active{
+  transform:scale(.975)!important;
+  box-shadow:
+    inset 0 1px 3px rgba(0,0,0,.10),
+    0 2px 7px rgba(3,14,30,.10)!important;
+}
+
+/* Op kleine iPhones blijven ze naast elkaar, maar nog compacter. */
+@media(max-width:390px){
+  #communityComposer #communityPhotoEmpty.community-photo-empty{
+    padding-left:13px!important;
+    padding-right:13px!important;
+    padding-bottom:20px!important;
   }
-  #communityComposer .community-picker-button{
-    min-height:50px!important;
-    padding:0 11px!important;
-    border-radius:16px!important;
-    font-size:15px!important;
+  #communityComposer .community-photo-source-actions.community-picker-actions{
+    width:min(100%,310px)!important;
+    max-width:310px!important;
+    gap:8px!important;
   }
-  #communityComposer .community-picker-icon{
-    width:27px!important;
-    height:27px!important;
-    flex-basis:27px!important;
-    border-radius:9px!important;
+  #communityComposer .community-photo-source-actions .community-picker-button{
+    height:46px!important;
+    min-height:46px!important;
+    padding:0 10px!important;
+    font-size:13.5px!important;
+  }
+  #communityComposer .community-photo-source-actions .community-picker-icon{
+    width:24px!important;
+    height:24px!important;
+    flex-basis:24px!important;
   }
 }
