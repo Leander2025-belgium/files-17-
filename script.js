@@ -7961,7 +7961,23 @@ function availableXweatherLayers(){
 }
 
 function findAvailableXweatherLayer(id){
-  return availableXweatherLayers().find(def=>def.id === id || def.code === id) || null;
+  const regular = availableXweatherLayers().find(def=>def.id === id || def.code === id);
+  if(regular) return regular;
+
+  // Bliksem is in Xweather een overlay-laag. De oude code filterde overlays hier
+  // altijd weg, terwijl de snelle knop "Bliksem" deze functie juist gebruikt.
+  // Daardoor kon lightning-strikes-icons nooit als gekozen kaartlaag starten.
+  const overlay = XWEATHER_LAYER_DEFS.find(def =>
+    def.overlay && (def.id === id || def.code === id)
+  );
+  if(!overlay) return null;
+
+  try{
+    return resolveXweatherLayerCode(overlay, state.xweather.controller) ? overlay : null;
+  }catch(error){
+    console.warn('Xweather overlay-laag is niet beschikbaar', {id, error});
+    return null;
+  }
 }
 
 function findXweatherLayerDefinition(id){
@@ -8119,6 +8135,11 @@ async function setXweatherLayer(id){
   $$('.xweather-layer-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.xweatherLayer === def.id));
   $('#chipPrecip')?.classList.toggle('active', def.id === 'radar');
   $('#chipSat')?.classList.toggle('active', def.id === 'satellite');
+  if(def.id === 'lightning-strikes-icons'){
+    state.xweather.overlayLightning = true;
+    const lightningToggle = $('#xweatherLightningOverlay');
+    if(lightningToggle) lightningToggle.checked = true;
+  }
   if($('#xweatherLayerTitle')) $('#xweatherLayerTitle').textContent = def.label;
   if($('#xweatherWindSettings')) $('#xweatherWindSettings').open = def.id === 'wind-particles';
   updateXweatherLegend();
