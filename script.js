@@ -136,7 +136,7 @@ const state = {
   auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
   community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', quickFilter: 'foryou', map: null, markers: null, selectedFile: null, realtimeChannel: null },
   climate: { records: [], settings: {mode:'off'}, period:'month', location:'all', chart:null, loaded:false },
-  xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false, uiWired:false, visibilityWired:false, mapClickWired:false },
+  xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false, uiWired:false, visibilityWired:false, mapClickWired:false, lightningOverlayLayer:null, lightningOverlayTimer:null, lightningOverlayStamp:'', lightningOverlayUpdatedAt:0 },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   cast: { service:null, status:'idle', available:false, configured:false, connected:false, deviceName:'', receiver:false },
   tvPairing: { service:null, receiver:false, connected:false, code:'', expiresAt:0, status:'idle' },
@@ -7964,13 +7964,14 @@ function findAvailableXweatherLayer(id){
   const regular = availableXweatherLayers().find(def=>def.id === id || def.code === id);
   if(regular) return regular;
 
-  // Bliksem is in Xweather een overlay-laag. De oude code filterde overlays hier
-  // altijd weg, terwijl de snelle knop "Bliksem" deze functie juist gebruikt.
-  // Daardoor kon lightning-strikes-icons nooit als gekozen kaartlaag starten.
   const overlay = XWEATHER_LAYER_DEFS.find(def =>
     def.overlay && (def.id === id || def.code === id)
   );
   if(!overlay) return null;
+
+  // Bliksem gebruikt Wheaterflow's eigen live strike-overlay en hoeft daarom
+  // niet afhankelijk te zijn van Xweather's native lightning-laag.
+  if(overlay.id === 'lightning-strikes-icons') return overlay;
 
   try{
     return resolveXweatherLayerCode(overlay, state.xweather.controller) ? overlay : null;
@@ -8135,11 +8136,8 @@ async function setXweatherLayer(id){
   $$('.xweather-layer-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.xweatherLayer === def.id));
   $('#chipPrecip')?.classList.toggle('active', def.id === 'radar');
   $('#chipSat')?.classList.toggle('active', def.id === 'satellite');
-  if(def.id === 'lightning-strikes-icons'){
-    state.xweather.overlayLightning = true;
-    const lightningToggle = $('#xweatherLightningOverlay');
-    if(lightningToggle) lightningToggle.checked = true;
-  }
+  const lightningToggle = $('#xweatherLightningOverlay');
+  if(lightningToggle) lightningToggle.checked = state.xweather.overlayLightning || def.id === 'lightning-strikes-icons';
   if($('#xweatherLayerTitle')) $('#xweatherLayerTitle').textContent = def.label;
   if($('#xweatherWindSettings')) $('#xweatherWindSettings').open = def.id === 'wind-particles';
   updateXweatherLegend();
@@ -8152,16 +8150,33 @@ async function refreshXweatherLayers(){
   const controller = state.xweather.controller;
   const def = state.xweather.activeLayer;
   if(!controller || !def) return false;
+
+  const lightning = XWEATHER_LAYER_DEFS.find(d=>d.id === 'lightning-strikes-icons');
+  const lightningActive = def.id === 'lightning-strikes-icons';
+
+  // Xweather's native lightning layer renders as elongated yellow/orange streaks
+  // on iOS. Wheaterflow now renders real strike positions itself via /api/lightning.
+  // When "Bliksem" is the selected layer, keep only the normal base map visible.
+  if(lightningActive){
+    state.xweather.activeCodes.forEach(code=>{
+      try{ controller.removeWeatherLayer(code); }catch(e){}
+    });
+    state.xweather.activeCodes = [];
+    try{ controller.redraw(); }catch(err){ console.error('Xweather redraw failed', err); }
+    await syncCustomLightningOverlay(true);
+    return true;
+  }
+
   const primaryCode = resolveXweatherLayerCode(def, controller);
   if(!primaryCode){
     console.error('Xweather layer unavailable before add', {layer:def, metadata:state.xweather.metadata});
     state.xweather.disabledCodes.add(def.code);
     return false;
   }
+
+  // Never add Xweather's native lightning overlay. The custom live strike
+  // overlay below is cleaner and is also used on top of radar/temperature/etc.
   const wanted = [primaryCode];
-  const lightning = XWEATHER_LAYER_DEFS.find(d=>d.id === 'lightning-strikes-icons');
-  const lightningCode = lightning ? resolveXweatherLayerCode(lightning, controller) : null;
-  if(state.xweather.overlayLightning && lightningCode && def.id !== lightning.id) wanted.push(lightningCode);
   state.xweather.activeCodes.forEach(code=>{
     if(!wanted.includes(code)){
       try{ controller.removeWeatherLayer(code); }catch(e){}
@@ -8190,16 +8205,157 @@ async function refreshXweatherLayers(){
   }
   applyWindParticleSettings();
   try{ controller.redraw(); }catch(err){ console.error('Xweather redraw failed', err); }
+  await syncCustomLightningOverlay(true);
   return state.xweather.activeCodes.includes(primaryCode);
 }
 
 function xweatherLayerOverrides(code){
   const weak = likelyWeakMapDevice();
-  const opacity = code === 'radar' ? .86 : code === 'satellite' ? .82 : code === 'wind-particles' ? .74 : .78;
+  const opacity = /lightning-strikes/.test(code) ? 0.02 : code === 'radar' ? .86 : code === 'satellite' ? .82 : code === 'wind-particles' ? .74 : .78;
   return {
     opacity,
     data:{ quality: weak ? 'low' : 'normal' }
   };
+}
+
+function shouldShowCustomLightningOverlay(){
+  const active = state.xweather.activeLayer?.id === 'lightning-strikes-icons';
+  return Boolean(active || state.xweather.overlayLightning);
+}
+
+function getLightningOverlayRadiusKm(){
+  if(!state.map?.getCenter || !state.map?.getBounds) return 140;
+  try{
+    const center = state.map.getCenter();
+    const northEast = state.map.getBounds().getNorthEast();
+    const diagonalKm = state.map.distance(center, northEast) / 1000;
+    return Math.max(90, Math.min(260, Math.round(diagonalKm * 1.25)));
+  }catch(error){
+    return 140;
+  }
+}
+
+function getLightningStrikeAgeSec(strike){
+  const direct = validNumber(strike?.ageSec ?? strike?.ageSeconds ?? strike?.age_s);
+  if(direct != null) return direct;
+  const rawTime = strike?.timestamp || strike?.time || strike?.occurredAt || strike?.observedAt || strike?.datetime;
+  if(!rawTime) return null;
+  const ms = Date.parse(rawTime);
+  return Number.isFinite(ms) ? Math.max(0, Math.round((Date.now() - ms) / 1000)) : null;
+}
+
+function getLightningStrikeCoords(strike){
+  const lat = validNumber(strike?.lat ?? strike?.latitude ?? strike?.coords?.lat ?? strike?.coords?.latitude ?? strike?.position?.lat ?? strike?.position?.latitude);
+  const lon = validNumber(strike?.lon ?? strike?.lng ?? strike?.longitude ?? strike?.coords?.lon ?? strike?.coords?.lng ?? strike?.coords?.longitude ?? strike?.position?.lon ?? strike?.position?.lng ?? strike?.position?.longitude);
+  return lat != null && lon != null ? {lat, lon} : null;
+}
+
+function lightningMarkerTone(strike){
+  const ageSec = getLightningStrikeAgeSec(strike);
+  if(ageSec == null || ageSec <= 600) return 'is-fresh';
+  if(ageSec <= 1800) return 'is-recent';
+  return 'is-old';
+}
+
+function buildLightningMarkerHtml(strike){
+  const tone = lightningMarkerTone(strike);
+  return `<div class="wf-lightning-marker ${tone}"><span>⚡</span></div>`;
+}
+
+function buildLightningPopup(strike, center){
+  const coords = getLightningStrikeCoords(strike);
+  const ageSec = getLightningStrikeAgeSec(strike);
+  const age = ageSec == null ? 'tijd onbekend' : ageSec < 60 ? 'zojuist' : `${Math.max(1, Math.round(ageSec / 60))} min geleden`;
+  const distanceKm = coords && center && state.map?.distance ? state.map.distance(center, [coords.lat, coords.lon]) / 1000 : null;
+  const peak = validNumber(strike?.peakCurrentKA ?? strike?.peakCurrent ?? strike?.currentKA ?? strike?.intensityKA ?? strike?.ampsKA);
+  const cloud = validText(strike?.type || strike?.kind || strike?.classification || '');
+  return [
+    '<b>Bliksemontlading</b>',
+    distanceKm != null ? `Afstand: ${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km` : '',
+    `Tijd: ${age}`,
+    peak != null ? `Sterkte: ${Math.abs(peak).toFixed(peak < 10 ? 1 : 0)} kA` : '',
+    cloud ? `Type: ${esc(cloud)}` : ''
+  ].filter(Boolean).join('<br>');
+}
+
+function ensureLightningOverlayLayer(){
+  if(state.xweather.lightningOverlayLayer || !state.map || !window.L) return state.xweather.lightningOverlayLayer;
+  state.xweather.lightningOverlayLayer = L.layerGroup().addTo(state.map);
+  return state.xweather.lightningOverlayLayer;
+}
+
+function clearCustomLightningOverlay(){
+  clearTimeout(state.xweather.lightningOverlayTimer);
+  state.xweather.lightningOverlayTimer = null;
+  state.xweather.lightningOverlayStamp = '';
+  state.xweather.lightningOverlayUpdatedAt = 0;
+  if(state.xweather.lightningOverlayLayer){
+    try{ state.xweather.lightningOverlayLayer.clearLayers(); }catch(error){}
+    try{ state.map?.removeLayer?.(state.xweather.lightningOverlayLayer); }catch(error){}
+    state.xweather.lightningOverlayLayer = null;
+  }
+}
+
+async function syncCustomLightningOverlay(force=false){
+  if(!state.map || !window.L) return;
+  if(!shouldShowCustomLightningOverlay()){
+    clearCustomLightningOverlay();
+    return;
+  }
+
+  const layer = ensureLightningOverlayLayer();
+  const centerObj = state.map.getCenter?.() || {lat:state.loc?.lat, lng:state.loc?.lon};
+  const lat = validNumber(centerObj?.lat);
+  const lon = validNumber(centerObj?.lng ?? centerObj?.lon);
+  if(lat == null || lon == null) return;
+
+  const radius = getLightningOverlayRadiusKm();
+  const stamp = `${lat.toFixed(2)}|${lon.toFixed(2)}|${radius}|${state.xweather.activeLayer?.id || ''}|${state.xweather.overlayLightning ? 1 : 0}`;
+  const stillFresh = Date.now() - (state.xweather.lightningOverlayUpdatedAt || 0) < 60000;
+  if(!force && stillFresh && state.xweather.lightningOverlayStamp === stamp) return;
+
+  state.xweather.lightningOverlayStamp = stamp;
+  try{
+    const url = `https://api.wheaterflow.be/api/lightning?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${encodeURIComponent(radius)}`;
+    const response = await fetch(url, {cache:'no-store'});
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok || data.ok === false) throw new Error(data.error || `Lightning API ${response.status}`);
+
+    const strikes = Array.isArray(data.strikes) ? data.strikes : [];
+    const center = [lat, lon];
+    layer.clearLayers();
+
+    strikes.forEach(strike=>{
+      const coords = getLightningStrikeCoords(strike);
+      if(!coords) return;
+      const marker = L.marker([coords.lat, coords.lon], {
+        interactive:true,
+        keyboard:false,
+        icon: L.divIcon({
+          className:'wf-lightning-marker-wrapper',
+          html: buildLightningMarkerHtml(strike),
+          iconSize:[28,28],
+          iconAnchor:[14,14]
+        })
+      });
+      marker.bindPopup(buildLightningPopup(strike, center), {offset:[0,-10], className:'wf-lightning-popup'});
+      layer.addLayer(marker);
+    });
+
+    if(state.xweather.activeLayer?.id === 'lightning-strikes-icons'){
+      const count = strikes.length;
+      const ageText = data.updated ? new Date(data.updated).toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit'}) : 'nu';
+      setXweatherStatus(`Live bliksemontladingen met duidelijke markeringen. ${count} ontladingen in beeld · bijgewerkt om ${ageText}.`);
+    }
+    state.xweather.lightningOverlayUpdatedAt = Date.now();
+
+    clearTimeout(state.xweather.lightningOverlayTimer);
+    state.xweather.lightningOverlayTimer = setTimeout(()=>{
+      if(shouldShowCustomLightningOverlay()) syncCustomLightningOverlay(true);
+    }, 60000);
+  }catch(error){
+    console.warn('Custom lightning overlay faalde', error);
+  }
 }
 
 function likelyWeakMapDevice(){
@@ -8293,6 +8449,10 @@ function wireXweatherMapEvents(){
       const c = state.map.getCenter();
       localStorage.setItem('weerscoop:mapView', JSON.stringify({lat:c.lat, lon:c.lng, zoom:state.map.getZoom()}));
     }catch(e){}
+    clearTimeout(state.xweather.lightningOverlayTimer);
+    state.xweather.lightningOverlayTimer = setTimeout(()=>{
+      if(shouldShowCustomLightningOverlay()) syncCustomLightningOverlay();
+    }, 160);
   });
 }
 
@@ -8329,6 +8489,7 @@ function teardownXweather(removeUi=true){
   state.xweather.timelineUiTimer = null;
   try{ state.xweather.controller?.timeline?.pause(); }catch(e){}
   try{ state.xweather.controller?.dispose?.(); }catch(e){}
+  clearCustomLightningOverlay();
   state.xweather.controller = null;
   state.xweather.ready = false;
   state.xweather.activeCodes = [];
