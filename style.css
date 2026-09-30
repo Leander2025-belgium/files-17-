@@ -13660,3 +13660,13 @@ body .tabbar .tabbtn:focus-visible{
     font-size:13px!important;
   }
 }
+
+
+/* 2026-09-30 — groter Komende 24 uur-icoon */
+.card-title .coming-24h-inline-icon,
+.more-weather-section-title .coming-24h-inline-icon{
+  width:30px!important;
+  height:30px!important;
+  flex:0 0 30px!important;
+  margin-right:10px!important;
+}

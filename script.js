@@ -3961,7 +3961,7 @@ html += weatherSummaryCard();
 html += rainNowcastCard();
 
   // hourly — bestaande 24-uursdata, alleen gerichte markup voor vaste uitlijning
-  html += `<div class="card hourly-24-card"><div class="card-title">${upcoming24Icon(18,'card-title-icon')} Komende 24 uur</div><div class="hourly-scroll" aria-label="Komende 24 uur">`;
+  html += `<div class="card hourly-24-card"><div class="card-title">${upcoming24Icon(30,'card-title-icon')} Komende 24 uur</div><div class="hourly-scroll" aria-label="Komende 24 uur">`;
   for(let i=nowIdx; i<Math.min(nowIdx+24, hourly.time.length); i++){
     const t = new Date(hourly.time[i]);
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
@@ -4542,7 +4542,7 @@ function chartsSection(){
     const min = Math.min(...clean), max = Math.max(...clean);
     return `<span>${label}<b>${Math.round(min)}-${Math.round(max)}${unit}</b></span>`;
   };
-  return `<div class="more-weather-section-title">${upcoming24Icon(18,'card-title-icon')} Grafieken komende 24 uur</div>
+  return `<div class="more-weather-section-title">${upcoming24Icon(30,'card-title-icon')} Grafieken komende 24 uur</div>
     <div class="premium-chart-summary">
       ${stat('Temperatuur', points.map(i=>state.hourly.temperature_2m[i]), '°')}
       ${stat('Neerslagkans', points.map(i=>state.hourly.precipitation_probability[i]), '%')}
