@@ -78,7 +78,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20260929-radar-lightning-v3" rel="stylesheet"/>
+<link href="style.css?v=20260930-community-chat-v1" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -457,9 +457,9 @@
     <div class="community-head-v2">
       <div>
         <h2>Community</h2>
-        <p>Live weer, gezien door jou</p>
+        <p>Praat mee, stel vragen en deel wat jij buiten ziet</p>
       </div>
-      <div class="community-create-actions"><button class="community-share-photo" id="communityUploadOpen" type="button"><span>＋</span> Deel foto</button><button class="community-observation-btn" id="communityObservationOpen" type="button">Waarneming melden</button></div>
+      <div class="community-create-actions"><button class="community-share-photo" id="communityUploadOpen" type="button"><span>＋</span> Nieuw bericht</button><button class="community-observation-btn" id="communityObservationOpen" type="button">Waarneming</button></div>
     </div>
 
     <div class="community-search-v2">
@@ -817,13 +817,24 @@
         ×
       </button>
 <h3 id="communityComposerTitle">
-        Weerfoto delen
+        Nieuw bericht
       </h3>
 <button class="profile-done-button" id="communitySubmitPost" type="button">
         Plaatsen
       </button>
 </header>
-<div class="community-composer-body"><div class="community-composer-modes" id="communityComposerModes"><button class="active" data-community-mode="photo" type="button">Weerfoto</button><button data-community-mode="observation" type="button">Waarneming</button></div>
+<div class="community-composer-body"><div class="community-composer-modes" id="communityComposerModes">
+<button class="active" data-community-mode="message" type="button">Bericht</button>
+<button data-community-mode="photo" type="button">Foto</button>
+<button data-community-mode="observation" type="button">Waarneming</button>
+</div>
+<div class="community-observation-picker-wrap hidden" id="communityObservationPickerWrap">
+  <div class="community-observation-picker-head">
+    <strong>Welk weer zie je nu?</strong>
+    <span>Kies één weersoort. Een foto is niet nodig.</span>
+  </div>
+  <div class="community-observation-picker" id="communityObservationPicker"></div>
+</div>
 <div class="community-photo-picker" id="communityPhotoPicker">
 <div class="community-photo-empty" id="communityPhotoEmpty">
 <div class="community-photo-picker-icon" aria-hidden="true">⌁</div>
@@ -857,13 +868,13 @@
 </div>
 </div>
 </div>
-<label>
-        Omschrijving
+<label id="communityCaptionField">
+        Bericht
 
-        <textarea id="communityCaption" maxlength="500" placeholder="Wat zie je? Gebruik gerust #onweer of #regenboog."></textarea>
+        <textarea id="communityCaption" maxlength="500" placeholder="Vraag iets of praat mee over het weer…"></textarea>
 </label>
-<label>
-        Weersoort
+<label class="hidden" id="communityCategoryField">
+        Onderwerp van de foto
         <select id="communityCategorySelect"></select>
 </label>
 <label>
@@ -883,7 +894,7 @@
 </label>
 <label class="inline-check">
 <input id="communityUseGps" type="checkbox"/>
-        Gebruik GPS voor deze upload
+        Gebruik GPS voor locatie
       </label>
 <div class="community-captured-weather" id="communityCapturedWeather">
         Weergegevens worden toegevoegd bij plaatsen.
@@ -1616,6 +1627,6 @@
 <script src="location-engine.js?v=20260911-location-i18n-v2"></script>
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20260929-radar-lightning-v3"></script>
+<script src="script.js?v=20260930-community-chat-v1"></script>
 </body>
 </html>

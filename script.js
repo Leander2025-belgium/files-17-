@@ -6565,18 +6565,36 @@ const COMMUNITY_CATEGORIES = [
   {id:'other', label:'Overig', color:'#8fe7ff'}
 ];
 const COMMUNITY_OBSERVATION_TYPES = [
+  {id:'clear', label:'Helder / zonnig', short:'Helder', category:'other', icon:'☀', ttlMinutes:120},
+  {id:'mostly_clear', label:'Licht bewolkt', short:'Licht bewolkt', category:'clouds', icon:'◔', ttlMinutes:120},
+  {id:'partly_cloudy', label:'Half bewolkt', short:'Half bewolkt', category:'clouds', icon:'◑', ttlMinutes:120},
+  {id:'cloudy', label:'Bewolkt', short:'Bewolkt', category:'clouds', icon:'☁', ttlMinutes:120},
+  {id:'overcast', label:'Zwaar bewolkt', short:'Zwaar bewolkt', category:'clouds', icon:'☁', ttlMinutes:120},
+  {id:'clearing', label:'Opklaring', short:'Opklaring', category:'clouds', icon:'☀', ttlMinutes:90},
+  {id:'fog', label:'Mist', short:'Mist', category:'fog', icon:'≋', ttlMinutes:180},
+  {id:'haze', label:'Nevel', short:'Nevel', category:'fog', icon:'≋', ttlMinutes:180},
+  {id:'drizzle', label:'Motregen', short:'Motregen', category:'rain', icon:'⋰', ttlMinutes:60},
+  {id:'light_rain', label:'Lichte regen', short:'Lichte regen', category:'rain', icon:'☂', ttlMinutes:60},
   {id:'rain', label:'Regen', short:'Regen', category:'rain', icon:'☔', ttlMinutes:60},
   {id:'heavy_rain', label:'Zware regen', short:'Zware regen', category:'rain', icon:'🌧', ttlMinutes:60},
-  {id:'hail', label:'Hagel', short:'Hagel', category:'hail', icon:'◌', ttlMinutes:45},
-  {id:'seaspark', label:'Zeevonk', short:'Zeevonk', category:'seaspark', icon:'✦', ttlMinutes:240},
+  {id:'light_shower', label:'Lichte buien', short:'Lichte buien', category:'shower', icon:'☂', ttlMinutes:60},
+  {id:'shower', label:'Buien', short:'Buien', category:'shower', icon:'☔', ttlMinutes:60},
+  {id:'heavy_shower', label:'Zware buien', short:'Zware buien', category:'shower', icon:'🌧', ttlMinutes:60},
+  {id:'sleet', label:'Natte sneeuw', short:'Natte sneeuw', category:'snow', icon:'❄', ttlMinutes:120},
+  {id:'light_snow', label:'Lichte sneeuw', short:'Lichte sneeuw', category:'snow', icon:'❄', ttlMinutes:120},
   {id:'snow', label:'Sneeuw', short:'Sneeuw', category:'snow', icon:'❄', ttlMinutes:120},
-  {id:'fog', label:'Mist', short:'Mist', category:'fog', icon:'≋', ttlMinutes:180},
+  {id:'heavy_snow', label:'Zware sneeuw', short:'Zware sneeuw', category:'snow', icon:'❄', ttlMinutes:120},
+  {id:'hail', label:'Hagel', short:'Hagel', category:'hail', icon:'◌', ttlMinutes:45},
+  {id:'freezing_rain', label:'IJzel / ijsregen', short:'IJzel', category:'other', icon:'◇', ttlMinutes:90},
+  {id:'ice', label:'Gladheid', short:'Gladheid', category:'other', icon:'◇', ttlMinutes:360},
   {id:'thunder', label:'Onweer', short:'Onweer', category:'thunder', icon:'⚡', ttlMinutes:45},
   {id:'lightning', label:'Bliksem gezien', short:'Bliksem', category:'thunder', icon:'↯', ttlMinutes:30},
   {id:'strong_wind', label:'Harde wind', short:'Harde wind', category:'storm', icon:'〰', ttlMinutes:90},
+  {id:'storm', label:'Storm', short:'Storm', category:'storm', icon:'⚑', ttlMinutes:90},
+  {id:'calm', label:'Windstil', short:'Windstil', category:'other', icon:'○', ttlMinutes:120},
+  {id:'rainbow', label:'Regenboog', short:'Regenboog', category:'rainbow', icon:'⌒', ttlMinutes:60},
   {id:'flooding', label:'Wateroverlast', short:'Wateroverlast', category:'rain', icon:'≋', ttlMinutes:240},
-  {id:'ice', label:'Gladheid', short:'Gladheid', category:'other', icon:'◇', ttlMinutes:360},
-  {id:'clearing', label:'Zon of opklaring', short:'Opklaring', category:'sunset', icon:'☀', ttlMinutes:90}
+  {id:'seaspark', label:'Zeevonk', short:'Zeevonk', category:'seaspark', icon:'✦', ttlMinutes:240}
 ];
 const communityCategory = id => COMMUNITY_CATEGORIES.find(c=>c.id===id) || COMMUNITY_CATEGORIES[COMMUNITY_CATEGORIES.length - 1];
 const communityObservationType = id => COMMUNITY_OBSERVATION_TYPES.find(t=>t.id===id) || null;
@@ -6588,10 +6606,12 @@ function initCommunityUi(){
   if($('#communityCategorySelect')) $('#communityCategorySelect').innerHTML = composerCatOptions;
   if($('#communityCategoryFilter')) $('#communityCategoryFilter').innerHTML = '<option value="">Alle categorieen</option>' + catOptions;
   renderCommunityQuickObservations();
+  renderCommunityObservationPicker();
   $('#communityQuickObservations')?.addEventListener('click', handleQuickObservationClick);
-  $('#communityUploadOpen')?.addEventListener('click', ()=>{ openCommunityComposer(); setCommunityComposerMode('photo'); });
+  $('#communityUploadOpen')?.addEventListener('click', ()=>{ openCommunityComposer(); setCommunityComposerMode('message'); });
   $('#communityObservationOpen')?.addEventListener('click', ()=>{ openCommunityComposer(); setCommunityComposerMode('observation'); });
   $('#communityComposerModes')?.addEventListener('click', e=>{ const b=e.target.closest('[data-community-mode]'); if(b) setCommunityComposerMode(b.dataset.communityMode); });
+  $('#communityObservationPicker')?.addEventListener('click', e=>{ const b=e.target.closest('[data-community-weather]'); if(b) selectCommunityObservationType(b.dataset.communityWeather); });
   $('#communityComposerClose')?.addEventListener('click', closeCommunityComposer);
   $('#communityScrim')?.addEventListener('click', closeCommunityComposer);
   $('#communitySubmitPost')?.addEventListener('click', createCommunityPost);
@@ -6636,12 +6656,25 @@ function initCommunityUi(){
 
 function communityWeatherIcon(typeOrCategory,size=22){
   const id=String(typeOrCategory||'other');
-  const map={rain:'rain',heavy_rain:'rain',thunder:'storm',lightning:'storm',hail:'snow',snow:'snow',fog:'fog',strong_wind:'wind',flooding:'rain',ice:'snow',clearing:'partly',sunset:'sun',sunrise:'sun',clouds:'cloud',storm:'storm',shower:'rain',coast:'wind',seaspark:'drop'};
+  const map={clear:'sun',mostly_clear:'partly',partly_cloudy:'partly',cloudy:'cloud',overcast:'cloud',clearing:'partly',fog:'fog',haze:'fog',drizzle:'rain',light_rain:'rain',rain:'rain',heavy_rain:'rain',light_shower:'rain',shower:'rain',heavy_shower:'rain',sleet:'snow',light_snow:'snow',snow:'snow',heavy_snow:'snow',hail:'snow',freezing_rain:'snow',ice:'snow',thunder:'storm',lightning:'storm',strong_wind:'wind',storm:'storm',calm:'wind',rainbow:'sun',flooding:'rain',sunset:'sun',sunrise:'sun',clouds:'cloud',coast:'wind',seaspark:'drop'};
   return icon(map[id]||'cloud',true,size);
 }
 function renderCommunityQuickObservations(){
   const wrap=$('#communityQuickObservations'); if(!wrap) return;
-  wrap.innerHTML=COMMUNITY_OBSERVATION_TYPES.map(type=>`<button type="button" data-observation-type="${esc(type.id)}" aria-label="${esc(type.label)} melden"><span>${communityWeatherIcon(type.id,22)}</span><b>${esc(type.short)}</b></button>`).join('');
+  const quickIds=['clear','cloudy','rain','shower','thunder','strong_wind','fog','snow'];
+  wrap.innerHTML=quickIds.map(id=>communityObservationType(id)).filter(Boolean).map(type=>`<button type="button" data-observation-type="${esc(type.id)}" aria-label="${esc(type.label)} melden"><span>${communityWeatherIcon(type.id,22)}</span><b>${esc(type.short)}</b></button>`).join('');
+}
+
+function renderCommunityObservationPicker(){
+  const wrap=$('#communityObservationPicker'); if(!wrap) return;
+  wrap.innerHTML=COMMUNITY_OBSERVATION_TYPES.map(type=>`<button type="button" class="community-weather-choice${state.community.selectedObservationType===type.id?' active':''}" data-community-weather="${esc(type.id)}"><span>${communityWeatherIcon(type.id,23)}</span><b>${esc(type.short)}</b></button>`).join('');
+}
+
+function selectCommunityObservationType(typeId){
+  if(!communityObservationType(typeId)) return;
+  state.community.selectedObservationType=typeId;
+  $$('#communityObservationPicker [data-community-weather]').forEach(btn=>btn.classList.toggle('active',btn.dataset.communityWeather===typeId));
+  setCommunityComposerMessage('');
 }
 
 function debounce(fn, wait){
@@ -6695,8 +6728,22 @@ function normalizeCommunityObservationPost(post){
     else if(/mist|nevel/i.test(caption)) typeId = 'fog';
     else if(/wateroverlast|overstrom/i.test(caption)) typeId = 'flooding';
     else if(/glad|ijzel|ijs/i.test(caption)) typeId = 'ice';
+    else if(/zware sneeuw/i.test(caption)) typeId = 'heavy_snow';
+    else if(/lichte sneeuw/i.test(caption)) typeId = 'light_snow';
+    else if(/natte sneeuw/i.test(caption)) typeId = 'sleet';
+    else if(/ijzel|ijsregen/i.test(caption)) typeId = 'freezing_rain';
+    else if(/zware bui|hevige bui/i.test(caption)) typeId = 'heavy_shower';
+    else if(/lichte bui/i.test(caption)) typeId = 'light_shower';
     else if(/zware regen|stortregen|hevige regen/i.test(caption)) typeId = 'heavy_rain';
-    else if(/regen|bui|motregen/i.test(caption)) typeId = 'rain';
+    else if(/lichte regen/i.test(caption)) typeId = 'light_rain';
+    else if(/motregen/i.test(caption)) typeId = 'drizzle';
+    else if(/regenboog/i.test(caption)) typeId = 'rainbow';
+    else if(/zwaar bewolkt/i.test(caption)) typeId = 'overcast';
+    else if(/half bewolkt/i.test(caption)) typeId = 'partly_cloudy';
+    else if(/licht bewolkt/i.test(caption)) typeId = 'mostly_clear';
+    else if(/bewolkt/i.test(caption)) typeId = 'cloudy';
+    else if(/helder|zonnig/i.test(caption)) typeId = 'clear';
+    else if(/regen|bui/i.test(caption)) typeId = 'rain';
   }
   const type = communityObservationType(typeId);
   const createdMs = new Date(post.created_at || Date.now()).getTime();
@@ -6806,16 +6853,22 @@ function communityPostHtml(post){
   const verified=Boolean(profile.verified||profile.is_verified||profile.verified_at);
   const liked=post.community_likes?.some(l=>l.user_id===state.auth.user?.id), saved=post.community_favorites?.some(f=>f.user_id===state.auth.user?.id);
   const comments=(post.community_comments||[]).slice(0,3), hasPhoto=Boolean(post.photo_url);
+  const isObservation=Boolean(obs?.type);
+  const isChat=!hasPhoto&&!isObservation;
+  const caption=String(post.caption||'').trim();
+  const isQuestion=isChat&&/[?？]\s*$/.test(caption);
   const weatherParts=[];
   if(validNumber(post.temperature)!=null) weatherParts.push(`<span>${communityMiniIcon('temp')}<b>${fmtTemp(post.temperature)}</b></span>`);
   if(validNumber(post.wind_speed)!=null) weatherParts.push(`<span>${communityMiniIcon('wind')}<b>Wind ${fmtWind(post.wind_speed)}</b></span>`);
   if(validNumber(post.precipitation)!=null) weatherParts.push(`<span>${communityMiniIcon('rain')}<b>${fmtPrecip(post.precipitation)}</b></span>`);
-  const media=hasPhoto?`<div class="community-photo-media"><img class="community-photo" src="${esc(post.photo_url)}" alt="${esc(post.caption||cat.label)}" loading="lazy"><div class="community-category">${communityWeatherIcon(obs?.type?.id||cat.id,18)}${esc(cat.label)}</div></div>`:'';
-  return `<article class="community-post ${hasPhoto?'community-photo-post':'community-observation-post'}" data-post-id="${post.id}">
-    <div class="community-post-head"><div class="community-avatar">${avatar}</div><div class="community-author-copy"><div class="community-post-name">${esc(name)}${verified?'<span class="community-verified" aria-label="Geverifieerd">✓</span>':''}</div><div class="community-post-place">${esc(post.location_name||'Locatie verborgen')} · ${timeAgo(post.created_at)}</div></div><button class="community-more" data-act="report" type="button" aria-label="Meer opties">•••</button></div>
+  const media=hasPhoto?`<div class="community-photo-media"><img class="community-photo" src="${esc(post.photo_url)}" alt="${esc(caption||cat.label)}" loading="lazy"><div class="community-category">${communityWeatherIcon(cat.id,18)}${esc(cat.label)}</div></div>`:'';
+  const autoObservationCaption=isObservation && new RegExp(`^${String(obs.type.label).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')} gemeld(?: in .+)?\\.?$`,'i').test(caption);
+  return `<article class="community-post ${hasPhoto?'community-photo-post':isObservation?'community-observation-post':'community-chat-post'}" data-post-id="${post.id}">
+    <div class="community-post-head"><div class="community-avatar">${avatar}</div><div class="community-author-copy"><div class="community-post-name">${esc(name)}${verified?'<span class="community-verified" aria-label="Geverifieerd">✓</span>':''}</div><div class="community-post-place">${esc(post.location_name||'Community')} · ${timeAgo(post.created_at)}</div></div><button class="community-more" data-act="report" type="button" aria-label="Meer opties">•••</button></div>
     ${media}
-    ${!hasPhoto?`<div class="community-observation-main"><div class="community-observation-icon">${communityWeatherIcon(obs?.type?.id||cat.id,38)}</div><div><b>${esc(obs?.type?.label||cat.label)}</b>${post.caption?`<p>${linkHashtags(esc(post.caption))}</p>`:''}</div></div>`:''}
-    <div class="community-body">${hasPhoto&&post.caption?`<p class="community-caption">${linkHashtags(esc(post.caption))}</p>`:''}${weatherParts.length?`<div class="community-weather-line">${weatherParts.join('')}</div>`:''}</div>
+    ${isObservation?`<div class="community-observation-main"><div class="community-observation-icon">${communityWeatherIcon(obs.type.id,38)}</div><div><span class="community-post-kind">Waarneming</span><b>${esc(obs.type.label)}</b>${caption&&!autoObservationCaption?`<p>${linkHashtags(esc(caption))}</p>`:''}</div></div>`:''}
+    ${isChat?`<div class="community-chat-message"><span class="community-post-kind">${isQuestion?'Vraag':'Bericht'}</span><p>${linkHashtags(esc(caption))}</p></div>`:''}
+    <div class="community-body">${hasPhoto&&caption?`<p class="community-caption">${linkHashtags(esc(caption))}</p>`:''}${weatherParts.length?`<div class="community-weather-line">${weatherParts.join('')}</div>`:''}</div>
     <div class="community-actions"><button class="${liked?'active':''}" data-act="like" aria-label="Vind ik leuk">${communityMiniIcon('heart')}<span>${post.like_count||0}</span></button><button data-act="comment" aria-label="Reageren">${communityMiniIcon('comment')}<span>${post.comment_count||0}</span></button><span class="community-action-spacer"></span><button data-act="share" aria-label="Delen">${communityMiniIcon('share')}</button><button class="${saved?'active':''}" data-act="save" aria-label="Bewaren">${communityMiniIcon('save')}</button></div>
     <div class="community-comments">${comments.map(c=>`<div class="community-comment"><b>${esc(c.profiles?.display_name||'Gebruiker')}</b> ${esc(c.body)}</div>`).join('')}<form class="community-comment-row"><input name="body" maxlength="240" placeholder="Reageer..." autocomplete="off"><button type="submit">Plaats</button></form></div>
   </article>`;
@@ -6993,13 +7046,35 @@ function renderCommunityLiveStats(){
 }
 
 
-function setCommunityComposerMode(mode='photo'){
+function setCommunityComposerMode(mode='message'){
+  const allowed=['message','photo','observation'];
+  if(!allowed.includes(mode)) mode='message';
   state.community.composerMode=mode;
   $$('#communityComposerModes [data-community-mode]').forEach(b=>b.classList.toggle('active',b.dataset.communityMode===mode));
-  $('#communityPhotoPicker')?.classList.toggle('hidden',mode==='observation');
-  if($('#communityComposerTitle')) $('#communityComposerTitle').textContent=mode==='photo'?'Weerfoto delen':'Waarneming melden';
-  if($('#communityCaption')) $('#communityCaption').placeholder=mode==='photo'?'Wat zie je? Voeg een korte beschrijving toe.':'Beschrijf kort wat je waarneemt.';
+
+  $('#communityPhotoPicker')?.classList.toggle('hidden',mode!=='photo');
+  $('#communityObservationPickerWrap')?.classList.toggle('hidden',mode!=='observation');
+  $('#communityCaptionField')?.classList.toggle('hidden',mode==='observation');
+  $('#communityCategoryField')?.classList.toggle('hidden',mode!=='photo');
+
+  const title=$('#communityComposerTitle');
+  const caption=$('#communityCaption');
+  const submit=$('#communitySubmitPost');
+  if(title) title.textContent=mode==='photo'?'Foto delen':mode==='observation'?'Waarneming melden':'Nieuw bericht';
+  if(caption){
+    caption.placeholder=mode==='photo'
+      ? 'Vertel iets over deze foto…'
+      : 'Vraag iets of praat mee over het weer…';
+  }
+  if(submit) submit.textContent=mode==='observation'?'Melden':'Plaatsen';
+
+  if(mode==='observation'){
+    clearCommunityPhotoSelection({clearMessage:false});
+    renderCommunityObservationPicker();
+  }
+  setCommunityComposerMessage('');
 }
+
 function openCommunityComposer(){
   if(!requireCommunityLogin()) return;
   // iOS/Safari native controls (file/camera/select) can become unreliable when
@@ -7137,67 +7212,97 @@ function updateCommunityCapturedWeather(){
 async function createCommunityPost(){
   if(!requireCommunityLogin()) return;
   if(state.community.uploading) return;
-  const file = state.community.selectedFile;
-  const caption = $('#communityCaption')?.value.trim() || '';
-  if(state.community.composerMode==='photo' && !file) return setCommunityComposerMessage(tr('Kies eerst een foto voor een weerfotobericht.'), 'error');
-  if(!file && caption.length < 3) return setCommunityComposerMessage(tr('Beschrijf kort je waarneming.'), 'error');
 
-  const submit = $('#communitySubmitPost');
-  state.community.uploading = true;
-  if(submit){ submit.disabled = true; submit.classList.add('sending'); submit.textContent = tr('Bezig…'); }
-  let controller, timeoutId;
+  const mode=state.community.composerMode||'message';
+  const file=mode==='photo'?state.community.selectedFile:null;
+  let caption=$('#communityCaption')?.value.trim()||'';
+  let observationType=null;
+
+  if(mode==='photo'&&!file) return setCommunityComposerMessage(tr('Kies eerst een foto.'),'error');
+  if(mode==='message'&&caption.length<2) return setCommunityComposerMessage('Schrijf eerst een bericht of vraag.','error');
+  if(mode==='observation'){
+    observationType=communityObservationType(state.community.selectedObservationType);
+    if(!observationType) return setCommunityComposerMessage('Kies welk weer je nu waarneemt.','error');
+    caption=`${observationType.label} gemeld.`;
+  }
+
+  const submit=$('#communitySubmitPost');
+  state.community.uploading=true;
+  if(submit){ submit.disabled=true; submit.classList.add('sending'); submit.textContent=mode==='observation'?'Melden…':tr('Bezig…'); }
+
+  let controller,timeoutId;
   try{
-    setCommunityComposerMessage(file ? tr('Foto optimaliseren…') : tr('Bericht voorbereiden…'));
-    const blob = file ? await compressImageForUpload(file, {maxDimension:1920, quality:.84, keepSmall:true}) : null;
-    if(blob && Number(blob.size) > WF_IMAGE_UPLOAD_SAFE_BYTES) throw new Error(tr('De foto blijft te groot om te uploaden. Kies een kleinere foto.'));
+    setCommunityComposerMessage(file?tr('Foto optimaliseren…'):mode==='observation'?'Waarneming voorbereiden…':tr('Bericht voorbereiden…'));
+    const blob=file?await compressImageForUpload(file,{maxDimension:1920,quality:.84,keepSmall:true}):null;
+    if(blob&&Number(blob.size)>WF_IMAGE_UPLOAD_SAFE_BYTES) throw new Error(tr('De foto blijft te groot om te uploaden. Kies een kleinere foto.'));
 
-    const gps = $('#communityUseGps')?.checked ? await getBrowserLocation({fresh:true}) : null;
-    const privacy = $('#communityLocationPrivacy')?.value || 'municipality';
-    const loc = gps ? {lat:gps.lat, lon:gps.lon, ...(await resolveGpsLocation(gps.lat,gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
-    const cur = liveWeatherSnapshot();
-    let category = $('#communityCategorySelect')?.value || 'other';
-    if(category === 'other' && /(^|\s|#)(zeevonk|seaspark|bioluminescentie|bioluminescence)(\s|$|[.,!?])/i.test(caption)) category = 'seaspark';
-    const form = new FormData();
-    if(blob) form.append('photo', blob, uploadFilenameForBlob(blob, 'weather'));
-    form.append('caption', caption);
-    form.append('category', category);
-    form.append('location_privacy', privacy);
-    form.append('location_name', privacy === 'none' ? '' : (loc.name || state.loc.name));
-    if(privacy === 'exact'){ form.append('latitude', String(loc.lat)); form.append('longitude', String(loc.lon)); }
-    form.append('temperature', cur?.temperature_2m ?? '');
-    form.append('apparent_temperature', cur?.apparent_temperature ?? '');
-    form.append('wind_speed', cur?.wind_speed_10m ?? '');
-    form.append('precipitation', cur?.precipitation ?? '');
-    form.append('humidity', cur?.relative_humidity_2m ?? '');
-    form.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
-    form.append('pressure', cur?.pressure_msl ?? '');
-    form.append('weather_source', state.observation ? state.observation.source : 'KNMI HARMONIE');
-    form.append('data_quality', 'community-waarneming');
+    const gps=$('#communityUseGps')?.checked?await getBrowserLocation({fresh:true}):null;
+    const privacy=$('#communityLocationPrivacy')?.value||'municipality';
+    const loc=gps?{lat:gps.lat,lon:gps.lon,...(await resolveGpsLocation(gps.lat,gps.lon))}:{lat:state.loc.lat,lon:state.loc.lon,name:state.loc.name,admin:state.loc.admin};
+    const safeLoc=communityPrivacyLocation(loc,privacy);
+    const cur=liveWeatherSnapshot();
 
-    setCommunityComposerMessage(file ? tr('Foto uploaden…') : tr('Bericht plaatsen…'));
-    controller = new AbortController();
-    timeoutId = setTimeout(()=>controller.abort(), 75000);
-    await apiForm('/community/posts', form, {signal:controller.signal});
-    clearTimeout(timeoutId); timeoutId = null;
+    let category='other';
+    if(mode==='photo'){
+      category=$('#communityCategorySelect')?.value||'other';
+      if(category==='other'&&/(^|\s|#)(zeevonk|seaspark|bioluminescentie|bioluminescence)(\s|$|[.,!?])/i.test(caption)) category='seaspark';
+    }else if(mode==='observation'){
+      category=observationType.category;
+    }
 
-    setCommunityComposerMessage(tr('Geplaatst.'), 'ok');
+    const form=new FormData();
+    if(blob) form.append('photo',blob,uploadFilenameForBlob(blob,'weather'));
+    form.append('caption',caption);
+    form.append('category',category);
+    form.append('location_privacy',privacy);
+    form.append('location_name',safeLoc.location_name);
+    if(safeLoc.latitude!=='') form.append('latitude',String(safeLoc.latitude));
+    if(safeLoc.longitude!=='') form.append('longitude',String(safeLoc.longitude));
+
+    if(mode==='observation'){
+      const expiresAt=new Date(Date.now()+observationType.ttlMinutes*60000).toISOString();
+      form.append('observation_type',observationType.id);
+      form.append('observation_ttl_minutes',String(observationType.ttlMinutes));
+      form.append('expires_at',expiresAt);
+      form.append('data_quality','community-waarneming');
+    }else{
+      form.append('data_quality',mode==='photo'?'community-photo':'community-chat');
+    }
+
+    form.append('temperature',cur?.temperature_2m??'');
+    form.append('apparent_temperature',cur?.apparent_temperature??'');
+    form.append('wind_speed',cur?.wind_speed_10m??'');
+    form.append('precipitation',cur?.precipitation??'');
+    form.append('humidity',cur?.relative_humidity_2m??'');
+    form.append('uv_index',state.hourly?.uv_index?.[nowIndexInHourly()]??'');
+    form.append('pressure',cur?.pressure_msl??'');
+    form.append('weather_source',mode==='observation'?'Community, niet officieel':(state.observation?state.observation.source:'Wheaterflow'));
+
+    setCommunityComposerMessage(file?tr('Foto uploaden…'):mode==='observation'?'Waarneming melden…':tr('Bericht plaatsen…'));
+    controller=new AbortController();
+    timeoutId=setTimeout(()=>controller.abort(),75000);
+    await apiForm('/community/posts',form,{signal:controller.signal});
+    clearTimeout(timeoutId); timeoutId=null;
+
+    setCommunityComposerMessage(mode==='observation'?'Waarneming gemeld.':tr('Geplaatst.'),'ok');
     if($('#communityCaption')) $('#communityCaption').value='';
+    state.community.selectedObservationType='';
     clearCommunityPhotoSelection({clearMessage:false});
     closeCommunityComposer();
     await loadCommunityPosts(true);
-    toast(file ? tr('Weerfoto gedeeld.') : tr('Weerbericht gedeeld.'));
+    toast(mode==='observation'?`${observationType.label} gemeld.`:mode==='photo'?tr('Foto gedeeld.'):'Bericht geplaatst.');
   }catch(e){
     if(timeoutId) clearTimeout(timeoutId);
-    console.warn('Community upload mislukt:', e?.message || e);
-    let message = e?.message || tr('Uploaden lukte niet. Controleer je verbinding.');
-    if(e?.name === 'AbortError') message = tr('De upload duurde te lang. Controleer je verbinding en probeer opnieuw.');
-    else if(e?.status === 401) message = tr('Log opnieuw in om een foto te delen.');
-    else if(e?.status === 413 || /too large|file size|limit/i.test(String(e?.message||''))) message = tr('De foto is te groot om te uploaden. Kies een kleinere foto.');
-    else if(String(e?.message||'') === 'network') message = tr('Geen verbinding met Wheaterflow. Je foto is niet geplaatst.');
-    setCommunityComposerMessage(message, 'error');
+    console.warn('Community plaatsen mislukt:',e?.message||e);
+    let message=e?.message||tr('Plaatsen lukte niet. Controleer je verbinding.');
+    if(e?.name==='AbortError') message=tr('Dit duurde te lang. Controleer je verbinding en probeer opnieuw.');
+    else if(e?.status===401) message=tr('Log opnieuw in om iets te plaatsen.');
+    else if(e?.status===413||/too large|file size|limit/i.test(String(e?.message||''))) message=tr('De foto is te groot om te uploaden. Kies een kleinere foto.');
+    else if(String(e?.message||'')==='network') message=tr('Geen verbinding met Wheaterflow. Je bericht is niet geplaatst.');
+    setCommunityComposerMessage(message,'error');
   }finally{
-    state.community.uploading = false;
-    if(submit){ submit.disabled = false; submit.classList.remove('sending'); submit.textContent = tr('Plaatsen'); }
+    state.community.uploading=false;
+    if(submit){ submit.disabled=false; submit.classList.remove('sending'); submit.textContent=(state.community.composerMode==='observation'?'Melden':'Plaatsen'); }
   }
 }
 

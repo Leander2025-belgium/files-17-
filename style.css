@@ -13339,3 +13339,146 @@ body .tabbar .tabbtn:focus-visible{
     top:max(calc(env(safe-area-inset-top, 0px) + 126px), 148px)!important;
   }
 }
+
+
+/* =====================================================================
+   2026-09-30 — Community chat + waarnemingen V1
+   ===================================================================== */
+
+#communityComposer .hidden{display:none!important}
+
+#communityComposer .community-composer-modes{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:8px!important;
+}
+#communityComposer .community-composer-modes button{
+  min-width:0!important;
+  padding:0 8px!important;
+}
+
+.community-observation-picker-wrap{
+  margin:2px 0 14px;
+  padding:14px;
+  border:1px solid rgba(179,218,255,.19);
+  border-radius:20px;
+  background:rgba(28,57,88,.34);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+}
+.community-observation-picker-head{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin:0 2px 12px;
+}
+.community-observation-picker-head strong{
+  color:#f7fbff;
+  font-size:16px;
+}
+.community-observation-picker-head span{
+  color:rgba(220,232,247,.72);
+  font-size:12.5px;
+  line-height:1.4;
+}
+.community-observation-picker{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  max-height:min(46vh,390px);
+  overflow:auto;
+  padding:1px 2px 4px;
+  -webkit-overflow-scrolling:touch;
+}
+.community-weather-choice{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:50px;
+  padding:8px 10px;
+  border:1px solid rgba(199,224,255,.15);
+  border-radius:15px;
+  background:rgba(255,255,255,.055);
+  color:#eef7ff;
+  text-align:left;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+}
+.community-weather-choice span{
+  width:29px;
+  height:29px;
+  flex:0 0 29px;
+  display:grid;
+  place-items:center;
+  border-radius:9px;
+  background:rgba(115,211,255,.09);
+}
+.community-weather-choice span svg{
+  width:21px!important;
+  height:21px!important;
+}
+.community-weather-choice b{
+  min-width:0;
+  font-size:13px;
+  line-height:1.18;
+  font-weight:700;
+}
+.community-weather-choice.active{
+  border-color:rgba(78,228,213,.76);
+  background:linear-gradient(145deg,rgba(38,205,190,.24),rgba(56,135,218,.18));
+  box-shadow:0 0 0 2px rgba(49,215,199,.11),inset 0 1px 0 rgba(255,255,255,.13);
+}
+.community-weather-choice:active{transform:scale(.98)}
+
+.community-chat-post{
+  border-color:rgba(160,204,242,.17)!important;
+  background:linear-gradient(155deg,rgba(26,54,84,.72),rgba(12,33,59,.74))!important;
+}
+.community-chat-message{
+  margin:2px 14px 10px;
+  padding:14px 15px;
+  border:1px solid rgba(201,225,249,.13);
+  border-radius:18px;
+  background:rgba(255,255,255,.045);
+}
+.community-chat-message p{
+  margin:6px 0 0;
+  color:#f5f9ff;
+  font-size:15px;
+  line-height:1.48;
+  white-space:pre-wrap;
+}
+.community-post-kind{
+  display:inline-flex;
+  align-items:center;
+  width:max-content;
+  margin-bottom:4px;
+  padding:3px 8px;
+  border-radius:999px;
+  background:rgba(72,210,197,.12);
+  border:1px solid rgba(72,210,197,.18);
+  color:#7de8dc;
+  font-size:10.5px;
+  line-height:1.2;
+  font-weight:800;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+}
+.community-observation-main .community-post-kind{
+  display:flex;
+}
+.community-observation-main > div:last-child{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+}
+
+@media(max-width:390px){
+  .community-observation-picker{
+    gap:7px;
+  }
+  .community-weather-choice{
+    min-height:48px;
+    padding:7px 8px;
+  }
+  .community-weather-choice b{
+    font-size:12.5px;
+  }
+}
