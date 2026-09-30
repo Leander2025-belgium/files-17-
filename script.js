@@ -6628,6 +6628,13 @@ function initCommunityUi(){
   $('#communityPhotoReplaceInput')?.addEventListener('change', handleCommunityPhotoSelect);
   $('#communityPhotoRemove')?.addEventListener('click', ()=>clearCommunityPhotoSelection());
   $('#communityUseGps')?.addEventListener('change', updateCommunityCapturedWeather);
+  $('#communityGpsToggleLabel')?.addEventListener('click', event=>{
+    const input=$('#communityUseGps');
+    if(!input || event.target===input) return;
+    event.preventDefault();
+    input.checked=!input.checked;
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
   $('#communityLoadMore')?.addEventListener('click', ()=>loadCommunityPosts(false));
   $('#communitySearch')?.addEventListener('input', debounce(e=>{
     state.community.query = e.target.value.trim();
@@ -7056,6 +7063,8 @@ function setCommunityComposerMode(mode='message'){
   const allowed=['message','photo','observation'];
   if(!allowed.includes(mode)) mode='message';
   state.community.composerMode=mode;
+  const composer=$('#communityComposer');
+  if(composer) composer.dataset.communityMode=mode;
   $$('#communityComposerModes [data-community-mode]').forEach(b=>b.classList.toggle('active',b.dataset.communityMode===mode));
 
   $('#communityPhotoPicker')?.classList.toggle('hidden',mode!=='photo');

@@ -13670,3 +13670,136 @@ body .tabbar .tabbtn:focus-visible{
   flex:0 0 30px!important;
   margin-right:10px!important;
 }
+
+
+/* =====================================================================
+   2026-09-30 — Waarneming clean mode V1
+   Foto's horen NOOIT bij een waarneming. Deze regels staan bewust helemaal
+   onderaan omdat oudere photo-picker CSS display:block!important gebruikt.
+   ===================================================================== */
+#communityComposer[data-community-mode="observation"] #communityPhotoPicker,
+#communityComposer[data-community-mode="observation"] #communityCaptionField,
+#communityComposer[data-community-mode="observation"] #communityCategoryField,
+#communityComposer[data-community-mode="message"] #communityPhotoPicker,
+#communityComposer[data-community-mode="message"] #communityCategoryField{
+  display:none!important;
+}
+#communityComposer[data-community-mode="photo"] #communityObservationPickerWrap{
+  display:none!important;
+}
+#communityComposer[data-community-mode="message"] #communityObservationPickerWrap{
+  display:none!important;
+}
+#communityComposer[data-community-mode="observation"] #communityObservationPickerWrap{
+  display:block!important;
+}
+
+/* Waarneming zelf compacter en rustiger. */
+#communityComposer[data-community-mode="observation"] .community-composer-body{
+  gap:10px!important;
+}
+#communityComposer[data-community-mode="observation"] .community-observation-picker-wrap{
+  margin:0 0 10px!important;
+  padding:12px!important;
+  border-radius:20px!important;
+  max-height:none!important;
+}
+#communityComposer[data-community-mode="observation"] .community-observation-picker-head{
+  margin:0 1px 9px!important;
+}
+#communityComposer[data-community-mode="observation"] .community-observation-picker-head strong{
+  font-size:16px!important;
+  letter-spacing:-.015em!important;
+}
+#communityComposer[data-community-mode="observation"] .community-observation-picker-head span{
+  font-size:12px!important;
+}
+#communityComposer[data-community-mode="observation"] .community-observation-picker{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:6px!important;
+  max-height:min(51vh,430px)!important;
+  padding:1px 1px 4px!important;
+}
+#communityComposer[data-community-mode="observation"] .community-weather-choice{
+  min-height:42px!important;
+  padding:6px 8px!important;
+  gap:7px!important;
+  border-radius:13px!important;
+  background:rgba(255,255,255,.045)!important;
+}
+#communityComposer[data-community-mode="observation"] .community-weather-choice span{
+  width:24px!important;
+  height:24px!important;
+  flex:0 0 24px!important;
+  border-radius:7px!important;
+}
+#communityComposer[data-community-mode="observation"] .community-weather-choice span svg{
+  width:17px!important;
+  height:17px!important;
+}
+#communityComposer[data-community-mode="observation"] .community-weather-choice b{
+  font-size:12px!important;
+  line-height:1.12!important;
+}
+#communityComposer[data-community-mode="observation"] .community-weather-choice.active{
+  background:linear-gradient(145deg,rgba(37,205,191,.22),rgba(53,135,218,.15))!important;
+  border-color:rgba(87,224,211,.58)!important;
+  box-shadow:0 0 0 1px rgba(63,216,201,.10),inset 0 1px 0 rgba(255,255,255,.10)!important;
+}
+
+/* Onderkant: nette locatiebediening, geen overlap of zwevende elementen. */
+#communityComposer[data-community-mode="observation"] #communityLocationPrivacy{
+  min-height:46px!important;
+  height:46px!important;
+  border-radius:15px!important;
+}
+#communityComposer[data-community-mode="observation"] .inline-check.toggle-check{
+  min-height:44px!important;
+  padding:4px 2px 2px!important;
+  gap:10px!important;
+}
+#communityComposer[data-community-mode="observation"] .inline-check.toggle-check .toggle-track{
+  width:46px!important;
+  height:28px!important;
+  flex-basis:46px!important;
+  padding:3px!important;
+}
+#communityComposer[data-community-mode="observation"] .inline-check.toggle-check .toggle-thumb{
+  width:20px!important;
+  height:20px!important;
+}
+#communityComposer[data-community-mode="observation"] .inline-check.toggle-check input[type="checkbox"]:checked + .toggle-track .toggle-thumb{
+  transform:translateX(18px)!important;
+}
+#communityComposer[data-community-mode="observation"] .inline-check-toggle-copy,
+#communityComposer[data-community-mode="observation"] .inline-check-copy{
+  font-size:14px!important;
+}
+#communityComposer[data-community-mode="observation"] #communityCapturedWeather{
+  margin-top:2px!important;
+  padding:10px 12px!important;
+  min-height:0!important;
+  border-radius:15px!important;
+  font-size:12px!important;
+  line-height:1.35!important;
+}
+
+/* De foto-layout mag in fotomodus nog steeds bestaan, maar nergens anders. */
+#communityComposer:not([data-community-mode="photo"]) .community-photo-empty,
+#communityComposer:not([data-community-mode="photo"]) .community-photo-preview-wrap{
+  display:none!important;
+}
+
+@media(max-width:390px){
+  #communityComposer[data-community-mode="observation"] .community-observation-picker{
+    max-height:min(50vh,400px)!important;
+    gap:5px!important;
+  }
+  #communityComposer[data-community-mode="observation"] .community-weather-choice{
+    min-height:40px!important;
+    padding:5px 7px!important;
+  }
+  #communityComposer[data-community-mode="observation"] .community-weather-choice b{
+    font-size:11.5px!important;
+  }
+}
