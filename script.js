@@ -1623,6 +1623,12 @@ function icon(name, isDay=true, size=24, cls=''){
   }
 }
 
+function upcoming24Icon(size=18, cls=''){
+  const s = Number(size)||18;
+  const c = cls ? ` ${cls}` : '';
+  return `<img src="./coming-24h-icon.png" alt="" aria-hidden="true" class="coming-24h-inline-icon${c}" width="${s}" height="${s}" loading="lazy" decoding="async">`;
+}
+
 /* ---------------- geolocation ---------------- */
 function getBrowserLocation({fresh=false}={}){
   return new Promise((resolve)=>{
@@ -3955,7 +3961,7 @@ html += weatherSummaryCard();
 html += rainNowcastCard();
 
   // hourly — bestaande 24-uursdata, alleen gerichte markup voor vaste uitlijning
-  html += `<div class="card hourly-24-card"><div class="card-title">${icon('gauge',true,13)} Komende 24 uur</div><div class="hourly-scroll" aria-label="Komende 24 uur">`;
+  html += `<div class="card hourly-24-card"><div class="card-title">${upcoming24Icon(18,'card-title-icon')} Komende 24 uur</div><div class="hourly-scroll" aria-label="Komende 24 uur">`;
   for(let i=nowIdx; i<Math.min(nowIdx+24, hourly.time.length); i++){
     const t = new Date(hourly.time[i]);
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
@@ -4536,7 +4542,7 @@ function chartsSection(){
     const min = Math.min(...clean), max = Math.max(...clean);
     return `<span>${label}<b>${Math.round(min)}-${Math.round(max)}${unit}</b></span>`;
   };
-  return `<div class="more-weather-section-title">${icon('gauge',true,13)} Grafieken komende 24 uur</div>
+  return `<div class="more-weather-section-title">${upcoming24Icon(18,'card-title-icon')} Grafieken komende 24 uur</div>
     <div class="premium-chart-summary">
       ${stat('Temperatuur', points.map(i=>state.hourly.temperature_2m[i]), '°')}
       ${stat('Neerslagkans', points.map(i=>state.hourly.precipitation_probability[i]), '%')}
@@ -7203,10 +7209,40 @@ function wireCommunityPhotoPickerCapture(){
 wireCommunityPhotoPickerCapture();
 
 /* v10: big buttons trigger Safari's native file picker via showPicker(). */
-function updateCommunityCapturedWeather(){
+let communityCapturedWeatherToken = 0;
+async function updateCommunityCapturedWeather(){
+  const box = $('#communityCapturedWeather');
+  if(!box) return;
   const cur = liveWeatherSnapshot();
-  if(!cur || !$('#communityCapturedWeather')) return;
-  $('#communityCapturedWeather').textContent = `${state.loc.name}: ${fmtTemp(cur.temperature_2m)}, voelt ${fmtTemp(cur.apparent_temperature)}, wind ${fmtWind(cur.wind_speed_10m)}, ${fmtPrecip(cur.precipitation || 0)}, ${cur.relative_humidity_2m}% vocht.`;
+  const gpsEnabled = Boolean($('#communityUseGps')?.checked);
+
+  if(!gpsEnabled){
+    if(!cur){
+      box.textContent = 'Weergegevens worden toegevoegd bij plaatsen.';
+      return;
+    }
+    box.textContent = `${state.loc.name}: ${fmtTemp(cur.temperature_2m)}, voelt ${fmtTemp(cur.apparent_temperature)}, wind ${fmtWind(cur.wind_speed_10m)}, ${fmtPrecip(cur.precipitation || 0)}, ${cur.relative_humidity_2m}% vocht.`;
+    return;
+  }
+
+  const token = ++communityCapturedWeatherToken;
+  box.textContent = 'GPS-locatie wordt bepaald voor deze upload…';
+  const gps = await getBrowserLocation({fresh:false});
+  if(token !== communityCapturedWeatherToken || !$('#communityUseGps')?.checked) return;
+
+  if(!gps){
+    box.textContent = 'GPS-locatie kon niet worden bepaald. De geselecteerde app-locatie blijft actief.';
+    return;
+  }
+
+  let locName = 'Huidige locatie';
+  try{
+    const resolved = await resolveGpsLocation(gps.lat, gps.lon);
+    locName = resolved?.name || resolved?.admin || locName;
+  }catch(e){}
+  if(token !== communityCapturedWeatherToken || !$('#communityUseGps')?.checked) return;
+
+  box.textContent = `GPS actief · ${locName}. Deze upload gebruikt je actuele locatie bij het plaatsen.`;
 }
 
 async function createCommunityPost(){
