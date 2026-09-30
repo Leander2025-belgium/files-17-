@@ -8249,6 +8249,13 @@ async function setXweatherLayer(id){
   const previousLayer = state.xweather.activeLayer;
   state.xweather.activeLayer = def;
   localStorage.setItem('weerscoop:xweatherLayer', def.id);
+
+  if(def.id === 'lightning-strikes-icons'){
+    state.xweather.overlayLightning = true;
+    state.xweather.lightningStatusText = 'Recente bliksem binnen 100 km wordt gecontroleerd…';
+    setXweatherStatus(state.xweather.lightningStatusText);
+  }
+
   const ok = await refreshXweatherLayers();
   if(!ok){
     console.warn('Xweather laag faalde, fallback wordt gebruikt', {requested:id, layer:def});
@@ -8357,15 +8364,9 @@ function shouldShowCustomLightningOverlay(){
 }
 
 function getLightningOverlayRadiusKm(){
-  if(!state.map?.getCenter || !state.map?.getBounds) return 140;
-  try{
-    const center = state.map.getCenter();
-    const northEast = state.map.getBounds().getNorthEast();
-    const diagonalKm = state.map.distance(center, northEast) / 1000;
-    return Math.max(90, Math.min(260, Math.round(diagonalKm * 1.25)));
-  }catch(error){
-    return 140;
-  }
+  // De Wheaterflow lightning-endpoint gebruikt maximaal 100 km.
+  // Houd frontend en backend gelijk zodat de melding exact klopt.
+  return 100;
 }
 
 function getLightningStrikeAgeSec(strike){
@@ -8477,8 +8478,18 @@ async function syncCustomLightningOverlay(force=false){
 
     if(state.xweather.activeLayer?.id === 'lightning-strikes-icons'){
       const count = strikes.length;
-      const ageText = data.updated ? new Date(data.updated).toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit'}) : 'nu';
-      setXweatherStatus(`Live bliksemontladingen met duidelijke markeringen. ${count} ontladingen in beeld · bijgewerkt om ${ageText}.`);
+      const radiusKm = Math.min(100, Math.max(1, Math.round(
+        validNumber(data?.radiusKm ?? data?.summary?.radiusKm ?? radius) ?? 100
+      )));
+      const ageText = data.updated
+        ? new Date(data.updated).toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit'})
+        : new Date().toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit'});
+
+      state.xweather.lightningStatusText = count === 0
+        ? `Geen recente bliksem binnen ${radiusKm} km · laatste controle ${ageText}.`
+        : `${count} recente bliksemontlading${count === 1 ? '' : 'en'} binnen ${radiusKm} km · bijgewerkt ${ageText}.`;
+
+      setXweatherStatus(state.xweather.lightningStatusText);
     }
     state.xweather.lightningOverlayUpdatedAt = Date.now();
 
@@ -8488,6 +8499,10 @@ async function syncCustomLightningOverlay(force=false){
     }, 60000);
   }catch(error){
     console.warn('Custom lightning overlay faalde', error);
+    if(state.xweather.activeLayer?.id === 'lightning-strikes-icons'){
+      state.xweather.lightningStatusText = 'Live bliksemdata tijdelijk niet beschikbaar · probeer opnieuw.';
+      setXweatherStatus(state.xweather.lightningStatusText);
+    }
   }
 }
 
@@ -8523,6 +8538,16 @@ function updateXweatherTimelineUi(){
   }
   const timeDependent = def.time && !XWEATHER_TIMELESS_IDS.has(def.id);
   panel?.classList.toggle('hide', !timeDependent);
+
+  if(def.id === 'lightning-strikes-icons'){
+    panel?.classList.add('hide');
+    setXweatherStatus(
+      state.xweather.lightningStatusText ||
+      'Recente bliksem binnen 100 km wordt gecontroleerd…'
+    );
+    return;
+  }
+
   const start = info.startDate.getTime();
   const end = info.endDate.getTime();
   const current = info.currentDate.getTime();
