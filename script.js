@@ -6921,6 +6921,7 @@ async function submitQuickObservation(typeId, button=null){
     const expiresAt = new Date(Date.now() + type.ttlMinutes * 60000).toISOString();
     const caption = `${type.label} gemeld in ${safeLoc.location_name || 'de buurt'}.`;
     const form = new FormData();
+    form.append('post_type', 'observation');
     form.append('caption', caption);
     form.append('category', type.category);
     form.append('location_privacy', 'municipality');
@@ -6939,27 +6940,7 @@ async function submitQuickObservation(typeId, button=null){
     form.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
     form.append('pressure', cur?.pressure_msl ?? '');
     form.append('weather_source', 'Community, niet officieel');
-    let saved;
-    try{
-      saved = await apiForm('/community/posts', form);
-    }catch(error){
-      const fallback = new FormData();
-      fallback.append('caption', `${caption} #${type.id} #communitywaarneming`);
-      fallback.append('category', type.category);
-      fallback.append('location_privacy', 'municipality');
-      fallback.append('location_name', safeLoc.location_name);
-      if(safeLoc.latitude !== '') fallback.append('latitude', String(safeLoc.latitude));
-      if(safeLoc.longitude !== '') fallback.append('longitude', String(safeLoc.longitude));
-      fallback.append('temperature', cur?.temperature_2m ?? '');
-      fallback.append('apparent_temperature', cur?.apparent_temperature ?? '');
-      fallback.append('wind_speed', cur?.wind_speed_10m ?? '');
-      fallback.append('precipitation', cur?.precipitation ?? '');
-      fallback.append('humidity', cur?.relative_humidity_2m ?? '');
-      fallback.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
-      fallback.append('pressure', cur?.pressure_msl ?? '');
-      fallback.append('weather_source', 'Community, niet officieel');
-      saved = await apiForm('/community/posts', fallback);
-    }
+    const saved = await apiForm('/community/posts', form);
     const optimisticPost = normalizeCommunityObservationPost({
       id:saved.post?.id || saved.id || safeRandomId(),
       user_id:state.auth.user?.id,
@@ -7296,6 +7277,7 @@ async function createCommunityPost(){
     }
 
     const form=new FormData();
+    form.append('post_type', mode==='observation' ? 'observation' : mode==='photo' ? 'photo' : 'message');
     if(blob) form.append('photo',blob,uploadFilenameForBlob(blob,'weather'));
     form.append('caption',caption);
     form.append('category',category);
@@ -7342,6 +7324,7 @@ async function createCommunityPost(){
     let message=e?.message||tr('Plaatsen lukte niet. Controleer je verbinding.');
     if(e?.name==='AbortError') message=tr('Dit duurde te lang. Controleer je verbinding en probeer opnieuw.');
     else if(e?.status===401) message=tr('Log opnieuw in om iets te plaatsen.');
+    else if(mode==='observation' && /geen foto|foto.*verplicht|image.*required/i.test(String(e?.message||''))) message='De server draait nog op de oude Community-versie. Werk de backend bij naar Community v2.';
     else if(e?.status===413||/too large|file size|limit/i.test(String(e?.message||''))) message=tr('De foto is te groot om te uploaden. Kies een kleinere foto.');
     else if(String(e?.message||'')==='network') message=tr('Geen verbinding met Wheaterflow. Je bericht is niet geplaatst.');
     setCommunityComposerMessage(message,'error');
