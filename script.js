@@ -1602,7 +1602,7 @@ function icon(name, isDay=true, size=24, cls=''){
     rain: '08-regen.png', 'heavy-rain': '09-zware-regen.png', storm: '10-onweer.png',
     snow: '11-sneeuw.png', wind: '12-wind.png'
   };
-  if(weatherIconFiles[name]) return `<img class="weather-icon-img ${c}" src="./assets/weather-icons/${weatherIconFiles[name]}?v=20261001-icons-v2" width="${s}" height="${s}" alt="" aria-hidden="true" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
+  if(weatherIconFiles[name]) return `<img class="weather-icon-img ${c}" src="./assets/weather/${weatherIconFiles[name]}?v=20261001-icons-v2" width="${s}" height="${s}" alt="" aria-hidden="true" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
   const stroke = 'stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
   switch(name){
     case 'drop': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 3s6 7 6 11.5A6 6 0 016 14.5C6 10 12 3 12 3z"/></svg>`;
