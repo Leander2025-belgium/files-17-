@@ -124,7 +124,7 @@ const state = {
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
   current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
   currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
-  observation: null, marine: null, seaspark: null, air: null, stormApi: null,
+  observation: null, marine: null, seaspark: null, air: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
   lightning: { available:false, loading:false, updated:null, strikes:[], nearest:null, summary:null, threat:null, error:null },
@@ -2400,44 +2400,6 @@ async function fetchForecastWithFallback(model){
   }
 }
 
-async function loadStormApi(){
-  const lat = Number(state.loc?.lat);
-  const lon = Number(state.loc?.lon);
-  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  const qs = new URLSearchParams({lat:String(lat), lon:String(lon)});
-  try{
-    const r = await fetch(`${WHEATERFLOW_API_BASE}/storm?${qs.toString()}`, {cache:'no-store'});
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    state.stormApi = data?.ok === false ? null : data;
-    return state.stormApi;
-  }catch(error){
-    state.stormApi = null;
-    throw error;
-  }
-}
-
-function stormMoreWeatherSection(){
-  const s = state.stormApi;
-  if(!s) return `<div class="card storm-more-card"><div class="card-title">${icon('storm',true,18)} Onweer & storm</div>${wheaterflowStatus('empty','Stormanalyse momenteel niet beschikbaar')}</div>`;
-  const score = Number.isFinite(Number(s.stormScore)) ? Math.round(Number(s.stormScore)) : 0;
-  const level = s.level?.label || 'Onbekend';
-  const c = s.components || {};
-  const lightningKm = Number.isFinite(Number(s.lightning?.nearestKm)) ? `${Math.round(Number(s.lightning.nearestKm))} km` : 'Geen recente bliksem';
-  const cape = Number.isFinite(Number(s.weather?.cape ?? s.current?.cape ?? s.cape)) ? `${Math.round(Number(s.weather?.cape ?? s.current?.cape ?? s.cape))} J/kg` : '—';
-  return `<div class="card storm-more-card">
-    <div class="card-title">${icon('storm',true,18)} Onweer & storm <span class="storm-more-score">${score}/100</span></div>
-    <div class="storm-more-main"><strong>${esc(level)}</strong><span>${esc(s.headline || 'Geen bijzonder onweer- of stormsignaal')}</span></div>
-    <div class="storm-more-grid">
-      <div><span>Bliksem</span><b>${esc(lightningKm)}</b></div>
-      <div><span>CAPE</span><b>${esc(cape)}</b></div>
-      <div><span>Atmosfeer</span><b>${Math.round(Number(c.atmosphere)||0)} pt</b></div>
-      <div><span>Radar</span><b>${Math.round(Number(c.radar)||0)} pt</b></div>
-    </div>
-    <small class="storm-more-engine">${esc(s.engine || 'Wheaterflow Storm Engine')}</small>
-  </div>`;
-}
-
 async function loadWeather(){
   $('#homeLoader')?.classList.remove('hide');
   try{
@@ -2455,8 +2417,7 @@ const optionalResults = await Promise.allSettled([
   loadWheaterflowAdminAlerts(),
   loadAstroEvents(),
   refreshRadarProximityIfStale(),
-  loadLightning(),
-  loadStormApi()
+  loadLightning()
 ]);
     optionalResults.forEach((result, index)=>{
       if(result.status === 'rejected'){
@@ -2470,8 +2431,7 @@ console.warn(
     'Wheaterflow adminmeldingen',
     'Astro-events',
     'Radar-nabijheid',
-    'Live bliksemdata',
-    'Storm Engine'
+    'Live bliksemdata'
   ][index] + ' laden faalde:',
   result.reason
 );
@@ -4250,6 +4210,7 @@ function appSections(){
         <button type="button" data-more-tab="fourteen">14 dagen</button>
         <button type="button" data-more-tab="sunmoon">Zon & maan</button>
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
+        <button type="button" data-more-tab="storm">Onweer & storm</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
         <button type="button" data-more-tab="storm">Onweer & storm</button>
       </div>
@@ -4264,10 +4225,86 @@ function renderMoreWeatherSections(tab='charts'){
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
     skycoast: `${airQualitySection()}${coastSection()}`,
+    storm: stormMoreWeatherSection(),
     travel: travelWeatherSection(),
-    storm: stormMoreWeatherSection()
+    storm: stormWeatherSection()
   };
   return sections[tab] || sections.charts;
+}
+
+function stormWeatherSection(){
+  return `<div class="card" id="stormWeatherCard">
+    <div class="card-title">⛈️ Onweer & storm</div>
+    <div id="stormWeatherBody" class="subtle">Stormanalyse laden…</div>
+  </div>`;
+}
+
+async function loadStormWeather(){
+  const el = $('#stormWeatherBody');
+  if(!el) return;
+  const loc = canonicalLocation();
+  const lat = Number(loc?.lat), lon = Number(loc?.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)){
+    el.textContent = 'Geen geldige locatie beschikbaar.';
+    return;
+  }
+  try{
+    const r = await fetch(`${WHEATERFLOW_API_BASE}/storm?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`, {cache:'no-store'});
+    const d = await r.json();
+    if(!r.ok || d?.ok === false) throw new Error(d?.error || `HTTP ${r.status}`);
+    const score = Number.isFinite(Number(d.stormScore)) ? Math.round(Number(d.stormScore)) : '—';
+    const level = d.level?.label || d.level?.id || 'Onbekend';
+    const headline = d.headline || 'Geen stormanalyse beschikbaar.';
+    const lightningKm = Number.isFinite(Number(d.lightning?.nearestKm)) ? `${Math.round(Number(d.lightning.nearestKm))} km` : 'Geen nabije bliksem';
+    const atmosphere = Number.isFinite(Number(d.components?.atmosphere)) ? d.components.atmosphere : '—';
+    const radar = Number.isFinite(Number(d.components?.radar)) ? d.components.radar : '—';
+    el.innerHTML = `
+      <div style="font-size:28px;font-weight:700;margin-bottom:4px">${esc(score)}/100 · ${esc(level)}</div>
+      <div style="margin-bottom:12px">${esc(headline)}</div>
+      <div>⚡ ${esc(lightningKm)} · Atmosfeer ${esc(atmosphere)} · Radar ${esc(radar)}</div>
+      <div class="subtle" style="margin-top:8px">${esc(d.engine || 'Wheaterflow Storm Engine')}</div>`;
+  }catch(e){
+    el.textContent = 'Stormanalyse tijdelijk niet beschikbaar.';
+  }
+}
+
+function stormMoreWeatherSection(data=null){
+  if(!data) return `<div class="card" id="stormMoreWeatherCard"><div class="card-title">${icon('lightning-strikes-icons',true,14)} Onweer & storm</div><div class="subtle">Stormanalyse laden…</div></div>`;
+  const level = data.level?.label || 'Onbekend';
+  const score = Number.isFinite(Number(data.stormScore)) ? Math.round(Number(data.stormScore)) : '—';
+  const lightningKm = Number.isFinite(Number(data.lightning?.nearestKm)) ? `${Math.round(Number(data.lightning.nearestKm))} km` : 'Geen nabije bliksem';
+  const cape = Number.isFinite(Number(data.weather?.cape ?? data.cape)) ? `${Math.round(Number(data.weather?.cape ?? data.cape))} J/kg` : '—';
+  const atmosphere = Number.isFinite(Number(data.components?.atmosphere)) ? data.components.atmosphere : '—';
+  const radar = Number.isFinite(Number(data.components?.radar)) ? data.components.radar : '—';
+  return `<div class="card" id="stormMoreWeatherCard">
+    <div class="card-title">${icon('lightning-strikes-icons',true,14)} Onweer & storm</div>
+    <div style="font-size:1.35rem;font-weight:700;margin:.35rem 0">${esc(level)} · ${esc(score)}/100</div>
+    <div class="subtle" style="margin-bottom:.8rem">${esc(data.headline || 'Geen stormanalyse beschikbaar')}</div>
+    <div class="weather-details-grid">
+      <div><small>Bliksem</small><strong>${esc(lightningKm)}</strong></div>
+      <div><small>CAPE</small><strong>${esc(cape)}</strong></div>
+      <div><small>Atmosfeer</small><strong>${esc(atmosphere)}</strong></div>
+      <div><small>Radar</small><strong>${esc(radar)}</strong></div>
+    </div>
+    <div class="subtle" style="margin-top:.75rem">${esc(data.engine || 'Wheaterflow Storm Engine')}</div>
+  </div>`;
+}
+
+async function loadStormMoreWeather(){
+  const card = $('#stormMoreWeatherCard');
+  if(!card) return;
+  const loc = canonicalLocation();
+  if(!Number.isFinite(Number(loc?.lat)) || !Number.isFinite(Number(loc?.lon))) return;
+  try{
+    const r = await fetch(`${WHEATERFLOW_API_BASE}/storm?lat=${encodeURIComponent(loc.lat)}&lon=${encodeURIComponent(loc.lon)}`, {cache:'no-store'});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const wrap = document.createElement('div');
+    wrap.innerHTML = stormMoreWeatherSection(data);
+    card.replaceWith(wrap.firstElementChild);
+  }catch(e){
+    card.innerHTML = `<div class="card-title">${icon('lightning-strikes-icons',true,14)} Onweer & storm</div><div class="subtle">Stormanalyse tijdelijk niet beschikbaar.</div>`;
+  }
 }
 
 function wireMoreWeatherSections(){
@@ -4281,6 +4318,7 @@ function wireMoreWeatherSections(){
     renderPremiumCharts();
     positionSunPaths();
     wireTravelWeather();
+    if(tab === 'storm') loadStormWeather();
   };
   tabs.forEach(btn=>{
     btn.addEventListener('click', ()=>load(btn.dataset.moreTab));
