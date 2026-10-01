@@ -1573,7 +1573,7 @@ const WCODE = {
   51:{l:'Lichte motregen', ic:'drizzle'}, 53:{l:'Motregen', ic:'drizzle'}, 55:{l:'Dichte motregen', ic:'drizzle'},
   56:{l:'IJzel (motregen)', ic:'drizzle'}, 57:{l:'IJzel (dichte motregen)', ic:'drizzle'},
   61:{l:'Lichte regen', ic:'rain'}, 63:{l:'Regen', ic:'rain'}, 65:{l:'Zware regen', ic:'heavy-rain'},
-  66:{l:'IJzel (regen)', ic:'rain'}, 67:{l:'IJzel (zware regen)', ic:'rain'},
+  66:{l:'IJzel (regen)', ic:'rain'}, 67:{l:'IJzel (zware regen)', ic:'heavy-rain'},
   71:{l:'Lichte sneeuw', ic:'snow'}, 73:{l:'Sneeuw', ic:'snow'}, 75:{l:'Zware sneeuw', ic:'snow'}, 77:{l:'Sneeuwkorrels', ic:'snow'},
   80:{l:'Lichte buien', ic:'rain'}, 81:{l:'Buien', ic:'rain'}, 82:{l:'Zware buien', ic:'heavy-rain'},
   85:{l:'Sneeuwbuien', ic:'snow'}, 86:{l:'Zware sneeuwbuien', ic:'snow'},
@@ -1595,18 +1595,23 @@ function isDayForTime(timeValue){
 
 function icon(name, isDay=true, size=24, cls=''){
   const s = size, c = cls;
-  const weatherIcon = (file) => `<img class="${c}" src="./assets/weather-icons/${file}.png?v=20261001-apple-weather-v1" alt="" aria-hidden="true" width="${s}" height="${s}" loading="lazy" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
+  const weatherIconFiles = {
+    sun: isDay ? 'clear-day.png' : 'clear-night.png',
+    'sun-cloud': isDay ? 'partly-cloudy-day.png' : 'partly-cloudy-night.png',
+    cloud: 'cloudy.png',
+    fog: 'fog.png',
+    drizzle: 'drizzle.png',
+    rain: 'rain.png',
+    'heavy-rain': 'heavy-rain.png',
+    snow: 'snow.png',
+    storm: 'thunderstorm.png'
+  };
+  if(weatherIconFiles[name]){
+    return `<img class="weather-icon-img ${c}" src="./assets/weather-icons/${weatherIconFiles[name]}" width="${s}" height="${s}" alt="" aria-hidden="true" loading="lazy" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
+  }
+  const stroke = 'stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
   switch(name){
-    case 'sun': return weatherIcon(isDay ? '01-helder-overdag' : '02-helder-nacht');
-    case 'sun-cloud': return weatherIcon(isDay ? '03-halfbewolkt-overdag' : '04-halfbewolkt-nacht');
-    case 'cloud': return weatherIcon('05-bewolkt');
-    case 'fog': return weatherIcon('06-mist');
-    case 'drizzle': return weatherIcon('07-motregen');
-    case 'rain': return weatherIcon('08-regen');
-    case 'heavy-rain': return weatherIcon('09-zware-regen');
-    case 'storm': return weatherIcon('10-onweer');
-    case 'snow': return weatherIcon('11-sneeuw');
-    case 'wind': return weatherIcon('12-wind');
+    case 'wind': return `<img class="weather-icon-img ${c}" src="./assets/weather-icons/wind.png" width="${s}" height="${s}" alt="" aria-hidden="true" loading="lazy" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
     case 'drop': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 3s6 7 6 11.5A6 6 0 016 14.5C6 10 12 3 12 3z"/></svg>`;
     case 'gauge': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 12L16 8M4 14a8 8 0 1116 0"/></svg>`;
     case 'eye': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="2.6"/></svg>`;
