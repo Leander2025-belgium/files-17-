@@ -6042,3 +6042,16 @@ body.day-detail-open .tabbar{
   font-weight:800;
 }
 
+
+/* Wheaterflow Storm Engine 1.1 · Meer weerdata */
+.storm-more-card{overflow:hidden}
+.storm-more-card .card-title{display:flex;align-items:center;gap:8px}
+.storm-more-score{margin-left:auto;font-variant-numeric:tabular-nums;opacity:.72;font-size:.82em}
+.storm-more-main{display:flex;flex-direction:column;gap:4px;margin:14px 0 12px}
+.storm-more-main strong{font-size:1.35rem}
+.storm-more-main span{opacity:.78;line-height:1.4}
+.storm-more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.storm-more-grid>div{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.07);display:flex;flex-direction:column;gap:3px}
+.storm-more-grid span{font-size:.75rem;opacity:.62}
+.storm-more-grid b{font-size:.95rem}
+.storm-more-engine{display:block;margin-top:12px;opacity:.48}
