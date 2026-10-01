@@ -1572,10 +1572,10 @@ const WCODE = {
   3:{l:'Bewolkt', ic:'cloud'}, 45:{l:'Mist', ic:'fog'}, 48:{l:'Rijpmist', ic:'fog'},
   51:{l:'Lichte motregen', ic:'drizzle'}, 53:{l:'Motregen', ic:'drizzle'}, 55:{l:'Dichte motregen', ic:'drizzle'},
   56:{l:'IJzel (motregen)', ic:'drizzle'}, 57:{l:'IJzel (dichte motregen)', ic:'drizzle'},
-  61:{l:'Lichte regen', ic:'rain'}, 63:{l:'Regen', ic:'rain'}, 65:{l:'Zware regen', ic:'heavy-rain'},
-  66:{l:'IJzel (regen)', ic:'rain'}, 67:{l:'IJzel (zware regen)', ic:'heavy-rain'},
+  61:{l:'Lichte regen', ic:'rain'}, 63:{l:'Regen', ic:'rain'}, 65:{l:'Zware regen', ic:'rain'},
+  66:{l:'IJzel (regen)', ic:'rain'}, 67:{l:'IJzel (zware regen)', ic:'rain'},
   71:{l:'Lichte sneeuw', ic:'snow'}, 73:{l:'Sneeuw', ic:'snow'}, 75:{l:'Zware sneeuw', ic:'snow'}, 77:{l:'Sneeuwkorrels', ic:'snow'},
-  80:{l:'Lichte buien', ic:'rain'}, 81:{l:'Buien', ic:'rain'}, 82:{l:'Zware buien', ic:'heavy-rain'},
+  80:{l:'Lichte buien', ic:'rain'}, 81:{l:'Buien', ic:'rain'}, 82:{l:'Zware buien', ic:'rain'},
   85:{l:'Sneeuwbuien', ic:'snow'}, 86:{l:'Zware sneeuwbuien', ic:'snow'},
   95:{l:'Onweer', ic:'storm', severe:true}, 96:{l:'Onweer met hagel', ic:'storm', severe:true}, 99:{l:'Zwaar onweer met hagel', ic:'storm', severe:true}
 };
@@ -1596,22 +1596,15 @@ function isDayForTime(timeValue){
 function icon(name, isDay=true, size=24, cls=''){
   const s = size, c = cls;
   const weatherIconFiles = {
-    sun: isDay ? 'clear-day.png' : 'clear-night.png',
-    'sun-cloud': isDay ? 'partly-cloudy-day.png' : 'partly-cloudy-night.png',
-    cloud: 'cloudy.png',
-    fog: 'fog.png',
-    drizzle: 'drizzle.png',
-    rain: 'rain.png',
-    'heavy-rain': 'heavy-rain.png',
-    snow: 'snow.png',
-    storm: 'thunderstorm.png'
+    sun: isDay ? '01-helder-overdag.png' : '02-helder-nacht.png',
+    'sun-cloud': isDay ? '03-halfbewolkt-overdag.png' : '04-halfbewolkt-nacht.png',
+    cloud: '05-bewolkt.png', fog: '06-mist.png', drizzle: '07-motregen.png',
+    rain: '08-regen.png', 'heavy-rain': '09-zware-regen.png', storm: '10-onweer.png',
+    snow: '11-sneeuw.png', wind: '12-wind.png'
   };
-  if(weatherIconFiles[name]){
-    return `<img class="weather-icon-img ${c}" src="./assets/weather-icons/${weatherIconFiles[name]}" width="${s}" height="${s}" alt="" aria-hidden="true" loading="lazy" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
-  }
+  if(weatherIconFiles[name]) return `<img class="weather-icon-img ${c}" src="./assets/weather-icons/${weatherIconFiles[name]}?v=20261001-icons-v2" width="${s}" height="${s}" alt="" aria-hidden="true" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
   const stroke = 'stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
   switch(name){
-    case 'wind': return `<img class="weather-icon-img ${c}" src="./assets/weather-icons/wind.png" width="${s}" height="${s}" alt="" aria-hidden="true" loading="lazy" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
     case 'drop': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 3s6 7 6 11.5A6 6 0 016 14.5C6 10 12 3 12 3z"/></svg>`;
     case 'gauge': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 12L16 8M4 14a8 8 0 1116 0"/></svg>`;
     case 'eye': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="2.6"/></svg>`;
@@ -4209,6 +4202,7 @@ function appSections(){
         <button type="button" data-more-tab="fourteen">14 dagen</button>
         <button type="button" data-more-tab="sunmoon">Zon & maan</button>
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
+        <button type="button" data-more-tab="storm">Onweer & storm</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
       </div>
       <div class="more-weather-content" id="moreWeatherContent"></div>
@@ -4222,9 +4216,27 @@ function renderMoreWeatherSections(tab='charts'){
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
     skycoast: `${airQualitySection()}${coastSection()}`,
+    storm: stormWeatherSection(),
     travel: travelWeatherSection()
   };
   return sections[tab] || sections.charts;
+}
+
+function stormWeatherSection(){
+  return `<div class="card" id="stormWeatherCard"><div class="card-title">${icon('storm',true,18)} Onweer & storm</div><div id="stormWeatherBody" class="subtle">Stormanalyse laden…</div></div>`;
+}
+async function loadStormWeather(){
+  const el=$('#stormWeatherBody'); if(!el) return;
+  const loc=canonicalLocation(); const lat=Number(loc?.lat), lon=Number(loc?.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)){ el.textContent='Geen geldige locatie beschikbaar.'; return; }
+  try{
+    const r=await fetch(`${WHEATERFLOW_API_BASE}/storm?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`,{cache:'no-store'});
+    const d=await r.json(); if(!r.ok||d?.ok===false) throw new Error(d?.error||`HTTP ${r.status}`);
+    const score=Number.isFinite(Number(d.stormScore))?Math.round(Number(d.stormScore)):'—';
+    const level=d.level?.label||d.level?.id||'Onbekend';
+    const lightning=Number.isFinite(Number(d.lightning?.nearestKm))?`${Math.round(Number(d.lightning.nearestKm))} km`:'Geen nabije bliksem';
+    el.innerHTML=`<div style="font-size:1.45rem;font-weight:750;margin:.35rem 0">${esc(level)} · ${esc(score)}/100</div><div style="margin-bottom:.8rem">${esc(d.headline||'Geen bijzonder onweer- of stormsignaal')}</div><div class="subtle">Bliksem: ${esc(lightning)} · Atmosfeer: ${esc(d.components?.atmosphere??'—')} · Radar: ${esc(d.components?.radar??'—')}</div><div class="subtle" style="margin-top:.6rem">${esc(d.engine||'Wheaterflow Storm Engine')}</div>`;
+  }catch(e){ el.innerHTML='<b>Stormanalyse tijdelijk niet beschikbaar</b><div class="subtle" style="margin-top:.4rem">De Storm API-route is nog niet bereikbaar via api.wheaterflow.be.</div>'; }
 }
 
 function wireMoreWeatherSections(){
@@ -4238,6 +4250,7 @@ function wireMoreWeatherSections(){
     renderPremiumCharts();
     positionSunPaths();
     wireTravelWeather();
+    if(tab === 'storm') loadStormWeather();
   };
   tabs.forEach(btn=>{
     btn.addEventListener('click', ()=>load(btn.dataset.moreTab));
