@@ -13803,3 +13803,25 @@ body .tabbar .tabbtn:focus-visible{
     font-size:11.5px!important;
   }
 }
+
+/* 2026-10-01 — grotere Apple-stijl weericonen */
+#home .hour-item .icon{
+  width:50px!important;
+  height:50px!important;
+  max-width:50px!important;
+  max-height:50px!important;
+  object-fit:contain!important;
+}
+#home .daily-row .dicon,
+#forecastscreen .daily-row .dicon,
+.daily-row .dicon{
+  width:40px!important;
+  height:40px!important;
+  max-width:40px!important;
+  max-height:40px!important;
+  object-fit:contain!important;
+}
+@media(max-width:520px){
+  #home .hour-item{width:64px!important;}
+  #home .daily-row{grid-template-columns:minmax(64px,1fr) 44px 34px 34px minmax(70px,1fr) 36px!important;}
+}
