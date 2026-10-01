@@ -1572,10 +1572,10 @@ const WCODE = {
   3:{l:'Bewolkt', ic:'cloud'}, 45:{l:'Mist', ic:'fog'}, 48:{l:'Rijpmist', ic:'fog'},
   51:{l:'Lichte motregen', ic:'drizzle'}, 53:{l:'Motregen', ic:'drizzle'}, 55:{l:'Dichte motregen', ic:'drizzle'},
   56:{l:'IJzel (motregen)', ic:'drizzle'}, 57:{l:'IJzel (dichte motregen)', ic:'drizzle'},
-  61:{l:'Lichte regen', ic:'rain'}, 63:{l:'Regen', ic:'rain'}, 65:{l:'Zware regen', ic:'rain'},
+  61:{l:'Lichte regen', ic:'rain'}, 63:{l:'Regen', ic:'rain'}, 65:{l:'Zware regen', ic:'heavy-rain'},
   66:{l:'IJzel (regen)', ic:'rain'}, 67:{l:'IJzel (zware regen)', ic:'rain'},
   71:{l:'Lichte sneeuw', ic:'snow'}, 73:{l:'Sneeuw', ic:'snow'}, 75:{l:'Zware sneeuw', ic:'snow'}, 77:{l:'Sneeuwkorrels', ic:'snow'},
-  80:{l:'Lichte buien', ic:'rain'}, 81:{l:'Buien', ic:'rain'}, 82:{l:'Zware buien', ic:'rain'},
+  80:{l:'Lichte buien', ic:'rain'}, 81:{l:'Buien', ic:'rain'}, 82:{l:'Zware buien', ic:'heavy-rain'},
   85:{l:'Sneeuwbuien', ic:'snow'}, 86:{l:'Zware sneeuwbuien', ic:'snow'},
   95:{l:'Onweer', ic:'storm', severe:true}, 96:{l:'Onweer met hagel', ic:'storm', severe:true}, 99:{l:'Zwaar onweer met hagel', ic:'storm', severe:true}
 };
@@ -1595,24 +1595,18 @@ function isDayForTime(timeValue){
 
 function icon(name, isDay=true, size=24, cls=''){
   const s = size, c = cls;
-  const stroke = 'stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+  const weatherIcon = (file) => `<img class="${c}" src="./assets/weather-icons/${file}.png?v=20261001-apple-weather-v1" alt="" aria-hidden="true" width="${s}" height="${s}" loading="lazy" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
   switch(name){
-    case 'sun': return isDay
-      ? `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="color:#f5c451"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg>`
-      : `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="color:#c9d3ea"><path d="M20 14.5A8 8 0 1110.5 4a6.5 6.5 0 009.5 10.5z"/></svg>`;
-    case 'sun-cloud': return isDay
-      ? `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><circle cx="9" cy="9" r="3.4" style="color:#f5c451" stroke="#f5c451"/><path d="M4 9v0M9 3v0" stroke="#f5c451"/><path d="M7 20h10a3.5 3.5 0 000-7 5 5 0 00-9.6-1.6A3.6 3.6 0 007 20z" style="color:#9fb0d1" stroke="#9fb0d1"/></svg>`
-      : `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M15.8 10.6A5.8 5.8 0 019.4 3.2a6.7 6.7 0 007.9 8.4" style="color:#d7def0" stroke="#d7def0"/><path d="M7 20h10a3.5 3.5 0 000-7 5 5 0 00-9.6-1.6A3.6 3.6 0 007 20z" style="color:#9fb0d1" stroke="#9fb0d1"/></svg>`;
-    case 'cloud': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="color:#9fb0d1"><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z"/></svg>`;
-    case 'fog': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="color:#9fb0d1"><path d="M6.5 14h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 14z"/><path d="M4 18h16M4 21h16"/></svg>`;
-    // Neerslagiconen gebruiken dezelfde verticale 'cloud baseline' als het gewone wolkicoon.
-    // De wolk is iets compacter gemaakt zodat regen/sneeuw/bliksem eronder past zonder
-    // dat het hele icoon omhoog hoeft te schuiven.
-    case 'drizzle': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="overflow:visible"><g><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z" transform="translate(1.75 .6) scale(.855)" style="color:#9fb0d1"/><path d="M8.8 18.7l-.8 2M12.8 18.7l-.8 2M16.8 18.7l-.8 2" style="color:#35d0c4"/></g></svg>`;
-    case 'rain': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="overflow:visible"><g><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z" transform="translate(1.75 .2) scale(.855)" style="color:#9fb0d1"/><path d="M8.5 18.5l-1.1 3M13 18.5l-1.1 3M17.5 18.5l-1.1 3" style="color:#35d0c4"/></g></svg>`;
-    case 'snow': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="overflow:visible"><g><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z" transform="translate(1.75 .2) scale(.855)" style="color:#9fb0d1"/><path d="M9 19v3M7.5 20.5h3M15 19v3M13.5 20.5h3" style="color:#dfe9fb"/></g></svg>`;
-    case 'storm': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="overflow:visible"><g><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z" transform="translate(1.75 -.25) scale(.855)" style="color:#9fb0d1"/><path d="M13 17.3l-3 3.6h2.45L11.35 23l3.8-4.5h-2.3z" fill="#f5a524" stroke="#f5a524"/></g></svg>`;
-    case 'wind': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M3 8h10a2.5 2.5 0 10-2.2-3.7M3 16h13a2.5 2.5 0 11-2.2 3.7M3 12h16a2 2 0 10-1.8-2.9"/></svg>`;
+    case 'sun': return weatherIcon(isDay ? '01-helder-overdag' : '02-helder-nacht');
+    case 'sun-cloud': return weatherIcon(isDay ? '03-halfbewolkt-overdag' : '04-halfbewolkt-nacht');
+    case 'cloud': return weatherIcon('05-bewolkt');
+    case 'fog': return weatherIcon('06-mist');
+    case 'drizzle': return weatherIcon('07-motregen');
+    case 'rain': return weatherIcon('08-regen');
+    case 'heavy-rain': return weatherIcon('09-zware-regen');
+    case 'storm': return weatherIcon('10-onweer');
+    case 'snow': return weatherIcon('11-sneeuw');
+    case 'wind': return weatherIcon('12-wind');
     case 'drop': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 3s6 7 6 11.5A6 6 0 016 14.5C6 10 12 3 12 3z"/></svg>`;
     case 'gauge': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 12L16 8M4 14a8 8 0 1116 0"/></svg>`;
     case 'eye': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="2.6"/></svg>`;
@@ -4210,9 +4204,7 @@ function appSections(){
         <button type="button" data-more-tab="fourteen">14 dagen</button>
         <button type="button" data-more-tab="sunmoon">Zon & maan</button>
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
-        <button type="button" data-more-tab="storm">Onweer & storm</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
-        <button type="button" data-more-tab="storm">Onweer & storm</button>
       </div>
       <div class="more-weather-content" id="moreWeatherContent"></div>
     </section>
@@ -4225,86 +4217,9 @@ function renderMoreWeatherSections(tab='charts'){
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
     skycoast: `${airQualitySection()}${coastSection()}`,
-    storm: stormMoreWeatherSection(),
-    travel: travelWeatherSection(),
-    storm: stormWeatherSection()
+    travel: travelWeatherSection()
   };
   return sections[tab] || sections.charts;
-}
-
-function stormWeatherSection(){
-  return `<div class="card" id="stormWeatherCard">
-    <div class="card-title">⛈️ Onweer & storm</div>
-    <div id="stormWeatherBody" class="subtle">Stormanalyse laden…</div>
-  </div>`;
-}
-
-async function loadStormWeather(){
-  const el = $('#stormWeatherBody');
-  if(!el) return;
-  const loc = canonicalLocation();
-  const lat = Number(loc?.lat), lon = Number(loc?.lon);
-  if(!Number.isFinite(lat) || !Number.isFinite(lon)){
-    el.textContent = 'Geen geldige locatie beschikbaar.';
-    return;
-  }
-  try{
-    const r = await fetch(`${WHEATERFLOW_API_BASE}/storm?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`, {cache:'no-store'});
-    const d = await r.json();
-    if(!r.ok || d?.ok === false) throw new Error(d?.error || `HTTP ${r.status}`);
-    const score = Number.isFinite(Number(d.stormScore)) ? Math.round(Number(d.stormScore)) : '—';
-    const level = d.level?.label || d.level?.id || 'Onbekend';
-    const headline = d.headline || 'Geen stormanalyse beschikbaar.';
-    const lightningKm = Number.isFinite(Number(d.lightning?.nearestKm)) ? `${Math.round(Number(d.lightning.nearestKm))} km` : 'Geen nabije bliksem';
-    const atmosphere = Number.isFinite(Number(d.components?.atmosphere)) ? d.components.atmosphere : '—';
-    const radar = Number.isFinite(Number(d.components?.radar)) ? d.components.radar : '—';
-    el.innerHTML = `
-      <div style="font-size:28px;font-weight:700;margin-bottom:4px">${esc(score)}/100 · ${esc(level)}</div>
-      <div style="margin-bottom:12px">${esc(headline)}</div>
-      <div>⚡ ${esc(lightningKm)} · Atmosfeer ${esc(atmosphere)} · Radar ${esc(radar)}</div>
-      <div class="subtle" style="margin-top:8px">${esc(d.engine || 'Wheaterflow Storm Engine')}</div>`;
-  }catch(e){
-    el.textContent = 'Stormanalyse tijdelijk niet beschikbaar.';
-  }
-}
-
-function stormMoreWeatherSection(data=null){
-  if(!data) return `<div class="card" id="stormMoreWeatherCard"><div class="card-title">${icon('lightning-strikes-icons',true,14)} Onweer & storm</div><div class="subtle">Stormanalyse laden…</div></div>`;
-  const level = data.level?.label || 'Onbekend';
-  const score = Number.isFinite(Number(data.stormScore)) ? Math.round(Number(data.stormScore)) : '—';
-  const lightningKm = Number.isFinite(Number(data.lightning?.nearestKm)) ? `${Math.round(Number(data.lightning.nearestKm))} km` : 'Geen nabije bliksem';
-  const cape = Number.isFinite(Number(data.weather?.cape ?? data.cape)) ? `${Math.round(Number(data.weather?.cape ?? data.cape))} J/kg` : '—';
-  const atmosphere = Number.isFinite(Number(data.components?.atmosphere)) ? data.components.atmosphere : '—';
-  const radar = Number.isFinite(Number(data.components?.radar)) ? data.components.radar : '—';
-  return `<div class="card" id="stormMoreWeatherCard">
-    <div class="card-title">${icon('lightning-strikes-icons',true,14)} Onweer & storm</div>
-    <div style="font-size:1.35rem;font-weight:700;margin:.35rem 0">${esc(level)} · ${esc(score)}/100</div>
-    <div class="subtle" style="margin-bottom:.8rem">${esc(data.headline || 'Geen stormanalyse beschikbaar')}</div>
-    <div class="weather-details-grid">
-      <div><small>Bliksem</small><strong>${esc(lightningKm)}</strong></div>
-      <div><small>CAPE</small><strong>${esc(cape)}</strong></div>
-      <div><small>Atmosfeer</small><strong>${esc(atmosphere)}</strong></div>
-      <div><small>Radar</small><strong>${esc(radar)}</strong></div>
-    </div>
-    <div class="subtle" style="margin-top:.75rem">${esc(data.engine || 'Wheaterflow Storm Engine')}</div>
-  </div>`;
-}
-
-async function loadStormMoreWeather(){
-  const card = $('#stormMoreWeatherCard');
-  if(!card) return;
-  const loc = canonicalLocation();
-  if(!Number.isFinite(Number(loc?.lat)) || !Number.isFinite(Number(loc?.lon))) return;
-  try{
-    const r = await fetch(`${WHEATERFLOW_API_BASE}/storm?lat=${encodeURIComponent(loc.lat)}&lon=${encodeURIComponent(loc.lon)}`, {cache:'no-store'});
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    const wrap = document.createElement('div');
-    wrap.innerHTML = stormMoreWeatherSection(data);
-    card.replaceWith(wrap.firstElementChild);
-  }catch(e){
-    card.innerHTML = `<div class="card-title">${icon('lightning-strikes-icons',true,14)} Onweer & storm</div><div class="subtle">Stormanalyse tijdelijk niet beschikbaar.</div>`;
-  }
 }
 
 function wireMoreWeatherSections(){
@@ -4318,7 +4233,6 @@ function wireMoreWeatherSections(){
     renderPremiumCharts();
     positionSunPaths();
     wireTravelWeather();
-    if(tab === 'storm') loadStormWeather();
   };
   tabs.forEach(btn=>{
     btn.addEventListener('click', ()=>load(btn.dataset.moreTab));
