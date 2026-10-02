@@ -5374,7 +5374,7 @@ function uvAdvice(uv){
 /* ---------------- rich widgets: compass, gauge, uv bar, sun arc, moon ---------------- */
 function windCompassCard(speed, gust, dir){
   const d = dir ?? 0;
-  return `<div class="detail-card">
+  return `<div class="detail-card wide">
     <div class="dt-title">${wfCardIcon('wind','Wind')} Wind</div>
     <div class="compass-row">
       <div>
