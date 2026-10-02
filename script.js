@@ -4248,7 +4248,14 @@ function renderMoreWeatherSections(tab='charts'){
 }
 
 function stormWeatherSection(){
-  return `<div class="card" id="stormWeatherCard"><div class="card-title">${icon('storm',true,18)} Onweer & storm</div><div id="stormWeatherBody" class="subtle">Stormanalyse laden…</div></div>`;
+  return `<div class="wf-storm-dashboard" id="stormWeatherCard"><div id="stormWeatherBody" class="wf-storm-loading">Stormanalyse laden…</div></div>`;
+}
+function wfStormPct(v){ const n=Number(v); return Number.isFinite(n)?Math.max(0,Math.min(100,Math.round(n*100))):0; }
+function wfStormNum(v,d=0){ const n=Number(v); return Number.isFinite(n)?n.toFixed(d):'—'; }
+function wfStormGauge(score, level){
+  const n=Math.max(0,Math.min(100,Number(score)||0));
+  const deg=Math.round(n*1.8);
+  return `<div class="wf-storm-gauge" style="--storm-score:${n};--storm-angle:${deg}deg"><div class="wf-storm-gauge-cut"><strong>${Math.round(n)}</strong><span>/100</span></div><div class="wf-storm-pill">${esc(level)}</div></div>`;
 }
 async function loadStormWeather(){
   const el=$('#stormWeatherBody'); if(!el) return;
@@ -4257,11 +4264,32 @@ async function loadStormWeather(){
   try{
     const r=await fetch(`${WHEATERFLOW_API_BASE}/storm?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`,{cache:'no-store'});
     const d=await r.json(); if(!r.ok||d?.ok===false) throw new Error(d?.error||`HTTP ${r.status}`);
-    const score=Number.isFinite(Number(d.stormScore))?Math.round(Number(d.stormScore)):'—';
+    const score=Math.max(0,Math.min(100,Math.round(Number(d.stormScore)||0)));
     const level=d.level?.label||d.level?.id||'Onbekend';
-    const lightning=Number.isFinite(Number(d.lightning?.nearestKm))?`${Math.round(Number(d.lightning.nearestKm))} km`:'Geen nabije bliksem';
-    el.innerHTML=`<div style="font-size:1.45rem;font-weight:750;margin:.35rem 0">${esc(level)} · ${esc(score)}/100</div><div style="margin-bottom:.8rem">${esc(d.headline||'Geen bijzonder onweer- of stormsignaal')}</div><div class="subtle">Bliksem: ${esc(lightning)} · Atmosfeer: ${esc(d.components?.atmosphere??'—')} · Radar: ${esc(d.components?.radar??'—')}</div><div class="subtle" style="margin-top:.6rem">${esc(d.engine||'Wheaterflow Storm Engine')}</div>`;
-  }catch(e){ el.innerHTML='<b>Stormanalyse tijdelijk niet beschikbaar</b><div class="subtle" style="margin-top:.4rem">De Storm API-route is nog niet bereikbaar via api.wheaterflow.be.</div>'; }
+    const comp=d.components||{}, l=d.lightning||{}, inst=d.instability||{}, pr=d.precipitation||{}, sr=d.smartRadar||{}, wind=d.wind||{}, diag=d.diagnostics||{};
+    const nearest=Number.isFinite(Number(l.nearestKm))?`${wfStormNum(l.nearestKm,1)} km`:'—';
+    const echo=Number.isFinite(Number(pr.nearestEchoKm))?`${wfStormNum(pr.nearestEchoKm,1)} km`:'—';
+    const updated=d.generatedAt?new Date(d.generatedAt).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):'—';
+    const conf=[['10 min',sr.confidence10],['30 min',sr.confidence30],['60 min',sr.confidence60],['120 min',sr.confidence120]];
+    const ok=(x)=>String(x||'').toLowerCase()==='ok';
+    el.className='';
+    el.innerHTML=`
+      <div class="wf-storm-hero">
+        <div class="wf-storm-intro"><div class="wf-storm-kicker">${icon('storm',true,20)} <b>ONWEER & STORM</b></div><small>${esc(d.engine||'Wheaterflow Storm Engine')} · update ${esc(updated)}</small><h2>${esc(level)} · ${score}/100</h2><p>${esc(d.headline||'Geen bijzonder onweer- of stormsignaal')}</p></div>
+        ${wfStormGauge(score,level)}
+        <div class="wf-storm-components"><div><span>⚡ Bliksem</span><b>${esc(comp.lightning??0)}/100</b></div><div><span>🌪️ Atmosfeer</span><b>${esc(comp.atmosphere??0)}/100</b></div><div><span>◉ Radar</span><b>${esc(comp.radar??0)}/100</b></div></div>
+      </div>
+      <div class="wf-storm-grid3">
+        <article class="wf-storm-card"><h3>⚡ <span>BLIKSEM</span></h3><div class="wf-storm-big">${esc(l.count??0)} <small>ontladingen</small></div><div class="wf-storm-mini4"><div><b>${esc(l.within10Km??0)}</b><span>&lt; 10 km</span></div><div><b>${esc(l.within25Km??0)}</b><span>&lt; 25 km</span></div><div><b>${esc(l.within50Km??0)}</b><span>&lt; 50 km</span></div><div><b>${esc(l.within100Km??0)}</b><span>&lt; 100 km</span></div></div><p>Dichtstbijzijnde bliksem <b>${esc(nearest)}</b></p><small>${esc(l.source||'Live lightning')}</small></article>
+        <article class="wf-storm-card"><h3>🌪️ <span>ATMOSFEER</span></h3><div class="wf-storm-big">${esc(comp.atmosphere??0)}<small>/100</small></div><p>Lage kans op zware ontwikkeling</p><div class="wf-storm-mini3"><div><span>CAPE</span><b>${wfStormNum(inst.cape)} <small>J/kg</small></b></div><div><span>Lifted Index</span><b>${wfStormNum(inst.liftedIndex,1)}</b></div><div><span>Luchtdruk</span><b>${wfStormNum(inst.pressureHpa,1)} <small>hPa</small></b></div></div></article>
+        <article class="wf-storm-card"><h3>◉ <span>RADAR</span></h3><div class="wf-storm-big">${esc(comp.radar??0)}<small>/100</small></div><p>${pr.nearby?'Neerslag in de omgeving':'Geen nabije neerslag'}</p><div class="wf-storm-mini3"><div><span>Neerslag nu</span><b>${wfStormNum(pr.nowMm,1)} <small>mm/u</small></b></div><div><span>Dichtstbij</span><b>${esc(echo)}</b></div><div><span>Nabij</span><b>${pr.nearby?'Ja':'Nee'}</b></div></div></article>
+      </div>
+      <div class="wf-storm-grid2">
+        <article class="wf-storm-card wf-storm-radar"><h3>🌧️ <span>NEERSLAGRADAR</span></h3><div class="wf-radar-visual"><div class="wf-radar-ring r1"></div><div class="wf-radar-ring r2"></div><div class="wf-radar-ring r3"></div><div class="wf-radar-echo e1"></div><div class="wf-radar-echo e2"></div><div class="wf-radar-dot"></div><div class="wf-radar-distance">Dichtstbijzijnde echo<br><b>${esc(echo)}</b></div></div><div class="wf-radar-legend"><span>Lichte regen</span><i></i><span>Zware regen</span></div></article>
+        <article class="wf-storm-card"><h3>📈 <span>STORMVOORSPELLING <small>(Smart Radar)</small></span></h3><div class="wf-storm-nowrow"><div><span>Nu</span><b>${score}</b></div>${conf.map(([t,v])=>`<div><span>${t}</span><b>${wfStormPct(v)}%</b></div>`).join('')}</div><div class="wf-storm-bars"><label>Bewegingskwaliteit <i><u style="width:${wfStormPct(sr.motionQuality)}%"></u></i><b>${wfStormPct(sr.motionQuality)}%</b></label><label>Geleerde nauwkeurigheid <i><u style="width:${wfStormPct(sr.learnedSkill)}%"></u></i><b>${wfStormPct(sr.learnedSkill)}%</b></label><label>Groei per 10 min <i><u style="width:${Math.min(100,Math.abs((Number(sr.growthFactorPer10Min)||1)-1)*1000)}%"></u></i><b>${Number.isFinite(Number(sr.growthFactorPer10Min))?(((Number(sr.growthFactorPer10Min)-1)*100)>=0?'+':'')+((Number(sr.growthFactorPer10Min)-1)*100).toFixed(1)+'%':'—'}</b></label></div><p>Beweging: <b>${wfStormNum(sr.dxPxPer10Min,2)} / ${wfStormNum(sr.dyPxPer10Min,2)} px per 10 min</b></p></article>
+      </div>
+      <div class="wf-storm-bottom"><article class="wf-storm-card"><h3>💨 <span>WIND <small>(actueel)</small></span></h3><div class="wf-wind-pair"><div><b>${wfStormNum(wind.speedKmh,1)} km/u</b><span>Windsnelheid</span></div><div><b>${wfStormNum(wind.gustKmh,1)} km/u</b><span>Windstoten</span></div></div></article><article class="wf-storm-card wf-engine"><h3>⚙️ <span>STORM ENGINE</span></h3><div class="wf-engine-checks"><span>${ok(diag.current)?'✓':'!'} Current data <b>${esc(diag.current||'—')}</b></span><span>${ok(diag.lightning)?'✓':'!'} Lightning data <b>${esc(diag.lightning||'—')}</b></span><span>${ok(diag.smartRadar)?'✓':'!'} Smart Radar <b>${esc(diag.smartRadar||'—')}</b></span></div><small>${esc(d.engine||'Wheaterflow Storm Engine')} · versie ${esc(d.version||'—')}</small></article></div>`;
+  }catch(e){ el.className='wf-storm-error'; el.innerHTML='<b>Stormanalyse tijdelijk niet beschikbaar</b><div class="subtle" style="margin-top:.4rem">De Storm Engine kon niet worden geladen.</div>'; }
 }
 
 function wireMoreWeatherSections(){
@@ -5374,7 +5402,7 @@ function uvAdvice(uv){
 /* ---------------- rich widgets: compass, gauge, uv bar, sun arc, moon ---------------- */
 function windCompassCard(speed, gust, dir){
   const d = dir ?? 0;
-  return `<div class="detail-card wide">
+  return `<div class="detail-card">
     <div class="dt-title">${wfCardIcon('wind','Wind')} Wind</div>
     <div class="compass-row">
       <div>
