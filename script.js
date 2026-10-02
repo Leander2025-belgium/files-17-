@@ -4251,7 +4251,7 @@ function stormWeatherSection(){
   return `<div class="wf-storm-dashboard" id="stormWeatherCard"><div id="stormWeatherBody" class="wf-storm-loading">Stormanalyse laden…</div></div>`;
 }
 function wfStormPct(v){ const n=Number(v); return Number.isFinite(n)?Math.max(0,Math.min(100,Math.round(n*100))):0; }
-function wfStormNum(v,d=0){ const n=Number(v); return Number.isFinite(n)?n.toFixed(d):'—'; }
+function wfStormNum(v,d=0){ if(v===null||v===undefined||v==='') return '—'; const n=Number(v); return Number.isFinite(n)?n.toFixed(d):'—'; }
 function wfStormGauge(score, level){
   const n=Math.max(0,Math.min(100,Number(score)||0));
   const deg=Math.round(n*1.8);
@@ -4267,7 +4267,9 @@ async function loadStormWeather(){
     const score=Math.max(0,Math.min(100,Math.round(Number(d.stormScore)||0)));
     const level=d.level?.label||d.level?.id||'Onbekend';
     const comp=d.components||{}, l=d.lightning||{}, inst=d.instability||{}, pr=d.precipitation||{}, sr=d.smartRadar||{}, wind=d.wind||{}, diag=d.diagnostics||{};
-    const nearest=Number.isFinite(Number(l.nearestKm))?`${wfStormNum(l.nearestKm,1)} km`:'—';
+    const lightningCount=Number(l.count);
+    const hasNearestLightning=l.nearestKm!==null&&l.nearestKm!==undefined&&l.nearestKm!==''&&Number.isFinite(Number(l.nearestKm));
+    const nearest=hasNearestLightning?`${wfStormNum(l.nearestKm,1)} km`:(Number.isFinite(lightningCount)&&lightningCount===0?'Geen bliksem gedetecteerd':'—');
     const echo=Number.isFinite(Number(pr.nearestEchoKm))?`${wfStormNum(pr.nearestEchoKm,1)} km`:'—';
     const updated=d.generatedAt?new Date(d.generatedAt).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):'—';
     const conf=[['10 min',sr.confidence10],['30 min',sr.confidence30],['60 min',sr.confidence60],['120 min',sr.confidence120]];
@@ -5402,7 +5404,7 @@ function uvAdvice(uv){
 /* ---------------- rich widgets: compass, gauge, uv bar, sun arc, moon ---------------- */
 function windCompassCard(speed, gust, dir){
   const d = dir ?? 0;
-  return `<div class="detail-card">
+  return `<div class="detail-card wide">
     <div class="dt-title">${wfCardIcon('wind','Wind')} Wind</div>
     <div class="compass-row">
       <div>
