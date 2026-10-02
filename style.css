@@ -14172,3 +14172,33 @@ body .tabbar .tabbtn:focus-visible{
 @media(max-width:520px){
   :root{--wf-card-title-icon-size:27px;}
 }
+
+
+/* ================================================================
+   Wheaterflow Liquid Glass card icon pack — unified sizing
+   New mapped cards automatically inherit this size.
+   ================================================================ */
+:root{ --wf-detail-card-icon-size:30px; }
+
+#home .dt-title{
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  min-height:var(--wf-detail-card-icon-size)!important;
+}
+#home .dt-title .wf-card-heading-icon{
+  width:var(--wf-detail-card-icon-size)!important;
+  height:var(--wf-detail-card-icon-size)!important;
+  min-width:var(--wf-detail-card-icon-size)!important;
+  min-height:var(--wf-detail-card-icon-size)!important;
+  max-width:var(--wf-detail-card-icon-size)!important;
+  max-height:var(--wf-detail-card-icon-size)!important;
+  flex:0 0 var(--wf-detail-card-icon-size)!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  display:block!important;
+  margin:0!important;
+}
+@media(max-width:520px){
+  :root{ --wf-detail-card-icon-size:27px; }
+}

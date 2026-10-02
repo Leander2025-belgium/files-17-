@@ -5310,9 +5310,29 @@ function alertsCard(){
   </div>`;
 }
 
+
+/* Wheaterflow Liquid Glass card icons — shared mapping */
+const WF_CARD_ICON_FILES = Object.freeze({
+  wind:'01-wind.png',
+  pressure:'02-luchtdruk.png',
+  sun:'03-zon-op-onder.png',
+  uv:'04-uv-index.png',
+  precipitation:'05-neerslag.png',
+  visibility:'06-zicht.png',
+  humidity:'07-vochtigheid.png',
+  cloud:'08-bewolking.png'
+});
+function wfCardIcon(kind, alt=''){
+  const file = WF_CARD_ICON_FILES[kind];
+  if(!file) return '';
+  return `<img class="wf-card-heading-icon" src="assets/ui/card-icons/${file}" alt="${esc(alt)}" aria-hidden="true">`;
+}
+
 function detailCard(ic, title, val, sub, extraClass=''){
   const className = `detail-card${extraClass ? ' ' + extraClass : ''}`;
-  return `<div class="${className}"><div class="dt-title">${icon(ic,true,12)} ${title}</div><div class="dt-val mono">${val}</div><div class="dt-sub">${sub}</div></div>`;
+  const kind = ({'Neerslag':'precipitation','Zicht':'visibility','Vochtigheid':'humidity','Bewolking':'cloud'})[title];
+  const titleIcon = kind ? wfCardIcon(kind, title) : icon(ic,true,12);
+  return `<div class="${className}"><div class="dt-title">${titleIcon} ${title}</div><div class="dt-val mono">${val}</div><div class="dt-sub">${sub}</div></div>`;
 }
 function uvLabel(uv){
   if(uv<3) return 'Laag'; if(uv<6) return 'Matig'; if(uv<8) return 'Hoog'; if(uv<11) return 'Zeer hoog'; return 'Extreem';
@@ -5330,7 +5350,7 @@ function uvAdvice(uv){
 function windCompassCard(speed, gust, dir){
   const d = dir ?? 0;
   return `<div class="detail-card wide">
-    <div class="dt-title">${icon('wind',true,12)} Wind</div>
+    <div class="dt-title">${wfCardIcon('wind','Wind')} Wind</div>
     <div class="compass-row">
       <div>
         <div class="dt-val mono">${fmtWind(speed)}</div>
@@ -5350,7 +5370,7 @@ function pressureGaugeCard(hpa){
   const frac = (clamped-min)/(max-min); // 0..1
   const angle = -90 + frac*180; // -90(laag) .. +90(hoog)
   return `<div class="detail-card wide">
-    <div class="dt-title">${icon('thermo',true,12)} Luchtdruk</div>
+    <div class="dt-title">${wfCardIcon('pressure','Luchtdruk')} Luchtdruk</div>
     <div class="gauge-row">
       <div class="semigauge">
         <svg viewBox="0 0 100 55">
@@ -5372,7 +5392,7 @@ function pressureGaugeCard(hpa){
 function uvBarCard(uv){
   const pct = Math.min(100, (uv/11)*100);
   return `<div class="detail-card">
-    <div class="dt-title">${icon('uv',true,12)} UV-index</div>
+    <div class="dt-title">${wfCardIcon('uv','UV-index')} UV-index</div>
     <div class="dt-val mono">${Math.round(uv)} <span style="font-size:14px;color:var(--dim);font-weight:600;">${uvLabel(uv)}</span></div>
     <div class="uvbar"><div class="uvdot" style="left:${pct}%;"></div></div>
     <div class="dt-sub">${uvAdvice(uv)}</div>
@@ -5399,7 +5419,7 @@ function sunArcCard(sunrise, sunset){
 
 function sunArcDetailCard(sunrise, sunset){
   return `<div class="detail-card wide">
-    <div class="dt-title">${icon('sunrise',true,12)} Zon op / onder</div>
+    <div class="dt-title">${wfCardIcon('sun','Zon op / onder')} Zon op / onder</div>
     ${sunArcCard(sunrise, sunset)}
     <div class="sunarc-labels"><span>${formatDayTime(sunrise)}</span><span>${formatDayTime(sunset)}</span></div>
   </div>`;
