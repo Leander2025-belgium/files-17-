@@ -687,6 +687,12 @@ async function loadMarine(){
       tide:tideStateForOostende(new Date())
     };
     state.seaspark = buildSeaSparkForecast(coast, d.hourly);
+    // Zeevonk alleen tonen wanneer het seizoen/klimaat zinvol is.
+    // België/gematigde streken: mei t/m september.
+    // Buiten dat seizoen alleen in warme kustgebieden met warm zeewater.
+    if(state.seaspark && !shouldShowSeaSparkCard(state.seaspark, new Date())){
+      state.seaspark = null;
+    }
   }catch(e){}
 }
 
@@ -773,6 +779,25 @@ function buildSeaSparkForecast(coast, marineHourly){
     advice,
     source:'Open-Meteo weer + marine, indicatieve natuurkans'
   };
+}
+
+function shouldShowSeaSparkCard(seaspark, date=new Date()){
+  if(!seaspark) return false;
+
+  const month = date.getMonth() + 1;
+  const lat = Math.abs(Number(state.loc?.lat));
+  const seaTemp = Number(seaspark.seaTemp);
+
+  // Normaal zeevonkseizoen voor België en andere gematigde kustgebieden.
+  if(month >= 5 && month <= 9) return true;
+
+  // In warme landen kan zeevonk ook buiten ons seizoen relevant blijven.
+  // Gebruik zowel breedtegraad als werkelijk zeewater om een warme kust
+  // te herkennen; zo verschijnt het kaartje niet onnodig in een zachte
+  // winterdag aan de Belgische kust.
+  const warmLatitude = Number.isFinite(lat) && lat <= 35;
+  const warmSea = Number.isFinite(seaTemp) && seaTemp >= 20;
+  return warmLatitude && warmSea;
 }
 
 function seaSparkSeasonScore(date){
