@@ -13882,3 +13882,85 @@ body .tabbar .tabbtn:focus-visible{
     height:50px!important;
   }
 }
+
+
+/* ================================================================
+   Wheaterflow layout + neutral glass cards — 2026-10-02
+   Keep weather-icon sizes; lift hourly temperatures; unify card tint.
+   ================================================================ */
+
+/* Neutral Liquid Glass: same family as Wind / Luchtdruk, no blue cast */
+#home .hourly-24-card,
+#home .compact-forecast-card,
+#home .hourly-24-card .hour-item,
+#home .compact-forecast-card .daily-row-compact{
+  background:
+    linear-gradient(135deg,
+      rgba(255,255,255,.105),
+      rgba(255,255,255,.055) 48%,
+      rgba(20,24,30,.12))!important;
+  border-color:rgba(255,255,255,.22)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.15),
+    0 8px 28px rgba(0,0,0,.10)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(115%)!important;
+  backdrop-filter:blur(24px) saturate(115%)!important;
+}
+
+/* 24 uur: keep the icon size, but reserve a proper bottom row for temp */
+#home .hourly-24-card .hour-item{
+  min-height:202px!important;
+  padding:16px 10px 14px!important;
+  grid-template-rows:24px 76px 34px!important;
+  align-items:center!important;
+}
+#home .hourly-24-card .hour-icon-wrap{
+  height:76px!important;
+  align-self:center!important;
+}
+#home .hourly-24-card .hour-temp,
+#home .hourly-24-card .temp{
+  align-self:center!important;
+  justify-self:center!important;
+  margin:0!important;
+  padding:0!important;
+  line-height:1!important;
+  transform:translateY(-2px)!important;
+}
+
+/* 7 dagen: same neutral glass as the lower weather cards */
+#home .compact-forecast-card .daily-row-compact{
+  background:
+    linear-gradient(135deg,
+      rgba(255,255,255,.095),
+      rgba(255,255,255,.045) 52%,
+      rgba(20,24,30,.10))!important;
+}
+
+/* Also neutralize the surrounding home metric cards for one consistent look */
+#home .weather-card,
+#home .metric-card,
+#home .detail-card,
+#home .wind-card,
+#home .pressure-card,
+#home .sun-card,
+#home .uv-card,
+#home .precip-card{
+  background:
+    linear-gradient(135deg,
+      rgba(255,255,255,.105),
+      rgba(255,255,255,.055) 48%,
+      rgba(20,24,30,.12))!important;
+  border-color:rgba(255,255,255,.22)!important;
+}
+
+@media(max-width:520px){
+  #home .hourly-24-card .hour-item{
+    min-height:174px!important;
+    padding:12px 8px 11px!important;
+    grid-template-rows:22px 66px 30px!important;
+  }
+  #home .hourly-24-card .hour-icon-wrap{height:66px!important;}
+  #home .hourly-24-card .hour-temp,
+  #home .hourly-24-card .temp{transform:translateY(-1px)!important;}
+}
