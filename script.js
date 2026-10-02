@@ -3964,7 +3964,7 @@ html += rainNowcastCard();
     const hourTemp = isCurrentHour ? cur.temperature_2m : hourly.temperature_2m[i];
     html += `<div class="hour-item ${isCurrentHour?'now':''}">
       <div class="t">${esc(label)}</div>
-      <div class="hour-icon-wrap">${icon(hwc.ic, hIsDay, 64)}</div>
+      <div class="hour-icon-wrap">${icon(hwc.ic, hIsDay, 58)}</div>
       <div class="pop">${!isCurrentHour && pop!=null && pop>=10 ? Math.round(Math.max(0,Math.min(100,pop)))+'%' : ''}</div>
       <div class="v">${fmtTemp(hourTemp)}</div>
     </div>`;
@@ -3992,7 +3992,7 @@ html += rainNowcastCard();
       const gust=validNumber(daily.wind_gusts_10m_max?.[i]);
       html += `<div class="daily-row daily-row-compact ${i===0?'is-today':''}" data-day-index="${i}" role="button" tabindex="0" aria-label="Details voor ${esc(dayName)} ${esc(dateLabel)}">
         <div class="dname"><b>${esc(dayName)}</b><small>${esc(dateLabel)}</small></div>
-        <div class="daily-icon-wrap">${icon(dwc.ic,true,52,'dicon')}</div>
+        <div class="daily-icon-wrap">${icon(dwc.ic,true,56,'dicon')}</div>
         <div class="daily-weather-data">
           <div class="dpop">${pop!=null && pop>0 ? Math.round(pop)+'%' : ''}</div>
           <div class="daily-wind-alert">${gust!=null && gust>=60 ? `stoten ${fmtWind(gust)}` : ''}</div>
