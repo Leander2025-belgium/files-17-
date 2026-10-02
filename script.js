@@ -143,6 +143,7 @@ const state = {
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null, openMeteoLayer: null, proximity:null, initialized:false, activating:false },
   map: null, marker: null, homeMap: { map:null, base:null, overlay:null, xweatherController:null, activeLayer:'radar' },
   activeTab: 'home',
+  moreWeatherTab: 'charts',
   rainEta: null,
   sharedWeather: {marine:null, wind:null, locationName:INITIAL_LOCATION.name || DEFAULT_LOCATION.name},
   dataStatus: {homeMap:{lastSuccess:null,error:null}, radar:{lastSuccess:null,error:null}},
@@ -4269,7 +4270,11 @@ async function loadStormWeather(){
     const comp=d.components||{}, l=d.lightning||{}, inst=d.instability||{}, pr=d.precipitation||{}, sr=d.smartRadar||{}, wind=d.wind||{}, diag=d.diagnostics||{};
     const lightningCount=Number(l.count);
     const hasNearestLightning=l.nearestKm!==null&&l.nearestKm!==undefined&&l.nearestKm!==''&&Number.isFinite(Number(l.nearestKm));
-    const nearest=hasNearestLightning?`${wfStormNum(l.nearestKm,1)} km`:(Number.isFinite(lightningCount)&&lightningCount===0?'Geen bliksem gedetecteerd':'—');
+    const lightningRadius=Number.isFinite(Number(l.searchRadiusKm))?Number(l.searchRadiusKm):500;
+    const nearest=hasNearestLightning?`${wfStormNum(l.nearestKm,1)} km`:(Number.isFinite(lightningCount)&&lightningCount===0?`Geen bliksem binnen ${Math.round(lightningRadius)} km`:'—');
+    const lightningZone=l.distanceInfo?.label||(hasNearestLightning?'Bliksemactiviteit gedetecteerd':`Geen bliksem binnen ${Math.round(lightningRadius)} km`);
+    const lightningLocalThreat=l.distanceInfo?.localThreat===true;
+    const lightningUpdated=l.updated?new Date(l.updated).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):null;
     const echo=Number.isFinite(Number(pr.nearestEchoKm))?`${wfStormNum(pr.nearestEchoKm,1)} km`:'—';
     const updated=d.generatedAt?new Date(d.generatedAt).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):'—';
     const conf=[['10 min',sr.confidence10],['30 min',sr.confidence30],['60 min',sr.confidence60],['120 min',sr.confidence120]];
@@ -4282,7 +4287,7 @@ async function loadStormWeather(){
         <div class="wf-storm-components"><div><span>⚡ Bliksem</span><b>${esc(comp.lightning??0)}/100</b></div><div><span>🌪️ Atmosfeer</span><b>${esc(comp.atmosphere??0)}/100</b></div><div><span>◉ Radar</span><b>${esc(comp.radar??0)}/100</b></div></div>
       </div>
       <div class="wf-storm-grid3">
-        <article class="wf-storm-card"><h3>⚡ <span>BLIKSEM</span></h3><div class="wf-storm-big">${esc(l.count??0)} <small>ontladingen</small></div><div class="wf-storm-mini4"><div><b>${esc(l.within10Km??0)}</b><span>&lt; 10 km</span></div><div><b>${esc(l.within25Km??0)}</b><span>&lt; 25 km</span></div><div><b>${esc(l.within50Km??0)}</b><span>&lt; 50 km</span></div><div><b>${esc(l.within100Km??0)}</b><span>&lt; 100 km</span></div></div><p>Dichtstbijzijnde bliksem <b>${esc(nearest)}</b></p><small>${esc(l.source||'Live lightning')}</small></article>
+        <article class="wf-storm-card"><h3>⚡ <span>BLIKSEM</span></h3><div class="wf-storm-big">${esc(l.count??0)} <small>ontladingen binnen ${esc(Math.round(lightningRadius))} km</small></div><p><b>${esc(lightningZone)}</b>${lightningLocalThreat?' · lokaal relevant':''}</p><div class="wf-storm-mini4"><div><b>${esc(l.within25Km??0)}</b><span>&lt; 25 km</span></div><div><b>${esc(l.within100Km??0)}</b><span>&lt; 100 km</span></div><div><b>${esc(l.within250Km??0)}</b><span>&lt; 250 km</span></div><div><b>${esc(l.within500Km??0)}</b><span>&lt; 500 km</span></div></div><p>Dichtstbijzijnde bliksem <b>${esc(nearest)}</b></p><small>${esc(l.source||'Live lightning')}${lightningUpdated?` · update ${esc(lightningUpdated)}`:''}</small></article>
         <article class="wf-storm-card"><h3>🌪️ <span>ATMOSFEER</span></h3><div class="wf-storm-big">${esc(comp.atmosphere??0)}<small>/100</small></div><p>Lage kans op zware ontwikkeling</p><div class="wf-storm-mini3"><div><span>CAPE</span><b>${wfStormNum(inst.cape)} <small>J/kg</small></b></div><div><span>Lifted Index</span><b>${wfStormNum(inst.liftedIndex,1)}</b></div><div><span>Luchtdruk</span><b>${wfStormNum(inst.pressureHpa,1)} <small>hPa</small></b></div></div></article>
         <article class="wf-storm-card"><h3>◉ <span>RADAR</span></h3><div class="wf-storm-big">${esc(comp.radar??0)}<small>/100</small></div><p>${pr.nearby?'Neerslag in de omgeving':'Geen nabije neerslag'}</p><div class="wf-storm-mini3"><div><span>Neerslag nu</span><b>${wfStormNum(pr.nowMm,1)} <small>mm/u</small></b></div><div><span>Dichtstbij</span><b>${esc(echo)}</b></div><div><span>Nabij</span><b>${pr.nearby?'Ja':'Nee'}</b></div></div></article>
       </div>
@@ -4298,7 +4303,10 @@ function wireMoreWeatherSections(){
   const content = $('#moreWeatherContent');
   const tabs = $$('#moreWeatherTabs [data-more-tab]');
   if(!content || !tabs.length) return;
-  const load = (tab='charts') => {
+  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','storm','travel']);
+  const load = (tab = state.moreWeatherTab || 'charts') => {
+    if(!validTabs.has(tab)) tab = 'charts';
+    state.moreWeatherTab = tab;
     content.innerHTML = renderMoreWeatherSections(tab);
     tabs.forEach(btn=>btn.classList.toggle('active', btn.dataset.moreTab === tab));
     wireDailyDetails();
@@ -4310,7 +4318,7 @@ function wireMoreWeatherSections(){
   tabs.forEach(btn=>{
     btn.addEventListener('click', ()=>load(btn.dataset.moreTab));
   });
-  load('charts');
+  load(state.moreWeatherTab || 'charts');
 }
 
 function wireSectionNav(){
