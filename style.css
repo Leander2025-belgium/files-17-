@@ -14213,3 +14213,41 @@ body .tabbar .tabbtn:focus-visible{
 .wf-radar-visual{height:225px;border-radius:16px;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 58%,rgba(27,123,224,.24),transparent 4%),linear-gradient(145deg,#102e49,#183c57 48%,#0e263d);border:1px solid rgba(255,255,255,.12)}.wf-radar-ring{position:absolute;border:1px solid rgba(107,185,255,.18);border-radius:50%;left:50%;top:58%;transform:translate(-50%,-50%)}.wf-radar-ring.r1{width:80px;height:80px}.wf-radar-ring.r2{width:150px;height:150px}.wf-radar-ring.r3{width:225px;height:225px}.wf-radar-dot{position:absolute;width:15px;height:15px;border:3px solid white;border-radius:50%;left:50%;top:58%;transform:translate(-50%,-50%);box-shadow:0 0 0 7px rgba(43,139,255,.25)}.wf-radar-echo{position:absolute;border-radius:50%;filter:blur(11px)}.wf-radar-echo.e1{width:125px;height:58px;left:8%;top:18%;background:rgba(32,153,255,.48);transform:rotate(-18deg)}.wf-radar-echo.e2{width:95px;height:46px;right:10%;bottom:16%;background:rgba(52,214,172,.28);transform:rotate(22deg)}.wf-radar-distance{position:absolute;right:15px;top:14px;text-align:right;font-size:11px;color:rgba(255,255,255,.65)}.wf-radar-distance b{font-size:17px;color:#fff}.wf-radar-legend{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:10px}.wf-radar-legend i{height:7px;flex:1;border-radius:9px;background:linear-gradient(90deg,#147bff,#35c8f2,#39d776,#ffd22f,#f04444)}
 .wf-storm-nowrow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}.wf-storm-nowrow div:first-child{border-color:rgba(87,224,119,.5);background:rgba(52,175,78,.14)}.wf-storm-nowrow b{font-size:19px}.wf-storm-bars label{display:grid;grid-template-columns:150px 1fr 42px;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px}.wf-storm-bars i{height:7px;border-radius:10px;background:rgba(255,255,255,.09);overflow:hidden}.wf-storm-bars u{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#3889ff,#42c5ff);text-decoration:none}.wf-storm-bars b{text-align:right}.wf-wind-pair{display:grid;grid-template-columns:1fr 1fr}.wf-wind-pair div+div{border-left:1px solid rgba(255,255,255,.12);padding-left:20px}.wf-wind-pair b{display:block;font-size:24px}.wf-wind-pair span{font-size:11px;color:rgba(255,255,255,.6)}.wf-engine{display:grid;grid-template-columns:auto 1fr;column-gap:20px}.wf-engine h3{grid-column:1/-1}.wf-engine-checks{display:flex;gap:22px;flex-wrap:wrap}.wf-engine-checks span{color:#70e48b;font-size:12px;font-weight:700}.wf-engine-checks b{display:block;color:#fff;margin-top:3px}.wf-engine>small{align-self:center;text-align:right}
 @media(max-width:900px){.wf-storm-hero{grid-template-columns:1fr}.wf-storm-gauge{margin:5px auto}.wf-storm-grid3,.wf-storm-grid2,.wf-storm-bottom{grid-template-columns:1fr}.wf-storm-mini4{grid-template-columns:repeat(2,1fr)}.wf-storm-nowrow{grid-template-columns:repeat(2,1fr)}.wf-storm-bars label{grid-template-columns:115px 1fr 38px}.wf-engine{display:block}.wf-engine>small{display:block;text-align:left;margin-top:15px}}
+
+
+/* ================================================================
+   Wheaterflow 7-daagse mobiele temperatuur-fix — 2026-10-02
+   Voorkomt dat de maximumtemperatuur rechts buiten de rij valt.
+   ================================================================ */
+@media(max-width:520px){
+  #home .compact-forecast-card .daily-row-compact{
+    grid-template-columns:
+      minmax(68px,1fr)
+      52px
+      40px
+      38px
+      minmax(44px,1fr)
+      44px!important;
+    column-gap:3px!important;
+    padding-left:8px!important;
+    padding-right:8px!important;
+  }
+
+  #home .compact-forecast-card .daily-icon-wrap{
+    width:52px!important;
+  }
+
+  #home .compact-forecast-card .daily-row-compact .dhigh{
+    width:auto!important;
+    min-width:44px!important;
+    text-align:right!important;
+    justify-self:end!important;
+    padding-right:1px!important;
+    box-sizing:border-box!important;
+  }
+
+  #home .compact-forecast-card .daily-row-compact .dlow{
+    width:auto!important;
+    min-width:38px!important;
+  }
+}
