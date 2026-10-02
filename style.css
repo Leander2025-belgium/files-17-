@@ -14120,3 +14120,55 @@ body .tabbar .tabbtn:focus-visible{
     width:27px!important;height:27px!important;flex-basis:27px!important;
   }
 }
+
+
+/* ================================================================
+   Wheaterflow unified card-title icon system — 2026-10-02
+   Applies to current + future card icons automatically.
+   ================================================================ */
+:root{
+  --wf-card-title-icon-size:30px;
+}
+
+/* All icons/images/SVGs directly used in card headings get one footprint. */
+#home .card-title > img,
+#home .card-title > svg,
+#home .card-title > .icon,
+#home .card-title > .wf-icon,
+#home .card-title > [class*="icon"]{
+  width:var(--wf-card-title-icon-size)!important;
+  height:var(--wf-card-title-icon-size)!important;
+  min-width:var(--wf-card-title-icon-size)!important;
+  min-height:var(--wf-card-title-icon-size)!important;
+  max-width:var(--wf-card-title-icon-size)!important;
+  max-height:var(--wf-card-title-icon-size)!important;
+  flex:0 0 var(--wf-card-title-icon-size)!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  display:block!important;
+  margin:0!important;
+}
+
+/* Heading layout remains stable even when a new icon is added later. */
+#home .card-title{
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  min-height:var(--wf-card-title-icon-size)!important;
+}
+
+/* Existing custom 7-day icon uses the exact same shared size. */
+#home .compact-forecast-card .forecast-seven-title-icon{
+  width:var(--wf-card-title-icon-size)!important;
+  height:var(--wf-card-title-icon-size)!important;
+  min-width:var(--wf-card-title-icon-size)!important;
+  min-height:var(--wf-card-title-icon-size)!important;
+  max-width:var(--wf-card-title-icon-size)!important;
+  max-height:var(--wf-card-title-icon-size)!important;
+  flex:0 0 var(--wf-card-title-icon-size)!important;
+  object-fit:contain!important;
+}
+
+@media(max-width:520px){
+  :root{--wf-card-title-icon-size:27px;}
+}
