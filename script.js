@@ -4039,8 +4039,8 @@ html += rainNowcastCard();
   html += detailCard('drop','Neerslag', fmtPrecip(cur.precipitation), 'Kans '+(hourly.precipitation_probability[nowIdx]??0)+'%');
   html += detailCard('eye','Zicht', (hourly.visibility[nowIdx]/1000).toFixed(1)+' km', hourly.visibility[nowIdx] > 8000 ? 'Goed zicht':'Beperkt zicht');
   html += detailCard('gauge','Vochtigheid', cur.relative_humidity_2m+'%', 'Dauwpunt '+fmtTemp(hourly.dew_point_2m[nowIdx]));
-  html += detailCard('cloud','Bewolking', cur.cloud_cover+'%', cur.cloud_cover<30?'Overwegend helder':cur.cloud_cover<70?'Half bewolkt':'Bewolkt', 'cloud-wide');
   html += moonCard(moon);
+  html += detailCard('cloud','Bewolking', cur.cloud_cover+'%', cur.cloud_cover<30?'Overwegend helder':cur.cloud_cover<70?'Half bewolkt':'Bewolkt', 'cloud-wide');
   html += seaSparkDetailCard();
   html += `</div>`;
   html += compactAirQualityCard();
@@ -5374,7 +5374,7 @@ function uvAdvice(uv){
 /* ---------------- rich widgets: compass, gauge, uv bar, sun arc, moon ---------------- */
 function windCompassCard(speed, gust, dir){
   const d = dir ?? 0;
-  return `<div class="detail-card wide">
+  return `<div class="detail-card">
     <div class="dt-title">${wfCardIcon('wind','Wind')} Wind</div>
     <div class="compass-row">
       <div>
