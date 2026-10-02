@@ -14036,3 +14036,87 @@ body .tabbar .tabbtn:focus-visible{
   }
   #home .hourly-24-card .hour-icon-wrap{height:66px!important;}
 }
+
+
+/* ================================================================
+   FINAL — neutral Rain + compact 24u + custom 7-day title icon
+   2026-10-02
+   ================================================================ */
+
+/* Exact Wheaterflow Rain surfaces: remove the old blue gradients. */
+#home .rain-now-card.rain-reference-layout{
+  background:linear-gradient(145deg,
+    rgba(118,118,120,.34),
+    rgba(58,60,64,.28))!important;
+  border-color:rgba(255,255,255,.20)!important;
+  box-shadow:0 9px 24px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.10)!important;
+  -webkit-backdrop-filter:blur(20px) saturate(105%)!important;
+  backdrop-filter:blur(20px) saturate(105%)!important;
+}
+#home .rain-reference-layout .rain-main-card,
+#home .rain-reference-layout .rain-forecast-card,
+#home .rain-reference-layout .rain-bottom-stat{
+  background:linear-gradient(145deg,
+    rgba(255,255,255,.085),
+    rgba(30,31,34,.09))!important;
+  border-color:rgba(255,255,255,.16)!important;
+}
+#home .rain-reference-layout .rain-main-card-icon{
+  background:rgba(255,255,255,.07)!important;
+  border-color:rgba(255,255,255,.13)!important;
+}
+
+/* Keep the rain graph readable but remove the blue panel wash. */
+#home .rain-reference-layout .rain-now-chart{
+  background:
+    linear-gradient(to bottom,rgba(255,255,255,.10) 1px,transparent 1px) 0 0/100% 25%,
+    transparent!important;
+}
+
+/* 24-hour tiles: shorter, while retaining current icon size and readable temp. */
+#home .hourly-24-card .hour-item{
+  min-height:145px!important;
+  height:145px!important;
+  padding:8px 8px 7px!important;
+  grid-template-rows:20px 62px 14px 26px!important;
+  align-content:center!important;
+}
+#home .hourly-24-card .hour-icon-wrap{
+  height:62px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+#home .hourly-24-card .hour-item .v{
+  align-self:center!important;
+  justify-self:center!important;
+  line-height:1!important;
+  margin:0!important;
+}
+
+/* User-supplied 7-day calendar icon. */
+#home .compact-forecast-card>.card-title{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+}
+#home .compact-forecast-card .forecast-seven-title-icon{
+  width:30px!important;
+  height:30px!important;
+  object-fit:contain!important;
+  display:block!important;
+  flex:0 0 30px!important;
+}
+
+@media(max-width:520px){
+  #home .hourly-24-card .hour-item{
+    min-height:138px!important;
+    height:138px!important;
+    padding:7px 6px 6px!important;
+    grid-template-rows:19px 58px 13px 25px!important;
+  }
+  #home .hourly-24-card .hour-icon-wrap{height:58px!important;}
+  #home .compact-forecast-card .forecast-seven-title-icon{
+    width:27px!important;height:27px!important;flex-basis:27px!important;
+  }
+}

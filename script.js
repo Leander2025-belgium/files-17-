@@ -3976,7 +3976,7 @@ html += rainNowcastCard();
   const allMax = daily.temperature_2m_max.slice(0,nDays).filter(v=>validNumber(v)!=null);
   const allMin = daily.temperature_2m_min.slice(0,nDays).filter(v=>validNumber(v)!=null);
   const gMax = allMax.length ? Math.max(...allMax) : 1, gMin = allMin.length ? Math.min(...allMin) : 0;
-  html += `<div class="card compact-forecast-card"><div class="card-title">${icon('sunrise',true,13)} 7-daagse verwachting</div>`;
+  html += `<div class="card compact-forecast-card"><div class="card-title"><img class="forecast-seven-title-icon" src="assets/ui/7-daagse-verwachting.png" alt="" aria-hidden="true"> 7-daagse verwachting</div>`;
   if(!nDays){
     html += wheaterflowStatus('empty','Momenteel geen gegevens beschikbaar');
   }else{
