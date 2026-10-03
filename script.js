@@ -5411,18 +5411,40 @@ function uvAdvice(uv){
 
 /* ---------------- rich widgets: compass, gauge, uv bar, sun arc, moon ---------------- */
 function windCompassCard(speed, gust, dir){
-  const d = dir ?? 0;
-  return `<div class="detail-card wide">
+  const hasDir = dir !== null && dir !== undefined && dir !== '' && Number.isFinite(Number(dir));
+  const d = hasDir ? ((Number(dir) % 360) + 360) % 360 : 0;
+  const fromLabel = hasDir ? windDirectionLabel(d) : '—';
+  // Meteorologische windrichting = waar de wind VANDAAN komt.
+  // De grote pijl toont de luchtstroom: waar de wind NAARTOE waait.
+  const flowDeg = (d + 180) % 360;
+  const ticks = Array.from({length:72},(_,i)=>{
+    const a=i*5;
+    const major=i%9===0;
+    const medium=i%3===0;
+    return `<i class="wind-tick${major?' major':medium?' medium':''}" style="transform:translateX(-50%) rotate(${a}deg)"></i>`;
+  }).join('');
+  return `<div class="detail-card wide wf-wind-card">
     <div class="dt-title">${wfCardIcon('wind','Wind')} Wind</div>
-    <div class="compass-row">
-      <div>
+    <div class="compass-row wf-wind-layout">
+      <div class="wf-wind-values">
         <div class="dt-val mono">${fmtWind(speed)}</div>
         <div class="dt-sub">Stoten ${fmtWind(gust)}</div>
       </div>
-      <div class="compass">
-        <div class="cdir n">N</div><div class="cdir o">O</div><div class="cdir z">Z</div><div class="cdir w">W</div>
-        <div class="needle" style="transform:translate(-50%,-100%) rotate(${d}deg);"></div>
-        <div class="chub"></div>
+      <div class="wf-wind-instrument">
+        <div class="compass wf-premium-compass${hasDir?'':' no-direction'}">
+          <div class="wind-ticks">${ticks}</div>
+          <div class="cdir n">N</div><div class="cdir no">NO</div>
+          <div class="cdir o">O</div><div class="cdir zo">ZO</div>
+          <div class="cdir z">Z</div><div class="cdir zw">ZW</div>
+          <div class="cdir w">W</div><div class="cdir nw">NW</div>
+          <div class="wind-inner-ring"></div>
+          ${hasDir?`<div class="wind-flow-arrow" style="transform:translate(-50%,-50%) rotate(${flowDeg}deg)">
+            <span class="wind-arrow-shaft"></span><span class="wind-arrow-head"></span>
+          </div>`:''}
+          <div class="chub"></div>
+        </div>
+        <div class="wind-direction-pill">${hasDir?`${fromLabel} · ${Math.round(d)}°`:'Richting —'}</div>
+        <div class="wind-direction-caption">${hasDir?`Wind uit ${fromLabel}`:'Windrichting niet beschikbaar'}</div>
       </div>
     </div>
   </div>`;
