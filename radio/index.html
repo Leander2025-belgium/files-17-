@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07131f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Wheaterflow Radio</title>
+  <style>
+    :root{
+      color-scheme:dark;
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
+      --glass:rgba(255,255,255,.10);
+      --line:rgba(255,255,255,.13);
+      --muted:rgba(255,255,255,.62);
+      --cyan:#5de7ff;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:#06111d;color:#fff}
+    body{
+      min-height:100svh;
+      background:
+        radial-gradient(circle at 12% 5%,rgba(35,191,220,.28),transparent 34%),
+        radial-gradient(circle at 88% 28%,rgba(105,82,255,.22),transparent 35%),
+        linear-gradient(155deg,#05101b 0%,#082330 50%,#0b1022 100%);
+      padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 28px);
+    }
+    .app{max-width:680px;margin:0 auto}
+    .top{display:flex;align-items:center;gap:13px;margin-bottom:18px}
+    .logo{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(20px);font-size:24px}
+    .top h1{font-size:23px;margin:2px 0 0;letter-spacing:-.02em}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--cyan)}
+    .beta{font-size:10px;font-weight:800;padding:3px 7px;border-radius:999px;background:rgba(255,255,255,.11);color:#fff;margin-left:7px}
+    .back{margin-left:auto;text-decoration:none;color:#fff;background:var(--glass);border:1px solid var(--line);padding:10px 12px;border-radius:16px;backdrop-filter:blur(18px)}
+    .card{background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.07));border:1px solid var(--line);border-radius:30px;padding:20px;box-shadow:0 18px 55px rgba(0,0,0,.20);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px)}
+    .now{display:flex;align-items:flex-start;gap:12px}.grow{flex:1}.label{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--cyan)}
+    .title{font-size:27px;font-weight:780;letter-spacing:-.035em;margin:5px 0 3px}.summary{font-size:15px;line-height:1.45;color:var(--muted);margin:0}
+    .meters{height:42px;display:flex;align-items:flex-end;gap:5px}.meter{width:5px;border-radius:5px;background:var(--cyan);opacity:.3;height:10px;transition:.25s}.playing .meter:nth-child(1){height:20px;opacity:1}.playing .meter:nth-child(2){height:38px;opacity:1}.playing .meter:nth-child(3){height:27px;opacity:1}.playing .meter:nth-child(4){height:34px;opacity:1}
+    .divider{height:1px;background:var(--line);margin:18px 0}.weather{display:flex;gap:14px;align-items:flex-start}.symbol{font-size:34px;width:44px;text-align:center}.weather h2{font-size:18px;margin:0 0 4px}.weather p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+    .meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:17px;font-size:12px;color:var(--muted)}
+    .bars{height:54px;display:flex;align-items:flex-end;gap:5px;margin-top:18px}.bar{flex:1;min-width:4px;border-radius:5px 5px 2px 2px;background:rgba(255,255,255,.17)}.bar.wet{background:linear-gradient(#65ecff,#2ca9ff)}
+    .scale{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.46);margin-top:5px}
+    .controls{display:grid;grid-template-columns:1fr 52px;gap:10px;margin-top:14px}.primary,.iconbtn{border:0;color:#00131a;font:inherit;font-weight:750;border-radius:18px;min-height:54px}.primary{background:linear-gradient(135deg,#66ebff,#38bde8);font-size:16px}.primary.on{background:rgba(255,255,255,.14);color:#fff;border:1px solid var(--line)}.iconbtn{background:var(--glass);color:#fff;border:1px solid var(--line);font-size:20px;backdrop-filter:blur(18px)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.mini{padding:15px;border-radius:22px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.09)}.mini b{display:block;font-size:13px;margin-bottom:5px}.mini span{font-size:12px;color:var(--muted);line-height:1.35}
+    .status{margin-top:12px;font-size:12px;color:var(--muted);text-align:center;min-height:17px}.foot{margin:17px 4px 0;color:rgba(255,255,255,.50);font-size:12px;line-height:1.45}
+    .error{color:#ffbdc4}.ok{color:#a5ffd0}
+    @media(max-width:420px){.title{font-size:24px}.grid{grid-template-columns:1fr}.back{display:none}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div class="logo" aria-hidden="true">◉</div>
+      <div>
+        <div class="eyebrow">WHEATERFLOW RADIO <span class="beta">BETA</span></div>
+        <h1 id="locationName">Oostende</h1>
+      </div>
+      <a class="back" href="../">Wheaterflow</a>
+    </header>
+
+    <section class="card" id="radioCard">
+      <div class="now">
+        <div class="grow">
+          <div class="label" id="radioLabel">KLAAR OM TE STARTEN</div>
+          <div class="title" id="radioTitle">Wheaterflow Radio 0.1</div>
+          <p class="summary" id="radioSummary">Je eigen live weerbulletin, rechtstreeks op je iPhone.</p>
+        </div>
+        <div class="meters" aria-hidden="true">
+          <i class="meter"></i><i class="meter"></i><i class="meter"></i><i class="meter"></i>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="weather">
+        <div class="symbol" id="weatherSymbol">☁︎</div>
+        <div class="grow">
+          <h2 id="weatherTitle">Weerdata laden…</h2>
+          <p id="weatherSummary">Even geduld.</p>
+        </div>
+      </div>
+
+      <div class="bars" id="rainBars" aria-label="Neerslag komende twee uur"></div>
+      <div class="scale"><span>Nu</span><span>2 uur</span></div>
+
+      <div class="meta">
+        <span id="confidence">Zekerheid —</span>
+        <span id="updated">Nog niet bijgewerkt</span>
+      </div>
+    </section>
+
+    <div class="controls">
+      <button class="primary" id="playButton">▶ Start Wheaterflow Radio</button>
+      <button class="iconbtn" id="locationButton" aria-label="Gebruik huidige locatie">⌖</button>
+    </div>
+
+    <div class="grid">
+      <div class="mini"><b>Radio 0.1</b><span>Gesproken bulletin met een korte Wheaterflow-jingle.</span></div>
+      <div class="mini"><b>Automatisch</b><span>Zolang deze pagina open blijft, volgt om de 15 minuten een nieuwe update.</span></div>
+      <div class="mini"><b>Bron</b><span>Wheaterflow Rain ETA; met een directe weerfallback als de route tijdelijk niet beschikbaar is.</span></div>
+      <div class="mini"><b>Volgende stap</b><span>Brain, KMI-waarschuwingen, stormmeldingen, jingles en later een echte 24/7-stream.</span></div>
+    </div>
+
+    <div class="status" id="status">Radio is uit.</div>
+    <p class="foot">Op iPhone moet geluid door een tik van de gebruiker worden gestart. iOS kan timers pauzeren wanneer Safari of de webapp lang op de achtergrond staat; Radio 0.1 is daarom vooral bedoeld om de basis live te testen.</p>
+  </main>
+
+<script>
+(() => {
+  const API = 'https://api.wheaterflow.be/api/rain-eta';
+  let locationState = { name: 'Oostende', lat: 51.2405, lon: 2.9309 };
+  let snapshot = null;
+  let radioOn = false;
+  let timer = null;
+  let audioContext = null;
+
+  const $ = id => document.getElementById(id);
+  const card = $('radioCard');
+  const playButton = $('playButton');
+
+  function setStatus(text, kind='') {
+    $('status').textContent = text;
+    $('status').className = 'status ' + kind;
+  }
+
+  function symbolFor(data) {
+    if (data?.thunderPossible) return 'ϟ';
+    if (data?.status === 'raining') return '☂';
+    if (data?.status === 'rain_soon') return '◒';
+    if (data?.status === 'dry') return '☀︎';
+    return '☁︎';
+  }
+
+  function formatTime(value) {
+    const d = value ? new Date(value) : new Date();
+    return d.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function renderBars(slots=[]) {
+    const root = $('rainBars');
+    root.innerHTML = '';
+    const shown = slots.slice(0, 8);
+    if (!shown.length) {
+      for (let i=0;i<8;i++) shown.push({precipitation:0,wet:false});
+    }
+    const max = Math.max(0.35, ...shown.map(s => Number(s.precipitation)||0));
+    shown.forEach(slot => {
+      const el = document.createElement('div');
+      el.className = 'bar' + (slot.wet ? ' wet' : '');
+      const amount = Number(slot.precipitation)||0;
+      el.style.height = `${Math.max(7, Math.min(54, 7 + (amount/max)*47))}px`;
+      el.title = `${amount.toFixed(2)} mm`;
+      root.appendChild(el);
+    });
+  }
+
+  function render(data) {
+    snapshot = data;
+    $('locationName').textContent = data.location?.name || locationState.name;
+    $('weatherSymbol').textContent = symbolFor(data);
+    $('weatherTitle').textContent = data.title || 'Weerupdate';
+    $('weatherSummary').textContent = data.summary || 'Geen samenvatting beschikbaar.';
+    $('confidence').textContent = `Zekerheid ${Math.round((Number(data.confidence)||0)*100)}%`;
+    $('updated').textContent = `Bijgewerkt ${formatTime(data.generatedAt)}`;
+    $('radioSummary').textContent = radioOn ? 'Live bulletin actief. Nieuwe update om de 15 minuten.' : 'Je eigen live weerbulletin, rechtstreeks op je iPhone.';
+    renderBars(data.slots || []);
+  }
+
+  function fallbackFromOpenMeteo(body) {
+    const times = body.minutely_15?.time || [];
+    const rain = body.minutely_15?.precipitation || [];
+    const codes = body.minutely_15?.weather_code || [];
+    const now = Date.now();
+    let start = 0;
+    if (times.length) {
+      start = times.reduce((best, t, i) => Math.abs(new Date(t).getTime()-now) < Math.abs(new Date(times[best]).getTime()-now) ? i : best, 0);
+    }
+    const slots = [];
+    for (let i=start;i<Math.min(times.length,start+8);i++) {
+      const precipitation = Math.max(0, Number(rain[i])||0);
+      slots.push({time:times[i], minutes:Math.max(0,Math.round((new Date(times[i]).getTime()-now)/60000)), precipitation, weatherCode:codes[i] ?? null, wet:precipitation>=0.1});
+    }
+    const currentAmount = Math.max(0, Number(body.current?.precipitation)||0, Number(body.current?.rain)||0, Number(body.current?.showers)||0);
+    const firstWet = slots.find(s => s.wet);
+    const raining = currentAmount >= 0.1 || Boolean(slots[0]?.wet);
+    const maxRain = Math.max(currentAmount,0,...slots.map(s=>s.precipitation));
+    const status = raining ? 'raining' : firstWet ? 'rain_soon' : 'dry';
+    const startsInMinutes = raining ? 0 : firstWet?.minutes ?? null;
+    const intensityLabel = maxRain>=3 ? 'Zware regen' : maxRain>=1 ? 'Regen' : maxRain>=0.1 ? 'Lichte regen' : 'Droog';
+    const title = raining ? `${intensityLabel} nu` : firstWet ? `Regen over ±${startsInMinutes} min` : 'Droog';
+    const summary = raining ? 'Er wordt nu neerslag gedetecteerd.' : firstWet ? `${intensityLabel}. Verwacht binnen ongeveer ${startsInMinutes} minuten.` : 'De komende twee uur wordt voorlopig geen regen verwacht.';
+    return {
+      location:{name:locationState.name,latitude:locationState.lat,longitude:locationState.lon,timezone:body.timezone},
+      status,title,summary,startsInMinutes,intensityLabel,dryWindowMinutes:firstWet?.minutes ?? 120,
+      confidence:.72,heavyShower:maxRain>=3,thunderPossible:false,source:'Open-Meteo fallback',slots,generatedAt:new Date().toISOString()
+    };
+  }
+
+  async function loadWeather(silent=false) {
+    if (!silent) setStatus('Weerdata ophalen…');
+    const qs = new URLSearchParams({lat:String(locationState.lat),lon:String(locationState.lon),name:locationState.name});
+    try {
+      const r = await fetch(`${API}?${qs}`, {cache:'no-store'});
+      if (!r.ok) throw new Error(`Rain ETA HTTP ${r.status}`);
+      const data = await r.json();
+      render(data);
+      if (!silent) setStatus('Wheaterflow Radio is klaar.', 'ok');
+      return data;
+    } catch (apiError) {
+      try {
+        const url = new URL('https://api.open-meteo.com/v1/forecast');
+        url.searchParams.set('latitude', locationState.lat);
+        url.searchParams.set('longitude', locationState.lon);
+        url.searchParams.set('minutely_15','precipitation,weather_code');
+        url.searchParams.set('current','precipitation,rain,showers,weather_code');
+        url.searchParams.set('timezone','auto');
+        url.searchParams.set('forecast_days','2');
+        const r = await fetch(url, {cache:'no-store'});
+        if (!r.ok) throw new Error(`fallback HTTP ${r.status}`);
+        const data = fallbackFromOpenMeteo(await r.json());
+        render(data);
+        if (!silent) setStatus('Rain ETA-route niet bereikbaar; tijdelijke fallback actief.');
+        return data;
+      } catch (e) {
+        setStatus('Weerdata kon niet worden geladen.', 'error');
+        throw e;
+      }
+    }
+  }
+
+  function buildBulletin(data) {
+    const name = data.location?.name || locationState.name;
+    let line = `Dit is Wheaterflow Radio. De actuele weerupdate voor ${name}. `;
+    if (data.status === 'raining') {
+      line += `Op dit moment wordt neerslag gedetecteerd. ${data.intensityLabel || ''}. `;
+    } else if (data.status === 'rain_soon') {
+      line += `Regen wordt verwacht binnen ongeveer ${data.startsInMinutes ?? 'enkele'} minuten. ${data.intensityLabel || ''}. `;
+    } else if (data.status === 'dry') {
+      line += `Volgens de huidige radar blijft het voorlopig droog. `;
+    } else {
+      line += `De korte termijn verwachting is tijdelijk onzeker. `;
+    }
+    if (data.thunderPossible) line += 'Er is kans op onweer. ';
+    if (data.heavyShower) line += 'Er kan een stevige bui voorkomen. ';
+    line += `De huidige zekerheid is ${Math.round((Number(data.confidence)||0)*100)} procent. `;
+    line += 'Je luistert naar Wheaterflow Radio.';
+    return line.replace(/\s+/g,' ').trim();
+  }
+
+  async function jingle() {
+    try {
+      audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === 'suspended') await audioContext.resume();
+      const now = audioContext.currentTime;
+      [392,523.25,659.25].forEach((freq,i) => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type='sine'; osc.frequency.value=freq;
+        gain.gain.setValueAtTime(0.0001, now+i*.14);
+        gain.gain.exponentialRampToValueAtTime(.10, now+i*.14+.02);
+        gain.gain.exponentialRampToValueAtTime(.0001, now+i*.14+.18);
+        osc.connect(gain).connect(audioContext.destination);
+        osc.start(now+i*.14); osc.stop(now+i*.14+.20);
+      });
+      await new Promise(r=>setTimeout(r,620));
+    } catch (_) {}
+  }
+
+  function preferredVoice() {
+    const voices = speechSynthesis.getVoices();
+    return voices.find(v => /^nl-BE$/i.test(v.lang)) || voices.find(v => /^nl/i.test(v.lang)) || null;
+  }
+
+  async function speak(data) {
+    if (!('speechSynthesis' in window)) {
+      setStatus('Deze browser ondersteunt geen spraakuitvoer.', 'error');
+      return;
+    }
+    speechSynthesis.cancel();
+    await jingle();
+    const u = new SpeechSynthesisUtterance(buildBulletin(data));
+    u.lang = 'nl-BE';
+    u.rate = .94;
+    u.pitch = 1.0;
+    const voice = preferredVoice();
+    if (voice) u.voice = voice;
+    u.onstart = () => { card.classList.add('playing'); $('radioLabel').textContent='NU OP WHEATERFLOW RADIO'; $('radioTitle').textContent='Live weerbulletin'; };
+    u.onend = () => { card.classList.remove('playing'); if (radioOn) { $('radioLabel').textContent='RADIO STAAT AAN'; $('radioTitle').textContent='Volgende update over maximaal 15 min'; } };
+    u.onerror = () => { card.classList.remove('playing'); setStatus('Spraak kon niet worden gestart. Tik nogmaals op Start.', 'error'); };
+    speechSynthesis.speak(u);
+  }
+
+  async function bulletin() {
+    try {
+      const data = await loadWeather(true);
+      await speak(data);
+      setStatus('Radio actief · automatische update om de 15 minuten.', 'ok');
+    } catch (_) {}
+  }
+
+  function startSchedule() {
+    clearInterval(timer);
+    timer = setInterval(() => {
+      if (radioOn && document.visibilityState === 'visible') bulletin();
+    }, 15 * 60 * 1000);
+  }
+
+  async function startRadio() {
+    radioOn = true;
+    playButton.textContent = '■ Stop Wheaterflow Radio';
+    playButton.classList.add('on');
+    $('radioLabel').textContent='RADIO START…';
+    await bulletin();
+    startSchedule();
+  }
+
+  function stopRadio() {
+    radioOn = false;
+    clearInterval(timer); timer = null;
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    card.classList.remove('playing');
+    playButton.textContent = '▶ Start Wheaterflow Radio';
+    playButton.classList.remove('on');
+    $('radioLabel').textContent='KLAAR OM TE STARTEN';
+    $('radioTitle').textContent='Wheaterflow Radio 0.1';
+    $('radioSummary').textContent='Je eigen live weerbulletin, rechtstreeks op je iPhone.';
+    setStatus('Radio is uit.');
+  }
+
+  playButton.addEventListener('click', () => radioOn ? stopRadio() : startRadio());
+
+  $('locationButton').addEventListener('click', () => {
+    if (!navigator.geolocation) return setStatus('Locatie wordt niet ondersteund.', 'error');
+    setStatus('Huidige locatie bepalen…');
+    navigator.geolocation.getCurrentPosition(async pos => {
+      locationState = {name:'Mijn locatie',lat:pos.coords.latitude,lon:pos.coords.longitude};
+      $('locationName').textContent='Mijn locatie';
+      await loadWeather();
+      if (radioOn) await speak(snapshot);
+    }, err => setStatus(`Locatie niet beschikbaar: ${err.message}`, 'error'), {enableHighAccuracy:true,timeout:10000,maximumAge:120000});
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && radioOn) loadWeather(true).catch(()=>{});
+  });
+
+  if ('speechSynthesis' in window) {
+    speechSynthesis.onvoiceschanged = () => preferredVoice();
+  }
+
+  loadWeather();
+})();
+</script>
+</body>
+</html>
