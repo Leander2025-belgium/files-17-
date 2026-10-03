@@ -1607,6 +1607,20 @@ const WCODE = {
 };
 function wcInfo(code){ const base = WCODE[code] || {l:'Onbekend', ic:'cloud'}; return {...base, l:tr(base.l)}; }
 
+function hourlyForecastDisplay(i, nowIdx, cur, currentIsDay){
+  const hourly = state.hourly || {};
+  const isCurrentHour = i === nowIdx;
+  const weatherCode = isCurrentHour ? cur.weather_code : hourly.weather_code?.[i];
+  const info = wcInfo(weatherCode);
+  const day = isCurrentHour ? currentIsDay : isDayForTime(hourly.time?.[i]);
+  const temperature = isCurrentHour ? cur.temperature_2m : hourly.temperature_2m?.[i];
+  const popRaw = validNumber(hourly.precipitation_probability?.[i]);
+  const pop = !isCurrentHour && popRaw != null && popRaw >= 10
+    ? Math.round(Math.max(0, Math.min(100, popRaw))) + '%'
+    : '';
+  return {isCurrentHour, info, isDay:day, temperature, pop};
+}
+
 function isDayForTime(timeValue){
   if(!state.daily || !state.daily.time) return true;
   const dateKey = String(timeValue).slice(0,10);
@@ -3983,16 +3997,12 @@ html += rainNowcastCard();
   for(let i=nowIdx; i<Math.min(nowIdx+24, hourly.time.length); i++){
     const t = new Date(hourly.time[i]);
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
-    const isCurrentHour = i === nowIdx;
-    const hwc = isCurrentHour ? wcInfo(cur.weather_code) : wcInfo(hourly.weather_code[i]);
-    const hIsDay = isCurrentHour ? isDay : isDayForTime(hourly.time[i]);
-    const pop = validNumber(hourly.precipitation_probability?.[i]);
-    const hourTemp = isCurrentHour ? cur.temperature_2m : hourly.temperature_2m[i];
-    html += `<div class="hour-item ${isCurrentHour?'now':''}">
+    const hd = hourlyForecastDisplay(i, nowIdx, cur, isDay);
+    html += `<div class="hour-item ${hd.isCurrentHour?'now':''}">
       <div class="t">${esc(label)}</div>
-      <div class="hour-icon-wrap">${icon(hwc.ic, hIsDay, 58)}</div>
-      <div class="pop">${!isCurrentHour && pop!=null && pop>=10 ? Math.round(Math.max(0,Math.min(100,pop)))+'%' : ''}</div>
-      <div class="v">${fmtTemp(hourTemp)}</div>
+      <div class="hour-icon-wrap">${icon(hd.info.ic, hd.isDay, 58)}</div>
+      <div class="pop">${hd.pop}</div>
+      <div class="v">${fmtTemp(hd.temperature)}</div>
     </div>`;
   }
   html += `</div></div>`;
@@ -10355,7 +10365,7 @@ async function enterTV(options={}){
   tickClock();
   clearInterval(tv.clockTimer); clearInterval(tv.refreshTimer);
   tv.clockTimer = setInterval(tickClock, 1000);
-  tv.refreshTimer = setInterval(()=>{ loadWeather(); }, 5*60*1000);
+  tv.refreshTimer = setInterval(()=>{ loadWeather(); }, 60*1000);
 
   initTvMap();
 }
@@ -10465,12 +10475,8 @@ function renderTV(){
   for(let i=nowIdx; i<Math.min(nowIdx+8, hourly.time.length); i++){
     const t = new Date(hourly.time[i]);
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
-    const isCurrentHour = i === nowIdx;
-    const hwc = isCurrentHour ? wcInfo(cur.weather_code) : wcInfo(hourly.weather_code[i]);
-    const hIsDay = isCurrentHour ? isDay : isDayForTime(hourly.time[i]);
-    const hourTemp = isCurrentHour ? cur.temperature_2m : hourly.temperature_2m[i];
-    const hourPop = !isCurrentHour && hourly.precipitation_probability[i] > 10 ? hourly.precipitation_probability[i]+'%' : '';
-    hh += `<div class="hitem ${isCurrentHour?'now':''}"><div class="t">${label}</div>${icon(hwc.ic,hIsDay,24)}<div class="p">${hourPop}</div><div class="v">${fmtTemp(hourTemp)}</div></div>`;
+    const hd = hourlyForecastDisplay(i, nowIdx, cur, isDay);
+    hh += `<div class="hitem ${hd.isCurrentHour?'now':''}"><div class="t">${label}</div>${icon(hd.info.ic,hd.isDay,24)}<div class="p">${hd.pop}</div><div class="v">${fmtTemp(hd.temperature)}</div></div>`;
   }
   $('#tvHourly').innerHTML = hh;
 
