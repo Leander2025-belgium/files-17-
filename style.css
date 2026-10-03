@@ -14304,3 +14304,122 @@ body .tabbar .tabbtn:focus-visible{
   .wf-wind-card .wf-wind-values .dt-val{font-size:34px!important}
   .wf-wind-card .wf-wind-values .dt-sub{font-size:14px!important}
 }
+
+
+/* ================================================================
+   Wheaterflow Premium Wind Compass v2 — rustiger & beter uitgelijnd
+   ================================================================ */
+.wf-wind-instrument{
+  width:184px!important;
+  min-width:184px!important;
+  padding-bottom:0!important;
+  gap:8px!important;
+}
+.wf-premium-compass{
+  width:158px!important;
+  height:158px!important;
+  flex:0 0 158px!important;
+}
+.wind-tick{
+  transform-origin:50% 74px!important;
+}
+.wind-inner-ring{
+  width:64px!important;
+  height:64px!important;
+}
+
+/* Windpijl kleiner zodat hij geen windstreken bedekt */
+.wind-flow-arrow{
+  width:26px!important;
+  height:78px!important;
+}
+.wind-arrow-shaft{
+  top:13px!important;
+  width:6px!important;
+  height:39px!important;
+}
+.wind-arrow-head{
+  top:1px!important;
+  border-left-width:10px!important;
+  border-right-width:10px!important;
+  border-top-width:19px!important;
+}
+
+/* Hoofdwindstreken netjes tussen binnenring en schaal */
+.wf-premium-compass .cdir{
+  font-size:10px!important;
+  line-height:1!important;
+}
+.wf-premium-compass .cdir.n{top:27px!important}
+.wf-premium-compass .cdir.z{bottom:27px!important}
+.wf-premium-compass .cdir.o{right:25px!important}
+.wf-premium-compass .cdir.w{left:25px!important}
+.wf-premium-compass .cdir.no{right:34px!important;top:35px!important;font-size:8px!important}
+.wf-premium-compass .cdir.zo{right:34px!important;bottom:35px!important;font-size:8px!important}
+.wf-premium-compass .cdir.zw{left:34px!important;bottom:35px!important;font-size:8px!important}
+.wf-premium-compass .cdir.nw{left:34px!important;top:35px!important;font-size:8px!important}
+
+/* Badge volledig onder het kompas; geen overlap meer */
+.wind-direction-pill{
+  position:relative!important;
+  margin-top:0!important;
+  min-width:112px!important;
+  padding:7px 15px 6px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  gap:2px!important;
+  line-height:1.05!important;
+}
+.wind-direction-pill strong{
+  display:block;
+  font-size:13px!important;
+  font-weight:800!important;
+  color:#fff!important;
+  white-space:nowrap;
+}
+.wind-direction-pill span{
+  display:block;
+  font-size:9px!important;
+  font-weight:600!important;
+  color:rgba(235,245,255,.66)!important;
+  white-space:nowrap;
+}
+.wind-direction-caption{display:none!important}
+
+@media(max-width:520px){
+  .wf-wind-instrument{
+    width:148px!important;
+    min-width:148px!important;
+    gap:6px!important;
+  }
+  .wf-premium-compass{
+    width:128px!important;
+    height:128px!important;
+    flex-basis:128px!important;
+  }
+  .wind-tick{transform-origin:50% 59px!important}
+  .wind-inner-ring{width:52px!important;height:52px!important}
+  .wind-flow-arrow{width:22px!important;height:64px!important}
+  .wind-arrow-shaft{top:11px!important;width:5px!important;height:32px!important}
+  .wind-arrow-head{
+    border-left-width:9px!important;
+    border-right-width:9px!important;
+    border-top-width:17px!important;
+  }
+  .wf-premium-compass .cdir{font-size:9px!important}
+  .wf-premium-compass .cdir.n{top:22px!important}
+  .wf-premium-compass .cdir.z{bottom:22px!important}
+  .wf-premium-compass .cdir.o{right:20px!important}
+  .wf-premium-compass .cdir.w{left:20px!important}
+  .wf-premium-compass .cdir.no{right:27px!important;top:29px!important;font-size:7px!important}
+  .wf-premium-compass .cdir.zo{right:27px!important;bottom:29px!important;font-size:7px!important}
+  .wf-premium-compass .cdir.zw{left:27px!important;bottom:29px!important;font-size:7px!important}
+  .wf-premium-compass .cdir.nw{left:27px!important;top:29px!important;font-size:7px!important}
+  .wind-direction-pill{
+    min-width:102px!important;
+    padding:6px 11px 5px!important;
+  }
+  .wind-direction-pill strong{font-size:12px!important}
+  .wind-direction-pill span{font-size:8px!important}
+}

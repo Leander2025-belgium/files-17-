@@ -5443,8 +5443,10 @@ function windCompassCard(speed, gust, dir){
           </div>`:''}
           <div class="chub"></div>
         </div>
-        <div class="wind-direction-pill">${hasDir?`${fromLabel} · ${Math.round(d)}°`:'Richting —'}</div>
-        <div class="wind-direction-caption">${hasDir?`Wind uit ${fromLabel}`:'Windrichting niet beschikbaar'}</div>
+        <div class="wind-direction-pill">
+          <strong>${hasDir?`${fromLabel} · ${Math.round(d)}°`:'Richting —'}</strong>
+          <span>${hasDir?`Wind uit ${fromLabel}`:'Windrichting niet beschikbaar'}</span>
+        </div>
       </div>
     </div>
   </div>`;
