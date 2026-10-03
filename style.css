@@ -14607,3 +14607,16 @@ body .tabbar .tabbtn:focus-visible{
     font-size:36px!important;
   }
 }
+
+
+/* Wheaterflow TV — hoofdweericoon iets groter, maar bewust niet oversized */
+#tvscreen.active .tv-current .tv-icon svg{
+  width:clamp(225px,21vw,390px)!important;
+  height:clamp(225px,21vw,390px)!important;
+}
+@media (min-width:701px) and (max-height:820px){
+  #tvscreen.active .tv-current .tv-icon svg{
+    width:clamp(205px,18.5vw,325px)!important;
+    height:clamp(205px,18.5vw,325px)!important;
+  }
+}
