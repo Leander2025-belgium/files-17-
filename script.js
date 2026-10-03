@@ -10423,6 +10423,26 @@ function tickClock(){
   $('#tvDate').textContent = now.toLocaleDateString(wfLocale(), dopts);
 }
 
+
+const WF_TV_ICON_BASE = 'assets/tv/';
+const WF_TV_ICONS = Object.freeze({
+  radar:'radar.png',
+  radio:'radio.png',
+  wind:'wind.png',
+  pressure:'pressure.png',
+  humidity:'humidity.png',
+  rainTiming:'rain_timing.png',
+  tide:'tide.png',
+  warnings:'warnings.png',
+  hourly:'hourly.png',
+  sevenDay:'seven_day.png'
+});
+function tvFeatureIcon(name, alt=''){
+  const file = WF_TV_ICONS[name];
+  if(!file) return '';
+  return `<img class="tv-feature-icon tv-feature-icon-${name}" src="${WF_TV_ICON_BASE}${file}" alt="${esc(alt)}" loading="eager" decoding="async">`;
+}
+
 function renderTV(){
   if(!state.current) return;
   const cur = liveWeatherSnapshot(), hourly = state.hourly, daily = state.daily;
@@ -10452,20 +10472,20 @@ function renderTV(){
 
   try{
     $('#tvDetails').innerHTML = [
-      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust)),
-      tvMetricCard('drop','Rain ETA', tvRainValue(intel.rain), tvRainSubtitle(intel.rain)),
-      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint)),
-      tvMetricCard('thermo','Druk', fmtPress(pressure), pressure != null ? (pressure>1013?'Hoge druk':'Lage druk') : 'Niet beschikbaar'),
+      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust), 'wind'),
+      tvMetricCard('drop','Rain ETA', tvRainValue(intel.rain), tvRainSubtitle(intel.rain), 'rainTiming'),
+      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint), 'humidity'),
+      tvMetricCard('thermo','Druk', fmtPress(pressure), pressure != null ? (pressure>1013?'Hoge druk':'Lage druk') : 'Niet beschikbaar', 'pressure'),
       tvMarineCard(),
       tvAlertCard()
     ].filter(Boolean).join('');
   }catch(error){
     console.warn('TV details render faalde:', error);
     $('#tvDetails').innerHTML = [
-      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust)),
-      tvMetricCard('drop','Rain ETA','N.b.','Nowcast tijdelijk niet beschikbaar'),
-      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint)),
-      tvMetricCard('thermo','Druk', fmtPress(pressure), 'Niet beschikbaar'),
+      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust), 'wind'),
+      tvMetricCard('drop','Rain ETA','N.b.','Nowcast tijdelijk niet beschikbaar', 'rainTiming'),
+      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint), 'humidity'),
+      tvMetricCard('thermo','Druk', fmtPress(pressure), 'Niet beschikbaar', 'pressure'),
       tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar'),
       tvMetricCard('gauge','Weermelding','Code groen','')
     ].join('');
@@ -10490,9 +10510,10 @@ function renderTV(){
   $('#tvDaily').innerHTML = dd;
 }
 
-function tvMetricCard(ic,title,val,sub){
+function tvMetricCard(ic,title,val,sub,tvIconName=''){
   const extraClass = title === 'Rain ETA' ? ' tv-rain-eta' : '';
-  return `<div class="dcard${extraClass}">${icon(ic,true,18)}<div><div class="dt-title">${title}</div><div class="dt-val">${val}</div><div class="dt-sub">${sub}</div></div></div>`;
+  const visual = tvIconName ? tvFeatureIcon(tvIconName, title) : icon(ic,true,18);
+  return `<div class="dcard${extraClass}">${visual}<div><div class="dt-title">${title}</div><div class="dt-val">${val}</div><div class="dt-sub">${sub}</div></div></div>`;
 }
 
 function formatTvSunTime(value){
@@ -10509,14 +10530,14 @@ function tvAlertCard(){
   const level = ALERT_LEVELS[alert.level] || ALERT_LEVELS.green;
   const official = alert.source === 'officieel' || alert.official === true || alert.region || alert.validFrom || alert.validTo;
   if(alert.level === 'green'){
-    return `<div class="dcard tv-warning green">${icon('gauge',true,18)}<div><div class="dt-title">Weermelding</div><div class="dt-val">Code groen</div></div></div>`;
+    return `<div class="dcard tv-warning green">${tvFeatureIcon('warnings','Weermelding')}<div><div class="dt-title">Weermelding</div><div class="dt-val">Code groen</div></div></div>`;
   }
   const label = official ? level.label : 'Slim signaal';
-  return `<div class="dcard tv-warning ${level.cls}">${icon('gauge',true,18)}<div><div class="dt-title">Weermelding</div><div class="dt-val">${label}</div><div class="dt-sub">${esc(alert.headline)}</div></div></div>`;
+  return `<div class="dcard tv-warning ${level.cls}">${tvFeatureIcon('warnings','Weermelding')}<div><div class="dt-title">Weermelding</div><div class="dt-val">${label}</div><div class="dt-sub">${esc(alert.headline)}</div></div></div>`;
 }
 
 function tvMarineCard(){
-  if(!state.marine || !state.marine.tide) return tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar');
+  if(!state.marine || !state.marine.tide) return tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar','tide');
   const tide = state.marine.tide;
   const nextLabel = tide.nextType === 'hoogwater' ? 'vloed' : 'eb';
   const nextTime = tide.nextTime instanceof Date && !Number.isNaN(tide.nextTime.getTime())

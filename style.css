@@ -14620,3 +14620,51 @@ body .tabbar .tabbtn:focus-visible{
     height:clamp(205px,18.5vw,325px)!important;
   }
 }
+
+
+/* Wheaterflow TV icon pack — visual-only; existing card dimensions stay untouched */
+#tvscreen .tv-details .dcard{
+  grid-template-columns:clamp(34px,3.2vw,52px) minmax(0,1fr);
+}
+#tvscreen .tv-feature-icon{
+  width:clamp(34px,3.2vw,52px);
+  height:clamp(34px,3.2vw,52px);
+  object-fit:contain;
+  display:block;
+  justify-self:center;
+  align-self:center;
+  filter:drop-shadow(0 0 7px rgba(28,205,255,.26));
+}
+#tvscreen .tv-radar-label{
+  display:flex;
+  align-items:center;
+  gap:clamp(7px,.65vw,11px);
+}
+#tvscreen .tv-radar-label::before{
+  content:"";
+  width:clamp(30px,2.6vw,44px);
+  height:clamp(30px,2.6vw,44px);
+  flex:0 0 auto;
+  background:url("assets/tv/radar.png") center/contain no-repeat;
+  filter:drop-shadow(0 0 7px rgba(28,205,255,.24));
+}
+/* Planning icons are overlays so hourly/daily card sizes are unchanged. */
+#tvscreen .tv-hourly,
+#tvscreen .tv-daily{position:relative;}
+#tvscreen .tv-hourly::after,
+#tvscreen .tv-daily::after{
+  content:"";
+  position:absolute;
+  top:6px;
+  right:7px;
+  width:clamp(25px,2.15vw,38px);
+  height:clamp(25px,2.15vw,38px);
+  background-position:center;
+  background-repeat:no-repeat;
+  background-size:contain;
+  pointer-events:none;
+  opacity:.92;
+  filter:drop-shadow(0 0 6px rgba(28,205,255,.22));
+}
+#tvscreen .tv-hourly::after{background-image:url("assets/tv/hourly.png");}
+#tvscreen .tv-daily::after{background-image:url("assets/tv/seven_day.png");}
