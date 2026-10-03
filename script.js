@@ -4239,6 +4239,7 @@ function appSections(){
         <button type="button" data-more-tab="sunmoon">Zon & maan</button>
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
         <button type="button" data-more-tab="storm">Onweer & storm</button>
+        <button type="button" data-more-tab="webcam">Webcam</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
       </div>
       <div class="more-weather-content" id="moreWeatherContent"></div>
@@ -4253,9 +4254,73 @@ function renderMoreWeatherSections(tab='charts'){
     sunmoon: sunMoonSection(),
     skycoast: `${airQualitySection()}${coastSection()}`,
     storm: stormWeatherSection(),
+    webcam: webcamWeatherSection(),
     travel: travelWeatherSection()
   };
   return sections[tab] || sections.charts;
+}
+
+
+const WF_WEBCAM_SOURCES = Object.freeze({
+  primary: Object.freeze({
+    id:'youtube-I09L5RCJkjo',
+    provider:'youtube',
+    youtubeId:'I09L5RCJkjo',
+    title:'Live webcam',
+    watchUrl:'https://www.youtube.com/watch?v=I09L5RCJkjo',
+    embedUrl:'https://www.youtube-nocookie.com/embed/I09L5RCJkjo?autoplay=1&mute=1&playsinline=1&controls=1&rel=0',
+    aiCandidate:true
+  })
+});
+window.WF_WEBCAM_SOURCES = WF_WEBCAM_SOURCES;
+
+function webcamWeatherSection(){
+  const cam = WF_WEBCAM_SOURCES.primary;
+  return `
+    <section class="wf-webcam-section" data-webcam-id="${esc(cam.id)}" data-youtube-id="${esc(cam.youtubeId)}">
+      <div class="wf-webcam-head">
+        <div>
+          <span class="wf-webcam-kicker"><i></i> LIVE WEBCAM</span>
+          <h2>${esc(cam.title)}</h2>
+          <p>Live beeld rechtstreeks in Wheaterflow.</p>
+        </div>
+        <div class="wf-webcam-actions">
+          <button type="button" class="smallbtn wf-webcam-fullscreen" id="wfWebcamFullscreen">Volledig scherm</button>
+          <a class="smallbtn wf-webcam-youtube" href="${esc(cam.watchUrl)}" target="_blank" rel="noopener noreferrer">YouTube</a>
+        </div>
+      </div>
+      <div class="wf-webcam-player" id="wfWebcamPlayer">
+        <iframe
+          src="${esc(cam.embedUrl)}"
+          title="${esc(cam.title)}"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen></iframe>
+      </div>
+      <div class="wf-webcam-foot">
+        <span><b>LIVE</b> YouTube-stream</span>
+        <small>Bron-ID ${esc(cam.youtubeId)}</small>
+      </div>
+    </section>`;
+}
+
+function wireWebcamSection(){
+  const player = $('#wfWebcamPlayer');
+  const btn = $('#wfWebcamFullscreen');
+  if(!player || !btn) return;
+  btn.addEventListener('click', async ()=>{
+    try{
+      if(document.fullscreenElement){
+        await document.exitFullscreen?.();
+        return;
+      }
+      if(player.requestFullscreen) await player.requestFullscreen();
+      else if(player.webkitRequestFullscreen) player.webkitRequestFullscreen();
+    }catch(error){
+      console.warn('Webcam fullscreen kon niet worden geopend:', error);
+    }
+  });
 }
 
 function stormWeatherSection(){
@@ -4313,7 +4378,7 @@ function wireMoreWeatherSections(){
   const content = $('#moreWeatherContent');
   const tabs = $$('#moreWeatherTabs [data-more-tab]');
   if(!content || !tabs.length) return;
-  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','storm','travel']);
+  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','storm','webcam','travel']);
   const load = (tab = state.moreWeatherTab || 'charts') => {
     if(!validTabs.has(tab)) tab = 'charts';
     state.moreWeatherTab = tab;
@@ -4324,6 +4389,7 @@ function wireMoreWeatherSections(){
     positionSunPaths();
     wireTravelWeather();
     if(tab === 'storm') loadStormWeather();
+    if(tab === 'webcam') wireWebcamSection();
   };
   tabs.forEach(btn=>{
     btn.addEventListener('click', ()=>load(btn.dataset.moreTab));
