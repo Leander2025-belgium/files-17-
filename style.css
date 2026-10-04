@@ -14776,3 +14776,68 @@ body .tabbar .tabbtn:focus-visible{
   .wf-webcam-actions .smallbtn{flex:1 1 auto;}
   .wf-webcam-foot{align-items:flex-start;flex-direction:column;gap:3px;}
 }
+
+
+/* ================================================================
+   Wheaterflow Rain — volledig helder glas, geen donkere/selectie-vlakken
+   Alleen visueel: afmetingen en regenlogica blijven ongewijzigd.
+   ================================================================ */
+#home .rain-now-card.rain-reference-layout{
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.025)) !important;
+  border-color:rgba(245,250,255,.26)!important;
+  box-shadow:0 8px 24px rgba(5,18,34,.08)!important;
+  -webkit-backdrop-filter:blur(12px) saturate(118%)!important;
+  backdrop-filter:blur(12px) saturate(118%)!important;
+}
+
+/* De globale [class*="rain-now"] regel gaf o.a. schaal, as en grafiek
+   een donker rechthoekig vlak. Die achtergronden volledig uitschakelen. */
+#home .rain-now-card.rain-reference-layout [class*="rain-now"],
+#home .rain-now-card.rain-reference-layout [class*="rain-card"],
+#home .rain-now-card.rain-reference-layout .rain-main-card,
+#home .rain-now-card.rain-reference-layout .rain-forecast-card,
+#home .rain-now-card.rain-reference-layout .rain-bottom-stat,
+#home .rain-now-card.rain-reference-layout .rain-main-card-icon{
+  background-color:transparent!important;
+  box-shadow:none!important;
+}
+
+/* Kaarten blijven herkenbaar door alleen een fijne glasrand — geen grijs/blauw vlak. */
+#home .rain-now-card.rain-reference-layout .rain-main-card,
+#home .rain-now-card.rain-reference-layout .rain-forecast-card,
+#home .rain-now-card.rain-reference-layout .rain-bottom-stat{
+  background:transparent!important;
+  border-color:rgba(245,250,255,.20)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+
+#home .rain-now-card.rain-reference-layout .rain-main-card-icon{
+  background:transparent!important;
+  border-color:transparent!important;
+}
+
+/* Grafiek: alleen de dunne horizontale hulplijnen, nooit een gevuld vlak. */
+#home .rain-now-card.rain-reference-layout .rain-now-plot,
+#home .rain-now-card.rain-reference-layout .rain-now-scale,
+#home .rain-now-card.rain-reference-layout .rain-now-axis{
+  background:transparent!important;
+  border:0!important;
+}
+
+#home .rain-now-card.rain-reference-layout .rain-now-chart{
+  background:
+    linear-gradient(to bottom,rgba(240,249,255,.13) 1px,transparent 1px) 0 0/100% 25%,
+    transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+
+/* Ook pseudo/highlight-achtige lagen binnen Wheaterflow Rain uitschakelen. */
+#home .rain-now-card.rain-reference-layout .rain-now-scale span,
+#home .rain-now-card.rain-reference-layout .rain-now-axis span,
+#home .rain-now-card.rain-reference-layout .rain-forecast-title{
+  background:transparent!important;
+  box-shadow:none!important;
+}
