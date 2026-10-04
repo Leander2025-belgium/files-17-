@@ -124,7 +124,7 @@ const state = {
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
   current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
   currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
-  observation: null, marine: null, seaspark: null, air: null,
+  observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
   lightning: { available:false, loading:false, updated:null, strikes:[], nearest:null, summary:null, threat:null, error:null },
@@ -911,14 +911,29 @@ function bestSeaSparkHour(hours, marineHourly, marineHours, fallbackSeaTemp){
 
 async function loadAirQuality(){
   state.air = null;
+  state.airHourly = null;
+  state.airMeta = null;
   try{
-    const {lat, lon} = state.loc;
-    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen&hourly=european_aqi,pm10,pm2_5,nitrogen_dioxide,ozone&timezone=auto`;
-    const r = await fetch(url);
-    if(!r.ok) return;
-    const d = await r.json();
-    state.air = d.current || null;
-  }catch(e){}
+    const lat = Number(state.loc?.lat);
+    const lon = Number(state.loc?.lon);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+    const d = await apiJson(
+      `/air-quality?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`
+    );
+    if(!d || d.ok === false || !d.current) return;
+
+    state.airHourly = d.hourly || null;
+    state.air = {...d.current, hourly:state.airHourly};
+    state.airMeta = {
+      service:d.service || 'wheaterflow-air-quality',
+      version:d.version || null,
+      source:d.source || null,
+      cache:d.cache || null
+    };
+  }catch(error){
+    console.warn('Wheaterflow Air Quality laden faalde:', error?.message || error);
+  }
 }
 
 function tideStateForOostende(now){
@@ -5232,6 +5247,7 @@ function photoWeatherCard(photo){
 function airQualitySection(){
   const a = state.air;
   if(!a) return `<div class="card"><div class="card-title">${wfExtraCardIcon('air','Luchtkwaliteit')} Luchtkwaliteit</div>${wheaterflowStatus('empty','Momenteel geen gegevens beschikbaar')}</div>`;
+
   const rows = [
     ['AQI', 'Europese luchtkwaliteitsindex', a?.european_aqi, '', 100],
     ['PM2.5', 'Fijnstof', a?.pm2_5, 'µg/m³', 50],
@@ -5240,28 +5256,119 @@ function airQualitySection(){
     ['O₃', 'Ozon', a?.ozone, 'µg/m³', 180],
     ['CO', 'Koolstofmonoxide', a?.carbon_monoxide, 'µg/m³', 1000]
   ];
-  const pollen = Math.max(a?.alder_pollen??0,a?.birch_pollen??0,a?.grass_pollen??0,a?.mugwort_pollen??0,a?.olive_pollen??0,a?.ragweed_pollen??0);
+
+  const pollenInfo = pollenSummary(a);
   const aqi = a?.european_aqi;
   const aqStatus = airQualityStatus(aqi);
   const aqTitle = aqi == null ? 'Luchtkwaliteit' : `AQI ${Math.round(aqi)} · ${aqStatus.label}`;
-  return `<div class="card"><div class="card-title">${icon('cloud',true,13)} ${aqTitle}</div>
+
+  return `<div class="card air-quality-card">
+    <div class="card-title">${icon('cloud',true,13)} ${aqTitle}</div>
     <div class="aq-hero">
       <div class="aq-ring" style="--aq:${Math.min(100, aqi ?? 0)}"><b>${aqi == null ? '-' : Math.round(aqi)}</b><span>AQI</span></div>
-      <div><strong>${aqStatus.label}</strong><p>${a ? airSummary(a.european_aqi, pollen) : 'Luchtkwaliteitsdata is momenteel niet beschikbaar.'}</p></div>
+      <div><strong>${aqStatus.label}</strong><p>${airSummary(a?.european_aqi, pollenInfo.max)}</p></div>
     </div>
-    <div class="aq-grid">${rows.map(([n,label,v,unit,max])=>aqRow(n,label,v,unit,max)).join('')}${aqRow('Pollen', 'Indicatie', pollen || null, '', 100)}</div>
+    <div class="aq-grid">
+      ${rows.map(([n,label,v,unit,max])=>aqRow(n,label,v,unit,max)).join('')}
+      ${airQualityExtraRow(a)}
+      ${pollenCard(a)}
+    </div>
   </div>`;
 }
 
 function aqRow(name, label, value, unit, max){
   if(value==null) return `<div class="aq-row unavailable"><span><b>${name}</b><small>${label}</small></span><strong>Nog geen data</strong></div>`;
-  const pct = Math.min(100, (value/max)*100);
-  const status = name === 'Pollen' ? pollenStatus(value) : pollutantStatus(name, value);
-  const display = name === 'Pollen' ? status.value : `${Math.round(value)}${unit ? ' ' + unit : ''}`;
+  const numeric = Number(value);
+  if(!Number.isFinite(numeric)) return `<div class="aq-row unavailable"><span><b>${name}</b><small>${label}</small></span><strong>Nog geen data</strong></div>`;
+  const pct = Math.min(100, Math.max(0, (numeric/max)*100));
+  const status = pollutantStatus(name, numeric);
+  const decimals = ['PM2.5','PM10','NO₂','O₃'].includes(name) && Math.abs(numeric % 1) > 0.01 ? 1 : 0;
+  const display = `${numeric.toFixed(decimals).replace('.', ',')}${unit ? ' ' + unit : ''}`;
   return `<div class="aq-row ${status.cls}">
     <span><b>${name}</b><small>${label}</small></span>
     <strong>${display}<em>${status.label}</em></strong>
     <i><em style="width:${pct}%"></em></i>
+  </div>`;
+}
+
+function airQualityExtraRow(a){
+  const extras = [
+    ['SO₂','Zwaveldioxide',a?.sulphur_dioxide,'µg/m³',200],
+    ['Dust','Stof',a?.dust,'µg/m³',100]
+  ];
+
+  return `<div class="aq-row aq-secondary">
+    <span class="aq-secondary-title"><b>Extra luchtdata</b><small>SO₂ en stof</small></span>
+    <div class="aq-secondary-values">
+      ${extras.map(([name,label,value,unit,max])=>{
+        const n = value == null ? NaN : Number(value);
+        if(!Number.isFinite(n)){
+          return `<div class="aq-mini unavailable"><span>${name}</span><b>—</b><small>Nog geen data</small></div>`;
+        }
+        const status = pollutantStatus(name,n);
+        const pct = Math.min(100,Math.max(0,(n/max)*100));
+        return `<div class="aq-mini ${status.cls}" title="${esc(label)}">
+          <span>${name}</span>
+          <b>${n.toFixed(Math.abs(n % 1) > 0.01 ? 1 : 0).replace('.', ',')} ${unit}</b>
+          <small>${status.label}</small>
+          <i><em style="width:${pct}%"></em></i>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+const POLLEN_TYPES = Object.freeze([
+  {key:'alder_pollen', label:'Els', summary:'Elspollen'},
+  {key:'birch_pollen', label:'Berk', summary:'Berkenpollen'},
+  {key:'grass_pollen', label:'Gras', summary:'Graspollen'},
+  {key:'mugwort_pollen', label:'Bijvoet', summary:'Bijvoetpollen'},
+  {key:'olive_pollen', label:'Olijf', summary:'Olijfpollen'},
+  {key:'ragweed_pollen', label:'Ambrosia', summary:'Ambrosiapollen'}
+]);
+
+function pollenSummary(a){
+  const items = POLLEN_TYPES.map(type=>{
+    const sourceValue = a?.[type.key];
+    const raw = sourceValue == null ? NaN : Number(sourceValue);
+    return {...type, value:Number.isFinite(raw) ? Math.max(0,raw) : null};
+  }).sort((x,y)=>(y.value ?? -1)-(x.value ?? -1));
+
+  const available = items.some(item=>item.value != null);
+  const max = available ? (items[0]?.value ?? 0) : null;
+  const primary = items[0] || POLLEN_TYPES[0];
+  let text = available ? 'Geen verhoogde pollen' : 'Pollen niet beschikbaar';
+  let cls = available ? 'good' : 'unknown';
+
+  if(max != null && max >= 50){
+    text = `${primary.summary} hoog`;
+    cls = 'bad';
+  }else if(max != null && max >= 10){
+    text = `${primary.summary} verhoogd`;
+    cls = 'moderate';
+  }
+
+  return {items,max,text,cls,available};
+}
+
+function pollenCard(a){
+  const info = pollenSummary(a);
+  return `<div class="aq-row pollen-card ${info.cls}">
+    <div class="pollen-card-head">
+      <span><b>Pollen</b><small>${info.text}</small></span>
+      <strong>${info.available ? pollenStatus(info.max).label : 'Onbekend'}</strong>
+    </div>
+    <div class="pollen-list">
+      ${info.items.map(item=>{
+        const status = item.value == null ? {cls:'unknown'} : pollenStatus(item.value);
+        const pct = item.value == null ? 0 : Math.min(100, Math.max(0, item.value));
+        return `<div class="pollen-item ${status.cls}">
+          <span>${item.label}</span>
+          <b>${item.value == null ? '—' : item.value.toFixed(item.value % 1 ? 1 : 0).replace('.', ',')}</b>
+          <i><em style="width:${pct}%"></em></i>
+        </div>`;
+      }).join('')}
+    </div>
   </div>`;
 }
 
@@ -5282,7 +5389,9 @@ function pollutantStatus(name, value){
     'PM10':[15,45,80,120],
     'NO₂':[10,25,50,100],
     'O₃':[60,100,140,180],
-    'CO':[200,500,1000,2000]
+    'CO':[200,500,1000,2000],
+    'SO₂':[20,40,100,200],
+    'Dust':[10,25,50,100]
   }[name] || [20,40,60,80];
   if(value <= limits[0]) return {label:'Goed', cls:'good'};
   if(value <= limits[1]) return {label:'Prima', cls:'good'};
@@ -5293,14 +5402,14 @@ function pollutantStatus(name, value){
 
 function pollenStatus(value){
   if(value < 10) return {label:'Laag', value:'laag', cls:'good'};
-  if(value < 50) return {label:'Matig', value:'matig', cls:'moderate'};
+  if(value < 50) return {label:'Verhoogd', value:'verhoogd', cls:'moderate'};
   return {label:'Hoog', value:'hoog', cls:'bad'};
 }
 
 function airSummary(aqi, pollen){
   if(aqi == null) return 'Algemene luchtkwaliteitsindex niet beschikbaar.';
   const status = airQualityStatus(aqi).label.toLowerCase();
-  return `De luchtkwaliteit is ${status}.${pollen>50?' De pollenconcentratie is verhoogd.':' Buitenactiviteiten zijn normaal mogelijk.'}`;
+  return `De luchtkwaliteit is ${status}.${pollen>=10?' Er zijn verhoogde pollenwaarden.':' Buitenactiviteiten zijn normaal mogelijk.'}`;
 }
 
 function seaModePracticalAdvice(sea){
