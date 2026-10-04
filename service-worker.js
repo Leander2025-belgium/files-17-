@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20261004-tv-icons-height-v4";
+const CACHE_VERSION = "wheaterflow-v20261004-tv-inline-icons-v5";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",

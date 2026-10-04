@@ -10860,31 +10860,38 @@ const WF_TV_ICONS = Object.freeze({
   hourly:'hourly.png',
   sevenDay:'seven_day.png'
 });
-function tvFeatureFallbackSvg(name){
-  const common = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
-  if(name === 'wind') return `<svg ${common}><path d="M3 8h11.5a3 3 0 1 0-2.7-4.3"/><path d="M3 12h16a2.5 2.5 0 1 1-2.2 3.7"/><path d="M3 16h8"/></svg>`;
-  if(name === 'pressure') return `<svg ${common}><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 12l4-4"/></svg>`;
-  if(name === 'humidity' || name === 'rainTiming' || name === 'tide') return `<svg ${common}><path d="M12 3s6 7 6 11.5A6 6 0 0 1 6 14.5C6 10 12 3 12 3z"/></svg>`;
-  if(name === 'warnings') return `<svg ${common}><path d="M12 3l9 16H3L12 3z"/><path d="M12 9v4"/><path d="M12 16h.01"/></svg>`;
-  return `<svg ${common}><circle cx="12" cy="12" r="8"/></svg>`;
-}
-
-function wireTvFeatureIconFallbacks(root=document){
-  root?.querySelectorAll?.('img.tv-feature-icon').forEach(img=>{
-    if(img.dataset.fallbackWired === '1') return;
-    img.dataset.fallbackWired = '1';
-    img.addEventListener('error', ()=>{
-      const box = document.createElement('span');
-      box.className = 'tv-feature-icon tv-feature-icon-fallback';
-      box.innerHTML = tvFeatureFallbackSvg(img.dataset.tvFeature || '');
-      img.replaceWith(box);
-    }, {once:true});
-  });
+function tvFeatureSvg(name){
+  const cls = `tv-feature-svg tv-feature-svg-${name}`;
+  const stroke = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+  switch(name){
+    case 'wind':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><path d="M3 7h10.5a3 3 0 1 0-2.7-4.2"/><path d="M3 12h16a2.7 2.7 0 1 1-2.4 4"/><path d="M3 17h8"/></svg>`;
+    case 'pressure':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><path d="M4 15a8 8 0 1 1 16 0"/><path d="M12 13l4.6-4.6"/><circle cx="12" cy="13" r="1.2" fill="currentColor" stroke="none"/></svg>`;
+    case 'humidity':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><path d="M12 3s6 7 6 11.5A6 6 0 0 1 6 14.5C6 10 12 3 12 3z"/><path d="M9.5 16.5c.8.8 1.6 1.1 2.5 1.1"/></svg>`;
+    case 'rainTiming':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/><path d="M5 4l2 2M19 4l-2 2"/></svg>`;
+    case 'tide':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><path d="M3 8c2.1-1.8 4.2-1.8 6.3 0s4.2 1.8 6.3 0 4.2-1.8 5.4-.7"/><path d="M3 13c2.1-1.8 4.2-1.8 6.3 0s4.2 1.8 6.3 0 4.2-1.8 5.4-.7"/><path d="M3 18c2.1-1.8 4.2-1.8 6.3 0s4.2 1.8 6.3 0 4.2-1.8 5.4-.7"/></svg>`;
+    case 'warnings':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><path d="M12 3l9 16H3L12 3z"/><path d="M12 9v4"/><circle cx="12" cy="16.5" r=".7" fill="currentColor" stroke="none"/></svg>`;
+    case 'radar':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><circle cx="12" cy="12" r="2"/><path d="M12 12l5-5"/><path d="M5.6 18.4a9 9 0 1 1 12.8 0"/><path d="M8.5 15.5a5 5 0 1 1 7 0"/></svg>`;
+    case 'radio':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><rect x="3" y="8" width="18" height="11" rx="2"/><path d="M7 8l8-5"/><circle cx="8" cy="13.5" r="2.5"/><path d="M14 12h4M14 15h4"/></svg>`;
+    case 'hourly':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>`;
+    case 'sevenDay':
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 9h16"/><path d="M8 13h2M12 13h2M16 13h1M8 17h2M12 17h2"/></svg>`;
+    default:
+      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><circle cx="12" cy="12" r="8"/></svg>`;
+  }
 }
 
 function tvFeatureIcon(name, alt=''){
   if(!WF_TV_ICONS[name]) return '';
-  return `<span class="tv-feature-icon tv-feature-icon-${name}" role="img" aria-label="${esc(alt)}"></span>`;
+  return `<span class="tv-feature-icon tv-feature-icon-${name}" role="img" aria-label="${esc(alt)}">${tvFeatureSvg(name)}</span>`;
 }
 
 function renderTV(){
