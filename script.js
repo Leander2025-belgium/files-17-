@@ -125,8 +125,6 @@ const state = {
   current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
   currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
   observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null,
-  terrain: null,
-  soil: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
   lightning: { available:false, loading:false, updated:null, strikes:[], nearest:null, summary:null, threat:null, error:null },
@@ -1752,7 +1750,7 @@ function icon(name, isDay=true, size=24, cls=''){
     rain: '08-regen.png', 'heavy-rain': '09-zware-regen.png', storm: '10-onweer.png',
     snow: '11-sneeuw.png', wind: '12-wind.png'
   };
-  if(weatherIconFiles[name]) return `<img class="weather-icon-img ${c}" src="./assets/weather/${weatherIconFiles[name]}?v=20261001-icons-v2" width="${s}" height="${s}" alt="" aria-hidden="true" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
+  if(weatherIconFiles[name]) return `<img class="weather-icon-img ${c}" src="/assets/weather/${weatherIconFiles[name]}?v=20261004-tv-hd-v3" width="${s}" height="${s}" alt="" aria-hidden="true" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
   const stroke = 'stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
   switch(name){
     case 'drop': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 3s6 7 6 11.5A6 6 0 016 14.5C6 10 12 3 12 3z"/></svg>`;
@@ -2542,120 +2540,6 @@ async function fetchForecastWithFallback(model){
   }
 }
 
-async function loadSoil(){
-  const loc = canonicalLocation();
-  const lat = Number(loc?.lat), lon = Number(loc?.lon);
-  if(!Number.isFinite(lat) || !Number.isFinite(lon)){
-    state.soil = null;
-    return null;
-  }
-  try{
-    const data = await apiJson(`/soil?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
-    if(!data?.ok || !data?.soil) throw new Error('invalid_soil');
-    state.soil = {
-      ...data.soil,
-      units:data.units || {temperature:'°C', moisture:'m³/m³'},
-      modelData:data.modelData !== false,
-      sensorData:data.sensorData === true,
-      provider:String(data.provider || ''),
-      cache:String(data.cache || ''),
-      updated:data.updated || null,
-      latitude:lat,
-      longitude:lon
-    };
-    return state.soil;
-  }catch(error){
-    state.soil = null;
-    throw error;
-  }
-}
-
-function soilPercent(value){
-  const n = Number(value);
-  return Number.isFinite(n) ? Math.round(n * 100) : null;
-}
-
-function soilValue(value, suffix=''){
-  const n = Number(value);
-  return Number.isFinite(n) ? `${esc(n.toFixed(1).replace('.', ','))}${suffix}` : '—';
-}
-
-function soilSection(){
-  const s = state.soil;
-  if(!s) return `<div class="card soil-card"><div class="card-title">${icon('gauge',true,13)} Bodem</div>${wheaterflowStatus('empty','Bodemgegevens tijdelijk niet beschikbaar')}</div>`;
-  const temp = s.temperature || {};
-  const moisture = s.moisture || {};
-  const surfacePct = soilPercent(s.surfaceMoisture);
-  const moistureRows = [
-    ['0–1 cm', moisture['0-1cm']],
-    ['1–3 cm', moisture['1-3cm']],
-    ['3–9 cm', moisture['3-9cm']],
-    ['9–27 cm', moisture['9-27cm']],
-    ['27–81 cm', moisture['27-81cm']]
-  ];
-  const tempRows = [
-    ['Oppervlak', temp.surface],
-    ['6 cm', temp['6cm']],
-    ['18 cm', temp['18cm']],
-    ['54 cm', temp['54cm']]
-  ];
-  return `<div class="card soil-card">
-    <div class="card-title">${icon('gauge',true,13)} Bodem</div>
-    <div class="soil-hero">
-      <div class="soil-main"><span>Bodemstatus</span><strong>${esc(s.label || 'Bodem')}</strong><small>Wheaterflow Soil Engine 1.0</small></div>
-      <div class="soil-kpis">
-        <div><span>Oppervlak</span><b>${soilValue(temp.surface,' °C')}</b></div>
-        <div><span>Bodemvocht</span><b>${surfacePct == null ? '—' : `${esc(surfacePct)}%`}</b></div>
-      </div>
-    </div>
-    <div class="soil-detail-grid">
-      <div class="soil-depth-panel"><h3>Temperatuur per diepte</h3>${tempRows.map(([label,value])=>`<div class="soil-depth-row"><span>${esc(label)}</span><b>${soilValue(value,' °C')}</b></div>`).join('')}</div>
-      <div class="soil-depth-panel"><h3>Vocht per diepte</h3>${moistureRows.map(([label,value])=>{ const pct=soilPercent(value); return `<div class="soil-moisture-row"><div><span>${esc(label)}</span><b>${pct == null ? '—' : `${esc(pct)}%`}</b></div><i><em style="width:${pct == null ? 0 : Math.max(0,Math.min(100,pct))}%"></em></i></div>`; }).join('')}</div>
-    </div>
-    <div class="soil-note">Modeldata · geen lokale bodemsensor${s.updated ? ` · bijgewerkt ${esc(new Date(s.updated).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}))}` : ''}</div>
-  </div>`;
-}
-
-async function loadTerrain(){
-  const loc = canonicalLocation();
-  const lat = Number(loc?.lat), lon = Number(loc?.lon);
-  if(!Number.isFinite(lat) || !Number.isFinite(lon)){
-    state.terrain = null;
-    return null;
-  }
-  try{
-    const data = await apiJson(`/terrain?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
-    if(!data?.ok || !Number.isFinite(Number(data.elevationM))) throw new Error('invalid_terrain');
-    state.terrain = {
-      elevationM:Number(data.elevationM),
-      terrainClass:String(data.terrainClass || ''),
-      label:String(data.label || ''),
-      mountain:data.mountain === true,
-      provider:String(data.provider || ''),
-      cache:String(data.cache || ''),
-      latitude:lat,
-      longitude:lon
-    };
-    return state.terrain;
-  }catch(error){
-    state.terrain = null;
-    throw error;
-  }
-}
-
-function terrainSection(){
-  const t = state.terrain;
-  if(!t) return `<div class="card terrain-card"><div class="card-title">${icon('gauge',true,13)} Terrein & hoogte</div>${wheaterflowStatus('empty','Hoogtegegevens tijdelijk niet beschikbaar')}</div>`;
-  const elevation = Math.round(Number(t.elevationM));
-  return `<div class="card terrain-card">
-    <div class="card-title">${icon('gauge',true,13)} Terrein & hoogte</div>
-    <div class="terrain-summary">
-      <div class="terrain-elevation"><b>${esc(elevation)} m</b><span>boven zeeniveau</span></div>
-      <div class="terrain-copy"><strong>${esc(t.label || 'Terrein')}</strong><small>Wheaterflow Terrain Engine 1.0</small></div>
-    </div>
-  </div>`;
-}
-
 async function loadWeather(){
   $('#homeLoader')?.classList.remove('hide');
   try{
@@ -2669,8 +2553,6 @@ const optionalResults = await Promise.allSettled([
   loadCurrentObservation(),
   loadMarine(),
   loadAirQuality(),
-  loadTerrain(),
-  loadSoil(),
   loadAlerts(),
   loadWheaterflowAdminAlerts(),
   loadAstroEvents(),
@@ -2685,8 +2567,6 @@ console.warn(
     'METAR',
     'Marine',
     'Luchtkwaliteit',
-    'Terrein & hoogte',
-    'Bodem',
     'Officiële meldingen',
     'Wheaterflow adminmeldingen',
     'Astro-events',
@@ -4504,7 +4384,6 @@ function appSections(){
         <button type="button" data-more-tab="fourteen">14 dagen</button>
         <button type="button" data-more-tab="sunmoon">Zon & maan</button>
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
-        <button type="button" data-more-tab="soil">Bodem</button>
         <button type="button" data-more-tab="storm">Onweer & storm</button>
         <button type="button" data-more-tab="webcam">Webcam</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
@@ -4519,8 +4398,7 @@ function renderMoreWeatherSections(tab='charts'){
     charts: chartsSection(),
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
-    skycoast: `${terrainSection()}${airQualitySection()}${coastSection()}`,
-    soil: soilSection(),
+    skycoast: `${airQualitySection()}${coastSection()}`,
     storm: stormWeatherSection(),
     webcam: webcamWeatherSection(),
     travel: travelWeatherSection()
@@ -4646,7 +4524,7 @@ function wireMoreWeatherSections(){
   const content = $('#moreWeatherContent');
   const tabs = $$('#moreWeatherTabs [data-more-tab]');
   if(!content || !tabs.length) return;
-  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','soil','storm','webcam','travel']);
+  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','storm','webcam','travel']);
   const load = (tab = state.moreWeatherTab || 'charts') => {
     if(!validTabs.has(tab)) tab = 'charts';
     state.moreWeatherTab = tab;
@@ -10967,8 +10845,8 @@ function tickClock(){
 }
 
 
-const WF_TV_ICON_BASE = './assets/tv/';
-const WF_TV_ICON_VERSION = '20261004-tv-icons-v2';
+const WF_TV_ICON_BASE = '/assets/tv/';
+const WF_TV_ICON_VERSION = '20261004-tv-assets-v3';
 const WF_TV_ICONS = Object.freeze({
   radar:'radar.png',
   radio:'radio.png',
@@ -10981,11 +10859,33 @@ const WF_TV_ICONS = Object.freeze({
   hourly:'hourly.png',
   sevenDay:'seven_day.png'
 });
+function tvFeatureFallbackSvg(name){
+  const common = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+  if(name === 'wind') return `<svg ${common}><path d="M3 8h11.5a3 3 0 1 0-2.7-4.3"/><path d="M3 12h16a2.5 2.5 0 1 1-2.2 3.7"/><path d="M3 16h8"/></svg>`;
+  if(name === 'pressure') return `<svg ${common}><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 12l4-4"/></svg>`;
+  if(name === 'humidity' || name === 'rainTiming' || name === 'tide') return `<svg ${common}><path d="M12 3s6 7 6 11.5A6 6 0 0 1 6 14.5C6 10 12 3 12 3z"/></svg>`;
+  if(name === 'warnings') return `<svg ${common}><path d="M12 3l9 16H3L12 3z"/><path d="M12 9v4"/><path d="M12 16h.01"/></svg>`;
+  return `<svg ${common}><circle cx="12" cy="12" r="8"/></svg>`;
+}
+
+function wireTvFeatureIconFallbacks(root=document){
+  root?.querySelectorAll?.('img.tv-feature-icon').forEach(img=>{
+    if(img.dataset.fallbackWired === '1') return;
+    img.dataset.fallbackWired = '1';
+    img.addEventListener('error', ()=>{
+      const box = document.createElement('span');
+      box.className = 'tv-feature-icon tv-feature-icon-fallback';
+      box.innerHTML = tvFeatureFallbackSvg(img.dataset.tvFeature || '');
+      img.replaceWith(box);
+    }, {once:true});
+  });
+}
+
 function tvFeatureIcon(name, alt=''){
   const file = WF_TV_ICONS[name];
   if(!file) return '';
   const src = `${WF_TV_ICON_BASE}${file}?v=${WF_TV_ICON_VERSION}`;
-  return `<img class="tv-feature-icon tv-feature-icon-${name}" src="${src}" alt="${esc(alt)}" loading="eager" decoding="async" crossorigin="anonymous">`;
+  return `<img class="tv-feature-icon tv-feature-icon-${name}" src="${src}" alt="${esc(alt)}" loading="eager" decoding="async" data-tv-feature="${name}">`;
 }
 
 function renderTV(){
@@ -11001,8 +10901,7 @@ function renderTV(){
   const gust = cur.wind_gusts_10m ?? hourly?.wind_gusts_10m?.[nowIdx];
 
   $('#tvLocName').textContent = locationDisplayName();
-  const tvElevation = Number(state.terrain?.elevationM);
-  $('#tvAdmin').innerHTML = `${esc(state.loc.admin || '')}${Number.isFinite(tvElevation) ? `<span class="tv-elevation">${esc(Math.round(tvElevation))} m</span>` : ''}`;
+  $('#tvAdmin').textContent = state.loc.admin || '';
   const tvStatus = $('#tvCastStatus');
   if(tvStatus){
     if(state.cast.receiver) tvStatus.textContent = 'Cast actief';
@@ -11025,6 +10924,7 @@ function renderTV(){
       tvMarineCard(),
       tvAlertCard()
     ].filter(Boolean).join('');
+    wireTvFeatureIconFallbacks($('#tvDetails'));
   }catch(error){
     console.warn('TV details render faalde:', error);
     $('#tvDetails').innerHTML = [
@@ -11035,6 +10935,7 @@ function renderTV(){
       tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar'),
       tvMetricCard('gauge','Weermelding','Code groen','')
     ].join('');
+    wireTvFeatureIconFallbacks($('#tvDetails'));
   }
 
   let hh = '';

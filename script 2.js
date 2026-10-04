@@ -124,7 +124,7 @@ const state = {
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
   current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
   currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
-  observation: null, marine: null, seaspark: null, air: null,
+  observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
   lightning: { available:false, loading:false, updated:null, strikes:[], nearest:null, summary:null, threat:null, error:null },
@@ -136,13 +136,14 @@ const state = {
   auth: { configured:false, ready:false, supabase:null, session:null, user:null, profile:null, syncing:false, guest:true },
   community: { posts: [], page: 0, pageSize: 12, hasMore: true, loading: false, view: 'feed', category: '', query: '', quickFilter: 'foryou', map: null, markers: null, selectedFile: null, realtimeChannel: null },
   climate: { records: [], settings: {mode:'off'}, period:'month', location:'all', chart:null, loaded:false },
-  xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false, uiWired:false, visibilityWired:false, mapClickWired:false },
+  xweather: { configured:false, loading:false, ready:false, sdkLoaded:false, controller:null, legend:null, activeLayer:null, activeCodes:[], availableCodes:new Set(), disabledCodes:new Set(), metadata:[], marker:null, accuracy:null, pointMarker:null, timelineUiTimer:null, overlayLightning:false, fallback:false, uiWired:false, visibilityWired:false, mapClickWired:false, lightningOverlayLayer:null, lightningOverlayTimer:null, lightningOverlayStamp:'', lightningOverlayUpdatedAt:0 },
   push: { supported:false, standalone:false, configured:false, status:'Niet ondersteund', installationId:null, preferences:null, thresholds:null },
   cast: { service:null, status:'idle', available:false, configured:false, connected:false, deviceName:'', receiver:false },
   tvPairing: { service:null, receiver:false, connected:false, code:'', expiresAt:0, status:'idle' },
   radar: { frames: [], index: 0, playing: false, timer: null, refreshTimer: null, layer: 'precip', scheme: 4, opacity: 0.9, duration: 1, animator: null, openMeteoLayer: null, proximity:null, initialized:false, activating:false },
   map: null, marker: null, homeMap: { map:null, base:null, overlay:null, xweatherController:null, activeLayer:'radar' },
   activeTab: 'home',
+  moreWeatherTab: 'charts',
   rainEta: null,
   sharedWeather: {marine:null, wind:null, locationName:INITIAL_LOCATION.name || DEFAULT_LOCATION.name},
   dataStatus: {homeMap:{lastSuccess:null,error:null}, radar:{lastSuccess:null,error:null}},
@@ -498,7 +499,13 @@ async function loadCloudProfileAndFavorites(){
     rerenderForLanguageChange();
     if(Array.isArray(data.favorites)){
       state.favorites = data.favorites.map(f=>({id:f.id, name:f.name, lat:+f.latitude, lon:+f.longitude, admin:f.country || ''}));
-      await window.storage.set('weerscoop:favorites', JSON.stringify(state.favorites)).catch(()=>undefined);
+      // window.storage bestaat niet in elke browser/runtime (o.a. gewone Safari/PWA).
+      // Favorieten mogen de volledige profielsync nooit laten crashen.
+      if(window.storage && typeof window.storage.set === 'function'){
+        await Promise.resolve(window.storage.set('weerscoop:favorites', JSON.stringify(state.favorites))).catch(()=>undefined);
+      }else{
+        try{ localStorage.setItem('weerscoop:favorites', JSON.stringify(state.favorites)); }catch(_e){}
+      }
     }
   }catch(e){
     console.warn('Profielsync mislukt:', e?.message || e);
@@ -660,28 +667,116 @@ function isCoastalLocation(){
   return p && p.dist <= 18;
 }
 
+function marineNumber(value){
+  if(value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function marineValue(payload, hourly, idx, key){
+  const currentValue = marineNumber(payload?.current?.[key]);
+  if(currentValue != null) return currentValue;
+  return marineNumber(hourly?.[key]?.[idx]);
+}
+
+function tideStateFromMarineHourly(hourly, now=new Date()){
+  const times = Array.isArray(hourly?.time) ? hourly.time : [];
+  const levels = Array.isArray(hourly?.sea_level_height_msl) ? hourly.sea_level_height_msl : [];
+  if(times.length < 3 || levels.length < 3) return null;
+
+  const nowMs = now.getTime();
+  const idx = closestIndex(times, nowMs);
+  const currentLevel = marineNumber(levels[idx]);
+  const nextLevel = marineNumber(levels[Math.min(idx + 1, levels.length - 1)]);
+  const previousLevel = marineNumber(levels[Math.max(0, idx - 1)]);
+  let stateLabel = null;
+  if(currentLevel != null && nextLevel != null){
+    if(nextLevel > currentLevel) stateLabel = 'Vloed';
+    else if(nextLevel < currentLevel) stateLabel = 'Eb';
+  }
+  if(!stateLabel && currentLevel != null && previousLevel != null){
+    stateLabel = currentLevel >= previousLevel ? 'Vloed' : 'Eb';
+  }
+
+  let nextHighTime = null;
+  let nextLowTime = null;
+  for(let i=Math.max(1, idx); i<Math.min(times.length - 1, levels.length - 1); i++){
+    const t = new Date(times[i]);
+    if(!Number.isFinite(t.getTime()) || t.getTime() < nowMs) continue;
+    const prev = marineNumber(levels[i-1]);
+    const cur = marineNumber(levels[i]);
+    const next = marineNumber(levels[i+1]);
+    if(prev == null || cur == null || next == null) continue;
+    if(!nextHighTime && cur >= prev && cur > next) nextHighTime = t;
+    if(!nextLowTime && cur <= prev && cur < next) nextLowTime = t;
+    if(nextHighTime && nextLowTime) break;
+  }
+
+  if(!stateLabel && !nextHighTime && !nextLowTime) return null;
+  let nextType = null;
+  let nextTime = null;
+  if(nextHighTime && nextLowTime){
+    if(nextHighTime < nextLowTime){ nextType='hoogwater'; nextTime=nextHighTime; }
+    else { nextType='laagwater'; nextTime=nextLowTime; }
+  }else if(nextHighTime){ nextType='hoogwater'; nextTime=nextHighTime; }
+  else if(nextLowTime){ nextType='laagwater'; nextTime=nextLowTime; }
+
+  return {
+    state:stateLabel || (nextType === 'hoogwater' ? 'Vloed' : nextType === 'laagwater' ? 'Eb' : null),
+    nextType,
+    nextTime,
+    nextHighTime,
+    nextLowTime,
+    level:currentLevel
+  };
+}
+
 async function loadMarine(){
   state.marine = null;
   state.seaspark = null;
   const coast = nearestCoastalPlace();
   if(!coast || coast.dist > 18) return;
   try{
-    const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${coast.lat}&longitude=${coast.lon}&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature&timezone=auto&forecast_days=2`;
-    const r = await fetch(url);
-    if(!r.ok) return;
-    const d = await r.json();
-    const idx = closestIndex(d.hourly.time, Date.now());
+    const qs = new URLSearchParams({lat:String(coast.lat), lon:String(coast.lon)});
+    const d = await apiJson(`/marine?${qs.toString()}`);
+    if(!d?.ok) return;
+
+    const hourly = d.hourly && typeof d.hourly === 'object' ? d.hourly : {};
+    const idx = Array.isArray(hourly.time) && hourly.time.length ? closestIndex(hourly.time, Date.now()) : 0;
+    const tide = tideStateFromMarineHourly(hourly, new Date()) || tideStateForOostende(new Date());
+
     state.marine = {
       place:coast.name,
-      waveHeight:d.hourly.wave_height?.[idx] ?? null,
-      wavePeriod:d.hourly.wave_period?.[idx] ?? null,
-      waveDirection:d.hourly.wave_direction?.[idx] ?? null,
-      seaSurfaceTemperature:d.hourly.sea_surface_temperature?.[idx] ?? null,
-      hourly:d.hourly,
-      tide:tideStateForOostende(new Date())
+      latitude:coast.lat,
+      longitude:coast.lon,
+      service:d.service || 'wheaterflow-marine',
+      version:d.version || null,
+      source:d.source || 'Open-Meteo Marine',
+      cache:d.cache || null,
+      waveHeight:marineValue(d,hourly,idx,'wave_height'),
+      waveDirection:marineValue(d,hourly,idx,'wave_direction'),
+      wavePeriod:marineValue(d,hourly,idx,'wave_period'),
+      swellWaveHeight:marineValue(d,hourly,idx,'swell_wave_height'),
+      swellWaveDirection:marineValue(d,hourly,idx,'swell_wave_direction'),
+      swellWavePeriod:marineValue(d,hourly,idx,'swell_wave_period'),
+      seaSurfaceTemperature:marineValue(d,hourly,idx,'sea_surface_temperature'),
+      oceanCurrentVelocity:marineValue(d,hourly,idx,'ocean_current_velocity'),
+      oceanCurrentDirection:marineValue(d,hourly,idx,'ocean_current_direction'),
+      seaLevelHeightMsl:marineValue(d,hourly,idx,'sea_level_height_msl'),
+      hourly,
+      tide
     };
-    state.seaspark = buildSeaSparkForecast(coast, d.hourly);
-  }catch(e){}
+
+    state.seaspark = buildSeaSparkForecast(coast, hourly);
+    // Zeevonk alleen tonen wanneer het seizoen/klimaat zinvol is.
+    // België/gematigde streken: mei t/m september.
+    // Buiten dat seizoen alleen in warme kustgebieden met warm zeewater.
+    if(state.seaspark && !shouldShowSeaSparkCard(state.seaspark, new Date())){
+      state.seaspark = null;
+    }
+  }catch(e){
+    console.warn('Wheaterflow Marine laden faalde:', e);
+  }
 }
 
 function clamp(n, min=0, max=100){
@@ -721,8 +816,8 @@ function buildSeaSparkForecast(coast, marineHourly){
     return vals.length ? Math.min(...vals) : null;
   };
 
-  const seaTemp = avg(marineHours.map(i=>marineHourly.sea_surface_temperature?.[i]));
-  const wave = avg(marineHours.map(i=>marineHourly.wave_height?.[i]));
+  const seaTemp = avg(marineHours.map(i=>marineHourly.sea_surface_temperature?.[i])) ?? marineNumber(state.marine?.seaSurfaceTemperature);
+  const wave = avg(marineHours.map(i=>marineHourly.wave_height?.[i])) ?? marineNumber(state.marine?.waveHeight);
   const wind = avg(hours.map(i=>state.hourly.wind_speed_10m?.[i]));
   const gust = max(hours.map(i=>state.hourly.wind_gusts_10m?.[i]));
   const rain = avg(hours.map(i=>state.hourly.precipitation?.[i]));
@@ -769,6 +864,25 @@ function buildSeaSparkForecast(coast, marineHourly){
   };
 }
 
+function shouldShowSeaSparkCard(seaspark, date=new Date()){
+  if(!seaspark) return false;
+
+  const month = date.getMonth() + 1;
+  const lat = Math.abs(Number(state.loc?.lat));
+  const seaTemp = Number(seaspark.seaTemp);
+
+  // Normaal zeevonkseizoen voor België en andere gematigde kustgebieden.
+  if(month >= 5 && month <= 9) return true;
+
+  // In warme landen kan zeevonk ook buiten ons seizoen relevant blijven.
+  // Gebruik zowel breedtegraad als werkelijk zeewater om een warme kust
+  // te herkennen; zo verschijnt het kaartje niet onnodig in een zachte
+  // winterdag aan de Belgische kust.
+  const warmLatitude = Number.isFinite(lat) && lat <= 35;
+  const warmSea = Number.isFinite(seaTemp) && seaTemp >= 20;
+  return warmLatitude && warmSea;
+}
+
 function seaSparkSeasonScore(date){
   const m = date.getMonth() + 1;
   if(m === 6 || m === 7 || m === 8) return 20;
@@ -797,14 +911,29 @@ function bestSeaSparkHour(hours, marineHourly, marineHours, fallbackSeaTemp){
 
 async function loadAirQuality(){
   state.air = null;
+  state.airHourly = null;
+  state.airMeta = null;
   try{
-    const {lat, lon} = state.loc;
-    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen&hourly=european_aqi,pm10,pm2_5,nitrogen_dioxide,ozone&timezone=auto`;
-    const r = await fetch(url);
-    if(!r.ok) return;
-    const d = await r.json();
-    state.air = d.current || null;
-  }catch(e){}
+    const lat = Number(state.loc?.lat);
+    const lon = Number(state.loc?.lon);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+    const d = await apiJson(
+      `/air-quality?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`
+    );
+    if(!d || d.ok === false || !d.current) return;
+
+    state.airHourly = d.hourly || null;
+    state.air = {...d.current, hourly:state.airHourly};
+    state.airMeta = {
+      service:d.service || 'wheaterflow-air-quality',
+      version:d.version || null,
+      source:d.source || null,
+      cache:d.cache || null
+    };
+  }catch(error){
+    console.warn('Wheaterflow Air Quality laden faalde:', error?.message || error);
+  }
 }
 
 function tideStateForOostende(now){
@@ -821,7 +950,18 @@ function tideStateForOostende(now){
   const previousN = nextN - 1;
   const previousType = Math.abs(previousN % 2) === 0 ? 'hoogwater' : 'laagwater';
   const stateLabel = nextType === 'hoogwater' ? 'Vloed' : 'Eb';
-  return {state:stateLabel, nextType, nextTime, nearestType, nearestTime:new Date(nearest), previousType};
+  const highN = Math.abs(nextN % 2) === 0 ? nextN : nextN + 1;
+  const lowN = Math.abs(nextN % 2) === 1 ? nextN : nextN + 1;
+  return {
+    state:stateLabel,
+    nextType,
+    nextTime,
+    nextHighTime:new Date(highRef + highN*halfCycle),
+    nextLowTime:new Date(highRef + lowN*halfCycle),
+    nearestType,
+    nearestTime:new Date(nearest),
+    previousType
+  };
 }
 
 function metarWeatherCode(m){
@@ -1575,6 +1715,20 @@ const WCODE = {
 };
 function wcInfo(code){ const base = WCODE[code] || {l:'Onbekend', ic:'cloud'}; return {...base, l:tr(base.l)}; }
 
+function hourlyForecastDisplay(i, nowIdx, cur, currentIsDay){
+  const hourly = state.hourly || {};
+  const isCurrentHour = i === nowIdx;
+  const weatherCode = isCurrentHour ? cur.weather_code : hourly.weather_code?.[i];
+  const info = wcInfo(weatherCode);
+  const day = isCurrentHour ? currentIsDay : isDayForTime(hourly.time?.[i]);
+  const temperature = isCurrentHour ? cur.temperature_2m : hourly.temperature_2m?.[i];
+  const popRaw = validNumber(hourly.precipitation_probability?.[i]);
+  const pop = !isCurrentHour && popRaw != null && popRaw >= 10
+    ? Math.round(Math.max(0, Math.min(100, popRaw))) + '%'
+    : '';
+  return {isCurrentHour, info, isDay:day, temperature, pop};
+}
+
 function isDayForTime(timeValue){
   if(!state.daily || !state.daily.time) return true;
   const dateKey = String(timeValue).slice(0,10);
@@ -1589,24 +1743,16 @@ function isDayForTime(timeValue){
 
 function icon(name, isDay=true, size=24, cls=''){
   const s = size, c = cls;
+  const weatherIconFiles = {
+    sun: isDay ? '01-helder-overdag.png' : '02-helder-nacht.png',
+    'sun-cloud': isDay ? '03-halfbewolkt-overdag.png' : '04-halfbewolkt-nacht.png',
+    cloud: '05-bewolkt.png', fog: '06-mist.png', drizzle: '07-motregen.png',
+    rain: '08-regen.png', 'heavy-rain': '09-zware-regen.png', storm: '10-onweer.png',
+    snow: '11-sneeuw.png', wind: '12-wind.png'
+  };
+  if(weatherIconFiles[name]) return `<img class="weather-icon-img ${c}" src="/assets/weather/${weatherIconFiles[name]}?v=20261004-tv-hd-v3" width="${s}" height="${s}" alt="" aria-hidden="true" decoding="async" style="width:${s}px;height:${s}px;object-fit:contain;display:inline-block;vertical-align:middle">`;
   const stroke = 'stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
   switch(name){
-    case 'sun': return isDay
-      ? `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="color:#f5c451"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg>`
-      : `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="color:#c9d3ea"><path d="M20 14.5A8 8 0 1110.5 4a6.5 6.5 0 009.5 10.5z"/></svg>`;
-    case 'sun-cloud': return isDay
-      ? `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><circle cx="9" cy="9" r="3.4" style="color:#f5c451" stroke="#f5c451"/><path d="M4 9v0M9 3v0" stroke="#f5c451"/><path d="M7 20h10a3.5 3.5 0 000-7 5 5 0 00-9.6-1.6A3.6 3.6 0 007 20z" style="color:#9fb0d1" stroke="#9fb0d1"/></svg>`
-      : `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M15.8 10.6A5.8 5.8 0 019.4 3.2a6.7 6.7 0 007.9 8.4" style="color:#d7def0" stroke="#d7def0"/><path d="M7 20h10a3.5 3.5 0 000-7 5 5 0 00-9.6-1.6A3.6 3.6 0 007 20z" style="color:#9fb0d1" stroke="#9fb0d1"/></svg>`;
-    case 'cloud': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="color:#9fb0d1"><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z"/></svg>`;
-    case 'fog': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="color:#9fb0d1"><path d="M6.5 14h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 14z"/><path d="M4 18h16M4 21h16"/></svg>`;
-    // Neerslagiconen gebruiken dezelfde verticale 'cloud baseline' als het gewone wolkicoon.
-    // De wolk is iets compacter gemaakt zodat regen/sneeuw/bliksem eronder past zonder
-    // dat het hele icoon omhoog hoeft te schuiven.
-    case 'drizzle': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="overflow:visible"><g><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z" transform="translate(1.75 .6) scale(.855)" style="color:#9fb0d1"/><path d="M8.8 18.7l-.8 2M12.8 18.7l-.8 2M16.8 18.7l-.8 2" style="color:#35d0c4"/></g></svg>`;
-    case 'rain': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="overflow:visible"><g><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z" transform="translate(1.75 .2) scale(.855)" style="color:#9fb0d1"/><path d="M8.5 18.5l-1.1 3M13 18.5l-1.1 3M17.5 18.5l-1.1 3" style="color:#35d0c4"/></g></svg>`;
-    case 'snow': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="overflow:visible"><g><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z" transform="translate(1.75 .2) scale(.855)" style="color:#9fb0d1"/><path d="M9 19v3M7.5 20.5h3M15 19v3M13.5 20.5h3" style="color:#dfe9fb"/></g></svg>`;
-    case 'storm': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke} style="overflow:visible"><g><path d="M6.5 19h11a3.8 3.8 0 000-7.6 5.5 5.5 0 00-10.6-1.7A4 4 0 006.5 19z" transform="translate(1.75 -.25) scale(.855)" style="color:#9fb0d1"/><path d="M13 17.3l-3 3.6h2.45L11.35 23l3.8-4.5h-2.3z" fill="#f5a524" stroke="#f5a524"/></g></svg>`;
-    case 'wind': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M3 8h10a2.5 2.5 0 10-2.2-3.7M3 16h13a2.5 2.5 0 11-2.2 3.7M3 12h16a2 2 0 10-1.8-2.9"/></svg>`;
     case 'drop': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 3s6 7 6 11.5A6 6 0 016 14.5C6 10 12 3 12 3z"/></svg>`;
     case 'gauge': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 12L16 8M4 14a8 8 0 1116 0"/></svg>`;
     case 'eye': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="2.6"/></svg>`;
@@ -1615,6 +1761,12 @@ function icon(name, isDay=true, size=24, cls=''){
     case 'thermo': return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><path d="M12 3a2 2 0 00-2 2v9.5a4 4 0 102 0V5a2 2 0 00-2-2z" fill="none"/><circle cx="12" cy="17" r="1.4" fill="currentColor"/></svg>`;
     default: return `<svg class="${c}" width="${s}" height="${s}" viewBox="0 0 24 24" ${stroke}><circle cx="12" cy="12" r="9"/></svg>`;
   }
+}
+
+function upcoming24Icon(size=18, cls=''){
+  const s = Number(size)||18;
+  const c = cls ? ` ${cls}` : '';
+  return `<img src="./coming-24h-icon.png" alt="" aria-hidden="true" class="coming-24h-inline-icon${c}" width="${s}" height="${s}" loading="lazy" decoding="async">`;
 }
 
 /* ---------------- geolocation ---------------- */
@@ -2307,27 +2459,49 @@ async function notifyTvPairingLocationChanged(){
 /* ---------------- weather fetch ---------------- */
 function buildForecastUrl(model){
   const {lat, lon} = state.loc;
-  return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-    `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m`+
-    `&minutely_15=precipitation,weather_code,temperature_2m,wind_speed_10m,wind_gusts_10m`+
-    `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape,lifted_index,freezing_level_height,relative_humidity_2m,dew_point_2m,uv_index,cloud_cover`+
-    `&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,daylight_duration,sunshine_duration`+
-    `&timezone=auto&forecast_days=14&wind_speed_unit=kmh`+
-    (model && model !== 'best_match' ? `&models=${model}` : '');
+  const q = new URLSearchParams({latitude:String(lat), longitude:String(lon)});
+  if(model && model !== 'best_match') q.set('model', model);
+  // Forecasts always pass through the Wheaterflow server. The server shares one
+  // cache between users and protects the external provider against request storms.
+  return `${WHEATERFLOW_API_BASE}/forecast?${q.toString()}`;
+}
+
+const FORECAST_CACHE_KEY = 'wheaterflow:forecast-cache:v2';
+const FORECAST_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+function saveForecastCache(data){
+  if(!data?.current || !data?.hourly || !data?.daily) return;
+  try{
+    localStorage.setItem(FORECAST_CACHE_KEY, JSON.stringify({
+      savedAt: Date.now(), lat: Number(state.loc?.lat), lon: Number(state.loc?.lon), data
+    }));
+  }catch(_e){}
+}
+
+function loadForecastCache(){
+  try{
+    const cached = JSON.parse(localStorage.getItem(FORECAST_CACHE_KEY) || 'null');
+    if(!cached?.data?.current || !cached?.data?.hourly || !cached?.data?.daily) return null;
+    if(Date.now() - Number(cached.savedAt || 0) > FORECAST_CACHE_MAX_AGE_MS) return null;
+    const latDiff = Math.abs(Number(cached.lat) - Number(state.loc?.lat));
+    const lonDiff = Math.abs(Number(cached.lon) - Number(state.loc?.lon));
+    // Ongeveer max. 25 km: voorkom dat oude data van een verre locatie wordt getoond.
+    if(!Number.isFinite(latDiff) || !Number.isFinite(lonDiff) || latDiff > 0.23 || lonDiff > 0.36) return null;
+    return cached.data;
+  }catch(_e){ return null; }
 }
 
 async function fetchForecast(model){
   const response = await fetch(buildForecastUrl(model), {cache:'no-store'});
   let data = null;
-  try{
-    data = await response.json();
-  }catch(error){
-    throw new Error(`Weerdata kon niet worden gelezen (${response.status})`);
-  }
+  try{ data = await response.json(); }catch(error){}
   if(!response.ok || data?.error || !data?.current || !data?.hourly || !data?.daily){
     const reason = data?.reason || data?.error || `HTTP ${response.status}`;
-    throw new Error(reason);
+    const err = new Error(reason);
+    err.status = response.status;
+    throw err;
   }
+  saveForecastCache(data);
   return data;
 }
 
@@ -2335,9 +2509,32 @@ async function fetchForecastWithFallback(model){
   try{
     return await fetchForecast(model);
   }catch(error){
+    // Een 429 is een quota/rate-limit van dezelfde Open-Meteo API. Meteen nog een
+    // tweede request doen maakt het probleem erger en kan dezelfde limiet opnieuw raken.
+    if(error?.status === 429 || /limit|too many requests|429/i.test(String(error?.message || ''))){
+      const cached = loadForecastCache();
+      if(cached){
+        console.warn('Open-Meteo limiet bereikt; laatst geldige lokale weerdata wordt gebruikt.');
+        return cached;
+      }
+      throw error;
+    }
     if(model && model !== 'best_match'){
       console.warn(`${model} faalde, standaard weermodel wordt geprobeerd:`, error);
-      return fetchForecast('best_match');
+      try{ return await fetchForecast('best_match'); }
+      catch(fallbackError){
+        const cached = loadForecastCache();
+        if(cached){
+          console.warn('Weermodel-fallback faalde; laatst geldige lokale weerdata wordt gebruikt.', fallbackError);
+          return cached;
+        }
+        throw fallbackError;
+      }
+    }
+    const cached = loadForecastCache();
+    if(cached){
+      console.warn('Live weerdata niet bereikbaar; laatst geldige lokale weerdata wordt gebruikt.', error);
+      return cached;
     }
     throw error;
   }
@@ -3057,12 +3254,41 @@ function stormEngine(){
   };
 }
 
+function marineCompass16(degrees){
+  const d = marineNumber(degrees);
+  if(d == null) return null;
+  const labels = ['N','NNO','NO','ONO','O','OZO','ZO','ZZO','Z','ZZW','ZW','WZW','W','WNW','NW','NNW'];
+  const normalized = ((d % 360) + 360) % 360;
+  return labels[Math.round(normalized / 22.5) % 16];
+}
+
+function formatMarineDirection(degrees){
+  const d = marineNumber(degrees);
+  if(d == null) return null;
+  const normalized = ((d % 360) + 360) % 360;
+  return `${marineCompass16(normalized)} · ${Math.round(normalized)}°`;
+}
+
+function formatMarineNumber(value, digits=1){
+  const n = marineNumber(value);
+  if(n == null) return null;
+  return new Intl.NumberFormat(wfLocale(), {
+    minimumFractionDigits:digits,
+    maximumFractionDigits:digits
+  }).format(n);
+}
+
+function formatTideTime(value){
+  if(!(value instanceof Date) || Number.isNaN(value.getTime())) return null;
+  return value.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
+}
+
 function seaEngine(){
   if(!state.marine){
     return {
       available:false,
       reason:isCoastalLocation() ? 'Marine data tijdelijk niet beschikbaar.' : 'Deze locatie ligt niet dicht genoeg bij de kust.',
-      source:'Open-Meteo Marine + Wheaterflow intelligence'
+      source:'Wheaterflow Marine + Wheaterflow intelligence'
     };
   }
   const cur = liveWeatherSnapshot();
@@ -3120,7 +3346,16 @@ function seaEngine(){
     seaTemperature:Number.isFinite(seaTemp) ? seaTemp : null,
     waveHeight:Number.isFinite(wave) ? wave : null,
     wavePeriod:Number.isFinite(period) ? period : null,
-    waveDirection:m.waveDirection ?? null,
+    waveDirection:marineNumber(m.waveDirection),
+    swellWaveHeight:marineNumber(m.swellWaveHeight),
+    swellWaveDirection:marineNumber(m.swellWaveDirection),
+    swellWavePeriod:marineNumber(m.swellWavePeriod),
+    oceanCurrentVelocity:marineNumber(m.oceanCurrentVelocity),
+    oceanCurrentDirection:marineNumber(m.oceanCurrentDirection),
+    seaLevelHeightMsl:marineNumber(m.seaLevelHeightMsl),
+    marineService:m.service || null,
+    marineVersion:m.version || null,
+    marineCache:m.cache || null,
     wind:Number.isFinite(wind) ? wind : null,
     gust:Number.isFinite(gust) ? gust : null,
     uv,
@@ -3135,7 +3370,7 @@ function seaEngine(){
     beachScore,
     beachLabel:scoreLabel(beachScore),
     beachFactors:beachParts,
-    source:'Open-Meteo Marine + Open-Meteo forecast + Wheaterflow intelligence'
+    source:'Wheaterflow Marine + Wheaterflow forecast + Wheaterflow intelligence'
   };
 }
 
@@ -3876,13 +4111,10 @@ function renderHome(){
   const currentConditionLabel = truthImmediateVicinity(truth)
     ? (truth?.condition?.label || 'Regen vlakbij')
     : (truth?.condition?.label || wc.l);
-  const currentSource = truth
-    ? 'Wheaterflow Fusion'
-    : (
-        state.observation
-          ? `${state.observation.source} - ${Math.round(state.observation.distanceKm)} km`
-          : 'Harmonie (Benelux)'
-      );
+  // The home hero represents Wheaterflow's fused weather result.
+  // Do not expose the temporary/raw fallback model here when Fusion truth
+  // is still loading; that caused the label to jump back to HARMONIE.
+  const currentSource = 'Wheaterflow Fusion';
 
   applyWeatherBG(cur.weather_code, isDay, cur.cloud_cover);
 
@@ -3893,7 +4125,7 @@ function renderHome(){
     <div class="bignum display">${fmtTemp(cur.temperature_2m)}</div>
     <div class="cond">${esc(currentConditionLabel)}</div>
     <div class="hilo">${esc(weatherHeroLine(cur, rain))}</div>
-    <div class="updated"><span id="updatedText">Zojuist bijgewerkt</span>${state.loc.admin ? ' · ' + esc(state.loc.admin) : ''} · ${truth ? 'Bron' : 'Model'}: ${esc(currentSource)}</div>
+    <div class="updated"><span id="updatedText">Zojuist bijgewerkt</span>${state.loc.admin ? ' · ' + esc(state.loc.admin) : ''} · Bron: ${esc(currentSource)}</div>
   </div>`;
 
 html += wheaterflowAdminAlertsCard();
@@ -3907,20 +4139,16 @@ html += weatherSummaryCard();
 html += rainNowcastCard();
 
   // hourly — bestaande 24-uursdata, alleen gerichte markup voor vaste uitlijning
-  html += `<div class="card hourly-24-card"><div class="card-title">${icon('gauge',true,13)} Komende 24 uur</div><div class="hourly-scroll" aria-label="Komende 24 uur">`;
+  html += `<div class="card hourly-24-card"><div class="card-title">${upcoming24Icon(30,'card-title-icon')} Komende 24 uur</div><div class="hourly-scroll" aria-label="Komende 24 uur">`;
   for(let i=nowIdx; i<Math.min(nowIdx+24, hourly.time.length); i++){
     const t = new Date(hourly.time[i]);
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
-    const isCurrentHour = i === nowIdx;
-    const hwc = isCurrentHour ? wcInfo(cur.weather_code) : wcInfo(hourly.weather_code[i]);
-    const hIsDay = isCurrentHour ? isDay : isDayForTime(hourly.time[i]);
-    const pop = validNumber(hourly.precipitation_probability?.[i]);
-    const hourTemp = isCurrentHour ? cur.temperature_2m : hourly.temperature_2m[i];
-    html += `<div class="hour-item ${isCurrentHour?'now':''}">
+    const hd = hourlyForecastDisplay(i, nowIdx, cur, isDay);
+    html += `<div class="hour-item ${hd.isCurrentHour?'now':''}">
       <div class="t">${esc(label)}</div>
-      <div class="hour-icon-wrap">${icon(hwc.ic, hIsDay, 26)}</div>
-      <div class="pop">${!isCurrentHour && pop!=null && pop>=10 ? Math.round(Math.max(0,Math.min(100,pop)))+'%' : ''}</div>
-      <div class="v">${fmtTemp(hourTemp)}</div>
+      <div class="hour-icon-wrap">${icon(hd.info.ic, hd.isDay, 58)}</div>
+      <div class="pop">${hd.pop}</div>
+      <div class="v">${fmtTemp(hd.temperature)}</div>
     </div>`;
   }
   html += `</div></div>`;
@@ -3930,7 +4158,7 @@ html += rainNowcastCard();
   const allMax = daily.temperature_2m_max.slice(0,nDays).filter(v=>validNumber(v)!=null);
   const allMin = daily.temperature_2m_min.slice(0,nDays).filter(v=>validNumber(v)!=null);
   const gMax = allMax.length ? Math.max(...allMax) : 1, gMin = allMin.length ? Math.min(...allMin) : 0;
-  html += `<div class="card compact-forecast-card"><div class="card-title">${icon('sunrise',true,13)} 7-daagse verwachting</div>`;
+  html += `<div class="card compact-forecast-card"><div class="card-title"><img class="forecast-seven-title-icon" src="assets/ui/7-daagse-verwachting.png" alt="" aria-hidden="true"> 7-daagse verwachting</div>`;
   if(!nDays){
     html += wheaterflowStatus('empty','Momenteel geen gegevens beschikbaar');
   }else{
@@ -3946,7 +4174,7 @@ html += rainNowcastCard();
       const gust=validNumber(daily.wind_gusts_10m_max?.[i]);
       html += `<div class="daily-row daily-row-compact ${i===0?'is-today':''}" data-day-index="${i}" role="button" tabindex="0" aria-label="Details voor ${esc(dayName)} ${esc(dateLabel)}">
         <div class="dname"><b>${esc(dayName)}</b><small>${esc(dateLabel)}</small></div>
-        <div class="daily-icon-wrap">${icon(dwc.ic,true,32,'dicon')}</div>
+        <div class="daily-icon-wrap">${icon(dwc.ic,true,56,'dicon')}</div>
         <div class="daily-weather-data">
           <div class="dpop">${pop!=null && pop>0 ? Math.round(pop)+'%' : ''}</div>
           <div class="daily-wind-alert">${gust!=null && gust>=60 ? `stoten ${fmtWind(gust)}` : ''}</div>
@@ -3968,8 +4196,8 @@ html += rainNowcastCard();
   html += detailCard('drop','Neerslag', fmtPrecip(cur.precipitation), 'Kans '+(hourly.precipitation_probability[nowIdx]??0)+'%');
   html += detailCard('eye','Zicht', (hourly.visibility[nowIdx]/1000).toFixed(1)+' km', hourly.visibility[nowIdx] > 8000 ? 'Goed zicht':'Beperkt zicht');
   html += detailCard('gauge','Vochtigheid', cur.relative_humidity_2m+'%', 'Dauwpunt '+fmtTemp(hourly.dew_point_2m[nowIdx]));
-  html += detailCard('cloud','Bewolking', cur.cloud_cover+'%', cur.cloud_cover<30?'Overwegend helder':cur.cloud_cover<70?'Half bewolkt':'Bewolkt', 'cloud-wide');
   html += moonCard(moon);
+  html += detailCard('cloud','Bewolking', cur.cloud_cover+'%', cur.cloud_cover<30?'Overwegend helder':cur.cloud_cover<70?'Half bewolkt':'Bewolkt', 'cloud-wide');
   html += seaSparkDetailCard();
   html += `</div>`;
   html += compactAirQualityCard();
@@ -4145,9 +4373,6 @@ function savePushSettings(){
 
 function appSections(){
   return `
-    <nav class="section-nav" aria-label="Weersecties">
-      ${['Kaarten','Meer weerdata'].map((n,i)=>`<a href="#sec${i+1}">${n}</a>`).join('')}
-    </nav>
     <section id="sec1" class="app-section">${mapLayerSection()}</section>
     <section id="sec2" class="app-section more-weather-sections">
       <div class="more-weather-head">
@@ -4159,6 +4384,8 @@ function appSections(){
         <button type="button" data-more-tab="fourteen">14 dagen</button>
         <button type="button" data-more-tab="sunmoon">Zon & maan</button>
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
+        <button type="button" data-more-tab="storm">Onweer & storm</button>
+        <button type="button" data-more-tab="webcam">Webcam</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
       </div>
       <div class="more-weather-content" id="moreWeatherContent"></div>
@@ -4172,34 +4399,151 @@ function renderMoreWeatherSections(tab='charts'){
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
     skycoast: `${airQualitySection()}${coastSection()}`,
+    storm: stormWeatherSection(),
+    webcam: webcamWeatherSection(),
     travel: travelWeatherSection()
   };
   return sections[tab] || sections.charts;
+}
+
+
+const WF_WEBCAM_SOURCES = Object.freeze({
+  primary: Object.freeze({
+    id:'youtube-I09L5RCJkjo',
+    provider:'youtube',
+    youtubeId:'I09L5RCJkjo',
+    title:'Live webcam',
+    watchUrl:'https://www.youtube.com/watch?v=I09L5RCJkjo',
+    embedUrl:'https://www.youtube-nocookie.com/embed/I09L5RCJkjo?autoplay=1&mute=1&playsinline=1&controls=1&rel=0',
+    aiCandidate:true
+  })
+});
+window.WF_WEBCAM_SOURCES = WF_WEBCAM_SOURCES;
+
+function webcamWeatherSection(){
+  const cam = WF_WEBCAM_SOURCES.primary;
+  return `
+    <section class="wf-webcam-section" data-webcam-id="${esc(cam.id)}" data-youtube-id="${esc(cam.youtubeId)}">
+      <div class="wf-webcam-head">
+        <div>
+          <span class="wf-webcam-kicker"><i></i> LIVE WEBCAM</span>
+          <h2>${esc(cam.title)}</h2>
+          <p>Live beeld rechtstreeks in Wheaterflow.</p>
+        </div>
+        <div class="wf-webcam-actions">
+          <button type="button" class="smallbtn wf-webcam-fullscreen" id="wfWebcamFullscreen">Volledig scherm</button>
+          <a class="smallbtn wf-webcam-youtube" href="${esc(cam.watchUrl)}" target="_blank" rel="noopener noreferrer">YouTube</a>
+        </div>
+      </div>
+      <div class="wf-webcam-player" id="wfWebcamPlayer">
+        <iframe
+          src="${esc(cam.embedUrl)}"
+          title="${esc(cam.title)}"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen></iframe>
+      </div>
+      <div class="wf-webcam-foot">
+        <span><b>LIVE</b> YouTube-stream</span>
+        <small>Bron-ID ${esc(cam.youtubeId)}</small>
+      </div>
+    </section>`;
+}
+
+function wireWebcamSection(){
+  const player = $('#wfWebcamPlayer');
+  const btn = $('#wfWebcamFullscreen');
+  if(!player || !btn) return;
+  btn.addEventListener('click', async ()=>{
+    try{
+      if(document.fullscreenElement){
+        await document.exitFullscreen?.();
+        return;
+      }
+      if(player.requestFullscreen) await player.requestFullscreen();
+      else if(player.webkitRequestFullscreen) player.webkitRequestFullscreen();
+    }catch(error){
+      console.warn('Webcam fullscreen kon niet worden geopend:', error);
+    }
+  });
+}
+
+function stormWeatherSection(){
+  return `<div class="wf-storm-dashboard" id="stormWeatherCard"><div id="stormWeatherBody" class="wf-storm-loading">Stormanalyse laden…</div></div>`;
+}
+function wfStormPct(v){ const n=Number(v); return Number.isFinite(n)?Math.max(0,Math.min(100,Math.round(n*100))):0; }
+function wfStormNum(v,d=0){ if(v===null||v===undefined||v==='') return '—'; const n=Number(v); return Number.isFinite(n)?n.toFixed(d):'—'; }
+function wfStormGauge(score, level){
+  const n=Math.max(0,Math.min(100,Number(score)||0));
+  const deg=Math.round(n*1.8);
+  return `<div class="wf-storm-gauge" style="--storm-score:${n};--storm-angle:${deg}deg"><div class="wf-storm-gauge-cut"><strong>${Math.round(n)}</strong><span>/100</span></div><div class="wf-storm-pill">${esc(level)}</div></div>`;
+}
+async function loadStormWeather(){
+  const el=$('#stormWeatherBody'); if(!el) return;
+  const loc=canonicalLocation(); const lat=Number(loc?.lat), lon=Number(loc?.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)){ el.textContent='Geen geldige locatie beschikbaar.'; return; }
+  try{
+    const r=await fetch(`${WHEATERFLOW_API_BASE}/storm?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`,{cache:'no-store'});
+    const d=await r.json(); if(!r.ok||d?.ok===false) throw new Error(d?.error||`HTTP ${r.status}`);
+    const score=Math.max(0,Math.min(100,Math.round(Number(d.stormScore)||0)));
+    const level=d.level?.label||d.level?.id||'Onbekend';
+    const comp=d.components||{}, l=d.lightning||{}, inst=d.instability||{}, pr=d.precipitation||{}, sr=d.smartRadar||{}, wind=d.wind||{}, diag=d.diagnostics||{};
+    const lightningCount=Number(l.count);
+    const hasNearestLightning=l.nearestKm!==null&&l.nearestKm!==undefined&&l.nearestKm!==''&&Number.isFinite(Number(l.nearestKm));
+    const lightningRadius=Number.isFinite(Number(l.searchRadiusKm))?Number(l.searchRadiusKm):500;
+    const nearest=hasNearestLightning?`${wfStormNum(l.nearestKm,1)} km`:(Number.isFinite(lightningCount)&&lightningCount===0?`Geen bliksem binnen ${Math.round(lightningRadius)} km`:'—');
+    const lightningZone=l.distanceInfo?.label||(hasNearestLightning?'Bliksemactiviteit gedetecteerd':`Geen bliksem binnen ${Math.round(lightningRadius)} km`);
+    const lightningLocalThreat=l.distanceInfo?.localThreat===true;
+    const lightningUpdated=l.updated?new Date(l.updated).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):null;
+    const echo=Number.isFinite(Number(pr.nearestEchoKm))?`${wfStormNum(pr.nearestEchoKm,1)} km`:'—';
+    const updated=d.generatedAt?new Date(d.generatedAt).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):'—';
+    const conf=[['10 min',sr.confidence10],['30 min',sr.confidence30],['60 min',sr.confidence60],['120 min',sr.confidence120]];
+    const ok=(x)=>String(x||'').toLowerCase()==='ok';
+    el.className='';
+    el.innerHTML=`
+      <div class="wf-storm-hero">
+        <div class="wf-storm-intro"><div class="wf-storm-kicker">${icon('storm',true,20)} <b>ONWEER & STORM</b></div><small>${esc(d.engine||'Wheaterflow Storm Engine')} · update ${esc(updated)}</small><h2>${esc(level)} · ${score}/100</h2><p>${esc(d.headline||'Geen bijzonder onweer- of stormsignaal')}</p></div>
+        ${wfStormGauge(score,level)}
+        <div class="wf-storm-components"><div><span>⚡ Bliksem</span><b>${esc(comp.lightning??0)}/100</b></div><div><span>🌪️ Atmosfeer</span><b>${esc(comp.atmosphere??0)}/100</b></div><div><span>◉ Radar</span><b>${esc(comp.radar??0)}/100</b></div></div>
+      </div>
+      <div class="wf-storm-grid3">
+        <article class="wf-storm-card"><h3>⚡ <span>BLIKSEM</span></h3><div class="wf-storm-big">${esc(l.count??0)} <small>ontladingen binnen ${esc(Math.round(lightningRadius))} km</small></div><p><b>${esc(lightningZone)}</b>${lightningLocalThreat?' · lokaal relevant':''}</p><div class="wf-storm-mini4"><div><b>${esc(l.within25Km??0)}</b><span>&lt; 25 km</span></div><div><b>${esc(l.within100Km??0)}</b><span>&lt; 100 km</span></div><div><b>${esc(l.within250Km??0)}</b><span>&lt; 250 km</span></div><div><b>${esc(l.within500Km??0)}</b><span>&lt; 500 km</span></div></div><p>Dichtstbijzijnde bliksem <b>${esc(nearest)}</b></p><small>${esc(l.source||'Live lightning')}${lightningUpdated?` · update ${esc(lightningUpdated)}`:''}</small></article>
+        <article class="wf-storm-card"><h3>🌪️ <span>ATMOSFEER</span></h3><div class="wf-storm-big">${esc(comp.atmosphere??0)}<small>/100</small></div><p>Lage kans op zware ontwikkeling</p><div class="wf-storm-mini3"><div><span>CAPE</span><b>${wfStormNum(inst.cape)} <small>J/kg</small></b></div><div><span>Lifted Index</span><b>${wfStormNum(inst.liftedIndex,1)}</b></div><div><span>Luchtdruk</span><b>${wfStormNum(inst.pressureHpa,1)} <small>hPa</small></b></div></div></article>
+        <article class="wf-storm-card"><h3>◉ <span>RADAR</span></h3><div class="wf-storm-big">${esc(comp.radar??0)}<small>/100</small></div><p>${pr.nearby?'Neerslag in de omgeving':'Geen nabije neerslag'}</p><div class="wf-storm-mini3"><div><span>Neerslag nu</span><b>${wfStormNum(pr.nowMm,1)} <small>mm/u</small></b></div><div><span>Dichtstbij</span><b>${esc(echo)}</b></div><div><span>Nabij</span><b>${pr.nearby?'Ja':'Nee'}</b></div></div></article>
+      </div>
+      <div class="wf-storm-grid2">
+        <article class="wf-storm-card wf-storm-radar"><h3>🌧️ <span>NEERSLAGRADAR</span></h3><div class="wf-radar-visual"><div class="wf-radar-ring r1"></div><div class="wf-radar-ring r2"></div><div class="wf-radar-ring r3"></div><div class="wf-radar-echo e1"></div><div class="wf-radar-echo e2"></div><div class="wf-radar-dot"></div><div class="wf-radar-distance">Dichtstbijzijnde echo<br><b>${esc(echo)}</b></div></div><div class="wf-radar-legend"><span>Lichte regen</span><i></i><span>Zware regen</span></div></article>
+        <article class="wf-storm-card"><h3>📈 <span>STORMVOORSPELLING <small>(Smart Radar)</small></span></h3><div class="wf-storm-nowrow"><div><span>Nu</span><b>${score}</b></div>${conf.map(([t,v])=>`<div><span>${t}</span><b>${wfStormPct(v)}%</b></div>`).join('')}</div><div class="wf-storm-bars"><label>Bewegingskwaliteit <i><u style="width:${wfStormPct(sr.motionQuality)}%"></u></i><b>${wfStormPct(sr.motionQuality)}%</b></label><label>Geleerde nauwkeurigheid <i><u style="width:${wfStormPct(sr.learnedSkill)}%"></u></i><b>${wfStormPct(sr.learnedSkill)}%</b></label><label>Groei per 10 min <i><u style="width:${Math.min(100,Math.abs((Number(sr.growthFactorPer10Min)||1)-1)*1000)}%"></u></i><b>${Number.isFinite(Number(sr.growthFactorPer10Min))?(((Number(sr.growthFactorPer10Min)-1)*100)>=0?'+':'')+((Number(sr.growthFactorPer10Min)-1)*100).toFixed(1)+'%':'—'}</b></label></div><p>Beweging: <b>${wfStormNum(sr.dxPxPer10Min,2)} / ${wfStormNum(sr.dyPxPer10Min,2)} px per 10 min</b></p></article>
+      </div>
+      <div class="wf-storm-bottom"><article class="wf-storm-card"><h3>💨 <span>WIND <small>(actueel)</small></span></h3><div class="wf-wind-pair"><div><b>${wfStormNum(wind.speedKmh,1)} km/u</b><span>Windsnelheid</span></div><div><b>${wfStormNum(wind.gustKmh,1)} km/u</b><span>Windstoten</span></div></div></article><article class="wf-storm-card wf-engine"><h3>⚙️ <span>STORM ENGINE</span></h3><div class="wf-engine-checks"><span>${ok(diag.current)?'✓':'!'} Current data <b>${esc(diag.current||'—')}</b></span><span>${ok(diag.lightning)?'✓':'!'} Lightning data <b>${esc(diag.lightning||'—')}</b></span><span>${ok(diag.smartRadar)?'✓':'!'} Smart Radar <b>${esc(diag.smartRadar||'—')}</b></span></div><small>${esc(d.engine||'Wheaterflow Storm Engine')} · versie ${esc(d.version||'—')}</small></article></div>`;
+  }catch(e){ el.className='wf-storm-error'; el.innerHTML='<b>Stormanalyse tijdelijk niet beschikbaar</b><div class="subtle" style="margin-top:.4rem">De Storm Engine kon niet worden geladen.</div>'; }
 }
 
 function wireMoreWeatherSections(){
   const content = $('#moreWeatherContent');
   const tabs = $$('#moreWeatherTabs [data-more-tab]');
   if(!content || !tabs.length) return;
-  const load = (tab='charts') => {
+  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','storm','webcam','travel']);
+  const load = (tab = state.moreWeatherTab || 'charts') => {
+    if(!validTabs.has(tab)) tab = 'charts';
+    state.moreWeatherTab = tab;
     content.innerHTML = renderMoreWeatherSections(tab);
     tabs.forEach(btn=>btn.classList.toggle('active', btn.dataset.moreTab === tab));
     wireDailyDetails();
     renderPremiumCharts();
     positionSunPaths();
     wireTravelWeather();
+    if(tab === 'storm') loadStormWeather();
+    if(tab === 'webcam') wireWebcamSection();
   };
   tabs.forEach(btn=>{
     btn.addEventListener('click', ()=>load(btn.dataset.moreTab));
   });
-  load('charts');
+  load(state.moreWeatherTab || 'charts');
 }
 
 function wireSectionNav(){
-  $$('.section-nav a').forEach(a=>a.addEventListener('click', e=>{
-    e.preventDefault();
-    document.querySelector(a.getAttribute('href'))?.scrollIntoView({behavior:'smooth', block:'start'});
-  }));
 }
 
 function smartBriefingCard(){
@@ -4243,7 +4587,7 @@ function mapLayerSection(){
     ['snow','Sneeuw'],
     ['satellite','Satelliet']
   ];
-  return `<div class="card"><div class="card-title">${icon('gauge',true,13)} Interactieve weerkaart</div>
+  return `<div class="card"><div class="card-title">${wfExtraCardIcon('map','Interactieve weerkaart')} Interactieve weerkaart</div>
     <div class="map-tabs">${layers.map(([id,l],i)=>`<button class="${i===0?'active':''}" data-home-layer="${id}" type="button">${l}</button>`).join('')}</div>
     <div class="map-preview">
       <div id="homeWeatherMap" class="home-weather-map" aria-label="Interactieve weerkaart"></div>
@@ -4495,7 +4839,7 @@ function chartsSection(){
     const min = Math.min(...clean), max = Math.max(...clean);
     return `<span>${label}<b>${Math.round(min)}-${Math.round(max)}${unit}</b></span>`;
   };
-  return `<div class="more-weather-section-title">${icon('gauge',true,13)} Grafieken komende 24 uur</div>
+  return `<div class="more-weather-section-title">${upcoming24Icon(30,'card-title-icon')} Grafieken komende 24 uur</div>
     <div class="premium-chart-summary">
       ${stat('Temperatuur', points.map(i=>state.hourly.temperature_2m[i]), '°')}
       ${stat('Neerslagkans', points.map(i=>state.hourly.precipitation_probability[i]), '%')}
@@ -4902,7 +5246,8 @@ function photoWeatherCard(photo){
 
 function airQualitySection(){
   const a = state.air;
-  if(!a) return `<div class="card"><div class="card-title">${icon('cloud',true,13)} Luchtkwaliteit</div>${wheaterflowStatus('empty','Momenteel geen gegevens beschikbaar')}</div>`;
+  if(!a) return `<div class="card"><div class="card-title">${wfExtraCardIcon('air','Luchtkwaliteit')} Luchtkwaliteit</div>${wheaterflowStatus('empty','Momenteel geen gegevens beschikbaar')}</div>`;
+
   const rows = [
     ['AQI', 'Europese luchtkwaliteitsindex', a?.european_aqi, '', 100],
     ['PM2.5', 'Fijnstof', a?.pm2_5, 'µg/m³', 50],
@@ -4911,28 +5256,119 @@ function airQualitySection(){
     ['O₃', 'Ozon', a?.ozone, 'µg/m³', 180],
     ['CO', 'Koolstofmonoxide', a?.carbon_monoxide, 'µg/m³', 1000]
   ];
-  const pollen = Math.max(a?.alder_pollen??0,a?.birch_pollen??0,a?.grass_pollen??0,a?.mugwort_pollen??0,a?.olive_pollen??0,a?.ragweed_pollen??0);
+
+  const pollenInfo = pollenSummary(a);
   const aqi = a?.european_aqi;
   const aqStatus = airQualityStatus(aqi);
   const aqTitle = aqi == null ? 'Luchtkwaliteit' : `AQI ${Math.round(aqi)} · ${aqStatus.label}`;
-  return `<div class="card"><div class="card-title">${icon('cloud',true,13)} ${aqTitle}</div>
+
+  return `<div class="card air-quality-card">
+    <div class="card-title">${icon('cloud',true,13)} ${aqTitle}</div>
     <div class="aq-hero">
       <div class="aq-ring" style="--aq:${Math.min(100, aqi ?? 0)}"><b>${aqi == null ? '-' : Math.round(aqi)}</b><span>AQI</span></div>
-      <div><strong>${aqStatus.label}</strong><p>${a ? airSummary(a.european_aqi, pollen) : 'Luchtkwaliteitsdata is momenteel niet beschikbaar.'}</p></div>
+      <div><strong>${aqStatus.label}</strong><p>${airSummary(a?.european_aqi, pollenInfo.max)}</p></div>
     </div>
-    <div class="aq-grid">${rows.map(([n,label,v,unit,max])=>aqRow(n,label,v,unit,max)).join('')}${aqRow('Pollen', 'Indicatie', pollen || null, '', 100)}</div>
+    <div class="aq-grid">
+      ${rows.map(([n,label,v,unit,max])=>aqRow(n,label,v,unit,max)).join('')}
+      ${airQualityExtraRow(a)}
+      ${pollenCard(a)}
+    </div>
   </div>`;
 }
 
 function aqRow(name, label, value, unit, max){
   if(value==null) return `<div class="aq-row unavailable"><span><b>${name}</b><small>${label}</small></span><strong>Nog geen data</strong></div>`;
-  const pct = Math.min(100, (value/max)*100);
-  const status = name === 'Pollen' ? pollenStatus(value) : pollutantStatus(name, value);
-  const display = name === 'Pollen' ? status.value : `${Math.round(value)}${unit ? ' ' + unit : ''}`;
+  const numeric = Number(value);
+  if(!Number.isFinite(numeric)) return `<div class="aq-row unavailable"><span><b>${name}</b><small>${label}</small></span><strong>Nog geen data</strong></div>`;
+  const pct = Math.min(100, Math.max(0, (numeric/max)*100));
+  const status = pollutantStatus(name, numeric);
+  const decimals = ['PM2.5','PM10','NO₂','O₃'].includes(name) && Math.abs(numeric % 1) > 0.01 ? 1 : 0;
+  const display = `${numeric.toFixed(decimals).replace('.', ',')}${unit ? ' ' + unit : ''}`;
   return `<div class="aq-row ${status.cls}">
     <span><b>${name}</b><small>${label}</small></span>
     <strong>${display}<em>${status.label}</em></strong>
     <i><em style="width:${pct}%"></em></i>
+  </div>`;
+}
+
+function airQualityExtraRow(a){
+  const extras = [
+    ['SO₂','Zwaveldioxide',a?.sulphur_dioxide,'µg/m³',200],
+    ['Dust','Stof',a?.dust,'µg/m³',100]
+  ];
+
+  return `<div class="aq-row aq-secondary">
+    <span class="aq-secondary-title"><b>Extra luchtdata</b><small>SO₂ en stof</small></span>
+    <div class="aq-secondary-values">
+      ${extras.map(([name,label,value,unit,max])=>{
+        const n = value == null ? NaN : Number(value);
+        if(!Number.isFinite(n)){
+          return `<div class="aq-mini unavailable"><span>${name}</span><b>—</b><small>Nog geen data</small></div>`;
+        }
+        const status = pollutantStatus(name,n);
+        const pct = Math.min(100,Math.max(0,(n/max)*100));
+        return `<div class="aq-mini ${status.cls}" title="${esc(label)}">
+          <span>${name}</span>
+          <b>${n.toFixed(Math.abs(n % 1) > 0.01 ? 1 : 0).replace('.', ',')} ${unit}</b>
+          <small>${status.label}</small>
+          <i><em style="width:${pct}%"></em></i>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+const POLLEN_TYPES = Object.freeze([
+  {key:'alder_pollen', label:'Els', summary:'Elspollen'},
+  {key:'birch_pollen', label:'Berk', summary:'Berkenpollen'},
+  {key:'grass_pollen', label:'Gras', summary:'Graspollen'},
+  {key:'mugwort_pollen', label:'Bijvoet', summary:'Bijvoetpollen'},
+  {key:'olive_pollen', label:'Olijf', summary:'Olijfpollen'},
+  {key:'ragweed_pollen', label:'Ambrosia', summary:'Ambrosiapollen'}
+]);
+
+function pollenSummary(a){
+  const items = POLLEN_TYPES.map(type=>{
+    const sourceValue = a?.[type.key];
+    const raw = sourceValue == null ? NaN : Number(sourceValue);
+    return {...type, value:Number.isFinite(raw) ? Math.max(0,raw) : null};
+  }).sort((x,y)=>(y.value ?? -1)-(x.value ?? -1));
+
+  const available = items.some(item=>item.value != null);
+  const max = available ? (items[0]?.value ?? 0) : null;
+  const primary = items[0] || POLLEN_TYPES[0];
+  let text = available ? 'Geen verhoogde pollen' : 'Pollen niet beschikbaar';
+  let cls = available ? 'good' : 'unknown';
+
+  if(max != null && max >= 50){
+    text = `${primary.summary} hoog`;
+    cls = 'bad';
+  }else if(max != null && max >= 10){
+    text = `${primary.summary} verhoogd`;
+    cls = 'moderate';
+  }
+
+  return {items,max,text,cls,available};
+}
+
+function pollenCard(a){
+  const info = pollenSummary(a);
+  return `<div class="aq-row pollen-card ${info.cls}">
+    <div class="pollen-card-head">
+      <span><b>Pollen</b><small>${info.text}</small></span>
+      <strong>${info.available ? pollenStatus(info.max).label : 'Onbekend'}</strong>
+    </div>
+    <div class="pollen-list">
+      ${info.items.map(item=>{
+        const status = item.value == null ? {cls:'unknown'} : pollenStatus(item.value);
+        const pct = item.value == null ? 0 : Math.min(100, Math.max(0, item.value));
+        return `<div class="pollen-item ${status.cls}">
+          <span>${item.label}</span>
+          <b>${item.value == null ? '—' : item.value.toFixed(item.value % 1 ? 1 : 0).replace('.', ',')}</b>
+          <i><em style="width:${pct}%"></em></i>
+        </div>`;
+      }).join('')}
+    </div>
   </div>`;
 }
 
@@ -4953,7 +5389,9 @@ function pollutantStatus(name, value){
     'PM10':[15,45,80,120],
     'NO₂':[10,25,50,100],
     'O₃':[60,100,140,180],
-    'CO':[200,500,1000,2000]
+    'CO':[200,500,1000,2000],
+    'SO₂':[20,40,100,200],
+    'Dust':[10,25,50,100]
   }[name] || [20,40,60,80];
   if(value <= limits[0]) return {label:'Goed', cls:'good'};
   if(value <= limits[1]) return {label:'Prima', cls:'good'};
@@ -4964,14 +5402,14 @@ function pollutantStatus(name, value){
 
 function pollenStatus(value){
   if(value < 10) return {label:'Laag', value:'laag', cls:'good'};
-  if(value < 50) return {label:'Matig', value:'matig', cls:'moderate'};
+  if(value < 50) return {label:'Verhoogd', value:'verhoogd', cls:'moderate'};
   return {label:'Hoog', value:'hoog', cls:'bad'};
 }
 
 function airSummary(aqi, pollen){
   if(aqi == null) return 'Algemene luchtkwaliteitsindex niet beschikbaar.';
   const status = airQualityStatus(aqi).label.toLowerCase();
-  return `De luchtkwaliteit is ${status}.${pollen>50?' De pollenconcentratie is verhoogd.':' Buitenactiviteiten zijn normaal mogelijk.'}`;
+  return `De luchtkwaliteit is ${status}.${pollen>=10?' Er zijn verhoogde pollenwaarden.':' Buitenactiviteiten zijn normaal mogelijk.'}`;
 }
 
 function seaModePracticalAdvice(sea){
@@ -4988,20 +5426,27 @@ function seaModePracticalAdvice(sea){
 function coastSection(){
   const sea=seaEngine();
   if(!sea.available) return `<div class="card sea-mode-card"><div class="card-title">${icon('drop',true,13)} Sea Mode</div>${wheaterflowStatus('empty',sea.reason||'Momenteel geen gegevens beschikbaar')}</div>`;
-  state.sharedWeather.marine={seaTemperature:sea.seaTemperature,waveHeight:sea.waveHeight,wavePeriod:sea.wavePeriod,wind:sea.wind,gust:sea.gust,visibility:sea.visibility,tide:sea.tide,uv:sea.uv,updated:state.lastUpdated};
+  state.sharedWeather.marine={seaTemperature:sea.seaTemperature,waveHeight:sea.waveHeight,waveDirection:sea.waveDirection,wavePeriod:sea.wavePeriod,swellWaveHeight:sea.swellWaveHeight,swellWaveDirection:sea.swellWaveDirection,swellWavePeriod:sea.swellWavePeriod,oceanCurrentVelocity:sea.oceanCurrentVelocity,oceanCurrentDirection:sea.oceanCurrentDirection,seaLevelHeightMsl:sea.seaLevelHeightMsl,wind:sea.wind,gust:sea.gust,visibility:sea.visibility,tide:sea.tide,uv:sea.uv,updated:state.lastUpdated};
   const tide=sea.tide;
-  const item=(label,value,ic='gauge')=> value==null||value==='-' ? '' : `<div class="sea-compact-item">${icon(ic,true,18)}<span>${esc(label)}</span><b>${esc(value)}</b></div>`;
+  const item=(label,value,ic='gauge',detail='')=> value==null||value==='-' ? '' : `<div class="sea-compact-item"><div class="sea-compact-icon">${icon(ic,true,18)}</div><div class="sea-compact-copy"><span class="sea-compact-label">${esc(label)}</span><b class="sea-compact-value">${esc(value)}</b>${detail?`<small class="sea-compact-detail">${esc(detail)}</small>`:''}</div></div>`;
   return `<div class="card sea-mode-card sea-mode-compact"><div class="card-title">${icon('drop',true,13)} Sea Mode</div><div class="sea-reference">Zeegegevens · ${esc(sea.place)}</div>
     <div class="sea-score-grid"><div><span>Strandscore</span><b>${sea.beachScore}</b><small>${esc(sea.beachLabel)}</small></div><div><span>Zwemcomfort</span><b>${sea.swimScore}</b><small>${esc(sea.swimComfort)}</small></div></div>
     <div class="sea-compact-grid">
-      ${item('Zeewater',validNumber(sea.seaTemperature)==null?null:`${sea.seaTemperature.toFixed(1)} °C`,'thermo')}
-      ${item('Golfhoogte',validNumber(sea.waveHeight)==null?null:`${sea.waveHeight.toFixed(1)} m`,'drop')}
-      ${item('Golfperiode',validNumber(sea.wavePeriod)==null?null:`${sea.wavePeriod.toFixed(1)} s`,'gauge')}
-      ${item('Wind',validNumber(sea.wind)==null?null:formatWindPair(sea.wind,sea.gust),'wind')}
+      ${item('Zeewater',validNumber(sea.seaTemperature)==null?null:`${formatMarineNumber(sea.seaTemperature,1)} °C`,'thermo')}
+      ${item('Golfhoogte',validNumber(sea.waveHeight)==null?null:`${formatMarineNumber(sea.waveHeight,2)} m`,'drop')}
+      ${item('Golfrichting',formatMarineDirection(sea.waveDirection),'gauge')}
+      ${item('Golfperiode',validNumber(sea.wavePeriod)==null?null:`${formatMarineNumber(sea.wavePeriod,1)} s`,'gauge')}
+      ${item('Deining',validNumber(sea.swellWaveHeight)==null?null:`${formatMarineNumber(sea.swellWaveHeight,2)} m`,'drop')}
+      ${item('Deiningrichting',formatMarineDirection(sea.swellWaveDirection),'gauge')}
+      ${item('Deiningperiode',validNumber(sea.swellWavePeriod)==null?null:`${formatMarineNumber(sea.swellWavePeriod,1)} s`,'gauge')}
+      ${item('Zeestroming',validNumber(sea.oceanCurrentVelocity)==null?null:`${formatMarineNumber(sea.oceanCurrentVelocity,1)} km/u`,'wind',formatMarineDirection(sea.oceanCurrentDirection)||'')}
+      ${item('Zeeniveau',validNumber(sea.seaLevelHeightMsl)==null?null:`${sea.seaLevelHeightMsl>0?'+':''}${formatMarineNumber(sea.seaLevelHeightMsl,2)} m`,'gauge')}
+      ${item('Wind',validNumber(sea.wind)==null?null:fmtWind(sea.wind),'wind',validNumber(sea.gust)==null?'':`Stoten ${fmtWind(sea.gust)}`)}
       ${item('Getij',tide?.state||null,'drop')}
-      ${item('Volgend hoogwater',tide?.nextTime ? new Date(tide.nextTime.getTime() + (tide.nextType==='hoogwater'?0:(6*3600+12.5*60)*1000)).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : null,'gauge')}
+      ${item('Volgend hoogwater',formatTideTime(tide?.nextHighTime) || (tide?.nextTime && tide?.nextType==='hoogwater' ? formatTideTime(tide.nextTime) : null),'gauge')}
+      ${item('Volgend laagwater',formatTideTime(tide?.nextLowTime) || (tide?.nextTime && tide?.nextType==='laagwater' ? formatTideTime(tide.nextTime) : null),'gauge')}
       ${item('UV-index',validNumber(sea.uv)==null?null:String(Math.round(sea.uv)),'uv')}
-      ${item('Zicht',validNumber(sea.visibility)==null?null:`${(sea.visibility/1000).toFixed(1)} km`,'eye')}
+      ${item('Zicht',validNumber(sea.visibility)==null?null:`${formatMarineNumber(sea.visibility/1000,1)} km`,'eye')}
     </div>
     <div class="sea-advice-compact"><b>Advies</b><span>${esc(seaModePracticalAdvice(sea))}</span></div>
     ${seaSparkCoastPanel()}
@@ -5012,7 +5457,7 @@ function seaSparkDetailCard(){
   if(!state.seaspark) return '';
   const s = state.seaspark;
   return `<div class="detail-card wide seaspark-card">
-    <div class="dt-title">${icon('drop',true,12)} Zeevonk</div>
+    <div class="dt-title">${wfExtraCardIcon('seaspark','Zeevonk')} Zeevonk</div>
     <div class="seaspark-main">
       <div class="seaspark-ring" style="--score:${s.score}"><b>${Math.round(s.score)}/100</b></div>
       <div>
@@ -5034,7 +5479,7 @@ function seaSparkCoastPanel(){
   const best=s.bestTime ? new Date(s.bestTime) : null;
   const bestWindow=best&&Number.isFinite(best.getTime()) ? `${new Date(best.getTime()-30*60000).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}–${new Date(best.getTime()+60*60000).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}` : 'Na volledige duisternis';
   return `<div class="seaspark-panel seaspark-v2">
-    <div class="seaspark-head"><div><div class="card-title">${icon('drop',true,13)} Zeevonk</div><h3>${level} kans op zeevonk</h3></div><div class="seaspark-score-wrap"><div class="seaspark-ring" style="--score:${score}"><b>${score}/100</b></div><small>Indicatieve score</small></div></div>
+    <div class="seaspark-head"><div><div class="card-title">${wfExtraCardIcon('seaspark','Zeevonk')} Zeevonk</div><h3>${level} kans op zeevonk</h3></div><div class="seaspark-score-wrap"><div class="seaspark-ring" style="--score:${score}"><b>${score}/100</b></div><small>Indicatieve score</small></div></div>
     <div class="seaspark-shared-grid"><span><small>Beste tijdvenster</small><b>${esc(bestWindow)}</b></span><span><small>Locatie</small><b>${esc(sea.place)}</b></span>${cloud!=null?`<span><small>Bewolking</small><b>${Math.round(cloud)}%</b></span>`:''}<span><small>Laatste update</small><b>${new Date(state.lastUpdated||Date.now()).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}</b></span></div>
     <p>${esc(seaModePracticalAdvice(sea))}</p>
     <div class="sea-safety">Blijf uit gevaarlijke branding en ga niet alleen het water in in het donker.</div>
@@ -5079,7 +5524,7 @@ async function travelGeocode(q){
 }
 async function travelPointWeather(point, when){
   const date=new Date(when);
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lon}&hourly=temperature_2m,weather_code,precipitation_probability,wind_speed_10m,wind_gusts_10m&forecast_days=3&timezone=auto`;
+  const url=`${WHEATERFLOW_API_BASE}/forecast?latitude=${encodeURIComponent(point.lat)}&longitude=${encodeURIComponent(point.lon)}`;
   const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('Weerdata niet beschikbaar');
   const d=await r.json(); const i=closestIndex(d.hourly.time,date.getTime());
   return {point,time:d.hourly.time[i],temperature:d.hourly.temperature_2m?.[i],code:d.hourly.weather_code?.[i],pop:d.hourly.precipitation_probability?.[i],wind:d.hourly.wind_speed_10m?.[i],gust:d.hourly.wind_gusts_10m?.[i]};
@@ -5251,9 +5696,29 @@ function alertsCard(){
   </div>`;
 }
 
+
+/* Wheaterflow Liquid Glass card icons — shared mapping */
+const WF_CARD_ICON_FILES = Object.freeze({
+  wind:'data:image/png;base64,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',
+  pressure:'data:image/png;base64,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',
+  sun:'data:image/png;base64,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',
+  uv:'data:image/png;base64,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',
+  precipitation:'data:image/png;base64,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',
+  visibility:'data:image/png;base64,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',
+  humidity:'data:image/png;base64,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',
+  cloud:'data:image/png;base64,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'
+});
+function wfCardIcon(kind, alt=''){
+  const file = WF_CARD_ICON_FILES[kind];
+  if(!file) return '';
+  return `<img class="wf-card-heading-icon" src="${file}" alt="" aria-hidden="true">`;
+}
+
 function detailCard(ic, title, val, sub, extraClass=''){
   const className = `detail-card${extraClass ? ' ' + extraClass : ''}`;
-  return `<div class="${className}"><div class="dt-title">${icon(ic,true,12)} ${title}</div><div class="dt-val mono">${val}</div><div class="dt-sub">${sub}</div></div>`;
+  const kind = ({'Neerslag':'precipitation','Zicht':'visibility','Vochtigheid':'humidity','Bewolking':'cloud'})[title];
+  const titleIcon = kind ? wfCardIcon(kind, title) : icon(ic,true,12);
+  return `<div class="${className}"><div class="dt-title">${titleIcon} ${title}</div><div class="dt-val mono">${val}</div><div class="dt-sub">${sub}</div></div>`;
 }
 function uvLabel(uv){
   if(uv<3) return 'Laag'; if(uv<6) return 'Matig'; if(uv<8) return 'Hoog'; if(uv<11) return 'Zeer hoog'; return 'Extreem';
@@ -5269,18 +5734,39 @@ function uvAdvice(uv){
 
 /* ---------------- rich widgets: compass, gauge, uv bar, sun arc, moon ---------------- */
 function windCompassCard(speed, gust, dir){
-  const d = dir ?? 0;
-  return `<div class="detail-card wide">
-    <div class="dt-title">${icon('wind',true,12)} Wind</div>
-    <div class="compass-row">
-      <div>
+  const hasDir = dir !== null && dir !== undefined && dir !== '' && Number.isFinite(Number(dir));
+  const d = hasDir ? ((Number(dir) % 360) + 360) % 360 : 0;
+  const fromLabel = hasDir ? windDirectionLabel(d) : '—';
+  // Meteorologische windrichting = waar de wind VANDAAN komt.
+  // De grote pijl toont de luchtstroom: waar de wind NAARTOE waait.
+  const flowDeg = (d + 180) % 360;
+  const ticks = Array.from({length:72},(_,i)=>{
+    const a=i*5;
+    const major=i%9===0;
+    const medium=i%3===0;
+    return `<i class="wind-tick${major?' major':medium?' medium':''}" style="transform:translateX(-50%) rotate(${a}deg)"></i>`;
+  }).join('');
+  return `<div class="detail-card wide wf-wind-card">
+    <div class="dt-title">${wfCardIcon('wind','Wind')} Wind</div>
+    <div class="compass-row wf-wind-layout">
+      <div class="wf-wind-values">
         <div class="dt-val mono">${fmtWind(speed)}</div>
         <div class="dt-sub">Stoten ${fmtWind(gust)}</div>
       </div>
-      <div class="compass">
-        <div class="cdir n">N</div><div class="cdir o">O</div><div class="cdir z">Z</div><div class="cdir w">W</div>
-        <div class="needle" style="transform:translate(-50%,-100%) rotate(${d}deg);"></div>
-        <div class="chub"></div>
+      <div class="wf-wind-instrument">
+        <div class="compass wf-premium-compass${hasDir?'':' no-direction'}">
+          <div class="wind-ticks">${ticks}</div>
+          <div class="cdir n">N</div><div class="cdir no">NO</div>
+          <div class="cdir o">O</div><div class="cdir zo">ZO</div>
+          <div class="cdir z">Z</div><div class="cdir zw">ZW</div>
+          <div class="cdir w">W</div><div class="cdir nw">NW</div>
+          <div class="wind-inner-ring"></div>
+          ${hasDir?`<div class="wind-flow-arrow" style="transform:translate(-50%,-50%) rotate(${flowDeg}deg)">
+            <span class="wind-arrow-shaft"></span><span class="wind-arrow-head"></span>
+          </div>`:''}
+          <div class="chub"></div>
+        </div>
+        <div class="wind-direction-pill">${hasDir?`${fromLabel} · ${Math.round(d)}°`:'Richting —'}</div>
       </div>
     </div>
   </div>`;
@@ -5291,7 +5777,7 @@ function pressureGaugeCard(hpa){
   const frac = (clamped-min)/(max-min); // 0..1
   const angle = -90 + frac*180; // -90(laag) .. +90(hoog)
   return `<div class="detail-card wide">
-    <div class="dt-title">${icon('thermo',true,12)} Luchtdruk</div>
+    <div class="dt-title">${wfCardIcon('pressure','Luchtdruk')} Luchtdruk</div>
     <div class="gauge-row">
       <div class="semigauge">
         <svg viewBox="0 0 100 55">
@@ -5313,7 +5799,7 @@ function pressureGaugeCard(hpa){
 function uvBarCard(uv){
   const pct = Math.min(100, (uv/11)*100);
   return `<div class="detail-card">
-    <div class="dt-title">${icon('uv',true,12)} UV-index</div>
+    <div class="dt-title">${wfCardIcon('uv','UV-index')} UV-index</div>
     <div class="dt-val mono">${Math.round(uv)} <span style="font-size:14px;color:var(--dim);font-weight:600;">${uvLabel(uv)}</span></div>
     <div class="uvbar"><div class="uvdot" style="left:${pct}%;"></div></div>
     <div class="dt-sub">${uvAdvice(uv)}</div>
@@ -5340,7 +5826,7 @@ function sunArcCard(sunrise, sunset){
 
 function sunArcDetailCard(sunrise, sunset){
   return `<div class="detail-card wide">
-    <div class="dt-title">${icon('sunrise',true,12)} Zon op / onder</div>
+    <div class="dt-title">${wfCardIcon('sun','Zon op / onder')} Zon op / onder</div>
     ${sunArcCard(sunrise, sunset)}
     <div class="sunarc-labels"><span>${formatDayTime(sunrise)}</span><span>${formatDayTime(sunset)}</span></div>
   </div>`;
@@ -5417,10 +5903,25 @@ function positionSunPaths(){
     }catch(e){}
   });
 }
+
+(()=>{if(!document.getElementById('wf-extra-card-icon-style')){const e=document.createElement('style');e.id='wf-extra-card-icon-style';e.textContent='.wf-extra-card-icon{width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;max-width:30px!important;max-height:30px!important;object-fit:contain!important;display:inline-block!important;vertical-align:middle!important;margin:0 8px 0 0!important}.dt-title .wf-extra-card-icon,.card-title .wf-extra-card-icon{flex:0 0 30px!important}@media(max-width:520px){.wf-extra-card-icon{width:27px!important;height:27px!important;min-width:27px!important;min-height:27px!important;max-width:27px!important;max-height:27px!important}}';document.head.appendChild(e);}})();
+/* Wheaterflow extra Liquid Glass kaarticonen */
+const WF_EXTRA_CARD_ICONS = Object.freeze({
+  moon: 'data:image/png;base64,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',
+  seaspark: 'data:image/png;base64,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',
+  air: 'data:image/png;base64,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',
+  map: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGYktHRAAAAAAAAPlDu38AAAAHdElNRQfqCgIHNAlcCx+4AAAOBUlEQVR42u2ae5RV1X3HP799zrn3zp3nnRkGBgYCAyJilKYKqFDjwgcGpUaiK8vlg1STmIak0ZWsqDVpHssmqW1Tl7HEWFtddakxalITGxFF2+ATkCoKjDDA8H7Me+bee+6955z96x937gCCKANKszrftc6cmbPO3vv3++7v/v1+++yBYQxjGMMYxjCGMYxhDGMY/x8hJ2TQSaeBanF8EdXWtz+4UfPUA+1VNq87LraYE0FAkQU5IeQfYsbHOZh3/oLimApBPlIv7hC88OsTSoB7rB1I3ciiU0Wodu490tuDN3kf7VV/5W8O6q/33h9+pAQcswKOSMDzPqgKZV4FBkvBz2Jc5dzkkTv9Qx6sujimAsjimgKbOuCaUf/3CDgsfrMXd0wtYWTr6uPmuqlJWZCO8Dfk+H7ckVcK6Sz9sysPadbw2xb8xmYykZaNS5hbmhMyf1fAu605/eewr/AqZa7lnPhHYvKQYD4xGfOJyTJwFZ8tbadidYS3Iph08tvhf/ztrjBcmw7157tDbXwz+jduz4h5R6m48wkpu/2+gwlYup3U6hCzMpxx3eawuzUT6tNdoV6yIdxZ8Ua4kOV5J/Z64bj6cMwx4L1I1taQLkSjp5abe25rlLlzkqotWfQdH/FDdl/5pbg+viln0ud9dnzMMKPic9ePDi2FfETLPsvKKui10N8RSm+rrzUne2rvGCWj7zDy09/jZEcmnce3v5wnmnV8lHBcl0DytTzZbOQ2pmJ33tYoNy+oVH05DY/2wutZyfZHfDNteSzl6PWnJblxRrk0j/PU9S2845N+LSuvbc1zhxHdWW7kgUlxZv9Fteqny5V9KvLt3bL29T69POmwMbjzG4K1ABo8+fMh2+wcL+enPfgy6dFjKbhm5ryU/HhRHeVvZZT7uoRA4KYGvD4r0/PKuTeOkBt+0CgjL6tSmZaAPy2DCyuJnV7GxD2hzMlYmXvLSJ3R4CJP9ok2x5RJHig0rMrRd8cnnReWXjwPefr3ggh23coh233clkDrlDO4dZLDPZuiBZdWMSIdqC5Li3aqcNdIJRdBaHXkohFy0TdGqPYF2Df7lN4QPKDKhdPi8MNRjPvOHhlXLei8GtX2EHk8LZwUs3pmApkYl0tveiO623PZFzyxWI/V7uNGgHUdvvt2WDk9Zc6aElO25dCVPnJJtWqZwl0dUO0JX6pT3Z2Dt31lpS/sDJBKgZllSmBV6+PoldXI/V2iTY5ySYVyR7thZ2QYbVQnekxY7TDJMbKv8netdH/90pIJAiiAtrV89ATEzrusNCiAGhFwSY3yGFMu0BUJfVY4PaGyOQ9r8nDrKFUbIeuzqksyQkMMFtYIbXllWb9Q6SBuQfUUD40QWZMXzkooCVF2RzDOgRqHchHGOgKZJY+JN+9aCotvVxk/5cQqoNSfEZzAKhaREHjXRwoWIkTHx5SugurWQMQ18K0GEFUdKyr9gfBWQRhXrkSRUmOUFb5ImYG+CByBCAiLrBso7acg9tU7KCz+zpCWw5AJKPzXUzAgOQATKYS0t/rSsiwj47pCpCfUl+/rpAso95UKP2JGZLB5hTEx6Ckou3LQr5A0sDMSPCNkAkwhon1JhiWvp6W2N9Jonc+lYSRmrc8uG7E2RJHuDi3yoWI+OVO1r0vUWsR1VQt52NX2MSngoQy56S68GOZbfH3k7/bJmQnRVGDZsjdksaZ5s7yaG9bmmH5SBTLeU571hXeygh8pVUnRjTmkOa5YYHco7AxY35/hr/ozZNxaaXiwk8gV5qcjXe96jMqHbOO2f+yhTDT+3ZuFKEIHNhlayAvIh1LEMaVB96UscuGXxUyumVKzT6+fXC3fPq9KPn9Fivob6jFzKjldjMzd44j2BaxwHJkzK6mpOgeyCM9nhHaL/I+PeAJXVMPuArI0IyzPyOIx1fpCr5GmCo8rpyaZc3mKhmtqaT4pwed84dzevKbDftsqZ18UmbUrxGkYg21rAS+uiIG+rg/0YciFUNOTG8lMaCYf2dnTK+VfrqqVKTOSymgXrEXbC2g2UvEckSUZCR/u4oWdAdW3NujMy8pVXYPuVZG2QKh3Vf8kgezMqa7yxfxTO2s3ZGVRKsHMaWUsvKxap8yrwqQMmguh3IOtAXL3PtK/7uaWr57qLP6HVpC/vl4ADX73wIf244MJSFaW3itKKttffLw8TXZLzhk/reb+u8fyhT9Lolt91V2ByI4A2RpAQmB6QrUpLrSGyANdEu4J1HyvQaXJhRpPtNaDgsKmrLI1EB7qwaz22XVKgsxlKSZeXIlJgm7NFQNqXwSzK9GTk+g6H/OV7axZ1aMXeR57g7O8o1fxUby7nwQg8jxo8mIph7HjPWjzlf/OiDzfT3ZLQOueQFYkHcZtq+CCCy3OaFft3zfiPN4Lv+wT/rJG6fctO3JCOoIMwuo8FBS7uInGyQmkQtA2H12bQ1Zk0TdybOqKpL1H9IwxcXUdC/UOjcAIUfYehS9HQUBxxg8JKGIEHDCCeAZGxmFTN/bpPn5Ejl/Qrl2dY6h9PJKbtod8bWEN1ad66KwELE9jnsuKzo5BRwA4SNqB5/qRi5OQEqyr6LI+lefSYldladmS55FcyC8RKt4sl2cRRimKKAZwGGJNOPQsoIAFLVVfxV8sIi3JcjrjYad0U9vZ06ffX2KlbUJCfjYr1MSaHGzJs2NzQcrGjKCu3lUrMeGhDuw6X1Yb1VEzK2mqtsoTfZL9z15+EhV4kF12Z6LZaC7UkxSJjICRgTWsQ49lQ/4oqqqDXisQDfyJKoqCKHXZDklWSYRlZdqSKSjSVkA2FeTuzTkW3d8le9usmN/0wIt98lgmr/PX5eVf90RI3iJdIR1RgYcdlx21Y4PSHOt7FCmA0Y9bAVKiX4qORwdadRhjBl7FKc5cOpXksdUZ7d9SkIXpiJZ0oPeMSEp7YDVbmhljACMqArY0yXrwTQRBkKF+ZB46AYM/BqbkPU6bwsCXG6tgAS3F0GLLbB7yW8Jn9lQ7Syn6Z70yISjFWtnvp6JU9ezFrxsLilrV0nCDX1mHui0cMgH6HiHa/dZiARwXovBwtA2u2bqmSDtnJUKAptfSWCkb7HSgf8EqGMjGkiIiiqiCoKpFOosKMEONAsd8MCIMTHLJ4AESxBjEiyFF7avKASJRFVWw6R5JPbe7+Mja0uqWgdDC4CzrAdpBEDkg3Awo5hANlJUXr3iZEEuAlzis/UNXwAF3HSChtNDFQMf5IxUgsTIqBsqDnUIE1EYqxtDw7A5yXZ0ST5YfGkakmOjcRNkgHaWgGxVJECyih1XAQYo77Co5tjQ44JgdMKaEs89wePHVaDQOE9UwJunptIRIUorJQ0AEhZ7PjAOg4dmdGNfbHymFA9gq2r1XkloTAz/SUTGRBEDB7leJAu7cqwUbgRgNlz8FsST4/Ud0Y+hB8ABjIyCwxceeI5dvf8f++cV1zDwlwZgJMZIpB2dqXNUqxAwY0eZ+nxRPBD3UiO67wGX0Cl/39zwofkFEiomO2iDkqvNqZNG1tVofWtV+C1ZQDFYcwRoHggKIBT9TvDhyfBy6AkpyF7RgIS5wZS3m1Aq9ZlqZMDGmxEDTIfSHaDpAOwX5fC2qhhv/kGbWhnJ5viuQJfbl8K1dN3f3NS6uHVzMJYEBccdh3qllfOuKGmZflVIvqejGnGifwewL6CKi3YqCjQbqE3s4aw9LxjFnAavFimxsXPRkB86IoCNQNqfRrlBJW5Fui2QsMqsCHeXCzfUkFtYyfbXP9OUZFq3KsKb1Z6klu/M8U+FQMRAtNVSqRib56YIU53yhjupJnuo2H7u2gHQLZmkv4bq0PsKe3LZoZALHcZEYyqE1wfuqYOgKsBZyGmSs6ekKYYdCZ6B0h2i/RXwRs8cK63yCtT6b+0K6V/mcfm45yfGuar2LnRlDzktS2VHH7JVZZi/P6E3bA6IJcdQDvbqOmqaYfmZWOdqZx77Wi+wIMatz6CtpWt/N8otCgfsYnbByy2clyvRDPgtHURQNuYYuW95PVWWSdKgLF9Rw74VJEjkLHRbezWPX59i5Oc9LnQWe1oDloP2xuFzYGOOGqWWcPS1B1UmeMtJB6zy03kPirkgAeIrtDJXxCZHuAFp9pa0gsjoHr6TZsiHLw7mC/jt78puocq3cegFaSrQagbXK+g93VnBMJ0OxVwsUrJZVeubGCXG5JiZU7A7YsCfPkihgGVm7mYQE3NUDV8VhYjmkowqJy/RqT+Y3xTh/cpzJU+IkJrhQ76rGi0GNSk+wocrGPLI6J7yaZltLlkf9Ag/SGW6gMmadu74ocv7VGn7zfKg9+JSarg+3Oz72o7FncqAYXKnBSJxAu6kzOVYU4Gvl79MmD1lrqHdGGE9mpmIyd4zHuc0xJjXHSIxLQNzA2xl4Nc32d31+lc3pA3SE60ka6z72A4o1oBC+vqQYkPy0ku45bgS8b9Q8oiKaJoK1gusBaPSpOQf1FT11LwDxkz+F090uEoWaeXQrBGpImgaJyZmVjny6xuUUq9AZssrP6xP02vUkJGJuDJl5cWnzIeXXfU/T93y9KH1jlJZVRz1/x/VwNHbtrWBMqejVqLe7NIYCRE/dizP3atRG4oxoQhwX96GfKPNvELN9I+kv/1axRmiMe6hCRxTgGPXafiVketFCjnDlMkRtMdXZCKJIdc3yIdv8sf+jknPR1YAKsQROqgEKvprxU0WMA4L6P/ri4RueM5/BHYWNEL9/MN3pmpf+eAgYMs6aV7yrFaxVVGHVcyfaqmEMYxjDGMYwhjGMYQxjGH+k+F/7sODJlBCzqQAAAABJRU5ErkJggg=='
+});
+function wfExtraCardIcon(kind, alt=''){
+  const src = WF_EXTRA_CARD_ICONS[kind];
+  if(!src) return '';
+  return `<img class="wf-extra-card-icon" src="${src}" alt="" aria-hidden="true">`;
+}
+
 function moonCard(moon){
   const illumPct = Math.round(moon.illumination*100);
   return `<div class="detail-card wide">
-    <div class="dt-title">${icon('cloud',true,12)} Asgrauwe maan</div>
+    <div class="dt-title">${wfExtraCardIcon('moon','Asgrauwe maan')} Asgrauwe maan</div>
     <div class="moon-row">
       <img class="moonvisual moon-photo" src="${moonImageForPhase(moon)}" alt="${esc(moon.name)}">
       <div style="flex:1;">
@@ -6524,33 +7025,161 @@ const COMMUNITY_CATEGORIES = [
   {id:'other', label:'Overig', color:'#8fe7ff'}
 ];
 const COMMUNITY_OBSERVATION_TYPES = [
+  {id:'clear', label:'Helder / zonnig', short:'Helder', category:'other', icon:'☀', ttlMinutes:120},
+  {id:'mostly_clear', label:'Licht bewolkt', short:'Licht bewolkt', category:'clouds', icon:'◔', ttlMinutes:120},
+  {id:'partly_cloudy', label:'Half bewolkt', short:'Half bewolkt', category:'clouds', icon:'◑', ttlMinutes:120},
+  {id:'cloudy', label:'Bewolkt', short:'Bewolkt', category:'clouds', icon:'☁', ttlMinutes:120},
+  {id:'overcast', label:'Zwaar bewolkt', short:'Zwaar bewolkt', category:'clouds', icon:'☁', ttlMinutes:120},
+  {id:'clearing', label:'Opklaring', short:'Opklaring', category:'clouds', icon:'☀', ttlMinutes:90},
+  {id:'fog', label:'Mist', short:'Mist', category:'fog', icon:'≋', ttlMinutes:180},
+  {id:'haze', label:'Nevel', short:'Nevel', category:'fog', icon:'≋', ttlMinutes:180},
+  {id:'drizzle', label:'Motregen', short:'Motregen', category:'rain', icon:'⋰', ttlMinutes:60},
+  {id:'light_rain', label:'Lichte regen', short:'Lichte regen', category:'rain', icon:'☂', ttlMinutes:60},
   {id:'rain', label:'Regen', short:'Regen', category:'rain', icon:'☔', ttlMinutes:60},
   {id:'heavy_rain', label:'Zware regen', short:'Zware regen', category:'rain', icon:'🌧', ttlMinutes:60},
-  {id:'hail', label:'Hagel', short:'Hagel', category:'hail', icon:'◌', ttlMinutes:45},
-  {id:'seaspark', label:'Zeevonk', short:'Zeevonk', category:'seaspark', icon:'✦', ttlMinutes:240},
+  {id:'light_shower', label:'Lichte buien', short:'Lichte buien', category:'shower', icon:'☂', ttlMinutes:60},
+  {id:'shower', label:'Buien', short:'Buien', category:'shower', icon:'☔', ttlMinutes:60},
+  {id:'heavy_shower', label:'Zware buien', short:'Zware buien', category:'shower', icon:'🌧', ttlMinutes:60},
+  {id:'sleet', label:'Natte sneeuw', short:'Natte sneeuw', category:'snow', icon:'❄', ttlMinutes:120},
+  {id:'light_snow', label:'Lichte sneeuw', short:'Lichte sneeuw', category:'snow', icon:'❄', ttlMinutes:120},
   {id:'snow', label:'Sneeuw', short:'Sneeuw', category:'snow', icon:'❄', ttlMinutes:120},
-  {id:'fog', label:'Mist', short:'Mist', category:'fog', icon:'≋', ttlMinutes:180},
+  {id:'heavy_snow', label:'Zware sneeuw', short:'Zware sneeuw', category:'snow', icon:'❄', ttlMinutes:120},
+  {id:'hail', label:'Hagel', short:'Hagel', category:'hail', icon:'◌', ttlMinutes:45},
+  {id:'freezing_rain', label:'IJzel / ijsregen', short:'IJzel', category:'other', icon:'◇', ttlMinutes:90},
+  {id:'ice', label:'Gladheid', short:'Gladheid', category:'other', icon:'◇', ttlMinutes:360},
   {id:'thunder', label:'Onweer', short:'Onweer', category:'thunder', icon:'⚡', ttlMinutes:45},
   {id:'lightning', label:'Bliksem gezien', short:'Bliksem', category:'thunder', icon:'↯', ttlMinutes:30},
   {id:'strong_wind', label:'Harde wind', short:'Harde wind', category:'storm', icon:'〰', ttlMinutes:90},
+  {id:'storm', label:'Storm', short:'Storm', category:'storm', icon:'⚑', ttlMinutes:90},
+  {id:'calm', label:'Windstil', short:'Windstil', category:'other', icon:'○', ttlMinutes:120},
+  {id:'rainbow', label:'Regenboog', short:'Regenboog', category:'rainbow', icon:'⌒', ttlMinutes:60},
   {id:'flooding', label:'Wateroverlast', short:'Wateroverlast', category:'rain', icon:'≋', ttlMinutes:240},
-  {id:'ice', label:'Gladheid', short:'Gladheid', category:'other', icon:'◇', ttlMinutes:360},
-  {id:'clearing', label:'Zon of opklaring', short:'Opklaring', category:'sunset', icon:'☀', ttlMinutes:90}
+  {id:'seaspark', label:'Zeevonk', short:'Zeevonk', category:'seaspark', icon:'✦', ttlMinutes:240}
 ];
 const communityCategory = id => COMMUNITY_CATEGORIES.find(c=>c.id===id) || COMMUNITY_CATEGORIES[COMMUNITY_CATEGORIES.length - 1];
 const communityObservationType = id => COMMUNITY_OBSERVATION_TYPES.find(t=>t.id===id) || null;
+
+
+/* ---------------- Community photo reliability ----------------
+   Feed photos can live on dynamic storage/CDN URLs. A temporary network error
+   must never leave Safari's broken-image glyph sitting inside the post.
+   Retry once, refresh Community metadata once (useful for renewed signed URLs),
+   then show a clean Wheaterflow fallback instead of a broken <img>.
+---------------------------------------------------------------- */
+const communityPhotoRecoveryCounts = new Map();
+let communityPhotoFeedRefreshAt = 0;
+
+function communityPhotoRecoveryKey(img){
+  return String(img?.dataset?.postId || img?.dataset?.communitySrc || img?.currentSrc || img?.src || 'community-photo');
+}
+
+function communityPhotoFallbackIcon(){
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v11a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5v-11z"/><path d="M7 16l3.1-3.4 2.4 2.3 1.9-2 2.6 3.1"/><circle cx="9" cy="9" r="1.4"/></svg>`;
+}
+
+function communityPhotoFallbackHtml(){
+  return `<div class="community-photo-fallback" aria-hidden="true">${communityPhotoFallbackIcon()}<strong>Foto laden…</strong><span>Wheaterflow probeert de foto te laden</span></div>`;
+}
+
+function communityPhotoMediaHtml(post, cat, caption){
+  const src = String(post?.photo_url || '').trim();
+  if(!src) return '';
+  return `<div class="community-photo-media is-loading" data-community-media>
+    ${communityPhotoFallbackHtml()}
+    <img class="community-photo" data-community-photo data-post-id="${esc(post.id || '')}" data-community-src="${esc(src)}" src="${esc(src)}" alt="" loading="lazy" decoding="async" fetchpriority="low" referrerpolicy="strict-origin-when-cross-origin">
+    <div class="community-category">${communityWeatherIcon(cat.id,18)}${esc(cat.label)}</div>
+  </div>`;
+}
+
+function setCommunityPhotoFallback(media, {failed=false}={}){
+  if(!media) return;
+  media.classList.toggle('is-failed', failed);
+  media.classList.toggle('is-recovering', !failed);
+  const strong = media.querySelector('.community-photo-fallback strong');
+  const note = media.querySelector('.community-photo-fallback span');
+  if(strong) strong.textContent = failed ? 'Foto tijdelijk niet beschikbaar' : 'Foto opnieuw laden…';
+  if(note) note.textContent = failed ? 'Probeer het later opnieuw' : 'Wheaterflow probeert automatisch opnieuw';
+}
+
+function retryCommunityPhotoExact(img){
+  const src = String(img?.dataset?.communitySrc || '').trim();
+  if(!img || !src) return;
+  img.removeAttribute('src');
+  // Force a fresh image element request without changing signed/query URLs.
+  requestAnimationFrame(()=>setTimeout(()=>{
+    if(!img.isConnected) return;
+    img.src = src;
+  }, 650));
+}
+
+function handleCommunityPhotoLoad(img){
+  const key = communityPhotoRecoveryKey(img);
+  communityPhotoRecoveryCounts.delete(key);
+  const media = img.closest('[data-community-media]');
+  media?.classList.remove('is-loading','is-recovering','is-failed');
+  media?.classList.add('is-loaded');
+}
+
+function handleCommunityPhotoError(img){
+  const src = String(img?.dataset?.communitySrc || '').trim();
+  const media = img.closest('[data-community-media]');
+  if(!src || src.startsWith('blob:')){
+    setCommunityPhotoFallback(media,{failed:true});
+    return;
+  }
+
+  const key = communityPhotoRecoveryKey(img);
+  const attempts = (communityPhotoRecoveryCounts.get(key) || 0) + 1;
+  communityPhotoRecoveryCounts.set(key, attempts);
+  media?.classList.remove('is-loaded');
+  setCommunityPhotoFallback(media,{failed:false});
+
+  if(attempts === 1){
+    retryCommunityPhotoExact(img);
+    return;
+  }
+
+  // On the second failure, refetch the Community feed once. If the backend
+  // returned an expiring/signed media URL this gives us a fresh URL.
+  if(attempts === 2 && Date.now() - communityPhotoFeedRefreshAt > 10000){
+    communityPhotoFeedRefreshAt = Date.now();
+    setTimeout(()=>{
+      if(state.community.loading) return;
+      loadCommunityPosts(true).catch(()=>undefined);
+    }, 450);
+    return;
+  }
+
+  setCommunityPhotoFallback(media,{failed:true});
+}
+
+function initCommunityPhotoRecovery(){
+  if(document.documentElement.dataset.communityPhotoRecoveryWired === '1') return;
+  document.documentElement.dataset.communityPhotoRecoveryWired = '1';
+  document.addEventListener('load', event=>{
+    const img = event.target;
+    if(img instanceof HTMLImageElement && img.matches('[data-community-photo]')) handleCommunityPhotoLoad(img);
+  }, true);
+  document.addEventListener('error', event=>{
+    const img = event.target;
+    if(img instanceof HTMLImageElement && img.matches('[data-community-photo]')) handleCommunityPhotoError(img);
+  }, true);
+}
 const safeRandomId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
 function initCommunityUi(){
+  initCommunityPhotoRecovery();
   const catOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
   const composerCatOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}" ${c.id === 'other' ? 'selected' : ''}>${c.label}</option>`).join('');
   if($('#communityCategorySelect')) $('#communityCategorySelect').innerHTML = composerCatOptions;
   if($('#communityCategoryFilter')) $('#communityCategoryFilter').innerHTML = '<option value="">Alle categorieen</option>' + catOptions;
   renderCommunityQuickObservations();
+  renderCommunityObservationPicker();
   $('#communityQuickObservations')?.addEventListener('click', handleQuickObservationClick);
-  $('#communityUploadOpen')?.addEventListener('click', ()=>{ openCommunityComposer(); setCommunityComposerMode('photo'); });
+  $('#communityUploadOpen')?.addEventListener('click', ()=>{ openCommunityComposer(); setCommunityComposerMode('message'); });
   $('#communityObservationOpen')?.addEventListener('click', ()=>{ openCommunityComposer(); setCommunityComposerMode('observation'); });
   $('#communityComposerModes')?.addEventListener('click', e=>{ const b=e.target.closest('[data-community-mode]'); if(b) setCommunityComposerMode(b.dataset.communityMode); });
+  $('#communityObservationPicker')?.addEventListener('click', e=>{ const b=e.target.closest('[data-community-weather]'); if(b) selectCommunityObservationType(b.dataset.communityWeather); });
   $('#communityComposerClose')?.addEventListener('click', closeCommunityComposer);
   $('#communityScrim')?.addEventListener('click', closeCommunityComposer);
   $('#communitySubmitPost')?.addEventListener('click', createCommunityPost);
@@ -6561,6 +7190,13 @@ function initCommunityUi(){
   $('#communityPhotoReplaceInput')?.addEventListener('change', handleCommunityPhotoSelect);
   $('#communityPhotoRemove')?.addEventListener('click', ()=>clearCommunityPhotoSelection());
   $('#communityUseGps')?.addEventListener('change', updateCommunityCapturedWeather);
+  $('#communityGpsToggleLabel')?.addEventListener('click', event=>{
+    const input=$('#communityUseGps');
+    if(!input || event.target===input) return;
+    event.preventDefault();
+    input.checked=!input.checked;
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
   $('#communityLoadMore')?.addEventListener('click', ()=>loadCommunityPosts(false));
   $('#communitySearch')?.addEventListener('input', debounce(e=>{
     state.community.query = e.target.value.trim();
@@ -6595,12 +7231,25 @@ function initCommunityUi(){
 
 function communityWeatherIcon(typeOrCategory,size=22){
   const id=String(typeOrCategory||'other');
-  const map={rain:'rain',heavy_rain:'rain',thunder:'storm',lightning:'storm',hail:'snow',snow:'snow',fog:'fog',strong_wind:'wind',flooding:'rain',ice:'snow',clearing:'partly',sunset:'sun',sunrise:'sun',clouds:'cloud',storm:'storm',shower:'rain',coast:'wind',seaspark:'drop'};
+  const map={clear:'sun',mostly_clear:'partly',partly_cloudy:'partly',cloudy:'cloud',overcast:'cloud',clearing:'partly',fog:'fog',haze:'fog',drizzle:'rain',light_rain:'rain',rain:'rain',heavy_rain:'rain',light_shower:'rain',shower:'rain',heavy_shower:'rain',sleet:'snow',light_snow:'snow',snow:'snow',heavy_snow:'snow',hail:'snow',freezing_rain:'snow',ice:'snow',thunder:'storm',lightning:'storm',strong_wind:'wind',storm:'storm',calm:'wind',rainbow:'sun',flooding:'rain',sunset:'sun',sunrise:'sun',clouds:'cloud',coast:'wind',seaspark:'drop'};
   return icon(map[id]||'cloud',true,size);
 }
 function renderCommunityQuickObservations(){
   const wrap=$('#communityQuickObservations'); if(!wrap) return;
-  wrap.innerHTML=COMMUNITY_OBSERVATION_TYPES.map(type=>`<button type="button" data-observation-type="${esc(type.id)}" aria-label="${esc(type.label)} melden"><span>${communityWeatherIcon(type.id,22)}</span><b>${esc(type.short)}</b></button>`).join('');
+  const quickIds=['clear','cloudy','rain','shower','thunder','strong_wind','fog','snow'];
+  wrap.innerHTML=quickIds.map(id=>communityObservationType(id)).filter(Boolean).map(type=>`<button type="button" data-observation-type="${esc(type.id)}" aria-label="${esc(type.label)} melden"><span>${communityWeatherIcon(type.id,22)}</span><b>${esc(type.short)}</b></button>`).join('');
+}
+
+function renderCommunityObservationPicker(){
+  const wrap=$('#communityObservationPicker'); if(!wrap) return;
+  wrap.innerHTML=COMMUNITY_OBSERVATION_TYPES.map(type=>`<button type="button" class="community-weather-choice${state.community.selectedObservationType===type.id?' active':''}" data-community-weather="${esc(type.id)}"><span>${communityWeatherIcon(type.id,23)}</span><b>${esc(type.short)}</b></button>`).join('');
+}
+
+function selectCommunityObservationType(typeId){
+  if(!communityObservationType(typeId)) return;
+  state.community.selectedObservationType=typeId;
+  $$('#communityObservationPicker [data-community-weather]').forEach(btn=>btn.classList.toggle('active',btn.dataset.communityWeather===typeId));
+  setCommunityComposerMessage('');
 }
 
 function debounce(fn, wait){
@@ -6654,8 +7303,22 @@ function normalizeCommunityObservationPost(post){
     else if(/mist|nevel/i.test(caption)) typeId = 'fog';
     else if(/wateroverlast|overstrom/i.test(caption)) typeId = 'flooding';
     else if(/glad|ijzel|ijs/i.test(caption)) typeId = 'ice';
+    else if(/zware sneeuw/i.test(caption)) typeId = 'heavy_snow';
+    else if(/lichte sneeuw/i.test(caption)) typeId = 'light_snow';
+    else if(/natte sneeuw/i.test(caption)) typeId = 'sleet';
+    else if(/ijzel|ijsregen/i.test(caption)) typeId = 'freezing_rain';
+    else if(/zware bui|hevige bui/i.test(caption)) typeId = 'heavy_shower';
+    else if(/lichte bui/i.test(caption)) typeId = 'light_shower';
     else if(/zware regen|stortregen|hevige regen/i.test(caption)) typeId = 'heavy_rain';
-    else if(/regen|bui|motregen/i.test(caption)) typeId = 'rain';
+    else if(/lichte regen/i.test(caption)) typeId = 'light_rain';
+    else if(/motregen/i.test(caption)) typeId = 'drizzle';
+    else if(/regenboog/i.test(caption)) typeId = 'rainbow';
+    else if(/zwaar bewolkt/i.test(caption)) typeId = 'overcast';
+    else if(/half bewolkt/i.test(caption)) typeId = 'partly_cloudy';
+    else if(/licht bewolkt/i.test(caption)) typeId = 'mostly_clear';
+    else if(/bewolkt/i.test(caption)) typeId = 'cloudy';
+    else if(/helder|zonnig/i.test(caption)) typeId = 'clear';
+    else if(/regen|bui/i.test(caption)) typeId = 'rain';
   }
   const type = communityObservationType(typeId);
   const createdMs = new Date(post.created_at || Date.now()).getTime();
@@ -6765,16 +7428,22 @@ function communityPostHtml(post){
   const verified=Boolean(profile.verified||profile.is_verified||profile.verified_at);
   const liked=post.community_likes?.some(l=>l.user_id===state.auth.user?.id), saved=post.community_favorites?.some(f=>f.user_id===state.auth.user?.id);
   const comments=(post.community_comments||[]).slice(0,3), hasPhoto=Boolean(post.photo_url);
+  const isObservation=Boolean(obs?.type);
+  const isChat=!hasPhoto&&!isObservation;
+  const caption=String(post.caption||'').trim();
+  const isQuestion=isChat&&/[?？]\s*$/.test(caption);
   const weatherParts=[];
   if(validNumber(post.temperature)!=null) weatherParts.push(`<span>${communityMiniIcon('temp')}<b>${fmtTemp(post.temperature)}</b></span>`);
   if(validNumber(post.wind_speed)!=null) weatherParts.push(`<span>${communityMiniIcon('wind')}<b>Wind ${fmtWind(post.wind_speed)}</b></span>`);
   if(validNumber(post.precipitation)!=null) weatherParts.push(`<span>${communityMiniIcon('rain')}<b>${fmtPrecip(post.precipitation)}</b></span>`);
-  const media=hasPhoto?`<div class="community-photo-media"><img class="community-photo" src="${esc(post.photo_url)}" alt="${esc(post.caption||cat.label)}" loading="lazy"><div class="community-category">${communityWeatherIcon(obs?.type?.id||cat.id,18)}${esc(cat.label)}</div></div>`:'';
-  return `<article class="community-post ${hasPhoto?'community-photo-post':'community-observation-post'}" data-post-id="${post.id}">
-    <div class="community-post-head"><div class="community-avatar">${avatar}</div><div class="community-author-copy"><div class="community-post-name">${esc(name)}${verified?'<span class="community-verified" aria-label="Geverifieerd">✓</span>':''}</div><div class="community-post-place">${esc(post.location_name||'Locatie verborgen')} · ${timeAgo(post.created_at)}</div></div><button class="community-more" data-act="report" type="button" aria-label="Meer opties">•••</button></div>
+  const media=hasPhoto?communityPhotoMediaHtml(post,cat,caption):'';
+  const autoObservationCaption=isObservation && new RegExp(`^${String(obs.type.label).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')} gemeld(?: in .+)?\\.?$`,'i').test(caption);
+  return `<article class="community-post ${hasPhoto?'community-photo-post':isObservation?'community-observation-post':'community-chat-post'}" data-post-id="${post.id}">
+    <div class="community-post-head"><div class="community-avatar">${avatar}</div><div class="community-author-copy"><div class="community-post-name">${esc(name)}${verified?'<span class="community-verified" aria-label="Geverifieerd">✓</span>':''}</div><div class="community-post-place">${esc(post.location_name||'Community')} · ${timeAgo(post.created_at)}</div></div><button class="community-more" data-act="report" type="button" aria-label="Meer opties">•••</button></div>
     ${media}
-    ${!hasPhoto?`<div class="community-observation-main"><div class="community-observation-icon">${communityWeatherIcon(obs?.type?.id||cat.id,38)}</div><div><b>${esc(obs?.type?.label||cat.label)}</b>${post.caption?`<p>${linkHashtags(esc(post.caption))}</p>`:''}</div></div>`:''}
-    <div class="community-body">${hasPhoto&&post.caption?`<p class="community-caption">${linkHashtags(esc(post.caption))}</p>`:''}${weatherParts.length?`<div class="community-weather-line">${weatherParts.join('')}</div>`:''}</div>
+    ${isObservation?`<div class="community-observation-main"><div class="community-observation-icon">${communityWeatherIcon(obs.type.id,38)}</div><div><span class="community-post-kind">Waarneming</span><b>${esc(obs.type.label)}</b>${caption&&!autoObservationCaption?`<p>${linkHashtags(esc(caption))}</p>`:''}</div></div>`:''}
+    ${isChat?`<div class="community-chat-message"><span class="community-post-kind">${isQuestion?'Vraag':'Bericht'}</span><p>${linkHashtags(esc(caption))}</p></div>`:''}
+    <div class="community-body">${hasPhoto&&caption?`<p class="community-caption">${linkHashtags(esc(caption))}</p>`:''}${weatherParts.length?`<div class="community-weather-line">${weatherParts.join('')}</div>`:''}</div>
     <div class="community-actions"><button class="${liked?'active':''}" data-act="like" aria-label="Vind ik leuk">${communityMiniIcon('heart')}<span>${post.like_count||0}</span></button><button data-act="comment" aria-label="Reageren">${communityMiniIcon('comment')}<span>${post.comment_count||0}</span></button><span class="community-action-spacer"></span><button data-act="share" aria-label="Delen">${communityMiniIcon('share')}</button><button class="${saved?'active':''}" data-act="save" aria-label="Bewaren">${communityMiniIcon('save')}</button></div>
     <div class="community-comments">${comments.map(c=>`<div class="community-comment"><b>${esc(c.profiles?.display_name||'Gebruiker')}</b> ${esc(c.body)}</div>`).join('')}<form class="community-comment-row"><input name="body" maxlength="240" placeholder="Reageer..." autocomplete="off"><button type="submit">Plaats</button></form></div>
   </article>`;
@@ -6814,6 +7483,7 @@ async function submitQuickObservation(typeId, button=null){
     const expiresAt = new Date(Date.now() + type.ttlMinutes * 60000).toISOString();
     const caption = `${type.label} gemeld in ${safeLoc.location_name || 'de buurt'}.`;
     const form = new FormData();
+    form.append('post_type', 'observation');
     form.append('caption', caption);
     form.append('category', type.category);
     form.append('location_privacy', 'municipality');
@@ -6832,27 +7502,7 @@ async function submitQuickObservation(typeId, button=null){
     form.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
     form.append('pressure', cur?.pressure_msl ?? '');
     form.append('weather_source', 'Community, niet officieel');
-    let saved;
-    try{
-      saved = await apiForm('/community/posts', form);
-    }catch(error){
-      const fallback = new FormData();
-      fallback.append('caption', `${caption} #${type.id} #communitywaarneming`);
-      fallback.append('category', type.category);
-      fallback.append('location_privacy', 'municipality');
-      fallback.append('location_name', safeLoc.location_name);
-      if(safeLoc.latitude !== '') fallback.append('latitude', String(safeLoc.latitude));
-      if(safeLoc.longitude !== '') fallback.append('longitude', String(safeLoc.longitude));
-      fallback.append('temperature', cur?.temperature_2m ?? '');
-      fallback.append('apparent_temperature', cur?.apparent_temperature ?? '');
-      fallback.append('wind_speed', cur?.wind_speed_10m ?? '');
-      fallback.append('precipitation', cur?.precipitation ?? '');
-      fallback.append('humidity', cur?.relative_humidity_2m ?? '');
-      fallback.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
-      fallback.append('pressure', cur?.pressure_msl ?? '');
-      fallback.append('weather_source', 'Community, niet officieel');
-      saved = await apiForm('/community/posts', fallback);
-    }
+    const saved = await apiForm('/community/posts', form);
     const optimisticPost = normalizeCommunityObservationPost({
       id:saved.post?.id || saved.id || safeRandomId(),
       user_id:state.auth.user?.id,
@@ -6952,13 +7602,37 @@ function renderCommunityLiveStats(){
 }
 
 
-function setCommunityComposerMode(mode='photo'){
+function setCommunityComposerMode(mode='message'){
+  const allowed=['message','photo','observation'];
+  if(!allowed.includes(mode)) mode='message';
   state.community.composerMode=mode;
+  const composer=$('#communityComposer');
+  if(composer) composer.dataset.communityMode=mode;
   $$('#communityComposerModes [data-community-mode]').forEach(b=>b.classList.toggle('active',b.dataset.communityMode===mode));
-  $('#communityPhotoPicker')?.classList.toggle('hidden',mode==='observation');
-  if($('#communityComposerTitle')) $('#communityComposerTitle').textContent=mode==='photo'?'Weerfoto delen':'Waarneming melden';
-  if($('#communityCaption')) $('#communityCaption').placeholder=mode==='photo'?'Wat zie je? Voeg een korte beschrijving toe.':'Beschrijf kort wat je waarneemt.';
+
+  $('#communityPhotoPicker')?.classList.toggle('hidden',mode!=='photo');
+  $('#communityObservationPickerWrap')?.classList.toggle('hidden',mode!=='observation');
+  $('#communityCaptionField')?.classList.toggle('hidden',mode==='observation');
+  $('#communityCategoryField')?.classList.toggle('hidden',mode!=='photo');
+
+  const title=$('#communityComposerTitle');
+  const caption=$('#communityCaption');
+  const submit=$('#communitySubmitPost');
+  if(title) title.textContent=mode==='photo'?'Foto delen':mode==='observation'?'Waarneming melden':'Nieuw bericht';
+  if(caption){
+    caption.placeholder=mode==='photo'
+      ? 'Vertel iets over deze foto…'
+      : 'Vraag iets of praat mee over het weer…';
+  }
+  if(submit) submit.textContent=mode==='observation'?'Melden':'Plaatsen';
+
+  if(mode==='observation'){
+    clearCommunityPhotoSelection({clearMessage:false});
+    renderCommunityObservationPicker();
+  }
+  setCommunityComposerMessage('');
 }
+
 function openCommunityComposer(){
   if(!requireCommunityLogin()) return;
   // iOS/Safari native controls (file/camera/select) can become unreliable when
@@ -7087,76 +7761,138 @@ function wireCommunityPhotoPickerCapture(){
 wireCommunityPhotoPickerCapture();
 
 /* v10: big buttons trigger Safari's native file picker via showPicker(). */
-function updateCommunityCapturedWeather(){
+let communityCapturedWeatherToken = 0;
+async function updateCommunityCapturedWeather(){
+  const box = $('#communityCapturedWeather');
+  if(!box) return;
   const cur = liveWeatherSnapshot();
-  if(!cur || !$('#communityCapturedWeather')) return;
-  $('#communityCapturedWeather').textContent = `${state.loc.name}: ${fmtTemp(cur.temperature_2m)}, voelt ${fmtTemp(cur.apparent_temperature)}, wind ${fmtWind(cur.wind_speed_10m)}, ${fmtPrecip(cur.precipitation || 0)}, ${cur.relative_humidity_2m}% vocht.`;
+  const gpsEnabled = Boolean($('#communityUseGps')?.checked);
+
+  if(!gpsEnabled){
+    if(!cur){
+      box.textContent = 'Weergegevens worden toegevoegd bij plaatsen.';
+      return;
+    }
+    box.textContent = `${state.loc.name}: ${fmtTemp(cur.temperature_2m)}, voelt ${fmtTemp(cur.apparent_temperature)}, wind ${fmtWind(cur.wind_speed_10m)}, ${fmtPrecip(cur.precipitation || 0)}, ${cur.relative_humidity_2m}% vocht.`;
+    return;
+  }
+
+  const token = ++communityCapturedWeatherToken;
+  box.textContent = 'GPS-locatie wordt bepaald voor deze upload…';
+  const gps = await getBrowserLocation({fresh:false});
+  if(token !== communityCapturedWeatherToken || !$('#communityUseGps')?.checked) return;
+
+  if(!gps){
+    box.textContent = 'GPS-locatie kon niet worden bepaald. De geselecteerde app-locatie blijft actief.';
+    return;
+  }
+
+  let locName = 'Huidige locatie';
+  try{
+    const resolved = await resolveGpsLocation(gps.lat, gps.lon);
+    locName = resolved?.name || resolved?.admin || locName;
+  }catch(e){}
+  if(token !== communityCapturedWeatherToken || !$('#communityUseGps')?.checked) return;
+
+  box.textContent = `GPS actief · ${locName}. Deze upload gebruikt je actuele locatie bij het plaatsen.`;
 }
 
 async function createCommunityPost(){
   if(!requireCommunityLogin()) return;
   if(state.community.uploading) return;
-  const file = state.community.selectedFile;
-  const caption = $('#communityCaption')?.value.trim() || '';
-  if(state.community.composerMode==='photo' && !file) return setCommunityComposerMessage(tr('Kies eerst een foto voor een weerfotobericht.'), 'error');
-  if(!file && caption.length < 3) return setCommunityComposerMessage(tr('Beschrijf kort je waarneming.'), 'error');
 
-  const submit = $('#communitySubmitPost');
-  state.community.uploading = true;
-  if(submit){ submit.disabled = true; submit.classList.add('sending'); submit.textContent = tr('Bezig…'); }
-  let controller, timeoutId;
+  const mode=state.community.composerMode||'message';
+  const file=mode==='photo'?state.community.selectedFile:null;
+  let caption=$('#communityCaption')?.value.trim()||'';
+  let observationType=null;
+
+  if(mode==='photo'&&!file) return setCommunityComposerMessage(tr('Kies eerst een foto.'),'error');
+  if(mode==='message'&&caption.length<2) return setCommunityComposerMessage('Schrijf eerst een bericht of vraag.','error');
+  if(mode==='observation'){
+    observationType=communityObservationType(state.community.selectedObservationType);
+    if(!observationType) return setCommunityComposerMessage('Kies welk weer je nu waarneemt.','error');
+    caption=`${observationType.label} gemeld.`;
+  }
+
+  const submit=$('#communitySubmitPost');
+  state.community.uploading=true;
+  if(submit){ submit.disabled=true; submit.classList.add('sending'); submit.textContent=mode==='observation'?'Melden…':tr('Bezig…'); }
+
+  let controller,timeoutId;
   try{
-    setCommunityComposerMessage(file ? tr('Foto optimaliseren…') : tr('Bericht voorbereiden…'));
-    const blob = file ? await compressImageForUpload(file, {maxDimension:1920, quality:.84, keepSmall:true}) : null;
-    if(blob && Number(blob.size) > WF_IMAGE_UPLOAD_SAFE_BYTES) throw new Error(tr('De foto blijft te groot om te uploaden. Kies een kleinere foto.'));
+    setCommunityComposerMessage(file?tr('Foto optimaliseren…'):mode==='observation'?'Waarneming voorbereiden…':tr('Bericht voorbereiden…'));
+    const blob=file?await compressImageForUpload(file,{maxDimension:1920,quality:.84,keepSmall:true}):null;
+    if(blob&&Number(blob.size)>WF_IMAGE_UPLOAD_SAFE_BYTES) throw new Error(tr('De foto blijft te groot om te uploaden. Kies een kleinere foto.'));
 
-    const gps = $('#communityUseGps')?.checked ? await getBrowserLocation({fresh:true}) : null;
-    const privacy = $('#communityLocationPrivacy')?.value || 'municipality';
-    const loc = gps ? {lat:gps.lat, lon:gps.lon, ...(await resolveGpsLocation(gps.lat,gps.lon))} : {lat:state.loc.lat, lon:state.loc.lon, name:state.loc.name, admin:state.loc.admin};
-    const cur = liveWeatherSnapshot();
-    let category = $('#communityCategorySelect')?.value || 'other';
-    if(category === 'other' && /(^|\s|#)(zeevonk|seaspark|bioluminescentie|bioluminescence)(\s|$|[.,!?])/i.test(caption)) category = 'seaspark';
-    const form = new FormData();
-    if(blob) form.append('photo', blob, uploadFilenameForBlob(blob, 'weather'));
-    form.append('caption', caption);
-    form.append('category', category);
-    form.append('location_privacy', privacy);
-    form.append('location_name', privacy === 'none' ? '' : (loc.name || state.loc.name));
-    if(privacy === 'exact'){ form.append('latitude', String(loc.lat)); form.append('longitude', String(loc.lon)); }
-    form.append('temperature', cur?.temperature_2m ?? '');
-    form.append('apparent_temperature', cur?.apparent_temperature ?? '');
-    form.append('wind_speed', cur?.wind_speed_10m ?? '');
-    form.append('precipitation', cur?.precipitation ?? '');
-    form.append('humidity', cur?.relative_humidity_2m ?? '');
-    form.append('uv_index', state.hourly?.uv_index?.[nowIndexInHourly()] ?? '');
-    form.append('pressure', cur?.pressure_msl ?? '');
-    form.append('weather_source', state.observation ? state.observation.source : 'KNMI HARMONIE');
-    form.append('data_quality', 'community-waarneming');
+    const gps=$('#communityUseGps')?.checked?await getBrowserLocation({fresh:true}):null;
+    const privacy=$('#communityLocationPrivacy')?.value||'municipality';
+    const loc=gps?{lat:gps.lat,lon:gps.lon,...(await resolveGpsLocation(gps.lat,gps.lon))}:{lat:state.loc.lat,lon:state.loc.lon,name:state.loc.name,admin:state.loc.admin};
+    const safeLoc=communityPrivacyLocation(loc,privacy);
+    const cur=liveWeatherSnapshot();
 
-    setCommunityComposerMessage(file ? tr('Foto uploaden…') : tr('Bericht plaatsen…'));
-    controller = new AbortController();
-    timeoutId = setTimeout(()=>controller.abort(), 75000);
-    await apiForm('/community/posts', form, {signal:controller.signal});
-    clearTimeout(timeoutId); timeoutId = null;
+    let category='other';
+    if(mode==='photo'){
+      category=$('#communityCategorySelect')?.value||'other';
+      if(category==='other'&&/(^|\s|#)(zeevonk|seaspark|bioluminescentie|bioluminescence)(\s|$|[.,!?])/i.test(caption)) category='seaspark';
+    }else if(mode==='observation'){
+      category=observationType.category;
+    }
 
-    setCommunityComposerMessage(tr('Geplaatst.'), 'ok');
+    const form=new FormData();
+    form.append('post_type', mode==='observation' ? 'observation' : mode==='photo' ? 'photo' : 'message');
+    if(blob) form.append('photo',blob,uploadFilenameForBlob(blob,'weather'));
+    form.append('caption',caption);
+    form.append('category',category);
+    form.append('location_privacy',privacy);
+    form.append('location_name',safeLoc.location_name);
+    if(safeLoc.latitude!=='') form.append('latitude',String(safeLoc.latitude));
+    if(safeLoc.longitude!=='') form.append('longitude',String(safeLoc.longitude));
+
+    if(mode==='observation'){
+      const expiresAt=new Date(Date.now()+observationType.ttlMinutes*60000).toISOString();
+      form.append('observation_type',observationType.id);
+      form.append('observation_ttl_minutes',String(observationType.ttlMinutes));
+      form.append('expires_at',expiresAt);
+      form.append('data_quality','community-waarneming');
+    }else{
+      form.append('data_quality',mode==='photo'?'community-photo':'community-chat');
+    }
+
+    form.append('temperature',cur?.temperature_2m??'');
+    form.append('apparent_temperature',cur?.apparent_temperature??'');
+    form.append('wind_speed',cur?.wind_speed_10m??'');
+    form.append('precipitation',cur?.precipitation??'');
+    form.append('humidity',cur?.relative_humidity_2m??'');
+    form.append('uv_index',state.hourly?.uv_index?.[nowIndexInHourly()]??'');
+    form.append('pressure',cur?.pressure_msl??'');
+    form.append('weather_source',mode==='observation'?'Community, niet officieel':(state.observation?state.observation.source:'Wheaterflow'));
+
+    setCommunityComposerMessage(file?tr('Foto uploaden…'):mode==='observation'?'Waarneming melden…':tr('Bericht plaatsen…'));
+    controller=new AbortController();
+    timeoutId=setTimeout(()=>controller.abort(),75000);
+    await apiForm('/community/posts',form,{signal:controller.signal});
+    clearTimeout(timeoutId); timeoutId=null;
+
+    setCommunityComposerMessage(mode==='observation'?'Waarneming gemeld.':tr('Geplaatst.'),'ok');
     if($('#communityCaption')) $('#communityCaption').value='';
+    state.community.selectedObservationType='';
     clearCommunityPhotoSelection({clearMessage:false});
     closeCommunityComposer();
     await loadCommunityPosts(true);
-    toast(file ? tr('Weerfoto gedeeld.') : tr('Weerbericht gedeeld.'));
+    toast(mode==='observation'?`${observationType.label} gemeld.`:mode==='photo'?tr('Foto gedeeld.'):'Bericht geplaatst.');
   }catch(e){
     if(timeoutId) clearTimeout(timeoutId);
-    console.warn('Community upload mislukt:', e?.message || e);
-    let message = e?.message || tr('Uploaden lukte niet. Controleer je verbinding.');
-    if(e?.name === 'AbortError') message = tr('De upload duurde te lang. Controleer je verbinding en probeer opnieuw.');
-    else if(e?.status === 401) message = tr('Log opnieuw in om een foto te delen.');
-    else if(e?.status === 413 || /too large|file size|limit/i.test(String(e?.message||''))) message = tr('De foto is te groot om te uploaden. Kies een kleinere foto.');
-    else if(String(e?.message||'') === 'network') message = tr('Geen verbinding met Wheaterflow. Je foto is niet geplaatst.');
-    setCommunityComposerMessage(message, 'error');
+    console.warn('Community plaatsen mislukt:',e?.message||e);
+    let message=e?.message||tr('Plaatsen lukte niet. Controleer je verbinding.');
+    if(e?.name==='AbortError') message=tr('Dit duurde te lang. Controleer je verbinding en probeer opnieuw.');
+    else if(e?.status===401) message=tr('Log opnieuw in om iets te plaatsen.');
+    else if(mode==='observation' && /geen foto|foto.*verplicht|image.*required/i.test(String(e?.message||''))) message='De server draait nog op de oude Community-versie. Werk de backend bij naar Community v2.';
+    else if(e?.status===413||/too large|file size|limit/i.test(String(e?.message||''))) message=tr('De foto is te groot om te uploaden. Kies een kleinere foto.');
+    else if(String(e?.message||'')==='network') message=tr('Geen verbinding met Wheaterflow. Je bericht is niet geplaatst.');
+    setCommunityComposerMessage(message,'error');
   }finally{
-    state.community.uploading = false;
-    if(submit){ submit.disabled = false; submit.classList.remove('sending'); submit.textContent = tr('Plaatsen'); }
+    state.community.uploading=false;
+    if(submit){ submit.disabled=false; submit.classList.remove('sending'); submit.textContent=(state.community.composerMode==='observation'?'Melden':'Plaatsen'); }
   }
 }
 
@@ -7188,7 +7924,7 @@ function renderCommunityMapMarkers(){
     const cat = communityCategory(post.category);
     const marker = L.circleMarker([+post.latitude, +post.longitude], {radius:9, color:'#fff', weight:2, fillColor:cat.color, fillOpacity:.95});
     const popupMedia = post.photo_url
-      ? `<img src="${esc(post.photo_url)}" style="width:150px;border-radius:10px;margin-top:6px;">`
+      ? `<div class="community-map-photo-wrap is-loading" data-community-media>${communityPhotoFallbackHtml()}<img class="community-map-photo" data-community-photo data-post-id="${esc(post.id || '')}" data-community-src="${esc(post.photo_url)}" src="${esc(post.photo_url)}" alt="" loading="lazy" decoding="async" referrerpolicy="strict-origin-when-cross-origin"></div>`
       : (post.caption ? `<p style="max-width:170px;margin:6px 0 0;">${esc(post.caption)}</p>` : '');
     marker.bindPopup(`<b>${esc(cat.label)}</b><br>${esc(post.location_name || '')}<br>${popupMedia}`);
     marker.addTo(state.community.markers);
@@ -7754,7 +8490,7 @@ function initMapIfNeeded(){
       return;
     }
     try{
-      const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto&models=knmi_seamless`);
+      const r = await fetch(`${WHEATERFLOW_API_BASE}/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}&model=knmi_seamless`, {cache:'no-store'});
       const d = await r.json();
       const wc = wcInfo(d.current.weather_code);
       showRadarInfo(`<b>${wc.l}</b><br>${fmtTemp(d.current.temperature_2m)} - ${fmtWind(d.current.wind_speed_10m)}<br><a href="#" id="useHereLink" style="color:#35d0c4;">Gebruik als locatie</a>`, lat, lng);
@@ -7784,31 +8520,6 @@ function initMapIfNeeded(){
   }, 5*60*1000);
 }
 
-function showInstantPrecipRadar(){
-  if(!state.map || state.radar.layer !== 'precip') return false;
-
-  // Gebruik alleen een reeds geladen, nog geldig RainViewer-frame.
-  // Nieuwe RainViewer- en Smart Radar-data worden daarna op de
-  // achtergrond opgehaald.
-  const cached = rainviewerMeta || rainviewerMetaCache;
-
-  if(cached){
-    rainviewerMeta = cached;
-
-    const rv = rainviewerRadarFrames(cached);
-    const latest = rv.filter(frame=>!frame.isNowcast).at(-1);
-
-    if(isFreshRadarFrame(latest)){
-      buildFrameList(true);
-      return true;
-    }
-  }
-
-  // Geen geldig lokaal radarframe beschikbaar.
-  // Wacht op de echte radarbronnen in loadRadarFrames().
-  return false;
-}
-
 function startLegacyRadar(){
   state.xweather.fallback = true;
   $('#xweatherPanel')?.classList.add('hide');
@@ -7816,17 +8527,13 @@ function startLegacyRadar(){
   $('#liveRadarPanel')?.classList.remove('hide');
   removeKnmiWmsRadarLayer();
   if(state.radar.animator){ state.radar.animator.destroy(); state.radar.animator = null; }
-  clearOpenMeteoRadarLayer();
-
-  // Eerst beeld, daarna netwerk. Hierdoor hoeft terugschakelen van temperatuur,
-  // wind of bewolking naar Buienradar niet meer op metadata te wachten.
-  showInstantPrecipRadar();
+  state.radar.frames = [];
+  $('#timeline').innerHTML = '';
+  $('#timeLabel').textContent = 'Radar laden...';
+  $('#radarNowBadge')?.classList.remove('show');
   const note = $('.radar-note');
-  if(note) note.textContent = 'Buienradar actief · actuele data wordt op de achtergrond ververst.';
-
-  loadRadarFrames(true).catch(error=>{
-    console.warn('Radar achtergrondrefresh faalde; huidig frame blijft zichtbaar', error);
-  });
+  if(note) note.textContent = 'Live buienradar wordt geladen. Als de radarbron geen vers beeld geeft, gebruikt Wheaterflow automatisch Open-Meteo neerslag als fallback.';
+  loadRadarFrames();
 }
 
 async function initXweatherMap(force=false){
@@ -7949,7 +8656,24 @@ function availableXweatherLayers(){
 }
 
 function findAvailableXweatherLayer(id){
-  return availableXweatherLayers().find(def=>def.id === id || def.code === id) || null;
+  const regular = availableXweatherLayers().find(def=>def.id === id || def.code === id);
+  if(regular) return regular;
+
+  const overlay = XWEATHER_LAYER_DEFS.find(def =>
+    def.overlay && (def.id === id || def.code === id)
+  );
+  if(!overlay) return null;
+
+  // Bliksem gebruikt Wheaterflow's eigen live strike-overlay en hoeft daarom
+  // niet afhankelijk te zijn van Xweather's native lightning-laag.
+  if(overlay.id === 'lightning-strikes-icons') return overlay;
+
+  try{
+    return resolveXweatherLayerCode(overlay, state.xweather.controller) ? overlay : null;
+  }catch(error){
+    console.warn('Xweather overlay-laag is niet beschikbaar', {id, error});
+    return null;
+  }
 }
 
 function findXweatherLayerDefinition(id){
@@ -8087,6 +8811,13 @@ async function setXweatherLayer(id){
   const previousLayer = state.xweather.activeLayer;
   state.xweather.activeLayer = def;
   localStorage.setItem('weerscoop:xweatherLayer', def.id);
+
+  if(def.id === 'lightning-strikes-icons'){
+    state.xweather.overlayLightning = true;
+    state.xweather.lightningStatusText = 'Recente bliksem binnen 100 km wordt gecontroleerd…';
+    setXweatherStatus(state.xweather.lightningStatusText);
+  }
+
   const ok = await refreshXweatherLayers();
   if(!ok){
     console.warn('Xweather laag faalde, fallback wordt gebruikt', {requested:id, layer:def});
@@ -8107,6 +8838,8 @@ async function setXweatherLayer(id){
   $$('.xweather-layer-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.xweatherLayer === def.id));
   $('#chipPrecip')?.classList.toggle('active', def.id === 'radar');
   $('#chipSat')?.classList.toggle('active', def.id === 'satellite');
+  const lightningToggle = $('#xweatherLightningOverlay');
+  if(lightningToggle) lightningToggle.checked = state.xweather.overlayLightning || def.id === 'lightning-strikes-icons';
   if($('#xweatherLayerTitle')) $('#xweatherLayerTitle').textContent = def.label;
   if($('#xweatherWindSettings')) $('#xweatherWindSettings').open = def.id === 'wind-particles';
   updateXweatherLegend();
@@ -8119,16 +8852,33 @@ async function refreshXweatherLayers(){
   const controller = state.xweather.controller;
   const def = state.xweather.activeLayer;
   if(!controller || !def) return false;
+
+  const lightning = XWEATHER_LAYER_DEFS.find(d=>d.id === 'lightning-strikes-icons');
+  const lightningActive = def.id === 'lightning-strikes-icons';
+
+  // Xweather's native lightning layer renders as elongated yellow/orange streaks
+  // on iOS. Wheaterflow now renders real strike positions itself via /api/lightning.
+  // When "Bliksem" is the selected layer, keep only the normal base map visible.
+  if(lightningActive){
+    state.xweather.activeCodes.forEach(code=>{
+      try{ controller.removeWeatherLayer(code); }catch(e){}
+    });
+    state.xweather.activeCodes = [];
+    try{ controller.redraw(); }catch(err){ console.error('Xweather redraw failed', err); }
+    await syncCustomLightningOverlay(true);
+    return true;
+  }
+
   const primaryCode = resolveXweatherLayerCode(def, controller);
   if(!primaryCode){
     console.error('Xweather layer unavailable before add', {layer:def, metadata:state.xweather.metadata});
     state.xweather.disabledCodes.add(def.code);
     return false;
   }
+
+  // Never add Xweather's native lightning overlay. The custom live strike
+  // overlay below is cleaner and is also used on top of radar/temperature/etc.
   const wanted = [primaryCode];
-  const lightning = XWEATHER_LAYER_DEFS.find(d=>d.id === 'lightning-strikes-icons');
-  const lightningCode = lightning ? resolveXweatherLayerCode(lightning, controller) : null;
-  if(state.xweather.overlayLightning && lightningCode && def.id !== lightning.id) wanted.push(lightningCode);
   state.xweather.activeCodes.forEach(code=>{
     if(!wanted.includes(code)){
       try{ controller.removeWeatherLayer(code); }catch(e){}
@@ -8157,16 +8907,165 @@ async function refreshXweatherLayers(){
   }
   applyWindParticleSettings();
   try{ controller.redraw(); }catch(err){ console.error('Xweather redraw failed', err); }
+  await syncCustomLightningOverlay(true);
   return state.xweather.activeCodes.includes(primaryCode);
 }
 
 function xweatherLayerOverrides(code){
   const weak = likelyWeakMapDevice();
-  const opacity = code === 'radar' ? .86 : code === 'satellite' ? .82 : code === 'wind-particles' ? .74 : .78;
+  const opacity = /lightning-strikes/.test(code) ? 0.02 : code === 'radar' ? .86 : code === 'satellite' ? .82 : code === 'wind-particles' ? .74 : .78;
   return {
     opacity,
     data:{ quality: weak ? 'low' : 'normal' }
   };
+}
+
+function shouldShowCustomLightningOverlay(){
+  const active = state.xweather.activeLayer?.id === 'lightning-strikes-icons';
+  return Boolean(active || state.xweather.overlayLightning);
+}
+
+function getLightningOverlayRadiusKm(){
+  // De Wheaterflow lightning-endpoint gebruikt maximaal 100 km.
+  // Houd frontend en backend gelijk zodat de melding exact klopt.
+  return 100;
+}
+
+function getLightningStrikeAgeSec(strike){
+  const direct = validNumber(strike?.ageSec ?? strike?.ageSeconds ?? strike?.age_s);
+  if(direct != null) return direct;
+  const rawTime = strike?.timestamp || strike?.time || strike?.occurredAt || strike?.observedAt || strike?.datetime;
+  if(!rawTime) return null;
+  const ms = Date.parse(rawTime);
+  return Number.isFinite(ms) ? Math.max(0, Math.round((Date.now() - ms) / 1000)) : null;
+}
+
+function getLightningStrikeCoords(strike){
+  const lat = validNumber(strike?.lat ?? strike?.latitude ?? strike?.coords?.lat ?? strike?.coords?.latitude ?? strike?.position?.lat ?? strike?.position?.latitude);
+  const lon = validNumber(strike?.lon ?? strike?.lng ?? strike?.longitude ?? strike?.coords?.lon ?? strike?.coords?.lng ?? strike?.coords?.longitude ?? strike?.position?.lon ?? strike?.position?.lng ?? strike?.position?.longitude);
+  return lat != null && lon != null ? {lat, lon} : null;
+}
+
+function lightningMarkerTone(strike){
+  const ageSec = getLightningStrikeAgeSec(strike);
+  if(ageSec == null || ageSec <= 600) return 'is-fresh';
+  if(ageSec <= 1800) return 'is-recent';
+  return 'is-old';
+}
+
+function buildLightningMarkerHtml(strike){
+  const tone = lightningMarkerTone(strike);
+  return `<div class="wf-lightning-marker ${tone}"><span>⚡</span></div>`;
+}
+
+function buildLightningPopup(strike, center){
+  const coords = getLightningStrikeCoords(strike);
+  const ageSec = getLightningStrikeAgeSec(strike);
+  const age = ageSec == null ? 'tijd onbekend' : ageSec < 60 ? 'zojuist' : `${Math.max(1, Math.round(ageSec / 60))} min geleden`;
+  const distanceKm = coords && center && state.map?.distance ? state.map.distance(center, [coords.lat, coords.lon]) / 1000 : null;
+  const peak = validNumber(strike?.peakCurrentKA ?? strike?.peakCurrent ?? strike?.currentKA ?? strike?.intensityKA ?? strike?.ampsKA);
+  const cloud = validText(strike?.type || strike?.kind || strike?.classification || '');
+  return [
+    '<b>Bliksemontlading</b>',
+    distanceKm != null ? `Afstand: ${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km` : '',
+    `Tijd: ${age}`,
+    peak != null ? `Sterkte: ${Math.abs(peak).toFixed(peak < 10 ? 1 : 0)} kA` : '',
+    cloud ? `Type: ${esc(cloud)}` : ''
+  ].filter(Boolean).join('<br>');
+}
+
+function ensureLightningOverlayLayer(){
+  if(state.xweather.lightningOverlayLayer || !state.map || !window.L) return state.xweather.lightningOverlayLayer;
+  state.xweather.lightningOverlayLayer = L.layerGroup().addTo(state.map);
+  return state.xweather.lightningOverlayLayer;
+}
+
+function clearCustomLightningOverlay(){
+  clearTimeout(state.xweather.lightningOverlayTimer);
+  state.xweather.lightningOverlayTimer = null;
+  state.xweather.lightningOverlayStamp = '';
+  state.xweather.lightningOverlayUpdatedAt = 0;
+  if(state.xweather.lightningOverlayLayer){
+    try{ state.xweather.lightningOverlayLayer.clearLayers(); }catch(error){}
+    try{ state.map?.removeLayer?.(state.xweather.lightningOverlayLayer); }catch(error){}
+    state.xweather.lightningOverlayLayer = null;
+  }
+}
+
+async function syncCustomLightningOverlay(force=false){
+  if(!state.map || !window.L) return;
+  if(!shouldShowCustomLightningOverlay()){
+    clearCustomLightningOverlay();
+    return;
+  }
+
+  const layer = ensureLightningOverlayLayer();
+  const centerObj = state.map.getCenter?.() || {lat:state.loc?.lat, lng:state.loc?.lon};
+  const lat = validNumber(centerObj?.lat);
+  const lon = validNumber(centerObj?.lng ?? centerObj?.lon);
+  if(lat == null || lon == null) return;
+
+  const radius = getLightningOverlayRadiusKm();
+  const stamp = `${lat.toFixed(2)}|${lon.toFixed(2)}|${radius}|${state.xweather.activeLayer?.id || ''}|${state.xweather.overlayLightning ? 1 : 0}`;
+  const stillFresh = Date.now() - (state.xweather.lightningOverlayUpdatedAt || 0) < 60000;
+  if(!force && stillFresh && state.xweather.lightningOverlayStamp === stamp) return;
+
+  state.xweather.lightningOverlayStamp = stamp;
+  try{
+    const url = `https://api.wheaterflow.be/api/lightning?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${encodeURIComponent(radius)}`;
+    const response = await fetch(url, {cache:'no-store'});
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok || data.ok === false) throw new Error(data.error || `Lightning API ${response.status}`);
+
+    const strikes = Array.isArray(data.strikes) ? data.strikes : [];
+    const center = [lat, lon];
+    layer.clearLayers();
+
+    strikes.forEach(strike=>{
+      const coords = getLightningStrikeCoords(strike);
+      if(!coords) return;
+      const marker = L.marker([coords.lat, coords.lon], {
+        interactive:true,
+        keyboard:false,
+        icon: L.divIcon({
+          className:'wf-lightning-marker-wrapper',
+          html: buildLightningMarkerHtml(strike),
+          iconSize:[28,28],
+          iconAnchor:[14,14]
+        })
+      });
+      marker.bindPopup(buildLightningPopup(strike, center), {offset:[0,-10], className:'wf-lightning-popup'});
+      layer.addLayer(marker);
+    });
+
+    if(state.xweather.activeLayer?.id === 'lightning-strikes-icons'){
+      const count = strikes.length;
+      const radiusKm = Math.min(100, Math.max(1, Math.round(
+        validNumber(data?.radiusKm ?? data?.summary?.radiusKm ?? radius) ?? 100
+      )));
+      const ageText = data.updated
+        ? new Date(data.updated).toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit'})
+        : new Date().toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit'});
+
+      state.xweather.lightningStatusText = count === 0
+        ? `Geen recente bliksem binnen ${radiusKm} km · laatste controle ${ageText}.`
+        : `${count} recente bliksemontlading${count === 1 ? '' : 'en'} binnen ${radiusKm} km · bijgewerkt ${ageText}.`;
+
+      setXweatherStatus(state.xweather.lightningStatusText);
+    }
+    state.xweather.lightningOverlayUpdatedAt = Date.now();
+
+    clearTimeout(state.xweather.lightningOverlayTimer);
+    state.xweather.lightningOverlayTimer = setTimeout(()=>{
+      if(shouldShowCustomLightningOverlay()) syncCustomLightningOverlay(true);
+    }, 60000);
+  }catch(error){
+    console.warn('Custom lightning overlay faalde', error);
+    if(state.xweather.activeLayer?.id === 'lightning-strikes-icons'){
+      state.xweather.lightningStatusText = 'Live bliksemdata tijdelijk niet beschikbaar · probeer opnieuw.';
+      setXweatherStatus(state.xweather.lightningStatusText);
+    }
+  }
 }
 
 function likelyWeakMapDevice(){
@@ -8201,6 +9100,16 @@ function updateXweatherTimelineUi(){
   }
   const timeDependent = def.time && !XWEATHER_TIMELESS_IDS.has(def.id);
   panel?.classList.toggle('hide', !timeDependent);
+
+  if(def.id === 'lightning-strikes-icons'){
+    panel?.classList.add('hide');
+    setXweatherStatus(
+      state.xweather.lightningStatusText ||
+      'Recente bliksem binnen 100 km wordt gecontroleerd…'
+    );
+    return;
+  }
+
   const start = info.startDate.getTime();
   const end = info.endDate.getTime();
   const current = info.currentDate.getTime();
@@ -8260,6 +9169,10 @@ function wireXweatherMapEvents(){
       const c = state.map.getCenter();
       localStorage.setItem('weerscoop:mapView', JSON.stringify({lat:c.lat, lon:c.lng, zoom:state.map.getZoom()}));
     }catch(e){}
+    clearTimeout(state.xweather.lightningOverlayTimer);
+    state.xweather.lightningOverlayTimer = setTimeout(()=>{
+      if(shouldShowCustomLightningOverlay()) syncCustomLightningOverlay();
+    }, 160);
   });
 }
 
@@ -8296,6 +9209,7 @@ function teardownXweather(removeUi=true){
   state.xweather.timelineUiTimer = null;
   try{ state.xweather.controller?.timeline?.pause(); }catch(e){}
   try{ state.xweather.controller?.dispose?.(); }catch(e){}
+  clearCustomLightningOverlay();
   state.xweather.controller = null;
   state.xweather.ready = false;
   state.xweather.activeCodes = [];
@@ -8649,16 +9563,24 @@ function radarBearingFromPixel(dx,dy){
 }
 function radarColorToIntensity(r,g,b,a=255){
   /*
-   * WF_RADAR_DISTANCE_V4
+   * WF_RADAR_DISTANCE_V4_2
    *
-   * RainViewer Universal Blue:
-   * alpha >= 150 komt ongeveer overeen met 10 dBZ of sterker.
-   *
-   * Zwakkere echo's worden niet gebruikt voor de melding
-   * "bui op X km", omdat extreem zwakke radarreflecties,
-   * clutter en andere ruis anders vals alarm kunnen geven.
+   * Belangrijk:
+   * een hoge alpha alleen bewijst NIET dat een pixel regen is.
+   * Neutrale grijze/kaart/artefactpixels mogen daarom nooit
+   * automatisch als "light" worden geclassificeerd.
    */
   if(a < 150) return null;
+
+  const max=Math.max(r,g,b);
+  const min=Math.min(r,g,b);
+  const chroma=max-min;
+
+  /*
+   * Neutrale grijswaarden en bijna-kleurloze pixels uitsluiten.
+   * Dit voorkomt de valse grijze echo die V4 als lichte regen zag.
+   */
+  if(chroma < 18) return null;
 
   if(
     (r >= 180 && g < 100 && b < 130) ||
@@ -8675,7 +9597,20 @@ function radarColorToIntensity(r,g,b,a=255){
     return 'moderate';
   }
 
-  return 'light';
+  /*
+   * Universal Blue lichte echo:
+   * blauw/cyaan moet daadwerkelijk dominant aanwezig zijn.
+   * Onbekende kleuren worden NIET meer automatisch regen.
+   */
+  if(
+    b >= 80 &&
+    b >= r + 12 &&
+    b >= g - 20
+  ){
+    return 'light';
+  }
+
+  return null;
 }
 
 function radarPixelEdgeDistancePx(gx,gy,userPxX,userPxY){
@@ -8711,6 +9646,46 @@ function radarPixelSupport(mask,gx,gy){
   }
 
   return count;
+}
+
+// WF_RADAR_DISTANCE_V5: groepeer pixels tot echte aaneengesloten neerslagzones.
+// Een paar losse/gesmoothde pixels mogen nooit meer als een bui op 3/5/13 km gelden.
+function radarBuildComponents(mask){
+  const componentByKey=new Map();
+  const components=[];
+  let id=0;
+  for(const [startKey,startPixel] of mask){
+    if(componentByKey.has(startKey)) continue;
+    const component={id:id++, pixels:0, light:0, moderate:0, heavy:0};
+    const queue=[startPixel];
+    componentByKey.set(startKey,component);
+    for(let qi=0;qi<queue.length;qi++){
+      const pixel=queue[qi];
+      component.pixels++;
+      component[pixel.intensity]=(component[pixel.intensity]||0)+1;
+      for(let yy=pixel.gy-1;yy<=pixel.gy+1;yy++){
+        for(let xx=pixel.gx-1;xx<=pixel.gx+1;xx++){
+          if(xx===pixel.gx && yy===pixel.gy) continue;
+          const key=`${xx}:${yy}`;
+          const next=mask.get(key);
+          if(next && !componentByKey.has(key)){
+            componentByKey.set(key,component);
+            queue.push(next);
+          }
+        }
+      }
+    }
+    components.push(component);
+  }
+  return {componentByKey,components};
+}
+
+function radarComponentIsRain(component){
+  if(!component) return false;
+  // Lichte echo moet een duidelijke zone zijn; sterkere echo mag compacter zijn.
+  if(component.heavy>0) return component.pixels>=4;
+  if(component.moderate>0) return component.pixels>=5;
+  return component.pixels>=8;
 }
 
 async function refreshRadarProximity(meta=rainviewerMeta){
@@ -8782,13 +9757,13 @@ async function refreshRadarProximity(meta=rainviewerMeta){
 
           /*
            * 2   = Universal Blue
-           * 0_0 = geen smoothing
+           * 1_1 = exact dezelfde smoothing als de zichtbare radarkaart.
            *
-           * Voor afstand is een ongesmoothde radarlaag
-           * veel geschikter dan de visuele smooth-laag.
+           * Afstand en kaart gebruiken hierdoor hetzelfde radarbeeld;
+           * clusterfiltering hieronder verwijdert smoothing-ruis.
            */
           const url=
-            `${meta.host}${latest.path}/256/${z}/${x}/${y}/2/0_0.png`;
+            `${meta.host}${latest.path}/256/${z}/${x}/${y}/2/1_1.png`;
 
           const response=
             await fetch(url,{
@@ -8906,6 +9881,8 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       }
     }
 
+    const {componentByKey}=radarBuildComponents(rainMask);
+
     let best=null;
     let nearUserBest=null;
 
@@ -8929,6 +9906,11 @@ async function refreshRadarProximity(meta=rainviewerMeta){
         );
 
       if(support<2){
+        continue;
+      }
+
+      const component=componentByKey.get(`${pixel.gx}:${pixel.gy}`);
+      if(!radarComponentIsRain(component)){
         continue;
       }
 
@@ -8966,6 +9948,7 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       const candidate={
         ...pixel,
         support,
+        componentPixels:component?.pixels||0,
         distanceM,
         dx,
         dy
@@ -9023,7 +10006,7 @@ async function refreshRadarProximity(meta=rainviewerMeta){
         dryAtLocation:true,
 
         method:
-          'nearest-unsmoothed-radar-edge-v4',
+          'display-parity-clustered-radar-edge-v5.0',
 
         maxDistanceKm:30,
 
@@ -9094,14 +10077,16 @@ async function refreshRadarProximity(meta=rainviewerMeta){
       );
 
     const etaMinutes=
-      Math.max(
-        1,
-        Math.round(
-          distanceKm /
-          motionKmh *
-          60
-        )
-      );
+      upwind
+        ? Math.max(
+            1,
+            Math.round(
+              distanceKm /
+              motionKmh *
+              60
+            )
+          )
+        : null;
 
     const proximity={
 
@@ -9131,15 +10116,16 @@ async function refreshRadarProximity(meta=rainviewerMeta){
           ?.intensity ||
         null,
 
+      // Alleen regen OP de locatie wanneer de radarcel de locatie werkelijk raakt.
+      // De oude <=4 km-regel maakte "vlakbij" ten onrechte gelijk aan "hier".
       atLocation:Boolean(
-        nearUserBest ||
-        distanceKm<=4
+        best.distanceM <= Math.max(groundMPerPx*0.35, 250)
       ),
 
       dryAtLocation:false,
 
       method:
-        'nearest-unsmoothed-radar-edge-v4',
+        'display-parity-clustered-radar-edge-v5.0',
 
       maxDistanceKm:30,
 
@@ -9151,7 +10137,15 @@ async function refreshRadarProximity(meta=rainviewerMeta){
         )/10,
 
       supportPixels:
-        best.support
+        best.support,
+
+      clusterPixels:
+        best.componentPixels,
+
+      rawDistanceKm:
+        Math.round((best.distanceM/1000)*100)/100,
+
+      parityWithDisplayedRadar:true
     };
 
     state.radar.proximity=
@@ -9265,26 +10259,21 @@ function updateRadarLocationUi(){
 async function loadRadarFrames(keepFrame=false){
   updateRadarLocationUi();
   if(state.radar.layer === 'precip'){
-    // WF_RADAR_INSTANT_V6: Smart Radar mag de actuele buienlaag nooit blokkeren.
-    // Start die refresh parallel en bouw opnieuw zodra ze klaar is.
-    loadWfSmartRadarMeta(false).then(()=>{
-      if(state.radar.layer === 'precip') buildFrameList(true);
-    }).catch(error=>console.warn('Smart Radar achtergrondrefresh faalde', error));
+    const [rainResult] = await Promise.allSettled([
+      fetchRainviewerMeta(),
+      loadWfSmartRadarMeta(true)
+    ]);
 
-    try{
-      const meta = await fetchRainviewerMeta();
-      // De gebruiker kan tijdens de request alweer naar een andere laag gegaan
-      // zijn. Bewaar de cache wel, maar raak die andere laag dan niet aan.
-      if(state.radar.layer !== 'precip') return;
-      rainviewerMeta = meta;
-      buildFrameList(keepFrame);
-      refreshRadarProximity(meta).then(()=>{ try{ renderHome(); updateRadarLocationUi(); }catch(_){} });
-    }catch(error){
-      console.error('RainViewer radarframes konden niet laden; huidig/fallback-frame blijft zichtbaar', error);
-      if(state.radar.layer === 'precip' && !state.radar.frames?.length){
-        showInstantPrecipRadar();
-      }
+    if(rainResult.status === 'fulfilled'){
+      rainviewerMeta = rainResult.value;
+      refreshRadarProximity(rainviewerMeta).then(()=>{ try{ renderHome(); updateRadarLocationUi(); }catch(_){} });
+    }else{
+      console.error('RainViewer radarframes konden niet laden; Smart Radar/fallback wordt gebruikt', rainResult.reason);
+      // Wis een eerder goed radarbeeld niet door één mislukte refresh.
+      if(!rainviewerMeta) rainviewerMeta = rainviewerMetaCache;
     }
+
+    buildFrameList(keepFrame);
     return;
   }
   try{
@@ -9797,7 +10786,7 @@ async function enterTV(options={}){
   tickClock();
   clearInterval(tv.clockTimer); clearInterval(tv.refreshTimer);
   tv.clockTimer = setInterval(tickClock, 1000);
-  tv.refreshTimer = setInterval(()=>{ loadWeather(); }, 5*60*1000);
+  tv.refreshTimer = setInterval(()=>{ loadWeather(); }, 60*1000);
 
   initTvMap();
 }
@@ -9855,6 +10844,50 @@ function tickClock(){
   $('#tvDate').textContent = now.toLocaleDateString(wfLocale(), dopts);
 }
 
+
+const WF_TV_ICON_BASE = '/assets/tv/';
+const WF_TV_ICON_VERSION = '20261004-tv-assets-v3';
+const WF_TV_ICONS = Object.freeze({
+  radar:'radar.png',
+  radio:'radio.png',
+  wind:'wind.png',
+  pressure:'pressure.png',
+  humidity:'humidity.png',
+  rainTiming:'rain_timing.png',
+  tide:'tide.png',
+  warnings:'warnings.png',
+  hourly:'hourly.png',
+  sevenDay:'seven_day.png'
+});
+function tvFeatureFallbackSvg(name){
+  const common = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+  if(name === 'wind') return `<svg ${common}><path d="M3 8h11.5a3 3 0 1 0-2.7-4.3"/><path d="M3 12h16a2.5 2.5 0 1 1-2.2 3.7"/><path d="M3 16h8"/></svg>`;
+  if(name === 'pressure') return `<svg ${common}><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 12l4-4"/></svg>`;
+  if(name === 'humidity' || name === 'rainTiming' || name === 'tide') return `<svg ${common}><path d="M12 3s6 7 6 11.5A6 6 0 0 1 6 14.5C6 10 12 3 12 3z"/></svg>`;
+  if(name === 'warnings') return `<svg ${common}><path d="M12 3l9 16H3L12 3z"/><path d="M12 9v4"/><path d="M12 16h.01"/></svg>`;
+  return `<svg ${common}><circle cx="12" cy="12" r="8"/></svg>`;
+}
+
+function wireTvFeatureIconFallbacks(root=document){
+  root?.querySelectorAll?.('img.tv-feature-icon').forEach(img=>{
+    if(img.dataset.fallbackWired === '1') return;
+    img.dataset.fallbackWired = '1';
+    img.addEventListener('error', ()=>{
+      const box = document.createElement('span');
+      box.className = 'tv-feature-icon tv-feature-icon-fallback';
+      box.innerHTML = tvFeatureFallbackSvg(img.dataset.tvFeature || '');
+      img.replaceWith(box);
+    }, {once:true});
+  });
+}
+
+function tvFeatureIcon(name, alt=''){
+  const file = WF_TV_ICONS[name];
+  if(!file) return '';
+  const src = `${WF_TV_ICON_BASE}${file}?v=${WF_TV_ICON_VERSION}`;
+  return `<img class="tv-feature-icon tv-feature-icon-${name}" src="${src}" alt="${esc(alt)}" loading="eager" decoding="async" data-tv-feature="${name}">`;
+}
+
 function renderTV(){
   if(!state.current) return;
   const cur = liveWeatherSnapshot(), hourly = state.hourly, daily = state.daily;
@@ -9875,7 +10908,7 @@ function renderTV(){
     else if(state.tvPairing.receiver || state.tvPairing.connected) tvStatus.textContent = 'TV gekoppeld';
     else tvStatus.textContent = 'Wheaterflow TV';
   }
-  $('#tvIcon').innerHTML = icon(wc.ic, isDay, 110);
+  $('#tvIcon').innerHTML = icon(wc.ic, isDay, 165);
   $('#tvTemp').innerHTML = fmtTemp(cur.temperature_2m);
   $('#tvCond').textContent = wc.l;
   const sunrise = formatTvSunTime(daily.sunrise?.[0]);
@@ -9884,35 +10917,33 @@ function renderTV(){
 
   try{
     $('#tvDetails').innerHTML = [
-      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust)),
-      tvMetricCard('drop','Rain ETA', tvRainValue(intel.rain), tvRainSubtitle(intel.rain)),
-      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint)),
-      tvMetricCard('thermo','Druk', fmtPress(pressure), pressure != null ? (pressure>1013?'Hoge druk':'Lage druk') : 'Niet beschikbaar'),
+      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust), 'wind'),
+      tvMetricCard('drop','Rain ETA', tvRainValue(intel.rain), tvRainSubtitle(intel.rain), 'rainTiming'),
+      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint), 'humidity'),
+      tvMetricCard('thermo','Druk', fmtPress(pressure), pressure != null ? (pressure>1013?'Hoge druk':'Lage druk') : 'Niet beschikbaar', 'pressure'),
       tvMarineCard(),
       tvAlertCard()
     ].filter(Boolean).join('');
+    wireTvFeatureIconFallbacks($('#tvDetails'));
   }catch(error){
     console.warn('TV details render faalde:', error);
     $('#tvDetails').innerHTML = [
-      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust)),
-      tvMetricCard('drop','Rain ETA','N.b.','Nowcast tijdelijk niet beschikbaar'),
-      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint)),
-      tvMetricCard('thermo','Druk', fmtPress(pressure), 'Niet beschikbaar'),
+      tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust), 'wind'),
+      tvMetricCard('drop','Rain ETA','N.b.','Nowcast tijdelijk niet beschikbaar', 'rainTiming'),
+      tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint), 'humidity'),
+      tvMetricCard('thermo','Druk', fmtPress(pressure), 'Niet beschikbaar', 'pressure'),
       tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar'),
       tvMetricCard('gauge','Weermelding','Code groen','')
     ].join('');
+    wireTvFeatureIconFallbacks($('#tvDetails'));
   }
 
   let hh = '';
   for(let i=nowIdx; i<Math.min(nowIdx+8, hourly.time.length); i++){
     const t = new Date(hourly.time[i]);
     const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
-    const isCurrentHour = i === nowIdx;
-    const hwc = isCurrentHour ? wcInfo(cur.weather_code) : wcInfo(hourly.weather_code[i]);
-    const hIsDay = isCurrentHour ? isDay : isDayForTime(hourly.time[i]);
-    const hourTemp = isCurrentHour ? cur.temperature_2m : hourly.temperature_2m[i];
-    const hourPop = !isCurrentHour && hourly.precipitation_probability[i] > 10 ? hourly.precipitation_probability[i]+'%' : '';
-    hh += `<div class="hitem ${isCurrentHour?'now':''}"><div class="t">${label}</div>${icon(hwc.ic,hIsDay,24)}<div class="p">${hourPop}</div><div class="v">${fmtTemp(hourTemp)}</div></div>`;
+    const hd = hourlyForecastDisplay(i, nowIdx, cur, isDay);
+    hh += `<div class="hitem ${hd.isCurrentHour?'now':''}"><div class="t">${label}</div>${icon(hd.info.ic,hd.isDay,24)}<div class="p">${hd.pop}</div><div class="v">${fmtTemp(hd.temperature)}</div></div>`;
   }
   $('#tvHourly').innerHTML = hh;
 
@@ -9926,9 +10957,10 @@ function renderTV(){
   $('#tvDaily').innerHTML = dd;
 }
 
-function tvMetricCard(ic,title,val,sub){
+function tvMetricCard(ic,title,val,sub,tvIconName=''){
   const extraClass = title === 'Rain ETA' ? ' tv-rain-eta' : '';
-  return `<div class="dcard${extraClass}">${icon(ic,true,18)}<div><div class="dt-title">${title}</div><div class="dt-val">${val}</div><div class="dt-sub">${sub}</div></div></div>`;
+  const visual = tvIconName ? tvFeatureIcon(tvIconName, title) : icon(ic,true,18);
+  return `<div class="dcard${extraClass}">${visual}<div><div class="dt-title">${title}</div><div class="dt-val">${val}</div><div class="dt-sub">${sub}</div></div></div>`;
 }
 
 function formatTvSunTime(value){
@@ -9945,14 +10977,14 @@ function tvAlertCard(){
   const level = ALERT_LEVELS[alert.level] || ALERT_LEVELS.green;
   const official = alert.source === 'officieel' || alert.official === true || alert.region || alert.validFrom || alert.validTo;
   if(alert.level === 'green'){
-    return `<div class="dcard tv-warning green">${icon('gauge',true,18)}<div><div class="dt-title">Weermelding</div><div class="dt-val">Code groen</div></div></div>`;
+    return `<div class="dcard tv-warning green">${tvFeatureIcon('warnings','Weermelding')}<div><div class="dt-title">Weermelding</div><div class="dt-val">Code groen</div></div></div>`;
   }
   const label = official ? level.label : 'Slim signaal';
-  return `<div class="dcard tv-warning ${level.cls}">${icon('gauge',true,18)}<div><div class="dt-title">Weermelding</div><div class="dt-val">${label}</div><div class="dt-sub">${esc(alert.headline)}</div></div></div>`;
+  return `<div class="dcard tv-warning ${level.cls}">${tvFeatureIcon('warnings','Weermelding')}<div><div class="dt-title">Weermelding</div><div class="dt-val">${label}</div><div class="dt-sub">${esc(alert.headline)}</div></div></div>`;
 }
 
 function tvMarineCard(){
-  if(!state.marine || !state.marine.tide) return tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar');
+  if(!state.marine || !state.marine.tide) return tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar','tide');
   const tide = state.marine.tide;
   const nextLabel = tide.nextType === 'hoogwater' ? 'vloed' : 'eb';
   const nextTime = tide.nextTime instanceof Date && !Number.isNaN(tide.nextTime.getTime())
