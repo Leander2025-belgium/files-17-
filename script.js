@@ -5319,7 +5319,7 @@ function coastSection(){
   if(!sea.available) return `<div class="card sea-mode-card"><div class="card-title">${icon('drop',true,13)} Sea Mode</div>${wheaterflowStatus('empty',sea.reason||'Momenteel geen gegevens beschikbaar')}</div>`;
   state.sharedWeather.marine={seaTemperature:sea.seaTemperature,waveHeight:sea.waveHeight,waveDirection:sea.waveDirection,wavePeriod:sea.wavePeriod,swellWaveHeight:sea.swellWaveHeight,swellWaveDirection:sea.swellWaveDirection,swellWavePeriod:sea.swellWavePeriod,oceanCurrentVelocity:sea.oceanCurrentVelocity,oceanCurrentDirection:sea.oceanCurrentDirection,seaLevelHeightMsl:sea.seaLevelHeightMsl,wind:sea.wind,gust:sea.gust,visibility:sea.visibility,tide:sea.tide,uv:sea.uv,updated:state.lastUpdated};
   const tide=sea.tide;
-  const item=(label,value,ic='gauge')=> value==null||value==='-' ? '' : `<div class="sea-compact-item">${icon(ic,true,18)}<span>${esc(label)}</span><b>${esc(value)}</b></div>`;
+  const item=(label,value,ic='gauge',detail='')=> value==null||value==='-' ? '' : `<div class="sea-compact-item"><div class="sea-compact-icon">${icon(ic,true,18)}</div><div class="sea-compact-copy"><span class="sea-compact-label">${esc(label)}</span><b class="sea-compact-value">${esc(value)}</b>${detail?`<small class="sea-compact-detail">${esc(detail)}</small>`:''}</div></div>`;
   return `<div class="card sea-mode-card sea-mode-compact"><div class="card-title">${icon('drop',true,13)} Sea Mode</div><div class="sea-reference">Zeegegevens · ${esc(sea.place)}</div>
     <div class="sea-score-grid"><div><span>Strandscore</span><b>${sea.beachScore}</b><small>${esc(sea.beachLabel)}</small></div><div><span>Zwemcomfort</span><b>${sea.swimScore}</b><small>${esc(sea.swimComfort)}</small></div></div>
     <div class="sea-compact-grid">
@@ -5330,9 +5330,9 @@ function coastSection(){
       ${item('Deining',validNumber(sea.swellWaveHeight)==null?null:`${formatMarineNumber(sea.swellWaveHeight,2)} m`,'drop')}
       ${item('Deiningrichting',formatMarineDirection(sea.swellWaveDirection),'gauge')}
       ${item('Deiningperiode',validNumber(sea.swellWavePeriod)==null?null:`${formatMarineNumber(sea.swellWavePeriod,1)} s`,'gauge')}
-      ${item('Zeestroming',validNumber(sea.oceanCurrentVelocity)==null?null:`${formatMarineNumber(sea.oceanCurrentVelocity,1)} km/u${formatMarineDirection(sea.oceanCurrentDirection)?` · ${formatMarineDirection(sea.oceanCurrentDirection)}`:''}`,'wind')}
+      ${item('Zeestroming',validNumber(sea.oceanCurrentVelocity)==null?null:`${formatMarineNumber(sea.oceanCurrentVelocity,1)} km/u`,'wind',formatMarineDirection(sea.oceanCurrentDirection)||'')}
       ${item('Zeeniveau',validNumber(sea.seaLevelHeightMsl)==null?null:`${sea.seaLevelHeightMsl>0?'+':''}${formatMarineNumber(sea.seaLevelHeightMsl,2)} m`,'gauge')}
-      ${item('Wind',validNumber(sea.wind)==null?null:formatWindPair(sea.wind,sea.gust),'wind')}
+      ${item('Wind',validNumber(sea.wind)==null?null:fmtWind(sea.wind),'wind',validNumber(sea.gust)==null?'':`Stoten ${fmtWind(sea.gust)}`)}
       ${item('Getij',tide?.state||null,'drop')}
       ${item('Volgend hoogwater',formatTideTime(tide?.nextHighTime) || (tide?.nextTime && tide?.nextType==='hoogwater' ? formatTideTime(tide.nextTime) : null),'gauge')}
       ${item('Volgend laagwater',formatTideTime(tide?.nextLowTime) || (tide?.nextTime && tide?.nextType==='laagwater' ? formatTideTime(tide.nextTime) : null),'gauge')}
