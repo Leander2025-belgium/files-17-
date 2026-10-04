@@ -122,7 +122,7 @@ const state = {
   loc: { lat:INITIAL_LOCATION.lat, lon:INITIAL_LOCATION.lon, name:INITIAL_LOCATION.name || DEFAULT_LOCATION.name, admin:INITIAL_LOCATION.admin || DEFAULT_LOCATION.admin, country:INITIAL_LOCATION.country || DEFAULT_LOCATION.country },
   language: window.WF_I18N?.language || 'nl',
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
-  current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
+  current: null, hourly: null, daily: null, elevation: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
   currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
   observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null,
   alerts: [],
@@ -2546,6 +2546,7 @@ async function loadWeather(){
     let requestedModel = preferredWeatherModel();
     let d = await fetchForecastWithFallback(requestedModel);
     state.current = d.current; state.hourly = d.hourly; state.daily = d.daily; state.minutely = d.minutely_15;
+    state.elevation = validNumber(d?.elevation ?? d?.location?.elevation ?? d?.current?.elevation);
     state.tz = d.timezone; state.utcOffsetSec = d.utc_offset_seconds;
     state.lastUpdated = Date.now();
 const optionalResults = await Promise.allSettled([
@@ -10882,10 +10883,8 @@ function wireTvFeatureIconFallbacks(root=document){
 }
 
 function tvFeatureIcon(name, alt=''){
-  const file = WF_TV_ICONS[name];
-  if(!file) return '';
-  const src = `${WF_TV_ICON_BASE}${file}?v=${WF_TV_ICON_VERSION}`;
-  return `<img class="tv-feature-icon tv-feature-icon-${name}" src="${src}" alt="${esc(alt)}" loading="eager" decoding="async" data-tv-feature="${name}">`;
+  if(!WF_TV_ICONS[name]) return '';
+  return `<span class="tv-feature-icon tv-feature-icon-${name}" role="img" aria-label="${esc(alt)}"></span>`;
 }
 
 function renderTV(){
@@ -10901,7 +10900,11 @@ function renderTV(){
   const gust = cur.wind_gusts_10m ?? hourly?.wind_gusts_10m?.[nowIdx];
 
   $('#tvLocName').textContent = locationDisplayName();
-  $('#tvAdmin').textContent = state.loc.admin || '';
+  const tvElevation = validNumber(state.elevation);
+  $('#tvAdmin').textContent = [
+    state.loc.admin || '',
+    tvElevation != null ? `${Math.round(tvElevation)} m boven zeeniveau` : ''
+  ].filter(Boolean).join(' · ');
   const tvStatus = $('#tvCastStatus');
   if(tvStatus){
     if(state.cast.receiver) tvStatus.textContent = 'Cast actief';
@@ -10932,8 +10935,8 @@ function renderTV(){
       tvMetricCard('drop','Rain ETA','N.b.','Nowcast tijdelijk niet beschikbaar', 'rainTiming'),
       tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint), 'humidity'),
       tvMetricCard('thermo','Druk', fmtPress(pressure), 'Niet beschikbaar', 'pressure'),
-      tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar'),
-      tvMetricCard('gauge','Weermelding','Code groen','')
+      tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar','tide'),
+      tvMetricCard('gauge','Weermelding','Code groen','','warnings')
     ].join('');
     wireTvFeatureIconFallbacks($('#tvDetails'));
   }
@@ -10992,7 +10995,7 @@ function tvMarineCard(){
     : '--:--';
   const wave = state.marine.waveHeight != null ? `${state.marine.waveHeight.toFixed(1)} m` : 'n.b.';
   const spark = state.seaspark ? ` - zeevonk ${Math.round(state.seaspark.score)}/100` : '';
-  return `<div class="dcard tv-marine">${icon('drop',true,18)}<div><div class="dt-title">Kust</div><div class="dt-val">${esc(tide.state || 'Kust')}</div><div class="dt-sub">Volgende ${nextLabel} ${nextTime} - golfhoogte ${wave}${spark}</div></div></div>`;
+  return `<div class="dcard tv-marine">${tvFeatureIcon('tide','Kust')}<div><div class="dt-title">Kust</div><div class="dt-val">${esc(tide.state || 'Kust')}</div><div class="dt-sub">Volgende ${nextLabel} ${nextTime} - golfhoogte ${wave}${spark}</div></div></div>`;
 }
 
 function resizeTvMap({refit=true}={}){
