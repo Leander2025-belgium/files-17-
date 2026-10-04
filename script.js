@@ -7058,9 +7058,117 @@ const COMMUNITY_OBSERVATION_TYPES = [
 ];
 const communityCategory = id => COMMUNITY_CATEGORIES.find(c=>c.id===id) || COMMUNITY_CATEGORIES[COMMUNITY_CATEGORIES.length - 1];
 const communityObservationType = id => COMMUNITY_OBSERVATION_TYPES.find(t=>t.id===id) || null;
+
+
+/* ---------------- Community photo reliability ----------------
+   Feed photos can live on dynamic storage/CDN URLs. A temporary network error
+   must never leave Safari's broken-image glyph sitting inside the post.
+   Retry once, refresh Community metadata once (useful for renewed signed URLs),
+   then show a clean Wheaterflow fallback instead of a broken <img>.
+---------------------------------------------------------------- */
+const communityPhotoRecoveryCounts = new Map();
+let communityPhotoFeedRefreshAt = 0;
+
+function communityPhotoRecoveryKey(img){
+  return String(img?.dataset?.postId || img?.dataset?.communitySrc || img?.currentSrc || img?.src || 'community-photo');
+}
+
+function communityPhotoFallbackIcon(){
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v11a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5v-11z"/><path d="M7 16l3.1-3.4 2.4 2.3 1.9-2 2.6 3.1"/><circle cx="9" cy="9" r="1.4"/></svg>`;
+}
+
+function communityPhotoFallbackHtml(){
+  return `<div class="community-photo-fallback" aria-hidden="true">${communityPhotoFallbackIcon()}<strong>Foto laden…</strong><span>Wheaterflow probeert de foto te laden</span></div>`;
+}
+
+function communityPhotoMediaHtml(post, cat, caption){
+  const src = String(post?.photo_url || '').trim();
+  if(!src) return '';
+  return `<div class="community-photo-media is-loading" data-community-media>
+    ${communityPhotoFallbackHtml()}
+    <img class="community-photo" data-community-photo data-post-id="${esc(post.id || '')}" data-community-src="${esc(src)}" src="${esc(src)}" alt="" loading="lazy" decoding="async" fetchpriority="low" referrerpolicy="strict-origin-when-cross-origin">
+    <div class="community-category">${communityWeatherIcon(cat.id,18)}${esc(cat.label)}</div>
+  </div>`;
+}
+
+function setCommunityPhotoFallback(media, {failed=false}={}){
+  if(!media) return;
+  media.classList.toggle('is-failed', failed);
+  media.classList.toggle('is-recovering', !failed);
+  const strong = media.querySelector('.community-photo-fallback strong');
+  const note = media.querySelector('.community-photo-fallback span');
+  if(strong) strong.textContent = failed ? 'Foto tijdelijk niet beschikbaar' : 'Foto opnieuw laden…';
+  if(note) note.textContent = failed ? 'Probeer het later opnieuw' : 'Wheaterflow probeert automatisch opnieuw';
+}
+
+function retryCommunityPhotoExact(img){
+  const src = String(img?.dataset?.communitySrc || '').trim();
+  if(!img || !src) return;
+  img.removeAttribute('src');
+  // Force a fresh image element request without changing signed/query URLs.
+  requestAnimationFrame(()=>setTimeout(()=>{
+    if(!img.isConnected) return;
+    img.src = src;
+  }, 650));
+}
+
+function handleCommunityPhotoLoad(img){
+  const key = communityPhotoRecoveryKey(img);
+  communityPhotoRecoveryCounts.delete(key);
+  const media = img.closest('[data-community-media]');
+  media?.classList.remove('is-loading','is-recovering','is-failed');
+  media?.classList.add('is-loaded');
+}
+
+function handleCommunityPhotoError(img){
+  const src = String(img?.dataset?.communitySrc || '').trim();
+  const media = img.closest('[data-community-media]');
+  if(!src || src.startsWith('blob:')){
+    setCommunityPhotoFallback(media,{failed:true});
+    return;
+  }
+
+  const key = communityPhotoRecoveryKey(img);
+  const attempts = (communityPhotoRecoveryCounts.get(key) || 0) + 1;
+  communityPhotoRecoveryCounts.set(key, attempts);
+  media?.classList.remove('is-loaded');
+  setCommunityPhotoFallback(media,{failed:false});
+
+  if(attempts === 1){
+    retryCommunityPhotoExact(img);
+    return;
+  }
+
+  // On the second failure, refetch the Community feed once. If the backend
+  // returned an expiring/signed media URL this gives us a fresh URL.
+  if(attempts === 2 && Date.now() - communityPhotoFeedRefreshAt > 10000){
+    communityPhotoFeedRefreshAt = Date.now();
+    setTimeout(()=>{
+      if(state.community.loading) return;
+      loadCommunityPosts(true).catch(()=>undefined);
+    }, 450);
+    return;
+  }
+
+  setCommunityPhotoFallback(media,{failed:true});
+}
+
+function initCommunityPhotoRecovery(){
+  if(document.documentElement.dataset.communityPhotoRecoveryWired === '1') return;
+  document.documentElement.dataset.communityPhotoRecoveryWired = '1';
+  document.addEventListener('load', event=>{
+    const img = event.target;
+    if(img instanceof HTMLImageElement && img.matches('[data-community-photo]')) handleCommunityPhotoLoad(img);
+  }, true);
+  document.addEventListener('error', event=>{
+    const img = event.target;
+    if(img instanceof HTMLImageElement && img.matches('[data-community-photo]')) handleCommunityPhotoError(img);
+  }, true);
+}
 const safeRandomId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
 function initCommunityUi(){
+  initCommunityPhotoRecovery();
   const catOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
   const composerCatOptions = COMMUNITY_CATEGORIES.map(c=>`<option value="${c.id}" ${c.id === 'other' ? 'selected' : ''}>${c.label}</option>`).join('');
   if($('#communityCategorySelect')) $('#communityCategorySelect').innerHTML = composerCatOptions;
@@ -7328,7 +7436,7 @@ function communityPostHtml(post){
   if(validNumber(post.temperature)!=null) weatherParts.push(`<span>${communityMiniIcon('temp')}<b>${fmtTemp(post.temperature)}</b></span>`);
   if(validNumber(post.wind_speed)!=null) weatherParts.push(`<span>${communityMiniIcon('wind')}<b>Wind ${fmtWind(post.wind_speed)}</b></span>`);
   if(validNumber(post.precipitation)!=null) weatherParts.push(`<span>${communityMiniIcon('rain')}<b>${fmtPrecip(post.precipitation)}</b></span>`);
-  const media=hasPhoto?`<div class="community-photo-media"><img class="community-photo" src="${esc(post.photo_url)}" alt="${esc(caption||cat.label)}" loading="lazy"><div class="community-category">${communityWeatherIcon(cat.id,18)}${esc(cat.label)}</div></div>`:'';
+  const media=hasPhoto?communityPhotoMediaHtml(post,cat,caption):'';
   const autoObservationCaption=isObservation && new RegExp(`^${String(obs.type.label).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')} gemeld(?: in .+)?\\.?$`,'i').test(caption);
   return `<article class="community-post ${hasPhoto?'community-photo-post':isObservation?'community-observation-post':'community-chat-post'}" data-post-id="${post.id}">
     <div class="community-post-head"><div class="community-avatar">${avatar}</div><div class="community-author-copy"><div class="community-post-name">${esc(name)}${verified?'<span class="community-verified" aria-label="Geverifieerd">✓</span>':''}</div><div class="community-post-place">${esc(post.location_name||'Community')} · ${timeAgo(post.created_at)}</div></div><button class="community-more" data-act="report" type="button" aria-label="Meer opties">•••</button></div>
@@ -7816,7 +7924,7 @@ function renderCommunityMapMarkers(){
     const cat = communityCategory(post.category);
     const marker = L.circleMarker([+post.latitude, +post.longitude], {radius:9, color:'#fff', weight:2, fillColor:cat.color, fillOpacity:.95});
     const popupMedia = post.photo_url
-      ? `<img src="${esc(post.photo_url)}" style="width:150px;border-radius:10px;margin-top:6px;">`
+      ? `<div class="community-map-photo-wrap is-loading" data-community-media>${communityPhotoFallbackHtml()}<img class="community-map-photo" data-community-photo data-post-id="${esc(post.id || '')}" data-community-src="${esc(post.photo_url)}" src="${esc(post.photo_url)}" alt="" loading="lazy" decoding="async" referrerpolicy="strict-origin-when-cross-origin"></div>`
       : (post.caption ? `<p style="max-width:170px;margin:6px 0 0;">${esc(post.caption)}</p>` : '');
     marker.bindPopup(`<b>${esc(cat.label)}</b><br>${esc(post.location_name || '')}<br>${popupMedia}`);
     marker.addTo(state.community.markers);

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20261004-tv-icons-v2";
+const CACHE_VERSION = "wheaterflow-v20261004-community-photo-v1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -133,6 +133,18 @@ self.addEventListener("message", event => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
+function isStaticShellAsset(url){
+  if(url.origin !== self.location.origin) return false;
+  return STATIC_ASSETS.some(asset=>{
+    try{ return new URL(asset,self.location.href).pathname === url.pathname; }
+    catch{ return false; }
+  });
+}
+
+function isDynamicImageRequest(request,url){
+  return request.destination === 'image' && !isStaticShellAsset(url);
+}
+
 function isLiveDataRequest(url) {
   return [
     "api.open-meteo.com",
@@ -154,6 +166,19 @@ self.addEventListener("fetch", event => {
     return;
   }
 
+  // Community/user media is dynamic. Never cache a temporary image error in the
+  // app-shell cache; prefer the network and use an existing cached copy only
+  // when the network is genuinely unavailable.
+  if (isDynamicImageRequest(request, url)) {
+    event.respondWith(
+      fetch(request, { cache: "no-store" }).then(response => {
+        if (!response.ok && response.type !== "opaque") throw new Error("image-http-" + response.status);
+        return response;
+      }).catch(() => caches.match(request).then(cached => cached || Response.error()))
+    );
+    return;
+  }
+
   if (request.mode === "navigate" || url.pathname.endsWith(".html") || url.pathname.endsWith(".css") || url.pathname.endsWith(".js")) {
     event.respondWith(
       fetch(request).then(response => {
@@ -169,8 +194,10 @@ self.addEventListener("fetch", event => {
     caches.match(request).then(cached => {
       if (cached) return cached;
       return fetch(request).then(response => {
-        const copy = response.clone();
-        caches.open(APP_CACHE).then(cache => cache.put(request, copy));
+        if (response.ok || response.type === "opaque") {
+          const copy = response.clone();
+          caches.open(APP_CACHE).then(cache => cache.put(request, copy));
+        }
         return response;
       });
     })

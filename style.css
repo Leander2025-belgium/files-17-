@@ -15102,3 +15102,97 @@ body .tabbar .tabbtn:focus-visible{
   #home .air-quality-card .aq-secondary,#home .air-quality-card .pollen-card{grid-column:1!important;}
   #home .air-quality-card .pollen-list{grid-template-columns:1fr 1fr;}
 }
+
+
+/* ---------- Community photo reliability v1 ---------- */
+#communityscreen [data-community-media]{
+  position:relative;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 32%,rgba(75,184,255,.10),transparent 42%),
+    linear-gradient(145deg,rgba(10,29,54,.96),rgba(5,17,33,.98));
+}
+#communityscreen .community-photo-fallback{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:24px;
+  text-align:center;
+  color:rgba(230,243,255,.74);
+  pointer-events:none;
+  opacity:1;
+  transition:opacity .22s ease;
+}
+#communityscreen .community-photo-fallback svg{
+  width:38px;
+  height:38px;
+  fill:none;
+  stroke:#7ddfff;
+  stroke-width:1.6;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  filter:drop-shadow(0 0 13px rgba(71,207,255,.26));
+}
+#communityscreen .community-photo-fallback strong{
+  color:#eef8ff;
+  font-size:14px;
+  font-weight:800;
+}
+#communityscreen .community-photo-fallback span{
+  color:rgba(224,239,255,.57);
+  font-size:12px;
+}
+#communityscreen [data-community-media] img[data-community-photo]{
+  position:relative;
+  z-index:2;
+  opacity:0;
+  transition:opacity .24s ease;
+}
+#communityscreen [data-community-media].is-loaded img[data-community-photo]{opacity:1}
+#communityscreen [data-community-media].is-loaded .community-photo-fallback{opacity:0}
+#communityscreen [data-community-media].is-recovering .community-photo-fallback svg{
+  animation:communityPhotoPulse 1.25s ease-in-out infinite;
+}
+#communityscreen [data-community-media].is-failed img[data-community-photo]{
+  display:none!important;
+}
+#communityscreen [data-community-media].is-failed .community-photo-fallback{
+  opacity:1;
+  background:linear-gradient(145deg,rgba(15,37,65,.94),rgba(6,20,39,.98));
+}
+@keyframes communityPhotoPulse{
+  0%,100%{opacity:.55;transform:scale(.96)}
+  50%{opacity:1;transform:scale(1.04)}
+}
+.community-map-photo-wrap{
+  width:150px;
+  min-height:105px;
+  margin-top:6px;
+  border-radius:10px;
+  overflow:hidden;
+  position:relative;
+  background:#0a1629;
+}
+.community-map-photo{
+  width:150px;
+  height:105px;
+  display:block;
+  object-fit:cover;
+}
+.community-map-photo-wrap .community-photo-fallback{
+  padding:10px;
+  gap:3px;
+}
+.community-map-photo-wrap .community-photo-fallback svg{width:24px;height:24px}
+.community-map-photo-wrap .community-photo-fallback strong{font-size:11px}
+.community-map-photo-wrap .community-photo-fallback span{display:none}
+@media (prefers-reduced-motion:reduce){
+  #communityscreen [data-community-media] img[data-community-photo],
+  #communityscreen .community-photo-fallback{transition:none!important}
+  #communityscreen [data-community-media].is-recovering .community-photo-fallback svg{animation:none!important}
+}
