@@ -667,34 +667,116 @@ function isCoastalLocation(){
   return p && p.dist <= 18;
 }
 
+function marineNumber(value){
+  if(value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function marineValue(payload, hourly, idx, key){
+  const currentValue = marineNumber(payload?.current?.[key]);
+  if(currentValue != null) return currentValue;
+  return marineNumber(hourly?.[key]?.[idx]);
+}
+
+function tideStateFromMarineHourly(hourly, now=new Date()){
+  const times = Array.isArray(hourly?.time) ? hourly.time : [];
+  const levels = Array.isArray(hourly?.sea_level_height_msl) ? hourly.sea_level_height_msl : [];
+  if(times.length < 3 || levels.length < 3) return null;
+
+  const nowMs = now.getTime();
+  const idx = closestIndex(times, nowMs);
+  const currentLevel = marineNumber(levels[idx]);
+  const nextLevel = marineNumber(levels[Math.min(idx + 1, levels.length - 1)]);
+  const previousLevel = marineNumber(levels[Math.max(0, idx - 1)]);
+  let stateLabel = null;
+  if(currentLevel != null && nextLevel != null){
+    if(nextLevel > currentLevel) stateLabel = 'Vloed';
+    else if(nextLevel < currentLevel) stateLabel = 'Eb';
+  }
+  if(!stateLabel && currentLevel != null && previousLevel != null){
+    stateLabel = currentLevel >= previousLevel ? 'Vloed' : 'Eb';
+  }
+
+  let nextHighTime = null;
+  let nextLowTime = null;
+  for(let i=Math.max(1, idx); i<Math.min(times.length - 1, levels.length - 1); i++){
+    const t = new Date(times[i]);
+    if(!Number.isFinite(t.getTime()) || t.getTime() < nowMs) continue;
+    const prev = marineNumber(levels[i-1]);
+    const cur = marineNumber(levels[i]);
+    const next = marineNumber(levels[i+1]);
+    if(prev == null || cur == null || next == null) continue;
+    if(!nextHighTime && cur >= prev && cur > next) nextHighTime = t;
+    if(!nextLowTime && cur <= prev && cur < next) nextLowTime = t;
+    if(nextHighTime && nextLowTime) break;
+  }
+
+  if(!stateLabel && !nextHighTime && !nextLowTime) return null;
+  let nextType = null;
+  let nextTime = null;
+  if(nextHighTime && nextLowTime){
+    if(nextHighTime < nextLowTime){ nextType='hoogwater'; nextTime=nextHighTime; }
+    else { nextType='laagwater'; nextTime=nextLowTime; }
+  }else if(nextHighTime){ nextType='hoogwater'; nextTime=nextHighTime; }
+  else if(nextLowTime){ nextType='laagwater'; nextTime=nextLowTime; }
+
+  return {
+    state:stateLabel || (nextType === 'hoogwater' ? 'Vloed' : nextType === 'laagwater' ? 'Eb' : null),
+    nextType,
+    nextTime,
+    nextHighTime,
+    nextLowTime,
+    level:currentLevel
+  };
+}
+
 async function loadMarine(){
   state.marine = null;
   state.seaspark = null;
   const coast = nearestCoastalPlace();
   if(!coast || coast.dist > 18) return;
   try{
-    const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${coast.lat}&longitude=${coast.lon}&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature&timezone=auto&forecast_days=2`;
-    const r = await fetch(url);
-    if(!r.ok) return;
-    const d = await r.json();
-    const idx = closestIndex(d.hourly.time, Date.now());
+    const qs = new URLSearchParams({lat:String(coast.lat), lon:String(coast.lon)});
+    const d = await apiJson(`/marine?${qs.toString()}`);
+    if(!d?.ok) return;
+
+    const hourly = d.hourly && typeof d.hourly === 'object' ? d.hourly : {};
+    const idx = Array.isArray(hourly.time) && hourly.time.length ? closestIndex(hourly.time, Date.now()) : 0;
+    const tide = tideStateFromMarineHourly(hourly, new Date()) || tideStateForOostende(new Date());
+
     state.marine = {
       place:coast.name,
-      waveHeight:d.hourly.wave_height?.[idx] ?? null,
-      wavePeriod:d.hourly.wave_period?.[idx] ?? null,
-      waveDirection:d.hourly.wave_direction?.[idx] ?? null,
-      seaSurfaceTemperature:d.hourly.sea_surface_temperature?.[idx] ?? null,
-      hourly:d.hourly,
-      tide:tideStateForOostende(new Date())
+      latitude:coast.lat,
+      longitude:coast.lon,
+      service:d.service || 'wheaterflow-marine',
+      version:d.version || null,
+      source:d.source || 'Open-Meteo Marine',
+      cache:d.cache || null,
+      waveHeight:marineValue(d,hourly,idx,'wave_height'),
+      waveDirection:marineValue(d,hourly,idx,'wave_direction'),
+      wavePeriod:marineValue(d,hourly,idx,'wave_period'),
+      swellWaveHeight:marineValue(d,hourly,idx,'swell_wave_height'),
+      swellWaveDirection:marineValue(d,hourly,idx,'swell_wave_direction'),
+      swellWavePeriod:marineValue(d,hourly,idx,'swell_wave_period'),
+      seaSurfaceTemperature:marineValue(d,hourly,idx,'sea_surface_temperature'),
+      oceanCurrentVelocity:marineValue(d,hourly,idx,'ocean_current_velocity'),
+      oceanCurrentDirection:marineValue(d,hourly,idx,'ocean_current_direction'),
+      seaLevelHeightMsl:marineValue(d,hourly,idx,'sea_level_height_msl'),
+      hourly,
+      tide
     };
-    state.seaspark = buildSeaSparkForecast(coast, d.hourly);
+
+    state.seaspark = buildSeaSparkForecast(coast, hourly);
     // Zeevonk alleen tonen wanneer het seizoen/klimaat zinvol is.
     // België/gematigde streken: mei t/m september.
     // Buiten dat seizoen alleen in warme kustgebieden met warm zeewater.
     if(state.seaspark && !shouldShowSeaSparkCard(state.seaspark, new Date())){
       state.seaspark = null;
     }
-  }catch(e){}
+  }catch(e){
+    console.warn('Wheaterflow Marine laden faalde:', e);
+  }
 }
 
 function clamp(n, min=0, max=100){
@@ -734,8 +816,8 @@ function buildSeaSparkForecast(coast, marineHourly){
     return vals.length ? Math.min(...vals) : null;
   };
 
-  const seaTemp = avg(marineHours.map(i=>marineHourly.sea_surface_temperature?.[i]));
-  const wave = avg(marineHours.map(i=>marineHourly.wave_height?.[i]));
+  const seaTemp = avg(marineHours.map(i=>marineHourly.sea_surface_temperature?.[i])) ?? marineNumber(state.marine?.seaSurfaceTemperature);
+  const wave = avg(marineHours.map(i=>marineHourly.wave_height?.[i])) ?? marineNumber(state.marine?.waveHeight);
   const wind = avg(hours.map(i=>state.hourly.wind_speed_10m?.[i]));
   const gust = max(hours.map(i=>state.hourly.wind_gusts_10m?.[i]));
   const rain = avg(hours.map(i=>state.hourly.precipitation?.[i]));
@@ -853,7 +935,18 @@ function tideStateForOostende(now){
   const previousN = nextN - 1;
   const previousType = Math.abs(previousN % 2) === 0 ? 'hoogwater' : 'laagwater';
   const stateLabel = nextType === 'hoogwater' ? 'Vloed' : 'Eb';
-  return {state:stateLabel, nextType, nextTime, nearestType, nearestTime:new Date(nearest), previousType};
+  const highN = Math.abs(nextN % 2) === 0 ? nextN : nextN + 1;
+  const lowN = Math.abs(nextN % 2) === 1 ? nextN : nextN + 1;
+  return {
+    state:stateLabel,
+    nextType,
+    nextTime,
+    nextHighTime:new Date(highRef + highN*halfCycle),
+    nextLowTime:new Date(highRef + lowN*halfCycle),
+    nearestType,
+    nearestTime:new Date(nearest),
+    previousType
+  };
 }
 
 function metarWeatherCode(m){
@@ -3146,12 +3239,41 @@ function stormEngine(){
   };
 }
 
+function marineCompass16(degrees){
+  const d = marineNumber(degrees);
+  if(d == null) return null;
+  const labels = ['N','NNO','NO','ONO','O','OZO','ZO','ZZO','Z','ZZW','ZW','WZW','W','WNW','NW','NNW'];
+  const normalized = ((d % 360) + 360) % 360;
+  return labels[Math.round(normalized / 22.5) % 16];
+}
+
+function formatMarineDirection(degrees){
+  const d = marineNumber(degrees);
+  if(d == null) return null;
+  const normalized = ((d % 360) + 360) % 360;
+  return `${marineCompass16(normalized)} · ${Math.round(normalized)}°`;
+}
+
+function formatMarineNumber(value, digits=1){
+  const n = marineNumber(value);
+  if(n == null) return null;
+  return new Intl.NumberFormat(wfLocale(), {
+    minimumFractionDigits:digits,
+    maximumFractionDigits:digits
+  }).format(n);
+}
+
+function formatTideTime(value){
+  if(!(value instanceof Date) || Number.isNaN(value.getTime())) return null;
+  return value.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
+}
+
 function seaEngine(){
   if(!state.marine){
     return {
       available:false,
       reason:isCoastalLocation() ? 'Marine data tijdelijk niet beschikbaar.' : 'Deze locatie ligt niet dicht genoeg bij de kust.',
-      source:'Open-Meteo Marine + Wheaterflow intelligence'
+      source:'Wheaterflow Marine + Wheaterflow intelligence'
     };
   }
   const cur = liveWeatherSnapshot();
@@ -3209,7 +3331,16 @@ function seaEngine(){
     seaTemperature:Number.isFinite(seaTemp) ? seaTemp : null,
     waveHeight:Number.isFinite(wave) ? wave : null,
     wavePeriod:Number.isFinite(period) ? period : null,
-    waveDirection:m.waveDirection ?? null,
+    waveDirection:marineNumber(m.waveDirection),
+    swellWaveHeight:marineNumber(m.swellWaveHeight),
+    swellWaveDirection:marineNumber(m.swellWaveDirection),
+    swellWavePeriod:marineNumber(m.swellWavePeriod),
+    oceanCurrentVelocity:marineNumber(m.oceanCurrentVelocity),
+    oceanCurrentDirection:marineNumber(m.oceanCurrentDirection),
+    seaLevelHeightMsl:marineNumber(m.seaLevelHeightMsl),
+    marineService:m.service || null,
+    marineVersion:m.version || null,
+    marineCache:m.cache || null,
     wind:Number.isFinite(wind) ? wind : null,
     gust:Number.isFinite(gust) ? gust : null,
     uv,
@@ -3224,7 +3355,7 @@ function seaEngine(){
     beachScore,
     beachLabel:scoreLabel(beachScore),
     beachFactors:beachParts,
-    source:'Open-Meteo Marine + Open-Meteo forecast + Wheaterflow intelligence'
+    source:'Wheaterflow Marine + Wheaterflow forecast + Wheaterflow intelligence'
   };
 }
 
@@ -5186,20 +5317,27 @@ function seaModePracticalAdvice(sea){
 function coastSection(){
   const sea=seaEngine();
   if(!sea.available) return `<div class="card sea-mode-card"><div class="card-title">${icon('drop',true,13)} Sea Mode</div>${wheaterflowStatus('empty',sea.reason||'Momenteel geen gegevens beschikbaar')}</div>`;
-  state.sharedWeather.marine={seaTemperature:sea.seaTemperature,waveHeight:sea.waveHeight,wavePeriod:sea.wavePeriod,wind:sea.wind,gust:sea.gust,visibility:sea.visibility,tide:sea.tide,uv:sea.uv,updated:state.lastUpdated};
+  state.sharedWeather.marine={seaTemperature:sea.seaTemperature,waveHeight:sea.waveHeight,waveDirection:sea.waveDirection,wavePeriod:sea.wavePeriod,swellWaveHeight:sea.swellWaveHeight,swellWaveDirection:sea.swellWaveDirection,swellWavePeriod:sea.swellWavePeriod,oceanCurrentVelocity:sea.oceanCurrentVelocity,oceanCurrentDirection:sea.oceanCurrentDirection,seaLevelHeightMsl:sea.seaLevelHeightMsl,wind:sea.wind,gust:sea.gust,visibility:sea.visibility,tide:sea.tide,uv:sea.uv,updated:state.lastUpdated};
   const tide=sea.tide;
   const item=(label,value,ic='gauge')=> value==null||value==='-' ? '' : `<div class="sea-compact-item">${icon(ic,true,18)}<span>${esc(label)}</span><b>${esc(value)}</b></div>`;
   return `<div class="card sea-mode-card sea-mode-compact"><div class="card-title">${icon('drop',true,13)} Sea Mode</div><div class="sea-reference">Zeegegevens · ${esc(sea.place)}</div>
     <div class="sea-score-grid"><div><span>Strandscore</span><b>${sea.beachScore}</b><small>${esc(sea.beachLabel)}</small></div><div><span>Zwemcomfort</span><b>${sea.swimScore}</b><small>${esc(sea.swimComfort)}</small></div></div>
     <div class="sea-compact-grid">
-      ${item('Zeewater',validNumber(sea.seaTemperature)==null?null:`${sea.seaTemperature.toFixed(1)} °C`,'thermo')}
-      ${item('Golfhoogte',validNumber(sea.waveHeight)==null?null:`${sea.waveHeight.toFixed(1)} m`,'drop')}
-      ${item('Golfperiode',validNumber(sea.wavePeriod)==null?null:`${sea.wavePeriod.toFixed(1)} s`,'gauge')}
+      ${item('Zeewater',validNumber(sea.seaTemperature)==null?null:`${formatMarineNumber(sea.seaTemperature,1)} °C`,'thermo')}
+      ${item('Golfhoogte',validNumber(sea.waveHeight)==null?null:`${formatMarineNumber(sea.waveHeight,2)} m`,'drop')}
+      ${item('Golfrichting',formatMarineDirection(sea.waveDirection),'gauge')}
+      ${item('Golfperiode',validNumber(sea.wavePeriod)==null?null:`${formatMarineNumber(sea.wavePeriod,1)} s`,'gauge')}
+      ${item('Deining',validNumber(sea.swellWaveHeight)==null?null:`${formatMarineNumber(sea.swellWaveHeight,2)} m`,'drop')}
+      ${item('Deiningrichting',formatMarineDirection(sea.swellWaveDirection),'gauge')}
+      ${item('Deiningperiode',validNumber(sea.swellWavePeriod)==null?null:`${formatMarineNumber(sea.swellWavePeriod,1)} s`,'gauge')}
+      ${item('Zeestroming',validNumber(sea.oceanCurrentVelocity)==null?null:`${formatMarineNumber(sea.oceanCurrentVelocity,1)} km/u${formatMarineDirection(sea.oceanCurrentDirection)?` · ${formatMarineDirection(sea.oceanCurrentDirection)}`:''}`,'wind')}
+      ${item('Zeeniveau',validNumber(sea.seaLevelHeightMsl)==null?null:`${sea.seaLevelHeightMsl>0?'+':''}${formatMarineNumber(sea.seaLevelHeightMsl,2)} m`,'gauge')}
       ${item('Wind',validNumber(sea.wind)==null?null:formatWindPair(sea.wind,sea.gust),'wind')}
       ${item('Getij',tide?.state||null,'drop')}
-      ${item('Volgend hoogwater',tide?.nextTime ? new Date(tide.nextTime.getTime() + (tide.nextType==='hoogwater'?0:(6*3600+12.5*60)*1000)).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : null,'gauge')}
+      ${item('Volgend hoogwater',formatTideTime(tide?.nextHighTime) || (tide?.nextTime && tide?.nextType==='hoogwater' ? formatTideTime(tide.nextTime) : null),'gauge')}
+      ${item('Volgend laagwater',formatTideTime(tide?.nextLowTime) || (tide?.nextTime && tide?.nextType==='laagwater' ? formatTideTime(tide.nextTime) : null),'gauge')}
       ${item('UV-index',validNumber(sea.uv)==null?null:String(Math.round(sea.uv)),'uv')}
-      ${item('Zicht',validNumber(sea.visibility)==null?null:`${(sea.visibility/1000).toFixed(1)} km`,'eye')}
+      ${item('Zicht',validNumber(sea.visibility)==null?null:`${formatMarineNumber(sea.visibility/1000,1)} km`,'eye')}
     </div>
     <div class="sea-advice-compact"><b>Advies</b><span>${esc(seaModePracticalAdvice(sea))}</span></div>
     ${seaSparkCoastPanel()}
