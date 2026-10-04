@@ -125,6 +125,7 @@ const state = {
   current: null, hourly: null, daily: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
   currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
   observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null,
+  terrain: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
   lightning: { available:false, loading:false, updated:null, strikes:[], nearest:null, summary:null, threat:null, error:null },
@@ -2540,6 +2541,46 @@ async function fetchForecastWithFallback(model){
   }
 }
 
+async function loadTerrain(){
+  const loc = canonicalLocation();
+  const lat = Number(loc?.lat), lon = Number(loc?.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)){
+    state.terrain = null;
+    return null;
+  }
+  try{
+    const data = await apiJson(`/terrain?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
+    if(!data?.ok || !Number.isFinite(Number(data.elevationM))) throw new Error('invalid_terrain');
+    state.terrain = {
+      elevationM:Number(data.elevationM),
+      terrainClass:String(data.terrainClass || ''),
+      label:String(data.label || ''),
+      mountain:data.mountain === true,
+      provider:String(data.provider || ''),
+      cache:String(data.cache || ''),
+      latitude:lat,
+      longitude:lon
+    };
+    return state.terrain;
+  }catch(error){
+    state.terrain = null;
+    throw error;
+  }
+}
+
+function terrainSection(){
+  const t = state.terrain;
+  if(!t) return `<div class="card terrain-card"><div class="card-title">${icon('gauge',true,13)} Terrein & hoogte</div>${wheaterflowStatus('empty','Hoogtegegevens tijdelijk niet beschikbaar')}</div>`;
+  const elevation = Math.round(Number(t.elevationM));
+  return `<div class="card terrain-card">
+    <div class="card-title">${icon('gauge',true,13)} Terrein & hoogte</div>
+    <div class="terrain-summary">
+      <div class="terrain-elevation"><b>${esc(elevation)} m</b><span>boven zeeniveau</span></div>
+      <div class="terrain-copy"><strong>${esc(t.label || 'Terrein')}</strong><small>Wheaterflow Terrain Engine 1.0</small></div>
+    </div>
+  </div>`;
+}
+
 async function loadWeather(){
   $('#homeLoader')?.classList.remove('hide');
   try{
@@ -2553,6 +2594,7 @@ const optionalResults = await Promise.allSettled([
   loadCurrentObservation(),
   loadMarine(),
   loadAirQuality(),
+  loadTerrain(),
   loadAlerts(),
   loadWheaterflowAdminAlerts(),
   loadAstroEvents(),
@@ -2567,6 +2609,7 @@ console.warn(
     'METAR',
     'Marine',
     'Luchtkwaliteit',
+    'Terrein & hoogte',
     'Officiële meldingen',
     'Wheaterflow adminmeldingen',
     'Astro-events',
@@ -4398,7 +4441,7 @@ function renderMoreWeatherSections(tab='charts'){
     charts: chartsSection(),
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
-    skycoast: `${airQualitySection()}${coastSection()}`,
+    skycoast: `${terrainSection()}${airQualitySection()}${coastSection()}`,
     storm: stormWeatherSection(),
     webcam: webcamWeatherSection(),
     travel: travelWeatherSection()
@@ -10879,7 +10922,8 @@ function renderTV(){
   const gust = cur.wind_gusts_10m ?? hourly?.wind_gusts_10m?.[nowIdx];
 
   $('#tvLocName').textContent = locationDisplayName();
-  $('#tvAdmin').textContent = state.loc.admin || '';
+  const tvElevation = Number(state.terrain?.elevationM);
+  $('#tvAdmin').innerHTML = `${esc(state.loc.admin || '')}${Number.isFinite(tvElevation) ? `<span class="tv-elevation">${esc(Math.round(tvElevation))} m</span>` : ''}`;
   const tvStatus = $('#tvCastStatus');
   if(tvStatus){
     if(state.cast.receiver) tvStatus.textContent = 'Cast actief';

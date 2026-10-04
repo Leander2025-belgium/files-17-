@@ -15196,3 +15196,47 @@ body .tabbar .tabbtn:focus-visible{
   #communityscreen .community-photo-fallback{transition:none!important}
   #communityscreen [data-community-media].is-recovering .community-photo-fallback svg{animation:none!important}
 }
+
+/* ===== Terrain Engine 1.0: app + compact TV altitude ===== */
+.terrain-card .terrain-summary{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-top:12px;
+}
+.terrain-elevation{
+  min-width:112px;
+  padding:14px 16px;
+  border-radius:20px;
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.16);
+  backdrop-filter:blur(18px) saturate(135%);
+  -webkit-backdrop-filter:blur(18px) saturate(135%);
+}
+.terrain-elevation b{display:block;font-size:24px;line-height:1;font-weight:800;}
+.terrain-elevation span{display:block;margin-top:6px;font-size:11px;opacity:.68;}
+.terrain-copy{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.terrain-copy strong{font-size:16px;}
+.terrain-copy small{font-size:11px;opacity:.62;}
+.tv-admin .tv-elevation{
+  display:inline-flex;
+  align-items:center;
+  margin-left:10px;
+  padding:3px 7px;
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:999px;
+  background:rgba(10,20,34,.18);
+  color:rgba(245,249,255,.78);
+  font-size:.72em;
+  line-height:1;
+  letter-spacing:.04em;
+  text-transform:none;
+  vertical-align:middle;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+@media (max-width:560px){
+  .terrain-card .terrain-summary{gap:12px;}
+  .terrain-elevation{min-width:96px;padding:12px 14px;}
+  .terrain-elevation b{font-size:21px;}
+}
