@@ -22,7 +22,10 @@
     timer: null,
     audioContext: null,
     speaking: false,
-    lastAlertKey: null
+    lastAlertKey: null,
+    nextBulletinAt: null,
+    scheduleTicker: null,
+    volume: 0.9
   };
 
   const card = $('radioCard');
@@ -205,7 +208,7 @@
     state.warnings = warningList(jobs[4].status === 'fulfilled' ? jobs[4].value : null);
 
     render();
-    if (!silent) setStatus('Wheaterflow Radio 0.2 is klaar.', 'ok');
+    if (!silent) setStatus('Wheaterflow Radio is klaar.', 'ok');
     return state;
   }
 
@@ -279,7 +282,7 @@
       $('alertText').textContent = '';
     }
 
-    $('radioSummary').textContent = state.radioOn ? 'Live bulletin actief. Nieuwe update om de 15 minuten.' : 'Brain, radar, wind en waarschuwingen in één bulletin.';
+    $('radioSummary').textContent = state.radioOn ? 'Wheaterflow Live is actief. Weerdata wordt automatisch vernieuwd.' : 'Live weer, radar en waarschuwingen samengebracht in één zender.';
   }
 
   function buildBulletin() {
@@ -358,6 +361,7 @@
     utterance.lang = 'nl-BE';
     utterance.rate = 0.93;
     utterance.pitch = 1.0;
+    utterance.volume = state.volume;
     const voice = preferredVoice();
     if (voice) utterance.voice = voice;
     utterance.onstart = () => {
@@ -365,13 +369,15 @@
       card.classList.add('playing');
       $('radioLabel').textContent = 'NU OP WHEATERFLOW RADIO';
       $('radioTitle').textContent = 'Live weerbulletin';
+      $('playerStatus').textContent = 'Nu live · weerbulletin';
     };
     utterance.onend = () => {
       state.speaking = false;
       card.classList.remove('playing');
       if (state.radioOn) {
         $('radioLabel').textContent = 'RADIO STAAT AAN';
-        $('radioTitle').textContent = 'Volgende update over maximaal 15 min';
+        $('radioTitle').textContent = 'Wheaterflow Live';
+        $('playerStatus').textContent = 'Live · wacht op volgende update';
       }
     };
     utterance.onerror = () => {
@@ -392,17 +398,41 @@
     }
   }
 
+  function updateScheduleUI() {
+    const el = $('nextUpdate');
+    const bar = $('scheduleProgress');
+    if (!state.radioOn || !state.nextBulletinAt) {
+      el.textContent = 'Na starten';
+      bar.style.width = '0%';
+      return;
+    }
+    const total = 15 * 60 * 1000;
+    const left = Math.max(0, state.nextBulletinAt - Date.now());
+    const mins = Math.floor(left / 60000);
+    const secs = Math.floor((left % 60000) / 1000);
+    el.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+    bar.style.width = `${Math.min(100, Math.max(0, (1 - left / total) * 100))}%`;
+  }
+
   function startSchedule() {
     clearInterval(state.timer);
-    state.timer = setInterval(() => {
-      if (state.radioOn && document.visibilityState === 'visible') bulletin();
+    clearInterval(state.scheduleTicker);
+    state.nextBulletinAt = Date.now() + 15 * 60 * 1000;
+    updateScheduleUI();
+    state.scheduleTicker = setInterval(updateScheduleUI, 1000);
+    state.timer = setInterval(async () => {
+      if (state.radioOn && document.visibilityState === 'visible') await bulletin();
+      state.nextBulletinAt = Date.now() + 15 * 60 * 1000;
+      updateScheduleUI();
     }, 15 * 60 * 1000);
   }
 
   async function startRadio() {
     state.radioOn = true;
-    playButton.textContent = '■ Stop Wheaterflow Radio';
+    playButton.textContent = '■';
+    playButton.setAttribute('aria-label', 'Stop Wheaterflow Radio');
     playButton.classList.add('on');
+    $('playerStatus').textContent = 'Start live uitzending…';
     $('radioLabel').textContent = 'RADIO START…';
     await bulletin();
     startSchedule();
@@ -411,18 +441,28 @@
   function stopRadio() {
     state.radioOn = false;
     clearInterval(state.timer);
+    clearInterval(state.scheduleTicker);
     state.timer = null;
+    state.scheduleTicker = null;
+    state.nextBulletinAt = null;
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     card.classList.remove('playing');
-    playButton.textContent = '▶ Start Wheaterflow Radio';
+    playButton.textContent = '▶';
+    playButton.setAttribute('aria-label', 'Start Wheaterflow Radio');
     playButton.classList.remove('on');
     $('radioLabel').textContent = 'KLAAR OM TE STARTEN';
-    $('radioTitle').textContent = 'Wheaterflow Radio 0.2';
-    $('radioSummary').textContent = 'Brain, radar, wind en waarschuwingen in één bulletin.';
+    $('radioTitle').textContent = 'Wheaterflow Radio';
+    $('radioSummary').textContent = 'Live weer, radar en waarschuwingen samengebracht in één zender.';
+    $('playerStatus').textContent = 'Klaar om te starten';
+    updateScheduleUI();
     setStatus('Radio is uit.');
   }
 
   playButton.addEventListener('click', () => state.radioOn ? stopRadio() : startRadio());
+
+  $('volume').addEventListener('input', event => {
+    state.volume = Math.max(0, Math.min(1, Number(event.target.value) || 0));
+  });
 
   $('locationButton').addEventListener('click', () => {
     if (!navigator.geolocation) return setStatus('Locatie wordt niet ondersteund.', 'error');

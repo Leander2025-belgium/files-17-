@@ -8,25 +8,25 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="WF Radio">
   <title>Wheaterflow Radio</title>
-  <link rel="stylesheet" href="./radio.css?v=0.2.0">
+  <link rel="stylesheet" href="./radio.css?v=1.0.0">
 </head>
 <body>
   <main class="app">
     <header class="top">
       <div class="logo" aria-hidden="true">◉</div>
       <div>
-        <div class="eyebrow">WHEATERFLOW RADIO <span class="beta">0.2 BETA</span></div>
+        <div class="eyebrow">WHEATERFLOW RADIO <span class="beta">1.0</span></div>
         <h1 id="locationName">Oostende</h1>
       </div>
-      <div class="pill">LIVE WEATHER</div>
+      <div class="pill"><span class="liveDot"></span> LIVE</div>
     </header>
 
     <section class="card" id="radioCard">
       <div class="now">
         <div class="grow">
           <div class="label" id="radioLabel">KLAAR OM TE STARTEN</div>
-          <div class="title" id="radioTitle">Wheaterflow Radio 0.2</div>
-          <p class="summary" id="radioSummary">Brain, radar, wind en waarschuwingen in één bulletin.</p>
+          <div class="title" id="radioTitle">Wheaterflow Radio</div>
+          <p class="summary" id="radioSummary">Live weer, radar en waarschuwingen samengebracht in één zender.</p>
         </div>
         <div class="meters" aria-hidden="true">
           <i class="meter"></i><i class="meter"></i><i class="meter"></i><i class="meter"></i>
@@ -75,10 +75,21 @@
       </div>
     </section>
 
-    <div class="controls">
-      <button class="primary" id="playButton">▶ Start Wheaterflow Radio</button>
+    <section class="player" aria-label="Wheaterflow Radio speler">
+      <button class="playRound" id="playButton" aria-label="Start Wheaterflow Radio">▶</button>
+      <div class="playerInfo">
+        <b id="playerTitle">Wheaterflow Radio</b>
+        <span id="playerStatus">Klaar om te starten</span>
+        <div class="progress"><i id="scheduleProgress"></i></div>
+      </div>
       <button class="iconbtn" id="locationButton" aria-label="Gebruik huidige locatie">⌖</button>
-    </div>
+    </section>
+
+    <section class="studioStrip">
+      <div><small>PROGRAMMA</small><b id="programName">Wheaterflow Live</b></div>
+      <div><small>VOLGENDE UPDATE</small><b id="nextUpdate">Na starten</b></div>
+      <label class="volume"><small>VOLUME</small><input id="volume" type="range" min="0" max="1" value="0.9" step="0.05" aria-label="Volume"></label>
+    </section>
 
     <div class="grid">
       <div class="mini">
@@ -90,8 +101,8 @@
         <span>Temperatuur, Rain ETA, wind, stormsignalen en waarschuwingen worden samengevoegd.</span>
       </div>
       <div class="mini">
-        <b>Automatisch</b>
-        <span>Zolang de webapp zichtbaar blijft, volgt maximaal om de 15 minuten een nieuw bulletin.</span>
+        <b>Automatische uitzending</b>
+        <span>Na het starten volgt iedere 15 minuten een vernieuwd Wheaterflow-bulletin.</span>
       </div>
       <div class="mini">
         <b>Veilige fallback</b>
@@ -100,9 +111,9 @@
     </div>
 
     <div class="status" id="status">Radio is uit.</div>
-    <p class="foot">Radio 0.2 draait volledig als webapp op je iPhone. iOS kan webapps in de achtergrond pauzeren; een echte continue 24/7-stream en lockscreen-audio komen in een latere servergestuurde versie.</p>
+    <p class="foot">Radio 1.0 gebruikt nu de Wheaterflow-data-engine en browseraudio. De volgende stap is de centrale 24/7 Radio Server voor dezelfde stream in de app en TV-modus.</p>
   </main>
 
-  <script src="./radio.js?v=0.2.0"></script>
+  <script src="./radio.js?v=1.0.0"></script>
 </body>
 </html>
