@@ -10737,7 +10737,8 @@ function tickClock(){
 }
 
 
-const WF_TV_ICON_BASE = 'assets/tv/';
+const WF_TV_ICON_BASE = './assets/tv/';
+const WF_TV_ICON_VERSION = '20261004-tv-icons-v2';
 const WF_TV_ICONS = Object.freeze({
   radar:'radar.png',
   radio:'radio.png',
@@ -10753,7 +10754,8 @@ const WF_TV_ICONS = Object.freeze({
 function tvFeatureIcon(name, alt=''){
   const file = WF_TV_ICONS[name];
   if(!file) return '';
-  return `<img class="tv-feature-icon tv-feature-icon-${name}" src="${WF_TV_ICON_BASE}${file}" alt="${esc(alt)}" loading="eager" decoding="async">`;
+  const src = `${WF_TV_ICON_BASE}${file}?v=${WF_TV_ICON_VERSION}`;
+  return `<img class="tv-feature-icon tv-feature-icon-${name}" src="${src}" alt="${esc(alt)}" loading="eager" decoding="async" crossorigin="anonymous">`;
 }
 
 function renderTV(){
@@ -10776,7 +10778,7 @@ function renderTV(){
     else if(state.tvPairing.receiver || state.tvPairing.connected) tvStatus.textContent = 'TV gekoppeld';
     else tvStatus.textContent = 'Wheaterflow TV';
   }
-  $('#tvIcon').innerHTML = icon(wc.ic, isDay, 110);
+  $('#tvIcon').innerHTML = icon(wc.ic, isDay, 165);
   $('#tvTemp').innerHTML = fmtTemp(cur.temperature_2m);
   $('#tvCond').textContent = wc.l;
   const sunrise = formatTvSunTime(daily.sunrise?.[0]);
