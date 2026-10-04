@@ -126,6 +126,7 @@ const state = {
   currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
   observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null,
   terrain: null,
+  soil: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
   lightning: { available:false, loading:false, updated:null, strikes:[], nearest:null, summary:null, threat:null, error:null },
@@ -2541,6 +2542,80 @@ async function fetchForecastWithFallback(model){
   }
 }
 
+async function loadSoil(){
+  const loc = canonicalLocation();
+  const lat = Number(loc?.lat), lon = Number(loc?.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)){
+    state.soil = null;
+    return null;
+  }
+  try{
+    const data = await apiJson(`/soil?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
+    if(!data?.ok || !data?.soil) throw new Error('invalid_soil');
+    state.soil = {
+      ...data.soil,
+      units:data.units || {temperature:'°C', moisture:'m³/m³'},
+      modelData:data.modelData !== false,
+      sensorData:data.sensorData === true,
+      provider:String(data.provider || ''),
+      cache:String(data.cache || ''),
+      updated:data.updated || null,
+      latitude:lat,
+      longitude:lon
+    };
+    return state.soil;
+  }catch(error){
+    state.soil = null;
+    throw error;
+  }
+}
+
+function soilPercent(value){
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n * 100) : null;
+}
+
+function soilValue(value, suffix=''){
+  const n = Number(value);
+  return Number.isFinite(n) ? `${esc(n.toFixed(1).replace('.', ','))}${suffix}` : '—';
+}
+
+function soilSection(){
+  const s = state.soil;
+  if(!s) return `<div class="card soil-card"><div class="card-title">${icon('gauge',true,13)} Bodem</div>${wheaterflowStatus('empty','Bodemgegevens tijdelijk niet beschikbaar')}</div>`;
+  const temp = s.temperature || {};
+  const moisture = s.moisture || {};
+  const surfacePct = soilPercent(s.surfaceMoisture);
+  const moistureRows = [
+    ['0–1 cm', moisture['0-1cm']],
+    ['1–3 cm', moisture['1-3cm']],
+    ['3–9 cm', moisture['3-9cm']],
+    ['9–27 cm', moisture['9-27cm']],
+    ['27–81 cm', moisture['27-81cm']]
+  ];
+  const tempRows = [
+    ['Oppervlak', temp.surface],
+    ['6 cm', temp['6cm']],
+    ['18 cm', temp['18cm']],
+    ['54 cm', temp['54cm']]
+  ];
+  return `<div class="card soil-card">
+    <div class="card-title">${icon('gauge',true,13)} Bodem</div>
+    <div class="soil-hero">
+      <div class="soil-main"><span>Bodemstatus</span><strong>${esc(s.label || 'Bodem')}</strong><small>Wheaterflow Soil Engine 1.0</small></div>
+      <div class="soil-kpis">
+        <div><span>Oppervlak</span><b>${soilValue(temp.surface,' °C')}</b></div>
+        <div><span>Bodemvocht</span><b>${surfacePct == null ? '—' : `${esc(surfacePct)}%`}</b></div>
+      </div>
+    </div>
+    <div class="soil-detail-grid">
+      <div class="soil-depth-panel"><h3>Temperatuur per diepte</h3>${tempRows.map(([label,value])=>`<div class="soil-depth-row"><span>${esc(label)}</span><b>${soilValue(value,' °C')}</b></div>`).join('')}</div>
+      <div class="soil-depth-panel"><h3>Vocht per diepte</h3>${moistureRows.map(([label,value])=>{ const pct=soilPercent(value); return `<div class="soil-moisture-row"><div><span>${esc(label)}</span><b>${pct == null ? '—' : `${esc(pct)}%`}</b></div><i><em style="width:${pct == null ? 0 : Math.max(0,Math.min(100,pct))}%"></em></i></div>`; }).join('')}</div>
+    </div>
+    <div class="soil-note">Modeldata · geen lokale bodemsensor${s.updated ? ` · bijgewerkt ${esc(new Date(s.updated).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}))}` : ''}</div>
+  </div>`;
+}
+
 async function loadTerrain(){
   const loc = canonicalLocation();
   const lat = Number(loc?.lat), lon = Number(loc?.lon);
@@ -2595,6 +2670,7 @@ const optionalResults = await Promise.allSettled([
   loadMarine(),
   loadAirQuality(),
   loadTerrain(),
+  loadSoil(),
   loadAlerts(),
   loadWheaterflowAdminAlerts(),
   loadAstroEvents(),
@@ -2610,6 +2686,7 @@ console.warn(
     'Marine',
     'Luchtkwaliteit',
     'Terrein & hoogte',
+    'Bodem',
     'Officiële meldingen',
     'Wheaterflow adminmeldingen',
     'Astro-events',
@@ -4427,6 +4504,7 @@ function appSections(){
         <button type="button" data-more-tab="fourteen">14 dagen</button>
         <button type="button" data-more-tab="sunmoon">Zon & maan</button>
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
+        <button type="button" data-more-tab="soil">Bodem</button>
         <button type="button" data-more-tab="storm">Onweer & storm</button>
         <button type="button" data-more-tab="webcam">Webcam</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
@@ -4442,6 +4520,7 @@ function renderMoreWeatherSections(tab='charts'){
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
     skycoast: `${terrainSection()}${airQualitySection()}${coastSection()}`,
+    soil: soilSection(),
     storm: stormWeatherSection(),
     webcam: webcamWeatherSection(),
     travel: travelWeatherSection()
@@ -4567,7 +4646,7 @@ function wireMoreWeatherSections(){
   const content = $('#moreWeatherContent');
   const tabs = $$('#moreWeatherTabs [data-more-tab]');
   if(!content || !tabs.length) return;
-  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','storm','webcam','travel']);
+  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','soil','storm','webcam','travel']);
   const load = (tab = state.moreWeatherTab || 'charts') => {
     if(!validTabs.has(tab)) tab = 'charts';
     state.moreWeatherTab = tab;

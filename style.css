@@ -15240,3 +15240,29 @@ body .tabbar .tabbtn:focus-visible{
   .terrain-elevation{min-width:96px;padding:12px 14px;}
   .terrain-elevation b{font-size:21px;}
 }
+
+
+/* ===== Wheaterflow Soil Engine 1.0 ===== */
+.soil-card{overflow:hidden;}
+.soil-hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(220px,.75fr);gap:12px;margin-top:12px;}
+.soil-main,.soil-kpis>div,.soil-depth-panel{background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(18px) saturate(135%);-webkit-backdrop-filter:blur(18px) saturate(135%);}
+.soil-main{display:flex;flex-direction:column;justify-content:center;min-height:116px;padding:18px;border-radius:22px;}
+.soil-main>span,.soil-kpis span{font-size:11px;font-weight:750;opacity:.66;}
+.soil-main strong{margin-top:5px;font-size:23px;line-height:1.1;}
+.soil-main small{margin-top:7px;font-size:11px;opacity:.58;}
+.soil-kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.soil-kpis>div{display:flex;flex-direction:column;justify-content:center;padding:14px;border-radius:20px;min-width:0;}
+.soil-kpis b{display:block;margin-top:5px;font-size:20px;white-space:nowrap;}
+.soil-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;}
+.soil-depth-panel{padding:15px 16px;border-radius:20px;}
+.soil-depth-panel h3{margin:0 0 10px;font-size:12px;font-weight:850;letter-spacing:.01em;opacity:.72;}
+.soil-depth-row,.soil-moisture-row>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;font-size:12px;}
+.soil-depth-row+ .soil-depth-row,.soil-moisture-row+ .soil-moisture-row{border-top:1px solid rgba(255,255,255,.07);}
+.soil-depth-row span,.soil-moisture-row span{opacity:.7;}
+.soil-depth-row b,.soil-moisture-row b{font-size:12px;}
+.soil-moisture-row{padding:2px 0 7px;}
+.soil-moisture-row i{display:block;height:4px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.09);}
+.soil-moisture-row i em{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,rgba(104,199,255,.72),rgba(105,225,174,.88));}
+.soil-note{margin-top:11px;font-size:10px;font-weight:700;opacity:.52;}
+@media(max-width:650px){.soil-hero,.soil-detail-grid{grid-template-columns:1fr}.soil-main{min-height:98px}.soil-kpis{grid-template-columns:1fr 1fr}.soil-main strong{font-size:21px}}
+@media(max-width:380px){.soil-kpis{grid-template-columns:1fr}.soil-kpis>div{min-height:72px}}
