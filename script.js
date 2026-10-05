@@ -852,7 +852,7 @@ async function loadAirQuality(){
    Geen losse /api/snow, /api/visibility of /api/clouds fetches.
    ------------------------------------------------------------------------- */
 const ATMOSPHERE_CACHE_TTL_MS = 10 * 60 * 1000;
-const ATMOSPHERE_CACHE_PREFIX = 'wheaterflow:atmosphere:v1:';
+const ATMOSPHERE_CACHE_PREFIX = 'wheaterflow:atmosphere:v2:';
 const atmosphereInFlight = new Map();
 const atmosphereLastAttempt = new Map();
 
@@ -914,7 +914,9 @@ function atmosphereWithMeta(data, meta){
 function normalizeAtmospherePayload(payload){
   if(!payload || typeof payload!=='object') throw new Error('Ongeldige Atmosphere-response');
   let root=payload;
-  if(payload.data && typeof payload.data==='object') root=payload.data;
+  if(payload.data?.atmosphere && typeof payload.data.atmosphere==='object') root=payload.data.atmosphere;
+  else if(payload.data && typeof payload.data==='object') root=payload.data;
+  else if(payload.result && typeof payload.result==='object') root=payload.result;
   else if(payload.atmosphere && typeof payload.atmosphere==='object') root=payload.atmosphere;
   const data={
     ...root,
@@ -983,7 +985,7 @@ async function loadAtmosphere(){
   const request=(async()=>{
     try{
       const params=new URLSearchParams({lat:String(lat),lon:String(lon)});
-      const response=await fetch(`/api/atmosphere?${params.toString()}`,{cache:'no-store'});
+      const response=await fetch(`${WHEATERFLOW_API_BASE}/atmosphere?${params.toString()}`,{cache:'no-store'});
       if(!response.ok) throw new Error(`Atmosphere HTTP ${response.status}`);
       const raw=await response.json();
       const data=normalizeAtmospherePayload(raw);
@@ -1225,6 +1227,18 @@ function atmosphereSnowCard(){
 
 function atmosphereCardsSection(){
   return `${atmosphereVisibilityCard()}${atmosphereCloudsCard()}${atmosphereSnowCard()}`;
+}
+
+function safeAtmosphereCardsSection(){
+  try{
+    return atmosphereCardsSection();
+  }catch(error){
+    console.warn('Atmosphere kaarten renderen faalde, Sea Mode blijft beschikbaar:', error);
+    return `
+      <div class="card atmosphere-card"><div class="card-title">${wfCardIcon('visibility','Zicht & mist')} Zicht & mist</div>${wheaterflowStatus('empty','Zichtgegevens tijdelijk niet beschikbaar')}</div>
+      <div class="card atmosphere-card"><div class="card-title">${icon('cloud',true,13)} Wolkenlagen</div>${wheaterflowStatus('empty','Wolkengegevens tijdelijk niet beschikbaar')}</div>
+      <div class="card atmosphere-card"><div class="card-title">${icon('snow',true,13)} Sneeuw</div>${wheaterflowStatus('empty','Snowdata tijdelijk niet beschikbaar')}</div>`;
+  }
 }
 
 function atmosphereIntelligenceMessages(){
@@ -4681,7 +4695,7 @@ function renderMoreWeatherSections(tab='charts'){
     charts: chartsSection(),
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
-    skycoast: `${airQualitySection()}${atmosphereCardsSection()}${coastSection()}`,
+    skycoast: `${airQualitySection()}${safeAtmosphereCardsSection()}${coastSection()}`,
     storm: stormWeatherSection(),
     webcam: webcamWeatherSection(),
     travel: travelWeatherSection()
