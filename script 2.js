@@ -124,7 +124,7 @@ const state = {
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
   current: null, hourly: null, daily: null, elevation: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
   currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
-  observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null,
+  observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null, soil: null, terrain: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
   lightning: { available:false, loading:false, updated:null, strikes:[], nearest:null, summary:null, threat:null, error:null },
@@ -934,6 +934,172 @@ async function loadAirQuality(){
   }catch(error){
     console.warn('Wheaterflow Air Quality laden faalde:', error?.message || error);
   }
+}
+
+const SOIL_CACHE_TTL_MS = 10 * 60 * 1000;
+const SOIL_STALE_MAX_MS = 6 * 60 * 60 * 1000;
+
+function soilCacheKey(lat, lon){
+  return `wheaterflow:soil:v1:${Number(lat).toFixed(3)}:${Number(lon).toFixed(3)}`;
+}
+
+function soilFromForecast(){
+  const h = state.hourly || {};
+  const c = state.current || {};
+  const idx = Math.max(0, nowIndexInHourly());
+  const temperature = validNumber(
+    c.soil_temperature_0cm ?? c.soilTemperature0cm ??
+    h.soil_temperature_0cm?.[idx] ?? h.soilTemperature0cm?.[idx]
+  );
+  const moisture = validNumber(
+    c.soil_moisture_0_to_1cm ?? c.soilMoisture0To1cm ??
+    h.soil_moisture_0_to_1cm?.[idx] ?? h.soilMoisture0To1cm?.[idx]
+  );
+  if(temperature == null && moisture == null) return null;
+  return {temperature, moisture, source:'Wheaterflow forecast', updatedAt:Date.now()};
+}
+
+function readSoilCache(lat, lon, {allowStale=false}={}){
+  try{
+    const raw = localStorage.getItem(soilCacheKey(lat, lon));
+    if(!raw) return null;
+    const cached = JSON.parse(raw);
+    const age = Date.now() - Number(cached?.savedAt || 0);
+    const maxAge = allowStale ? SOIL_STALE_MAX_MS : SOIL_CACHE_TTL_MS;
+    if(!cached?.data || !Number.isFinite(age) || age < 0 || age > maxAge) return null;
+    return cached.data;
+  }catch(_e){ return null; }
+}
+
+function writeSoilCache(lat, lon, data){
+  try{
+    localStorage.setItem(soilCacheKey(lat, lon), JSON.stringify({savedAt:Date.now(), data}));
+  }catch(_e){}
+}
+
+async function loadSoil(){
+  state.soil = soilFromForecast();
+  if(state.soil) return state.soil;
+
+  const lat = Number(state.loc?.lat);
+  const lon = Number(state.loc?.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+  const freshCache = readSoilCache(lat, lon);
+  if(freshCache){
+    state.soil = freshCache;
+    return state.soil;
+  }
+
+  try{
+    const params = new URLSearchParams({
+      latitude:String(lat),
+      longitude:String(lon),
+      hourly:'soil_temperature_0cm,soil_moisture_0_to_1cm',
+      timezone:'auto',
+      forecast_days:'1'
+    });
+    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`, {cache:'no-store'});
+    if(!response.ok) throw new Error(`soil-http-${response.status}`);
+    const d = await response.json();
+    const times = d?.hourly?.time || [];
+    if(!times.length) throw new Error('soil-no-hourly-data');
+    const now = Date.now();
+    let best = 0, bestDiff = Infinity;
+    times.forEach((value, i)=>{
+      const t = new Date(value).getTime();
+      const diff = Number.isFinite(t) ? Math.abs(t-now) : Infinity;
+      if(diff < bestDiff){ bestDiff = diff; best = i; }
+    });
+    const temperature = validNumber(d?.hourly?.soil_temperature_0cm?.[best]);
+    const moisture = validNumber(d?.hourly?.soil_moisture_0_to_1cm?.[best]);
+    if(temperature == null && moisture == null) throw new Error('soil-empty');
+    state.soil = {temperature, moisture, source:'Open-Meteo soil', updatedAt:Date.now()};
+    writeSoilCache(lat, lon, state.soil);
+    return state.soil;
+  }catch(error){
+    const stale = readSoilCache(lat, lon, {allowStale:true});
+    if(stale){
+      state.soil = {...stale, stale:true};
+      return state.soil;
+    }
+    console.warn('Bodemdata laden faalde:', error?.message || error);
+    state.soil = null;
+    return null;
+  }
+}
+
+function soilMoisturePercent(value){
+  const n = validNumber(value);
+  if(n == null) return null;
+  const pct = n <= 1.5 ? n * 100 : n;
+  return Math.max(0, Math.min(100, pct));
+}
+
+function soilSection(){
+  const soil = state.soil || soilFromForecast();
+  const temperature = validNumber(soil?.temperature);
+  const moisture = soilMoisturePercent(soil?.moisture);
+
+  if(temperature == null && moisture == null){
+    return `<div class="card soil-card"><div class="card-title">${icon('thermo',true,13)} Bodem</div>${wheaterflowStatus('empty','Bodemtemperatuur en bodemvocht zijn tijdelijk niet beschikbaar')}</div>`;
+  }
+
+  const rows = [
+    {label:'Bodemtemperatuur', value:temperature == null ? '—' : `${temperature.toFixed(1).replace('.', ',')} °C`, sub:'Oppervlak · 0 cm'},
+    {label:'Bodemvocht', value:moisture == null ? '—' : `${Math.round(moisture)}%`, sub:'Bovenste bodemlaag · 0–1 cm'}
+  ];
+  return `<div class="card soil-card"><div class="card-title">${icon('thermo',true,13)} Bodemtemperatuur & vocht</div>${metricListCard(rows)}</div>`;
+}
+
+async function loadTerrain(){
+  state.terrain = null;
+  try{
+    const lat = Number(state.loc?.lat);
+    const lon = Number(state.loc?.lon);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const d = await apiJson(`/terrain?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
+    if(!d || d.ok === false) return;
+    const elevationM = validNumber(d.elevationM ?? d.elevation_m ?? d.elevation);
+    state.terrain = {
+      elevationM,
+      terrainClass:d.terrainClass || d.terrain_class || null,
+      label:d.label || null,
+      mountain:d.mountain === true,
+      engine:d.engine || 'Wheaterflow Terrain Engine 1.0',
+      provider:d.provider || d.source || null,
+      cache:d.cache || null
+    };
+    if(elevationM != null) state.elevation = elevationM;
+  }catch(error){
+    console.warn('Wheaterflow Terrain laden faalde:', error?.message || error);
+  }
+}
+
+function terrainSection(){
+  const t = state.terrain;
+  const elevation = validNumber(t?.elevationM ?? state.elevation);
+  const fallbackLabel = elevation == null ? 'Niet beschikbaar' : terrainLabelFromElevation(elevation);
+  const label = t?.label || fallbackLabel;
+  const terrainClass = t?.terrainClass ? String(t.terrainClass).replace(/[_-]+/g,' ') : null;
+  const rows = [
+    {label:'Hoogte', value:elevation == null ? '—' : `${Math.round(elevation)} m`, sub:'Boven gemiddeld zeeniveau'},
+    {label:'Terrein', value:label || '—', sub:terrainClass ? `Klasse: ${terrainClass}` : ''}
+  ];
+  if(t?.mountain === true) rows.push({label:'Berggebied', value:'Ja', sub:'Terreinclassificatie van Wheaterflow'});
+  return `<div class="card terrain-card"><div class="card-title">${icon('gauge',true,13)} Bodem & terrein</div>${metricListCard(rows)}${t?.engine ? `<div class="subtle" style="margin-top:10px">${esc(t.engine)}</div>` : ''}</div>`;
+}
+
+function terrainLabelFromElevation(elevation){
+  const n = Number(elevation);
+  if(!Number.isFinite(n)) return 'Niet beschikbaar';
+  if(n < 0) return 'Onder zeeniveau';
+  if(n < 50) return 'Zeer laaggelegen';
+  if(n < 200) return 'Laagland';
+  if(n < 500) return 'Verhoogd terrein';
+  if(n < 1000) return 'Hoogland';
+  if(n < 2000) return 'Berggebied';
+  return 'Hooggebergte';
 }
 
 function tideStateForOostende(now){
@@ -2554,6 +2720,8 @@ const optionalResults = await Promise.allSettled([
   loadCurrentObservation(),
   loadMarine(),
   loadAirQuality(),
+  loadSoil(),
+  loadTerrain(),
   loadAlerts(),
   loadWheaterflowAdminAlerts(),
   loadAstroEvents(),
@@ -2568,6 +2736,8 @@ console.warn(
     'METAR',
     'Marine',
     'Luchtkwaliteit',
+    'Bodemdata',
+    'Terrain',
     'Officiële meldingen',
     'Wheaterflow adminmeldingen',
     'Astro-events',
@@ -4399,7 +4569,7 @@ function renderMoreWeatherSections(tab='charts'){
     charts: chartsSection(),
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
-    skycoast: `${airQualitySection()}${coastSection()}`,
+    skycoast: `${airQualitySection()}${soilSection()}${coastSection()}`,
     storm: stormWeatherSection(),
     webcam: webcamWeatherSection(),
     travel: travelWeatherSection()

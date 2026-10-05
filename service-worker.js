@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20261004-tv-inline-icons-v5";
+const CACHE_VERSION = "wheaterflow-v20261005-soil-card-v1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
