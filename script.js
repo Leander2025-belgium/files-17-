@@ -124,7 +124,7 @@ const state = {
   units: { temp:'C', wind:'kmh', precip:'mm', press:'hpa', days:7, model:'knmi_seamless' },
   current: null, hourly: null, daily: null, elevation: null, tz: 'Europe/Brussels', utcOffsetSec: 0,
   currentTruth: { data:null, locKey:'', fetchedAt:0, error:null },
-  observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null, soil: null, terrain: null,
+  observation: null, marine: null, seaspark: null, air: null, airHourly: null, airMeta: null, soil: null, soilMeta: {locKey:'', fetchedAt:0, loading:false, stale:false, error:null}, terrain: null,
   alerts: [],
   alertsMeta: { source:'Indicatieve weercode', official:false, updated:null },
   lightning: { available:false, loading:false, updated:null, strikes:[], nearest:null, summary:null, threat:null, error:null },
@@ -938,25 +938,16 @@ async function loadAirQuality(){
 
 const SOIL_CACHE_TTL_MS = 10 * 60 * 1000;
 const SOIL_STALE_MAX_MS = 6 * 60 * 60 * 1000;
+const soilInFlight = new Map();
 
-function soilCacheKey(lat, lon){
-  return `wheaterflow:soil:v1:${Number(lat).toFixed(3)}:${Number(lon).toFixed(3)}`;
+function soilLocationKey(lat=state.loc?.lat, lon=state.loc?.lon){
+  const a = Number(lat), b = Number(lon);
+  if(!Number.isFinite(a) || !Number.isFinite(b)) return '';
+  return `${a.toFixed(4)},${b.toFixed(4)}`;
 }
 
-function soilFromForecast(){
-  const h = state.hourly || {};
-  const c = state.current || {};
-  const idx = Math.max(0, nowIndexInHourly());
-  const temperature = validNumber(
-    c.soil_temperature_0cm ?? c.soilTemperature0cm ??
-    h.soil_temperature_0cm?.[idx] ?? h.soilTemperature0cm?.[idx]
-  );
-  const moisture = validNumber(
-    c.soil_moisture_0_to_1cm ?? c.soilMoisture0To1cm ??
-    h.soil_moisture_0_to_1cm?.[idx] ?? h.soilMoisture0To1cm?.[idx]
-  );
-  if(temperature == null && moisture == null) return null;
-  return {temperature, moisture, source:'Wheaterflow forecast', updatedAt:Date.now()};
+function soilCacheKey(lat, lon){
+  return `wheaterflow:soil:v2:${Number(lat).toFixed(4)}:${Number(lon).toFixed(4)}`;
 }
 
 function readSoilCache(lat, lon, {allowStale=false}={}){
@@ -967,7 +958,7 @@ function readSoilCache(lat, lon, {allowStale=false}={}){
     const age = Date.now() - Number(cached?.savedAt || 0);
     const maxAge = allowStale ? SOIL_STALE_MAX_MS : SOIL_CACHE_TTL_MS;
     if(!cached?.data || !Number.isFinite(age) || age < 0 || age > maxAge) return null;
-    return cached.data;
+    return {data:cached.data, savedAt:Number(cached.savedAt), age};
   }catch(_e){ return null; }
 }
 
@@ -977,79 +968,259 @@ function writeSoilCache(lat, lon, data){
   }catch(_e){}
 }
 
-async function loadSoil(){
-  state.soil = soilFromForecast();
-  if(state.soil) return state.soil;
-
-  const lat = Number(state.loc?.lat);
-  const lon = Number(state.loc?.lon);
-  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-
-  const freshCache = readSoilCache(lat, lon);
-  if(freshCache){
-    state.soil = freshCache;
-    return state.soil;
-  }
-
-  try{
-    const params = new URLSearchParams({
-      latitude:String(lat),
-      longitude:String(lon),
-      hourly:'soil_temperature_0cm,soil_moisture_0_to_1cm',
-      timezone:'auto',
-      forecast_days:'1'
-    });
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`, {cache:'no-store'});
-    if(!response.ok) throw new Error(`soil-http-${response.status}`);
-    const d = await response.json();
-    const times = d?.hourly?.time || [];
-    if(!times.length) throw new Error('soil-no-hourly-data');
-    const now = Date.now();
-    let best = 0, bestDiff = Infinity;
-    times.forEach((value, i)=>{
-      const t = new Date(value).getTime();
-      const diff = Number.isFinite(t) ? Math.abs(t-now) : Infinity;
-      if(diff < bestDiff){ bestDiff = diff; best = i; }
-    });
-    const temperature = validNumber(d?.hourly?.soil_temperature_0cm?.[best]);
-    const moisture = validNumber(d?.hourly?.soil_moisture_0_to_1cm?.[best]);
-    if(temperature == null && moisture == null) throw new Error('soil-empty');
-    state.soil = {temperature, moisture, source:'Open-Meteo soil', updatedAt:Date.now()};
-    writeSoilCache(lat, lon, state.soil);
-    return state.soil;
-  }catch(error){
-    const stale = readSoilCache(lat, lon, {allowStale:true});
-    if(stale){
-      state.soil = {...stale, stale:true};
-      return state.soil;
-    }
-    console.warn('Bodemdata laden faalde:', error?.message || error);
-    state.soil = null;
-    return null;
-  }
+function isValidSoilResponse(data){
+  return Boolean(
+    data &&
+    data.ok !== false &&
+    data.soil &&
+    typeof data.soil === 'object' &&
+    (data.soil.temperature && typeof data.soil.temperature === 'object' ||
+     data.soil.moisture && typeof data.soil.moisture === 'object')
+  );
 }
 
-function soilMoisturePercent(value){
+async function loadSoil({force=false}={}){
+  const lat = Number(state.loc?.lat);
+  const lon = Number(state.loc?.lon);
+  const locKey = soilLocationKey(lat, lon);
+
+  if(!locKey){
+    state.soil = null;
+    state.soilMeta = {locKey:'', fetchedAt:0, loading:false, stale:false, error:'Ongeldige locatie'};
+    return null;
+  }
+
+  if(
+    !force &&
+    state.soil &&
+    state.soilMeta?.locKey === locKey &&
+    Date.now() - Number(state.soilMeta?.fetchedAt || 0) < SOIL_CACHE_TTL_MS
+  ){
+    return state.soil;
+  }
+
+  if(!force){
+    const cached = readSoilCache(lat, lon);
+    if(cached && isValidSoilResponse(cached.data)){
+      state.soil = cached.data;
+      state.soilMeta = {locKey, fetchedAt:cached.savedAt, loading:false, stale:false, error:null};
+      return state.soil;
+    }
+  }
+
+  if(soilInFlight.has(locKey)) return soilInFlight.get(locKey);
+
+  state.soil = state.soilMeta?.locKey === locKey ? state.soil : null;
+  state.soilMeta = {...(state.soilMeta || {}), locKey, loading:true, stale:false, error:null};
+
+  const request = (async ()=>{
+    try{
+      const data = await apiJson(
+        `/soil?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`
+      );
+      if(!isValidSoilResponse(data)) throw new Error('Ongeldige Soil API-response');
+
+      // De actieve locatie kan tijdens de request gewijzigd zijn.
+      // Laat een oude response nooit de nieuwe locatie overschrijven.
+      if(soilLocationKey() !== locKey) return null;
+
+      state.soil = data;
+      state.soilMeta = {locKey, fetchedAt:Date.now(), loading:false, stale:false, error:null};
+      writeSoilCache(lat, lon, data);
+      return data;
+    }catch(error){
+      if(soilLocationKey() !== locKey) return null;
+
+      const stale = readSoilCache(lat, lon, {allowStale:true});
+      if(stale && isValidSoilResponse(stale.data)){
+        state.soil = stale.data;
+        state.soilMeta = {
+          locKey,
+          fetchedAt:stale.savedAt,
+          loading:false,
+          stale:true,
+          error:validText(error?.message) || 'Bodemdata tijdelijk niet beschikbaar'
+        };
+        return state.soil;
+      }
+
+      state.soil = null;
+      state.soilMeta = {
+        locKey,
+        fetchedAt:Date.now(),
+        loading:false,
+        stale:false,
+        error:validText(error?.message) || 'Bodemdata tijdelijk niet beschikbaar'
+      };
+      console.warn('Wheaterflow Soil laden faalde:', error?.message || error);
+      return null;
+    }finally{
+      soilInFlight.delete(locKey);
+    }
+  })();
+
+  soilInFlight.set(locKey, request);
+  return request;
+}
+
+function soilDepthSortKey(key){
+  const raw = String(key || '').trim().toLowerCase();
+  if(raw === 'surface') return -1;
+  const match = raw.match(/-?\d+(?:[.,]\d+)?/);
+  if(!match) return Number.MAX_SAFE_INTEGER;
+  const n = Number(match[0].replace(',', '.'));
+  return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+}
+
+function soilDepthLabel(key){
+  const raw = String(key || '').trim();
+  if(!raw) return 'Laag';
+  if(raw.toLowerCase() === 'surface') return 'Oppervlak';
+  return raw
+    .replace(/cm$/i, ' cm')
+    .replace(/\s*-\s*/g, '–')
+    .replace(/(\d)cm\b/gi, '$1 cm');
+}
+
+function soilLayerEntries(group){
+  if(!group || typeof group !== 'object' || Array.isArray(group)) return [];
+  return Object.entries(group)
+    .map(([depth, value])=>({depth, value:validNumber(value)}))
+    .sort((a,b)=>soilDepthSortKey(a.depth)-soilDepthSortKey(b.depth));
+}
+
+function soilMoisturePresentation(value, unit){
   const n = validNumber(value);
-  if(n == null) return null;
-  const pct = n <= 1.5 ? n * 100 : n;
-  return Math.max(0, Math.min(100, pct));
+  if(n == null) return {display:'Niet beschikbaar', percent:null};
+  const rawUnit = validText(unit);
+  const normalized = rawUnit.toLowerCase().replace(/\s+/g,'');
+  const volumetric = normalized.includes('m³/m³') || normalized.includes('m3/m3');
+  const percentUnit = normalized === '%' || normalized.includes('percent');
+
+  if(volumetric){
+    const pct = Math.max(0, Math.min(100, n * 100));
+    return {display:`${pct.toFixed(pct < 10 ? 1 : 0).replace('.', ',')} %`, percent:pct};
+  }
+  if(percentUnit){
+    const pct = Math.max(0, Math.min(100, n));
+    return {display:`${pct.toFixed(pct < 10 ? 1 : 0).replace('.', ',')} %`, percent:pct};
+  }
+  const valueText = Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'').replace('.', ',');
+  return {display:rawUnit ? `${valueText} ${rawUnit}` : valueText, percent:null};
+}
+
+function soilTemperaturePresentation(value, unit){
+  const n = validNumber(value);
+  if(n == null) return 'Niet beschikbaar';
+  const suffix = validText(unit) || '°C';
+  return `${n.toFixed(1).replace('.', ',')} ${suffix}`;
+}
+
+function soilFallbackSummary(surfacePercent){
+  const p = validNumber(surfacePercent);
+  if(p == null) return 'Bodemtoestand beschikbaar';
+  if(p < 20) return 'Bovenste bodemlaag is vrij droog';
+  if(p < 35) return 'Bovenste bodemlaag is licht vochtig';
+  if(p < 60) return 'Bovenste bodemlaag is vochtig';
+  return 'Bovenste bodemlaag is zeer vochtig';
 }
 
 function soilSection(){
-  const soil = state.soil || soilFromForecast();
-  const temperature = validNumber(soil?.temperature);
-  const moisture = soilMoisturePercent(soil?.moisture);
-
-  if(temperature == null && moisture == null){
-    return `<div class="card soil-card"><div class="card-title">${icon('thermo',true,13)} Bodem</div>${wheaterflowStatus('empty','Bodemtemperatuur en bodemvocht zijn tijdelijk niet beschikbaar')}</div>`;
+  if(state.soilMeta?.loading && !state.soil){
+    return `<div class="card soil-card soil-card-full">
+      <div class="card-title">${icon('thermo',true,18)} Bodem</div>
+      ${wheaterflowStatus('loading','Bodemgegevens worden geladen…')}
+    </div>`;
   }
 
-  const rows = [
-    {label:'Bodemtemperatuur', value:temperature == null ? '—' : `${temperature.toFixed(1).replace('.', ',')} °C`, sub:'Oppervlak · 0 cm'},
-    {label:'Bodemvocht', value:moisture == null ? '—' : `${Math.round(moisture)}%`, sub:'Bovenste bodemlaag · 0–1 cm'}
-  ];
-  return `<div class="card soil-card"><div class="card-title">${icon('thermo',true,13)} Bodemtemperatuur & vocht</div>${metricListCard(rows)}</div>`;
+  const data = state.soil;
+  if(!isValidSoilResponse(data)){
+    return `<div class="card soil-card soil-card-full">
+      <div class="card-title">${icon('thermo',true,18)} Bodem</div>
+      ${wheaterflowStatus('empty','Bodemtemperatuur en bodemvocht zijn tijdelijk niet beschikbaar')}
+    </div>`;
+  }
+
+  const temperatures = soilLayerEntries(data.soil?.temperature);
+  const moistures = soilLayerEntries(data.soil?.moisture);
+  const tempUnit = validText(data.units?.temperature) || '°C';
+  const moistureUnit = validText(data.units?.moisture);
+  const firstTemp = temperatures.find(item=>item.value != null) || null;
+  const surfaceMoistureRaw = validNumber(data.surfaceMoisture);
+  const firstMoisture = moistures.find(item=>item.value != null) || null;
+  const surfaceMoisture = soilMoisturePresentation(
+    surfaceMoistureRaw != null ? surfaceMoistureRaw : firstMoisture?.value,
+    moistureUnit
+  );
+  const summary = validText(data.label) || soilFallbackSummary(surfaceMoisture.percent);
+  const updated = data.updated ? new Date(data.updated) : null;
+  const updatedText = updated && Number.isFinite(updated.getTime())
+    ? updated.toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit'})
+    : 'Niet beschikbaar';
+  const provider = validText(data.provider) || 'Wheaterflow';
+  const engine = validText(data.engine) || 'Wheaterflow Soil';
+  const stale = Boolean(state.soilMeta?.stale);
+
+  const temperatureRows = temperatures.length
+    ? temperatures.map(item=>`<div class="soil-layer-row">
+        <span>${esc(soilDepthLabel(item.depth))}</span>
+        <b>${esc(soilTemperaturePresentation(item.value, tempUnit))}</b>
+      </div>`).join('')
+    : `<div class="soil-layer-row unavailable"><span>Geen lagen</span><b>Niet beschikbaar</b></div>`;
+
+  const moistureRows = moistures.length
+    ? moistures.map(item=>{
+        const p = soilMoisturePresentation(item.value, moistureUnit);
+        return `<div class="soil-layer-row">
+          <span>${esc(soilDepthLabel(item.depth))}</span>
+          <b>${esc(p.display)}</b>
+        </div>`;
+      }).join('')
+    : `<div class="soil-layer-row unavailable"><span>Geen lagen</span><b>Niet beschikbaar</b></div>`;
+
+  return `<div class="card soil-card soil-card-full">
+    <div class="soil-card-head">
+      <div>
+        <div class="card-title">${icon('thermo',true,18)} Bodem</div>
+        <div class="soil-card-subtitle">Bodemtemperatuur en bodemvocht voor ${esc(locationDisplayName())}</div>
+      </div>
+      <span class="soil-status-chip ${stale ? 'stale' : 'live'}">${stale ? 'Oudere meting' : 'Actueel'}</span>
+    </div>
+
+    <div class="soil-hero">
+      <div class="soil-hero-value">
+        <span>${icon('thermo',true,22)}</span>
+        <div>
+          <strong>${esc(firstTemp ? soilTemperaturePresentation(firstTemp.value, tempUnit) : 'Niet beschikbaar')}</strong>
+          <small>Bodemtemperatuur · ${esc(firstTemp ? soilDepthLabel(firstTemp.depth) : 'oppervlak')}</small>
+        </div>
+      </div>
+      <div class="soil-summary-copy">
+        <b>${esc(summary)}</b>
+        <span>${surfaceMoisture.percent != null ? `Oppervlaktevocht ${esc(surfaceMoisture.display)}` : 'Oppervlaktevocht niet beschikbaar'}</span>
+      </div>
+    </div>
+
+    <div class="soil-data-grid">
+      <section class="soil-data-panel">
+        <div class="soil-data-title">${icon('thermo',true,16)} <span>Bodemtemperatuur</span></div>
+        <div class="soil-layer-list">${temperatureRows}</div>
+      </section>
+      <section class="soil-data-panel">
+        <div class="soil-data-title">${icon('drop',true,16)} <span>Bodemvocht</span></div>
+        <div class="soil-layer-list">${moistureRows}</div>
+        ${moistureUnit ? `<small class="soil-unit-note">Eenheid backend: ${esc(moistureUnit)}${/m[³3]\/m[³3]/i.test(moistureUnit) ? ' · weergegeven als volumetrisch percentage' : ''}</small>` : ''}
+      </section>
+    </div>
+
+    <div class="soil-meta-row">
+      <span>${esc(engine)}</span>
+      <span>Bron: ${esc(provider)}</span>
+      <span>Bijgewerkt: ${esc(updatedText)}</span>
+      ${typeof data.modelData === 'boolean' ? `<span>Modeldata: ${data.modelData ? 'ja' : 'nee'}</span>` : ''}
+      ${typeof data.sensorData === 'boolean' ? `<span>Sensordata: ${data.sensorData ? 'ja' : 'nee'}</span>` : ''}
+    </div>
+  </div>`;
 }
 
 async function loadTerrain(){
@@ -4555,6 +4726,7 @@ function appSections(){
         <button type="button" data-more-tab="fourteen">14 dagen</button>
         <button type="button" data-more-tab="sunmoon">Zon & maan</button>
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
+        <button type="button" data-more-tab="soil">Bodem</button>
         <button type="button" data-more-tab="storm">Onweer & storm</button>
         <button type="button" data-more-tab="webcam">Webcam</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
@@ -4569,7 +4741,8 @@ function renderMoreWeatherSections(tab='charts'){
     charts: chartsSection(),
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
-    skycoast: `${airQualitySection()}${soilSection()}${coastSection()}`,
+    skycoast: `${airQualitySection()}${coastSection()}`,
+    soil: soilSection(),
     storm: stormWeatherSection(),
     webcam: webcamWeatherSection(),
     travel: travelWeatherSection()
@@ -4695,7 +4868,7 @@ function wireMoreWeatherSections(){
   const content = $('#moreWeatherContent');
   const tabs = $$('#moreWeatherTabs [data-more-tab]');
   if(!content || !tabs.length) return;
-  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','storm','webcam','travel']);
+  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','soil','storm','webcam','travel']);
   const load = (tab = state.moreWeatherTab || 'charts') => {
     if(!validTabs.has(tab)) tab = 'charts';
     state.moreWeatherTab = tab;

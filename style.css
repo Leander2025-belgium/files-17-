@@ -15249,3 +15249,169 @@ body .tabbar .tabbtn:focus-visible{
 #tvscreen .tv-radar-label::before,
 #tvscreen .tv-hourly::after,
 #tvscreen .tv-daily::after{display:none!important;content:none!important;}
+
+
+/* =========================================================
+   Wheaterflow Soil API — Meer weerdata > Bodem
+   ========================================================= */
+#home .soil-card-full{
+  display:block;
+  width:100%;
+  min-width:0;
+  overflow:hidden;
+}
+#home .soil-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:14px;
+}
+#home .soil-card-subtitle{
+  margin-top:4px;
+  color:var(--dim);
+  font-size:12.5px;
+  line-height:1.35;
+}
+#home .soil-status-chip{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  min-height:27px;
+  padding:5px 9px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.13);
+  background:rgba(255,255,255,.07);
+  font-size:10.5px;
+  font-weight:850;
+  color:rgba(244,249,255,.9);
+}
+#home .soil-status-chip.live{background:rgba(90,214,149,.11)}
+#home .soil-status-chip.stale{background:rgba(245,165,36,.13)}
+#home .soil-hero{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:10px;
+  margin-bottom:10px;
+}
+#home .soil-hero-value,
+#home .soil-summary-copy,
+#home .soil-data-panel{
+  border:1px solid rgba(255,255,255,.105);
+  background:rgba(255,255,255,.062);
+  -webkit-backdrop-filter:blur(16px) saturate(118%);
+  backdrop-filter:blur(16px) saturate(118%);
+  border-radius:17px;
+}
+#home .soil-hero-value{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:14px;
+  min-width:0;
+}
+#home .soil-hero-value>span{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  flex:0 0 34px;
+  border-radius:12px;
+  background:rgba(88,211,255,.08);
+  color:#a9efff;
+}
+#home .soil-hero-value>span svg{width:23px;height:23px}
+#home .soil-hero-value strong{
+  display:block;
+  font-size:clamp(23px,5vw,34px);
+  line-height:1;
+  white-space:nowrap;
+  letter-spacing:-.035em;
+}
+#home .soil-hero-value small,
+#home .soil-summary-copy span{
+  display:block;
+  margin-top:6px;
+  color:var(--dim);
+  font-size:11.5px;
+  line-height:1.3;
+}
+#home .soil-summary-copy{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:14px;
+}
+#home .soil-summary-copy b{
+  font-size:15px;
+  line-height:1.25;
+}
+#home .soil-data-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+#home .soil-data-panel{
+  min-width:0;
+  padding:13px;
+}
+#home .soil-data-title{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:8px;
+  color:rgba(242,248,255,.92);
+  font-size:12px;
+  font-weight:900;
+}
+#home .soil-data-title svg{width:17px;height:17px;color:#a9efff}
+#home .soil-layer-list{
+  display:grid;
+  gap:5px;
+}
+#home .soil-layer-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px;
+  align-items:center;
+  min-height:34px;
+  padding:7px 9px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.075);
+  background:rgba(255,255,255,.035);
+}
+#home .soil-layer-row span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:rgba(229,239,255,.72);
+  font-size:11.5px;
+  font-weight:760;
+}
+#home .soil-layer-row b{
+  white-space:nowrap;
+  text-align:right;
+  font-size:12.5px;
+  font-weight:900;
+}
+#home .soil-layer-row.unavailable{opacity:.7}
+#home .soil-unit-note{
+  display:block;
+  margin-top:8px;
+  color:var(--dim);
+  font-size:10px;
+  line-height:1.3;
+}
+#home .soil-meta-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 12px;
+  margin-top:11px;
+  color:var(--dim);
+  font-size:10.5px;
+}
+@media (max-width:620px){
+  #home .soil-hero,
+  #home .soil-data-grid{grid-template-columns:1fr;}
+}
