@@ -1128,7 +1128,13 @@ function soilFallbackSummary(surfacePercent){
 function soilSection(){
   if(state.soilMeta?.loading && !state.soil){
     return `<div class="card soil-card soil-card-full">
-      <div class="card-title">${icon('thermo',true,18)} Bodem</div>
+      <div class="soil-card-head">
+        <div class="soil-title-wrap">
+          <span class="soil-title-icon">${icon('thermo',true,20)}</span>
+          <div><div class="card-title">Bodem</div><div class="soil-card-subtitle">Bodemgegevens worden geladen…</div></div>
+        </div>
+        <span class="soil-status-chip loading">Laden</span>
+      </div>
       ${wheaterflowStatus('loading','Bodemgegevens worden geladen…')}
     </div>`;
   }
@@ -1136,7 +1142,13 @@ function soilSection(){
   const data = state.soil;
   if(!isValidSoilResponse(data)){
     return `<div class="card soil-card soil-card-full">
-      <div class="card-title">${icon('thermo',true,18)} Bodem</div>
+      <div class="soil-card-head">
+        <div class="soil-title-wrap">
+          <span class="soil-title-icon">${icon('thermo',true,20)}</span>
+          <div><div class="card-title">Bodem</div><div class="soil-card-subtitle">Bodemtemperatuur en bodemvocht</div></div>
+        </div>
+        <span class="soil-status-chip unavailable">Geen data</span>
+      </div>
       ${wheaterflowStatus('empty','Bodemtemperatuur en bodemvocht zijn tijdelijk niet beschikbaar')}
     </div>`;
   }
@@ -1161,68 +1173,98 @@ function soilSection(){
   const engine = validText(data.engine) || 'Wheaterflow Soil';
   const stale = Boolean(state.soilMeta?.stale);
 
+  const tempNow = firstTemp ? soilTemperaturePresentation(firstTemp.value, tempUnit) : '—';
+  const moistureNow = surfaceMoisture.percent != null
+    ? `${Math.round(surfaceMoisture.percent)}%`
+    : surfaceMoisture.display;
+
   const temperatureRows = temperatures.length
-    ? temperatures.map(item=>`<div class="soil-layer-row">
-        <span>${esc(soilDepthLabel(item.depth))}</span>
+    ? temperatures.map((item,index)=>`<div class="soil-layer-row ${index===0?'is-primary':''}">
+        <span class="soil-layer-depth">${esc(soilDepthLabel(item.depth))}</span>
         <b>${esc(soilTemperaturePresentation(item.value, tempUnit))}</b>
       </div>`).join('')
-    : `<div class="soil-layer-row unavailable"><span>Geen lagen</span><b>Niet beschikbaar</b></div>`;
+    : `<div class="soil-layer-row unavailable"><span class="soil-layer-depth">Geen lagen</span><b>Niet beschikbaar</b></div>`;
 
   const moistureRows = moistures.length
-    ? moistures.map(item=>{
+    ? moistures.map((item,index)=>{
         const p = soilMoisturePresentation(item.value, moistureUnit);
-        return `<div class="soil-layer-row">
-          <span>${esc(soilDepthLabel(item.depth))}</span>
-          <b>${esc(p.display)}</b>
+        const pct = p.percent == null ? null : Math.max(0,Math.min(100,p.percent));
+        return `<div class="soil-moisture-layer ${index===0?'is-primary':''}">
+          <div class="soil-layer-row">
+            <span class="soil-layer-depth">${esc(soilDepthLabel(item.depth))}</span>
+            <b>${esc(p.display)}</b>
+          </div>
+          ${pct == null ? '' : `<div class="soil-layer-track" aria-hidden="true"><i style="width:${Math.round(pct)}%"></i></div>`}
         </div>`;
       }).join('')
-    : `<div class="soil-layer-row unavailable"><span>Geen lagen</span><b>Niet beschikbaar</b></div>`;
+    : `<div class="soil-layer-row unavailable"><span class="soil-layer-depth">Geen lagen</span><b>Niet beschikbaar</b></div>`;
+
+  const modelChip = typeof data.modelData === 'boolean'
+    ? `<span class="soil-meta-chip ${data.modelData?'ok':'muted'}">Modeldata ${data.modelData ? 'actief' : 'niet actief'}</span>` : '';
+  const sensorChip = typeof data.sensorData === 'boolean'
+    ? `<span class="soil-meta-chip ${data.sensorData?'ok':'muted'}">Sensordata ${data.sensorData ? 'actief' : 'niet actief'}</span>` : '';
 
   return `<div class="card soil-card soil-card-full">
     <div class="soil-card-head">
-      <div>
-        <div class="card-title">${icon('thermo',true,18)} Bodem</div>
-        <div class="soil-card-subtitle">Bodemtemperatuur en bodemvocht voor ${esc(locationDisplayName())}</div>
+      <div class="soil-title-wrap">
+        <span class="soil-title-icon">${icon('thermo',true,20)}</span>
+        <div>
+          <div class="card-title">Bodem</div>
+          <div class="soil-card-subtitle">${esc(locationDisplayName())} · actuele bodemcondities</div>
+        </div>
       </div>
       <span class="soil-status-chip ${stale ? 'stale' : 'live'}">${stale ? 'Oudere meting' : 'Actueel'}</span>
     </div>
 
-    <div class="soil-hero">
-      <div class="soil-hero-value">
-        <span>${icon('thermo',true,22)}</span>
-        <div>
-          <strong>${esc(firstTemp ? soilTemperaturePresentation(firstTemp.value, tempUnit) : 'Niet beschikbaar')}</strong>
-          <small>Bodemtemperatuur · ${esc(firstTemp ? soilDepthLabel(firstTemp.depth) : 'oppervlak')}</small>
-        </div>
+    <div class="soil-summary-banner">
+      <span class="soil-summary-dot" aria-hidden="true"></span>
+      <strong>${esc(summary)}</strong>
+    </div>
+
+    <div class="soil-primary-grid">
+      <div class="soil-primary-metric soil-temp-metric">
+        <div class="soil-primary-label">${icon('thermo',true,18)} <span>Bodemtemperatuur</span></div>
+        <strong>${esc(tempNow)}</strong>
+        <small>${esc(firstTemp ? soilDepthLabel(firstTemp.depth) : 'Oppervlak')}</small>
       </div>
-      <div class="soil-summary-copy">
-        <b>${esc(summary)}</b>
-        <span>${surfaceMoisture.percent != null ? `Oppervlaktevocht ${esc(surfaceMoisture.display)}` : 'Oppervlaktevocht niet beschikbaar'}</span>
+      <div class="soil-primary-metric soil-moisture-metric">
+        <div class="soil-primary-label">${icon('drop',true,18)} <span>Oppervlaktevocht</span></div>
+        <strong>${esc(moistureNow)}</strong>
+        <small>${surfaceMoisture.percent != null ? 'Bovenste bodemlaag' : 'Waarde uit Soil Engine'}</small>
+        ${surfaceMoisture.percent == null ? '' : `<div class="soil-primary-track" aria-hidden="true"><i style="width:${Math.round(surfaceMoisture.percent)}%"></i></div>`}
       </div>
     </div>
 
+    <div class="soil-section-label">Bodemprofiel</div>
     <div class="soil-data-grid">
       <section class="soil-data-panel">
-        <div class="soil-data-title">${icon('thermo',true,16)} <span>Bodemtemperatuur</span></div>
+        <div class="soil-data-title">
+          <span class="soil-panel-icon">${icon('thermo',true,16)}</span>
+          <div><b>Temperatuur</b><small>Per dieptelaag</small></div>
+        </div>
         <div class="soil-layer-list">${temperatureRows}</div>
       </section>
       <section class="soil-data-panel">
-        <div class="soil-data-title">${icon('drop',true,16)} <span>Bodemvocht</span></div>
+        <div class="soil-data-title">
+          <span class="soil-panel-icon">${icon('drop',true,16)}</span>
+          <div><b>Bodemvocht</b><small>Per dieptelaag</small></div>
+        </div>
         <div class="soil-layer-list">${moistureRows}</div>
-        ${moistureUnit ? `<small class="soil-unit-note">Eenheid backend: ${esc(moistureUnit)}${/m[³3]\/m[³3]/i.test(moistureUnit) ? ' · weergegeven als volumetrisch percentage' : ''}</small>` : ''}
       </section>
     </div>
 
-    <div class="soil-meta-row">
-      <span>${esc(engine)}</span>
-      <span>Bron: ${esc(provider)}</span>
-      <span>Bijgewerkt: ${esc(updatedText)}</span>
-      ${typeof data.modelData === 'boolean' ? `<span>Modeldata: ${data.modelData ? 'ja' : 'nee'}</span>` : ''}
-      ${typeof data.sensorData === 'boolean' ? `<span>Sensordata: ${data.sensorData ? 'ja' : 'nee'}</span>` : ''}
+    ${moistureUnit ? `<div class="soil-unit-note">Backend-eenheid: <b>${esc(moistureUnit)}</b>${/m[³3]\/m[³3]/i.test(moistureUnit) ? ' · in Wheaterflow weergegeven als volumetrisch percentage' : ''}</div>` : ''}
+
+    <div class="soil-meta-panel">
+      <div class="soil-meta-main">
+        <span><b>${esc(engine)}</b></span>
+        <span>Bron ${esc(provider)}</span>
+        <span>Bijgewerkt ${esc(updatedText)}</span>
+      </div>
+      <div class="soil-meta-chips">${modelChip}${sensorChip}</div>
     </div>
   </div>`;
 }
-
 async function loadTerrain(){
   state.terrain = null;
   try{

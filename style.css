@@ -15415,3 +15415,114 @@ body .tabbar .tabbtn:focus-visible{
   #home .soil-hero,
   #home .soil-data-grid{grid-template-columns:1fr;}
 }
+
+
+/* =========================================================
+   Wheaterflow Soil UI v3 — premium, compact en mobiel
+   ========================================================= */
+#home #moreWeatherContent .soil-card.soil-card-full{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  padding:18px!important;
+  border-radius:26px!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.105),rgba(255,255,255,.035))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 16px 42px rgba(2,20,55,.10)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(135%)!important;
+  backdrop-filter:blur(24px) saturate(135%)!important;
+}
+#home #moreWeatherContent .soil-card-head{
+  display:flex!important;align-items:flex-start!important;justify-content:space-between!important;
+  gap:12px!important;margin:0 0 14px!important;
+}
+#home #moreWeatherContent .soil-title-wrap{display:flex;align-items:center;gap:11px;min-width:0}
+#home #moreWeatherContent .soil-title-icon{
+  width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:14px;
+  color:#bcefff;background:rgba(89,211,255,.105);border:1px solid rgba(151,231,255,.16);
+}
+#home #moreWeatherContent .soil-title-icon svg{width:23px!important;height:23px!important}
+#home #moreWeatherContent .soil-card-head .card-title{font-size:17px!important;line-height:1.05!important;margin:0!important}
+#home #moreWeatherContent .soil-card-subtitle{margin-top:4px!important;font-size:12px!important;line-height:1.3!important;color:rgba(232,241,255,.68)!important}
+#home #moreWeatherContent .soil-status-chip{
+  flex:0 0 auto!important;min-height:29px!important;padding:6px 10px!important;border-radius:999px!important;
+  font-size:10.5px!important;font-weight:850!important;line-height:1!important;border:1px solid rgba(255,255,255,.14)!important;
+  color:#f7fbff!important;background:rgba(255,255,255,.07)!important;
+}
+#home #moreWeatherContent .soil-status-chip.live{background:rgba(54,205,137,.14)!important;border-color:rgba(104,231,171,.20)!important}
+#home #moreWeatherContent .soil-status-chip.stale{background:rgba(245,165,36,.15)!important;border-color:rgba(255,191,86,.20)!important}
+#home #moreWeatherContent .soil-status-chip.loading{background:rgba(79,176,255,.13)!important}
+#home #moreWeatherContent .soil-status-chip.unavailable{color:rgba(238,244,255,.7)!important}
+
+#home #moreWeatherContent .soil-summary-banner{
+  display:flex;align-items:center;gap:9px;margin-bottom:12px;padding:10px 12px;border-radius:15px;
+  background:rgba(255,255,255,.052);border:1px solid rgba(255,255,255,.085);
+  color:rgba(246,250,255,.92);font-size:12.5px;line-height:1.3;
+}
+#home #moreWeatherContent .soil-summary-dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px;background:#63d8a4;box-shadow:0 0 0 4px rgba(99,216,164,.10)}
+#home #moreWeatherContent .soil-summary-banner strong{font-weight:820}
+
+#home #moreWeatherContent .soil-primary-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;margin:0 0 14px!important}
+#home #moreWeatherContent .soil-primary-metric{
+  min-width:0!important;padding:14px!important;border-radius:18px!important;border:1px solid rgba(255,255,255,.11)!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.035))!important;
+  -webkit-backdrop-filter:blur(16px) saturate(120%)!important;backdrop-filter:blur(16px) saturate(120%)!important;
+}
+#home #moreWeatherContent .soil-primary-label{display:flex;align-items:center;gap:7px;color:rgba(230,241,255,.74);font-size:11px;font-weight:760;white-space:nowrap}
+#home #moreWeatherContent .soil-primary-label svg{width:17px!important;height:17px!important;color:#a9efff}
+#home #moreWeatherContent .soil-primary-metric>strong{display:block!important;margin-top:9px!important;color:#fff!important;font-size:clamp(27px,7.5vw,38px)!important;line-height:.98!important;letter-spacing:-.045em!important;white-space:nowrap!important}
+#home #moreWeatherContent .soil-primary-metric>small{display:block!important;margin-top:6px!important;color:rgba(225,236,252,.64)!important;font-size:10.5px!important;line-height:1.25!important}
+#home #moreWeatherContent .soil-primary-track{height:5px;margin-top:10px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.09)}
+#home #moreWeatherContent .soil-primary-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#c5a06e 0%,#7bc47b 48%,#65c7e8 100%)}
+
+#home #moreWeatherContent .soil-section-label{margin:2px 2px 8px;color:rgba(235,244,255,.72);font-size:10.5px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+#home #moreWeatherContent .soil-data-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+#home #moreWeatherContent .soil-data-panel{
+  min-width:0!important;padding:12px!important;border-radius:18px!important;border:1px solid rgba(255,255,255,.10)!important;
+  background:rgba(255,255,255,.045)!important;
+}
+#home #moreWeatherContent .soil-data-title{display:flex!important;align-items:center!important;gap:9px!important;margin:0 0 9px!important}
+#home #moreWeatherContent .soil-panel-icon{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:10px;background:rgba(90,211,255,.08);color:#aceeff}
+#home #moreWeatherContent .soil-panel-icon svg{width:17px!important;height:17px!important}
+#home #moreWeatherContent .soil-data-title>div{min-width:0}
+#home #moreWeatherContent .soil-data-title b{display:block;font-size:12px;line-height:1.1;color:#f6fbff}
+#home #moreWeatherContent .soil-data-title small{display:block;margin-top:2px;font-size:9.5px;line-height:1;color:rgba(225,236,252,.55);font-weight:650}
+#home #moreWeatherContent .soil-layer-list{display:grid!important;gap:5px!important}
+#home #moreWeatherContent .soil-layer-row{
+  display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:10px!important;
+  min-height:34px!important;padding:7px 9px!important;border-radius:11px!important;background:rgba(255,255,255,.035)!important;border:1px solid rgba(255,255,255,.065)!important;
+}
+#home #moreWeatherContent .soil-layer-row.is-primary{background:rgba(96,211,255,.065)!important;border-color:rgba(132,226,255,.11)!important}
+#home #moreWeatherContent .soil-layer-depth{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(227,238,253,.70)!important;font-size:10.5px!important;font-weight:720!important}
+#home #moreWeatherContent .soil-layer-row b{white-space:nowrap!important;color:#fff!important;text-align:right!important;font-size:12px!important;line-height:1!important;font-weight:900!important}
+#home #moreWeatherContent .soil-moisture-layer{min-width:0}
+#home #moreWeatherContent .soil-layer-track{height:3px;margin:3px 9px 1px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.07)}
+#home #moreWeatherContent .soil-layer-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#c6a06d,#7fc274,#67bde6)}
+#home #moreWeatherContent .soil-unit-note{display:block!important;margin:9px 2px 0!important;color:rgba(222,234,250,.56)!important;font-size:9.5px!important;line-height:1.35!important}
+#home #moreWeatherContent .soil-unit-note b{color:rgba(240,247,255,.78);font-weight:800}
+
+#home #moreWeatherContent .soil-meta-panel{margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.09)}
+#home #moreWeatherContent .soil-meta-main{display:flex;flex-wrap:wrap;gap:5px 12px;color:rgba(221,233,249,.58);font-size:9.5px;line-height:1.3}
+#home #moreWeatherContent .soil-meta-main b{color:rgba(242,248,255,.76);font-weight:820}
+#home #moreWeatherContent .soil-meta-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#home #moreWeatherContent .soil-meta-chip{display:inline-flex;align-items:center;min-height:23px;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.045);color:rgba(232,240,253,.66);font-size:9px;font-weight:760}
+#home #moreWeatherContent .soil-meta-chip.ok{background:rgba(63,205,140,.08);color:rgba(216,255,235,.78)}
+#home #moreWeatherContent .soil-meta-chip.muted{opacity:.72}
+
+@media (max-width:520px){
+  #home #moreWeatherContent .soil-card.soil-card-full{padding:15px!important;border-radius:23px!important}
+  #home #moreWeatherContent .soil-card-head{gap:8px!important;margin-bottom:12px!important}
+  #home #moreWeatherContent .soil-title-icon{width:38px;height:38px;flex-basis:38px;border-radius:13px}
+  #home #moreWeatherContent .soil-primary-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  #home #moreWeatherContent .soil-primary-metric{padding:12px!important;border-radius:16px!important}
+  #home #moreWeatherContent .soil-primary-label{font-size:9.5px;gap:5px}
+  #home #moreWeatherContent .soil-primary-metric>strong{font-size:clamp(25px,8vw,33px)!important}
+  #home #moreWeatherContent .soil-data-grid{grid-template-columns:1fr!important;gap:9px!important}
+  #home #moreWeatherContent .soil-layer-row{min-height:32px!important}
+  #home #moreWeatherContent .soil-meta-main{gap:4px 9px}
+}
+@media (max-width:360px){
+  #home #moreWeatherContent .soil-primary-grid{grid-template-columns:1fr!important}
+  #home #moreWeatherContent .soil-status-chip{font-size:9.5px!important;padding:5px 8px!important}
+}
