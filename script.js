@@ -4755,6 +4755,292 @@ function savePushSettings(){
   }catch(e){}
 }
 
+
+/* -------------------------------------------------------------------------
+   Wheaterflow Atmosfeer-kaart
+   Bewust volledig los van Sea Mode en Bodem.
+   Data wordt alleen geladen wanneer de tab "Atmosfeer" wordt geopend.
+   ------------------------------------------------------------------------- */
+const WF_ATMOSPHERE_CARD_TTL_MS = 10 * 60 * 1000;
+const wfAtmosphereCardCache = new Map();
+let wfAtmosphereCardRequestSeq = 0;
+
+function wfAtmosphereCardLocation(){
+  const loc = canonicalLocation();
+  const lat = validNumber(loc?.lat);
+  const lon = validNumber(loc?.lon);
+  if(lat == null || lon == null) return null;
+  return {
+    lat,
+    lon,
+    key:`${lat.toFixed(4)}:${lon.toFixed(4)}`
+  };
+}
+
+function atmosphereSection(){
+  return `
+    <div class="card wf-atmosphere-card" id="wfAtmosphereCard">
+      <div class="wf-atmo-head">
+        <div>
+          <div class="card-title">${icon('cloud',true,18)} Atmosfeer</div>
+          <div class="wf-atmo-subtitle">Wolken, zicht, mist en sneeuwhoogtes</div>
+        </div>
+        <span class="wf-atmo-status loading">Laden…</span>
+      </div>
+      <div class="wf-atmo-loading">
+        ${wheaterflowStatus('loading','Atmosferische gegevens worden geladen…')}
+      </div>
+    </div>`;
+}
+
+async function wfAtmosphereFetchEndpoint(endpoint, lat, lon){
+  const params = new URLSearchParams({lat:String(lat), lon:String(lon)});
+  const response = await fetch(`${WHEATERFLOW_API_BASE}/${endpoint}?${params.toString()}`, {cache:'no-store'});
+  let payload = {};
+  try{ payload = await response.json(); }catch(_e){}
+  if(!response.ok || payload?.ok === false){
+    throw new Error(payload?.error || `${endpoint} HTTP ${response.status}`);
+  }
+  return payload;
+}
+
+function wfAtmosphereNumber(value, decimals=0){
+  const n = validNumber(value);
+  if(n == null) return '—';
+  return n.toFixed(decimals).replace('.', ',');
+}
+
+function wfAtmosphereHeight(value){
+  const n = validNumber(value);
+  return n == null ? '—' : `${Math.round(n).toLocaleString(wfLocale())} m`;
+}
+
+function wfAtmospherePercent(value){
+  const n = validNumber(value);
+  return n == null ? null : Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function wfAtmosphereUpdated(bundle){
+  const candidates = [bundle?.clouds, bundle?.visibility, bundle?.snow]
+    .flatMap(item => [item?.observedAt, item?.generatedAt])
+    .filter(Boolean)
+    .map(value => new Date(value))
+    .filter(date => Number.isFinite(date.getTime()));
+  if(!candidates.length) return '';
+  const newest = new Date(Math.max(...candidates.map(date => date.getTime())));
+  return newest.toLocaleTimeString(wfLocale(), {hour:'2-digit', minute:'2-digit'});
+}
+
+function wfAtmosphereSource(bundle){
+  const item = bundle?.clouds || bundle?.visibility || bundle?.snow || null;
+  return {
+    provider:validText(item?.source?.provider) || 'Wheaterflow',
+    model:validText(item?.source?.model),
+    version:validText(item?.version)
+  };
+}
+
+function wfAtmospherePanelUnavailable(iconName, title){
+  return `
+    <section class="wf-atmo-panel unavailable">
+      <div class="wf-atmo-panel-title">${icon(iconName,true,21)} <span>${esc(title)}</span></div>
+      <strong class="wf-atmo-main">—</strong>
+      <p>Dit onderdeel is tijdelijk niet beschikbaar.</p>
+    </section>`;
+}
+
+function wfAtmosphereCloudPanel(payload){
+  const c = payload?.clouds;
+  if(!c) return wfAtmospherePanelUnavailable('cloud','Wolken');
+
+  const total = wfAtmospherePercent(c.totalPct);
+  const low = wfAtmospherePercent(c.lowPct);
+  const mid = wfAtmospherePercent(c.midPct);
+  const high = wfAtmospherePercent(c.highPct);
+  const amount = validText(c.amount) || 'Wolkengegevens';
+  const dominant = validText(c.dominantLayer?.label) || validText(c.typeEstimate?.label) || 'Geen dominante laag';
+  const base = validNumber(c.estimatedBaseMAgl);
+  const baseText = base == null ? 'Wolkenbasis —' : `Wolkenbasis ~${Math.round(base).toLocaleString(wfLocale())} m`;
+
+  const layer = (label,value) => `
+    <div class="wf-atmo-cloud-row">
+      <span>${esc(label)}</span>
+      <i><em style="width:${value == null ? 0 : value}%"></em></i>
+      <b>${value == null ? '—' : `${value}%`}</b>
+    </div>`;
+
+  return `
+    <section class="wf-atmo-panel">
+      <div class="wf-atmo-panel-title">${icon('cloud',true,21)} <span>Wolken</span></div>
+      <div class="wf-atmo-bigline">
+        <strong class="wf-atmo-main">${total == null ? '—' : `${total}%`}</strong>
+        <span>${esc(amount)}</span>
+      </div>
+      <p><b>${esc(dominant)}</b> · ${esc(baseText)} boven terrein</p>
+      <div class="wf-atmo-clouds">
+        ${layer('Laag',low)}
+        ${layer('Midden',mid)}
+        ${layer('Hoog',high)}
+      </div>
+      <small>Wolkenbasis en type zijn modelschattingen.</small>
+    </section>`;
+}
+
+function wfAtmosphereVisibilityPanel(payload){
+  const v = payload?.visibility;
+  if(!v) return wfAtmospherePanelUnavailable('eye','Zicht & mist');
+
+  let km = validNumber(v.visibilityKm);
+  if(km == null){
+    const meters = validNumber(v.visibilityM);
+    if(meters != null) km = meters / 1000;
+  }
+  const category = validText(v.category?.label) || 'Zicht beschikbaar';
+  const fog = v.fog === true;
+  const denseFog = v.denseFog === true;
+  const reduction = validText(v.localReduction);
+
+  return `
+    <section class="wf-atmo-panel">
+      <div class="wf-atmo-panel-title">${icon('eye',true,21)} <span>Zicht & mist</span></div>
+      <div class="wf-atmo-bigline">
+        <strong class="wf-atmo-main">${km == null ? '—' : `${wfAtmosphereNumber(km,1)} km`}</strong>
+        <span>${esc(category)}</span>
+      </div>
+      <div class="wf-atmo-chiprow">
+        <span class="${fog ? 'active' : ''}">Mist ${fog ? 'ja' : 'nee'}</span>
+        <span class="${denseFog ? 'danger' : ''}">Dichte mist ${denseFog ? 'ja' : 'nee'}</span>
+      </div>
+      <div class="wf-atmo-facts">
+        <span><small>Lokale vermindering</small><b>${esc(reduction || '—')}</b></span>
+        <span><small>Zicht in meter</small><b>${validNumber(v.visibilityM)==null?'—':`${Math.round(validNumber(v.visibilityM)).toLocaleString(wfLocale())} m`}</b></span>
+      </div>
+    </section>`;
+}
+
+function wfAtmosphereSnowPanel(payload){
+  const s = payload?.snow;
+  if(!s) return wfAtmospherePanelUnavailable('snow','Sneeuw & vorstgrens');
+
+  const status = validText(s.status?.label) || 'Sneeuwstatus';
+  const rate = validNumber(s.snowfallCmPerHour);
+  const depth = validNumber(s.snowDepthCm);
+  const snowLine = validNumber(s.snowfallHeightMAsl);
+  const freezing = validNumber(s.freezingLevelMAsl);
+
+  return `
+    <section class="wf-atmo-panel">
+      <div class="wf-atmo-panel-title">${icon('snow',true,21)} <span>Sneeuw & vorstgrens</span></div>
+      <div class="wf-atmo-bigline">
+        <strong class="wf-atmo-main">${rate == null ? '—' : `${wfAtmosphereNumber(rate,1)} cm/u`}</strong>
+        <span>${esc(status)}</span>
+      </div>
+      <div class="wf-atmo-facts">
+        <span><small>Sneeuwdek</small><b>${depth == null ? '—' : `${wfAtmosphereNumber(depth,1)} cm`}</b></span>
+        <span><small>Sneeuwgrens</small><b>${wfAtmosphereHeight(snowLine)}</b></span>
+        <span><small>Vorstgrens</small><b>${wfAtmosphereHeight(freezing)}</b></span>
+        <span><small>Sneeuwdek aanwezig</small><b>${s.snowCoverPresent === true ? 'Ja' : s.snowCoverPresent === false ? 'Nee' : '—'}</b></span>
+      </div>
+    </section>`;
+}
+
+function renderAtmosphereCard(bundle, failedCount=0){
+  const root = $('#wfAtmosphereCard');
+  if(!root) return;
+
+  const availableCount = ['clouds','visibility','snow'].filter(key => bundle?.[key]).length;
+  if(!availableCount){
+    root.innerHTML = `
+      <div class="wf-atmo-head">
+        <div>
+          <div class="card-title">${icon('cloud',true,18)} Atmosfeer</div>
+          <div class="wf-atmo-subtitle">Wolken, zicht, mist en sneeuwhoogtes</div>
+        </div>
+        <span class="wf-atmo-status unavailable">Geen data</span>
+      </div>
+      ${wheaterflowStatus('empty','Atmosferische gegevens zijn tijdelijk niet beschikbaar')}
+      <div class="wf-atmo-actions"><button class="smallbtn" id="wfAtmosphereRetry" type="button">Opnieuw proberen</button></div>`;
+    $('#wfAtmosphereRetry')?.addEventListener('click', ()=>loadAtmosphereCard({force:true}));
+    return;
+  }
+
+  const source = wfAtmosphereSource(bundle);
+  const updated = wfAtmosphereUpdated(bundle);
+  const stale = [bundle.clouds,bundle.visibility,bundle.snow].some(item => item?.cache?.stale === true || item?.degraded === true);
+  const statusLabel = failedCount ? 'Deels beschikbaar' : stale ? 'Oudere data' : 'Actueel';
+  const statusClass = failedCount ? 'partial' : stale ? 'stale' : 'live';
+
+  root.innerHTML = `
+    <div class="wf-atmo-head">
+      <div>
+        <div class="card-title">${icon('cloud',true,18)} Atmosfeer</div>
+        <div class="wf-atmo-subtitle">Wolken, zicht, mist en sneeuwhoogtes</div>
+      </div>
+      <span class="wf-atmo-status ${statusClass}">${esc(statusLabel)}</span>
+    </div>
+
+    <div class="wf-atmo-grid">
+      ${wfAtmosphereCloudPanel(bundle.clouds)}
+      ${wfAtmosphereVisibilityPanel(bundle.visibility)}
+      ${wfAtmosphereSnowPanel(bundle.snow)}
+    </div>
+
+    ${failedCount ? `<div class="wf-atmo-note">${failedCount} onderdeel${failedCount===1?'':'en'} kon${failedCount===1?'':'den'} niet worden geladen. De overige data blijft bruikbaar.</div>` : ''}
+
+    <div class="wf-atmo-footer">
+      <span>Bron: ${esc(source.provider)}${source.model ? ` · ${esc(source.model)}` : ''}</span>
+      <span>${source.version ? esc(source.version) : 'Wheaterflow Atmosphere'}${updated ? ` · update ${esc(updated)}` : ''}</span>
+    </div>`;
+}
+
+async function loadAtmosphereCard({force=false}={}){
+  const root = $('#wfAtmosphereCard');
+  const loc = wfAtmosphereCardLocation();
+  if(!root || !loc) return;
+
+  const cached = wfAtmosphereCardCache.get(loc.key);
+  const cacheTtl = cached?.failedCount === 3 ? 60 * 1000 : WF_ATMOSPHERE_CARD_TTL_MS;
+  if(!force && cached && Date.now() - cached.fetchedAt < cacheTtl){
+    renderAtmosphereCard(cached.bundle, cached.failedCount);
+    return;
+  }
+
+  root.innerHTML = `
+    <div class="wf-atmo-head">
+      <div>
+        <div class="card-title">${icon('cloud',true,18)} Atmosfeer</div>
+        <div class="wf-atmo-subtitle">Wolken, zicht, mist en sneeuwhoogtes</div>
+      </div>
+      <span class="wf-atmo-status loading">Laden…</span>
+    </div>
+    <div class="wf-atmo-loading">${wheaterflowStatus('loading','Atmosferische gegevens worden geladen…')}</div>`;
+
+  const seq = ++wfAtmosphereCardRequestSeq;
+  const [cloudsResult, visibilityResult, snowResult] = await Promise.allSettled([
+    wfAtmosphereFetchEndpoint('clouds', loc.lat, loc.lon),
+    wfAtmosphereFetchEndpoint('visibility', loc.lat, loc.lon),
+    wfAtmosphereFetchEndpoint('snow', loc.lat, loc.lon)
+  ]);
+
+  const bundle = {
+    clouds:cloudsResult.status === 'fulfilled' ? cloudsResult.value : null,
+    visibility:visibilityResult.status === 'fulfilled' ? visibilityResult.value : null,
+    snow:snowResult.status === 'fulfilled' ? snowResult.value : null
+  };
+  const failedCount = [cloudsResult,visibilityResult,snowResult].filter(result => result.status === 'rejected').length;
+
+  wfAtmosphereCardCache.set(loc.key, {
+    bundle,
+    failedCount,
+    fetchedAt:Date.now()
+  });
+
+  if(seq !== wfAtmosphereCardRequestSeq) return;
+  if(wfAtmosphereCardLocation()?.key !== loc.key) return;
+  renderAtmosphereCard(bundle, failedCount);
+}
+
+
 function appSections(){
   return `
     <section id="sec1" class="app-section">${mapLayerSection()}</section>
@@ -4768,6 +5054,7 @@ function appSections(){
         <button type="button" data-more-tab="fourteen">14 dagen</button>
         <button type="button" data-more-tab="sunmoon">Zon & maan</button>
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
+        <button type="button" data-more-tab="atmosphere">Atmosfeer</button>
         <button type="button" data-more-tab="soil">Bodem</button>
         <button type="button" data-more-tab="storm">Onweer & storm</button>
         <button type="button" data-more-tab="webcam">Webcam</button>
@@ -4784,6 +5071,7 @@ function renderMoreWeatherSections(tab='charts'){
     fourteen: fourteenDaySection(),
     sunmoon: sunMoonSection(),
     skycoast: `${airQualitySection()}${coastSection()}`,
+    atmosphere: atmosphereSection(),
     soil: soilSection(),
     storm: stormWeatherSection(),
     webcam: webcamWeatherSection(),
@@ -4910,7 +5198,7 @@ function wireMoreWeatherSections(){
   const content = $('#moreWeatherContent');
   const tabs = $$('#moreWeatherTabs [data-more-tab]');
   if(!content || !tabs.length) return;
-  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','soil','storm','webcam','travel']);
+  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','atmosphere','soil','storm','webcam','travel']);
   const load = (tab = state.moreWeatherTab || 'charts') => {
     if(!validTabs.has(tab)) tab = 'charts';
     state.moreWeatherTab = tab;
@@ -4920,6 +5208,7 @@ function wireMoreWeatherSections(){
     renderPremiumCharts();
     positionSunPaths();
     wireTravelWeather();
+    if(tab === 'atmosphere') loadAtmosphereCard();
     if(tab === 'storm') loadStormWeather();
     if(tab === 'webcam') wireWebcamSection();
   };

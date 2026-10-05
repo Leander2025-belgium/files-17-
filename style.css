@@ -15526,3 +15526,286 @@ body .tabbar .tabbtn:focus-visible{
   #home #moreWeatherContent .soil-primary-grid{grid-template-columns:1fr!important}
   #home #moreWeatherContent .soil-status-chip{font-size:9.5px!important;padding:5px 8px!important}
 }
+
+
+/* =========================================================
+   Wheaterflow — aparte Atmosfeer-kaart
+   Staat volledig los van Sea Mode en Bodem.
+   ========================================================= */
+.wf-atmosphere-card{
+  width:100%;
+  overflow:hidden;
+}
+
+.wf-atmo-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:16px;
+}
+
+.wf-atmo-subtitle{
+  margin-top:4px;
+  color:var(--dim);
+  font-size:13px;
+  line-height:1.35;
+}
+
+.wf-atmo-status{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.13);
+  background:rgba(255,255,255,.08);
+  font-size:11px;
+  font-weight:750;
+  letter-spacing:.01em;
+  white-space:nowrap;
+}
+
+.wf-atmo-status.live{ background:rgba(74,222,128,.12); }
+.wf-atmo-status.partial,
+.wf-atmo-status.stale{ background:rgba(245,165,36,.13); }
+.wf-atmo-status.unavailable{ color:var(--dim); }
+.wf-atmo-status.loading{ color:var(--dim); }
+
+.wf-atmo-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+
+.wf-atmo-panel{
+  min-width:0;
+  border:1px solid rgba(255,255,255,.11);
+  border-radius:20px;
+  padding:15px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.035));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.wf-atmo-panel.unavailable{
+  opacity:.72;
+}
+
+.wf-atmo-panel-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:var(--dim);
+  font-size:12px;
+  font-weight:750;
+  letter-spacing:.01em;
+}
+
+.wf-atmo-bigline{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  margin:13px 0 10px;
+}
+
+.wf-atmo-main{
+  min-width:0;
+  font-size:29px;
+  line-height:1;
+  letter-spacing:-.035em;
+  color:var(--text);
+  white-space:nowrap;
+}
+
+.wf-atmo-bigline > span{
+  text-align:right;
+  color:var(--dim);
+  font-size:12px;
+  line-height:1.25;
+}
+
+.wf-atmo-panel > p{
+  margin:0 0 12px;
+  color:var(--dim);
+  font-size:12px;
+  line-height:1.45;
+}
+
+.wf-atmo-panel > p b{
+  color:var(--text);
+}
+
+.wf-atmo-panel > small{
+  display:block;
+  margin-top:10px;
+  color:var(--dim);
+  font-size:10.5px;
+  line-height:1.35;
+}
+
+.wf-atmo-clouds{
+  display:grid;
+  gap:7px;
+  margin-top:10px;
+}
+
+.wf-atmo-cloud-row{
+  display:grid;
+  grid-template-columns:48px minmax(0,1fr) 36px;
+  align-items:center;
+  gap:8px;
+  font-size:11px;
+}
+
+.wf-atmo-cloud-row > span{
+  color:var(--dim);
+}
+
+.wf-atmo-cloud-row > i{
+  display:block;
+  height:6px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+}
+
+.wf-atmo-cloud-row > i > em{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:rgba(255,255,255,.65);
+}
+
+.wf-atmo-cloud-row > b{
+  text-align:right;
+  font-size:11px;
+}
+
+.wf-atmo-chiprow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:10px 0 12px;
+}
+
+.wf-atmo-chiprow span{
+  display:inline-flex;
+  align-items:center;
+  min-height:25px;
+  padding:5px 8px;
+  border-radius:999px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.09);
+  color:var(--dim);
+  font-size:10.5px;
+  font-weight:700;
+}
+
+.wf-atmo-chiprow span.active{
+  background:rgba(245,165,36,.13);
+  color:var(--text);
+}
+
+.wf-atmo-chiprow span.danger{
+  background:rgba(248,113,113,.13);
+  color:var(--text);
+}
+
+.wf-atmo-facts{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-top:10px;
+}
+
+.wf-atmo-facts > span{
+  min-width:0;
+  padding:9px 10px;
+  border-radius:13px;
+  background:rgba(255,255,255,.055);
+}
+
+.wf-atmo-facts small{
+  display:block;
+  margin-bottom:3px;
+  color:var(--dim);
+  font-size:9.5px;
+  line-height:1.2;
+}
+
+.wf-atmo-facts b{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:11.5px;
+  line-height:1.25;
+}
+
+.wf-atmo-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid rgba(255,255,255,.08);
+  color:var(--dim);
+  font-size:10.5px;
+  line-height:1.35;
+}
+
+.wf-atmo-note{
+  margin-top:12px;
+  padding:10px 12px;
+  border-radius:13px;
+  border:1px solid rgba(245,165,36,.16);
+  background:rgba(245,165,36,.08);
+  color:var(--dim);
+  font-size:11px;
+  line-height:1.4;
+}
+
+.wf-atmo-actions{
+  display:flex;
+  justify-content:flex-start;
+  margin-top:12px;
+}
+
+.wf-atmo-loading{
+  min-height:110px;
+  display:flex;
+  align-items:center;
+}
+
+@media (max-width:900px){
+  .wf-atmo-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:560px){
+  .wf-atmo-head{
+    gap:10px;
+  }
+  .wf-atmo-status{
+    min-height:26px;
+    padding:5px 8px;
+    font-size:10px;
+  }
+  .wf-atmo-panel{
+    border-radius:18px;
+    padding:14px;
+  }
+  .wf-atmo-main{
+    font-size:27px;
+  }
+  .wf-atmo-footer{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:4px;
+  }
+}
