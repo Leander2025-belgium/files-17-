@@ -5772,169 +5772,198 @@ function wfInterpolateColor(value, stops){
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
-function wfCreateFieldLayer(map, grid, field){
-  const group = L.layerGroup();
-
+function wfNearestGridPoints(grid, lat, lon, count=4){
+  const nearest=[];
   for(const p of grid){
-    const value = Number(p[field]);
-    if(!Number.isFinite(value)) continue;
-
-    const color = field === 'temperature'
-      ? wfTempColor(value)
-      : wfWindColor(value);
-
-    L.circle([p.lat,p.lon],{
-      radius:21000,
-      stroke:false,
-      fillColor:color,
-      fillOpacity:.52,
-      interactive:false
-    }).addTo(group);
+    const dLat=Number(p.lat)-lat;
+    const dLon=(Number(p.lon)-lon)*Math.cos(lat*Math.PI/180);
+    const d2=dLat*dLat+dLon*dLon;
+    if(!Number.isFinite(d2)) continue;
+    const item={p,d2};
+    let i=0;
+    while(i<nearest.length && nearest[i].d2<=d2) i++;
+    if(i<count){
+      nearest.splice(i,0,item);
+      if(nearest.length>count) nearest.pop();
+    }
   }
+  return nearest;
+}
 
-  group.addTo(map);
-  return group;
+function wfInterpolateGridValue(grid, lat, lon, field){
+  const nearest=wfNearestGridPoints(grid,lat,lon,4);
+  if(!nearest.length) return null;
+  if(nearest[0].d2<1e-10){
+    const exact=Number(nearest[0].p[field]);
+    return Number.isFinite(exact)?exact:null;
+  }
+  let weighted=0, weights=0;
+  for(const item of nearest){
+    const value=Number(item.p[field]);
+    if(!Number.isFinite(value)) continue;
+    const w=1/Math.max(item.d2,1e-8);
+    weighted+=value*w;
+    weights+=w;
+  }
+  return weights?weighted/weights:null;
+}
+
+function wfInterpolateWind(grid,lat,lon){
+  const nearest=wfNearestGridPoints(grid,lat,lon,4);
+  let u=0,v=0,wSum=0;
+  for(const item of nearest){
+    const speed=Number(item.p.windSpeed);
+    const dir=Number(item.p.windDirection);
+    if(!Number.isFinite(speed)||!Number.isFinite(dir)) continue;
+    const weight=1/Math.max(item.d2,1e-8);
+    const rad=dir*Math.PI/180;
+    // Meteorologische richting: FROM -> vector waar de lucht naartoe beweegt.
+    u+=(-speed*Math.sin(rad))*weight;
+    v+=(-speed*Math.cos(rad))*weight;
+    wSum+=weight;
+  }
+  if(!wSum) return null;
+  u/=wSum; v/=wSum;
+  return {u,v,speed:Math.hypot(u,v)};
+}
+
+function wfCreateFieldLayer(map, grid, field){
+  const FieldLayer=L.Layer.extend({
+    onAdd(targetMap){
+      this._map=targetMap;
+      this._canvas=L.DomUtil.create('canvas','wf-maps-field');
+      Object.assign(this._canvas.style,{
+        position:'absolute',
+        pointerEvents:'none',
+        opacity:'0.78',
+        imageRendering:'auto'
+      });
+      targetMap.getPane('overlayPane').appendChild(this._canvas);
+      this._render=()=>this.render();
+      targetMap.on('moveend zoomend resize',this._render,this);
+      this.render();
+    },
+    onRemove(targetMap){
+      targetMap.off('moveend zoomend resize',this._render,this);
+      this._canvas?.remove();
+      this._canvas=null;
+      this._map=null;
+    },
+    render(){
+      const targetMap=this._map;
+      const canvas=this._canvas;
+      if(!targetMap||!canvas) return;
+      const size=targetMap.getSize();
+      const scale=Math.max(2,Math.min(5,Math.round(window.devicePixelRatio||2)));
+      const width=Math.max(1,Math.ceil(size.x/scale));
+      const height=Math.max(1,Math.ceil(size.y/scale));
+      canvas.width=width;
+      canvas.height=height;
+      canvas.style.width=size.x+'px';
+      canvas.style.height=size.y+'px';
+      const topLeft=targetMap.containerPointToLayerPoint([0,0]);
+      L.DomUtil.setPosition(canvas,topLeft);
+
+      const ctx=canvas.getContext('2d',{alpha:true});
+      const image=ctx.createImageData(width,height);
+      const data=image.data;
+      let o=0;
+      for(let y=0;y<height;y++){
+        for(let x=0;x<width;x++){
+          const ll=targetMap.containerPointToLatLng([x*scale+scale/2,y*scale+scale/2]);
+          const value=wfInterpolateGridValue(grid,ll.lat,ll.lng,field);
+          if(value==null){ o+=4; continue; }
+          const css=field==='temperature'?wfTempColor(value):wfWindColor(value);
+          const rgb=css.match(/\d+/g)?.map(Number)||[0,0,0];
+          data[o++]=rgb[0]; data[o++]=rgb[1]; data[o++]=rgb[2]; data[o++]=176;
+        }
+      }
+      ctx.putImageData(image,0,0);
+    }
+  });
+  return new FieldLayer().addTo(map);
 }
 
 function wfCreateWindParticleLayer(map, grid){
-  const canvas = document.createElement('canvas');
-  canvas.className = 'wf-wind-particles';
+  const ParticleLayer=L.Layer.extend({
+    onAdd(targetMap){
+      this._map=targetMap;
+      this._canvas=L.DomUtil.create('canvas','wf-wind-particles');
+      Object.assign(this._canvas.style,{position:'absolute',pointerEvents:'none'});
+      targetMap.getPane('overlayPane').appendChild(this._canvas);
+      this._ctx=this._canvas.getContext('2d');
+      this._particles=[];
+      this._stopped=false;
+      this._reset=()=>this.reset();
+      targetMap.on('moveend zoomend resize',this._reset,this);
+      this.reset();
+      this.draw();
+    },
+    onRemove(targetMap){
+      this._stopped=true;
+      cancelAnimationFrame(this._frame);
+      targetMap.off('moveend zoomend resize',this._reset,this);
+      this._canvas?.remove();
+      this._particles=[];
+      this._map=null;
+    },
+    spawn(){
+      const size=this._map.getSize();
+      return {x:Math.random()*size.x,y:Math.random()*size.y,age:Math.random()*90};
+    },
+    reset(){
+      if(!this._map||!this._canvas) return;
+      const size=this._map.getSize();
+      const dpr=Math.min(2,window.devicePixelRatio||1);
+      this._canvas.width=Math.max(1,Math.round(size.x*dpr));
+      this._canvas.height=Math.max(1,Math.round(size.y*dpr));
+      this._canvas.style.width=size.x+'px';
+      this._canvas.style.height=size.y+'px';
+      const topLeft=this._map.containerPointToLayerPoint([0,0]);
+      L.DomUtil.setPosition(this._canvas,topLeft);
+      this._ctx.setTransform(dpr,0,0,dpr,0,0);
+      const count=Math.max(80,Math.min(190,Math.round((size.x*size.y)/6500)));
+      this._particles=Array.from({length:count},()=>this.spawn());
+    },
+    draw(){
+      if(this._stopped||!this._map||!this._ctx) return;
+      const ctx=this._ctx;
+      const size=this._map.getSize();
+      ctx.globalCompositeOperation='destination-in';
+      ctx.fillStyle='rgba(0,0,0,.91)';
+      ctx.fillRect(0,0,size.x,size.y);
+      ctx.globalCompositeOperation='source-over';
+      ctx.lineWidth=1.25;
+      ctx.lineCap='round';
 
-  const pane = map.getPane('overlayPane');
-  pane.appendChild(canvas);
+      for(let i=0;i<this._particles.length;i++){
+        const p=this._particles[i];
+        const ll=this._map.containerPointToLatLng([p.x,p.y]);
+        const wind=wfInterpolateWind(grid,ll.lat,ll.lng);
+        if(!wind){ this._particles[i]=this.spawn(); continue; }
 
-  const ctx = canvas.getContext('2d');
-  let frame = 0;
-  let stopped = false;
-  let particles = [];
+        const factor=Math.max(.3,Math.min(3.4,wind.speed/11));
+        const mag=Math.max(.001,Math.hypot(wind.u,wind.v));
+        const dx=(wind.u/mag)*factor;
+        const dy=(-wind.v/mag)*factor;
+        const ox=p.x, oy=p.y;
+        p.x+=dx; p.y+=dy; p.age++;
 
-  function resize(){
-    const size = map.getSize();
-    canvas.width = size.x;
-    canvas.height = size.y;
-    canvas.style.width = size.x + 'px';
-    canvas.style.height = size.y + 'px';
-  }
+        ctx.strokeStyle=wfWindColor(wind.speed);
+        ctx.globalAlpha=.82;
+        ctx.beginPath();
+        ctx.moveTo(ox,oy);
+        ctx.lineTo(p.x,p.y);
+        ctx.stroke();
 
-  function nearestWind(lat,lng){
-    let best = null;
-    let bestD = Infinity;
-
-    for(const p of grid){
-      const dlat = p.lat-lat;
-      const dlon = p.lon-lng;
-      const d = dlat*dlat + dlon*dlon;
-
-      if(d < bestD){
-        bestD = d;
-        best = p;
+        if(p.age>110||p.x<0||p.y<0||p.x>size.x||p.y>size.y){
+          this._particles[i]=this.spawn();
+        }
       }
+      this._frame=requestAnimationFrame(()=>this.draw());
     }
-
-    return best;
-  }
-
-  function spawn(){
-    const size = map.getSize();
-
-    return {
-      x:Math.random()*size.x,
-      y:Math.random()*size.y,
-      age:Math.random()*80
-    };
-  }
-
-  function resetParticles(){
-    const count = Math.max(
-      90,
-      Math.min(260, Math.round((canvas.width*canvas.height)/5000))
-    );
-
-    particles = Array.from({length:count},spawn);
-  }
-
-  function draw(){
-    if(stopped) return;
-
-    ctx.globalCompositeOperation = 'destination-in';
-    ctx.fillStyle = 'rgba(0,0,0,.90)';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.lineWidth = 1.35;
-    ctx.lineCap = 'round';
-
-    for(let i=0;i<particles.length;i++){
-      const p = particles[i];
-
-      const ll = map.containerPointToLatLng([p.x,p.y]);
-      const wind = nearestWind(ll.lat,ll.lng);
-
-      if(!wind){
-        particles[i] = spawn();
-        continue;
-      }
-
-      const speed = Number(wind.windSpeed) || 0;
-      const dir = Number(wind.windDirection) || 0;
-
-      // Meteorologische richting = waar de wind vandaan komt.
-      const rad = (dir + 180) * Math.PI / 180;
-
-      const velocity = Math.max(.35, Math.min(3.2, speed/12));
-
-      const dx = Math.sin(rad) * velocity;
-      const dy = -Math.cos(rad) * velocity;
-
-      const ox = p.x;
-      const oy = p.y;
-
-      p.x += dx;
-      p.y += dy;
-      p.age++;
-
-      ctx.strokeStyle = wfWindColor(speed);
-      ctx.globalAlpha = .78;
-
-      ctx.beginPath();
-      ctx.moveTo(ox,oy);
-      ctx.lineTo(p.x,p.y);
-      ctx.stroke();
-
-      if(
-        p.age > 100 ||
-        p.x < 0 ||
-        p.y < 0 ||
-        p.x > canvas.width ||
-        p.y > canvas.height
-      ){
-        particles[i] = spawn();
-      }
-    }
-
-    frame = requestAnimationFrame(draw);
-  }
-
-  function reset(){
-    resize();
-    resetParticles();
-  }
-
-  resize();
-  resetParticles();
-
-  map.on('resize moveend zoomend', reset);
-
-  draw();
-
-  return {
-    remove(){
-      stopped = true;
-      cancelAnimationFrame(frame);
-      map.off('resize moveend zoomend', reset);
-      canvas.remove();
-    }
-  };
+  });
+  return new ParticleLayer().addTo(map);
 }
 
 async function setHomeWheaterflowMapLayer(layerId){
