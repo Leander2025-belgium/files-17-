@@ -15809,3 +15809,207 @@ body .tabbar .tabbtn:focus-visible{
     gap:4px;
   }
 }
+
+
+/* ================================================================
+   Wheaterflow Droogte — exact Liquid Glass kaart
+   Volledig geïsoleerd van Bodem, Sea Mode en Atmosfeer.
+   ================================================================ */
+.wf-drought-card{
+  position:relative;
+  overflow:hidden;
+  padding:clamp(20px,2.5vw,34px)!important;
+  border-radius:clamp(26px,3vw,38px)!important;
+  border:1px solid rgba(239,248,255,.34)!important;
+  background:
+    radial-gradient(110% 80% at 100% 0%,rgba(255,205,139,.11),transparent 58%),
+    radial-gradient(100% 65% at 0% 100%,rgba(125,181,220,.10),transparent 60%),
+    linear-gradient(145deg,rgba(65,84,110,.46),rgba(25,36,51,.37))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.26),
+    inset 0 -1px 0 rgba(255,255,255,.08),
+    0 18px 44px rgba(4,14,26,.20)!important;
+  -webkit-backdrop-filter:blur(28px) saturate(128%)!important;
+  backdrop-filter:blur(28px) saturate(128%)!important;
+  color:#f5f9ff;
+}
+
+.wf-drought-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(115deg,rgba(255,255,255,.08),transparent 28%,transparent 72%,rgba(255,255,255,.035));
+  opacity:.75;
+}
+
+.wf-drought-card > *{position:relative;z-index:1;}
+
+.wf-drought-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.wf-drought-title{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  font-size:clamp(24px,2.1vw,34px);
+  line-height:1;
+  font-weight:760;
+  letter-spacing:-.035em;
+}
+
+.wf-drought-logo{
+  width:clamp(48px,4.6vw,64px);
+  height:clamp(48px,4.6vw,64px);
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(209,255,205,.42);
+  background:radial-gradient(circle at 42% 35%,rgba(210,255,202,.22),rgba(122,191,132,.10) 58%,rgba(255,255,255,.035));
+  box-shadow:0 0 24px rgba(158,236,155,.18),inset 0 1px 0 rgba(255,255,255,.23);
+}
+
+.wf-drought-logo svg{
+  width:72%;height:72%;fill:none;stroke:#dbffd7;stroke-width:3.3;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 0 5px rgba(176,255,176,.25));
+}
+.wf-drought-logo svg .drop{stroke:#c4f3ca;}
+
+.wf-drought-chevron{
+  width:clamp(42px,4vw,56px);
+  height:clamp(42px,4vw,56px);
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,255,255,.20);
+  background:rgba(255,255,255,.055);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+  font-size:clamp(30px,3vw,42px);
+  font-weight:200;
+  color:#fff;
+  line-height:1;
+}
+
+.wf-drought-hero{margin-top:clamp(30px,4vw,54px);}
+.wf-drought-index{display:flex;align-items:flex-end;gap:10px;line-height:.9;}
+.wf-drought-index strong{font-size:clamp(62px,8vw,96px);font-weight:780;letter-spacing:-.07em;}
+.wf-drought-index span{font-size:clamp(28px,4vw,46px);font-weight:350;color:rgba(241,246,255,.72);padding-bottom:.16em;}
+.wf-drought-index-label{margin-top:12px;font-size:clamp(19px,2.1vw,28px);font-weight:650;letter-spacing:-.025em;}
+
+.wf-drought-pill{
+  width:max-content;
+  max-width:100%;
+  margin-top:16px;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  min-height:38px;
+  padding:8px 16px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.15);
+  font-size:clamp(13px,1.35vw,18px);
+  font-weight:700;
+  background:rgba(255,255,255,.07);
+}
+.wf-drought-pill i{width:14px;height:14px;border-radius:50%;background:#c8d1db;box-shadow:0 0 10px currentColor;}
+.wf-drought-pill.good{background:rgba(67,171,92,.24);border-color:rgba(124,238,144,.30);color:#eaffea;}
+.wf-drought-pill.good i{background:#91f59b;}
+.wf-drought-pill.watch{background:rgba(219,183,71,.20);border-color:rgba(255,220,110,.28);}
+.wf-drought-pill.watch i{background:#ffd56f;}
+.wf-drought-pill.dry{background:rgba(226,139,59,.20);border-color:rgba(255,174,89,.28);}
+.wf-drought-pill.dry i{background:#ffae59;}
+.wf-drought-pill.high,.wf-drought-pill.extreme{background:rgba(211,75,75,.22);border-color:rgba(255,117,117,.30);}
+.wf-drought-pill.high i,.wf-drought-pill.extreme i{background:#ff7c7c;}
+
+.wf-drought-divider{height:1px;background:rgba(230,240,250,.24);margin:clamp(24px,3vw,34px) 0;}
+
+.wf-drought-primary-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1.35fr;
+  gap:0;
+}
+.wf-drought-primary-grid > * + *{border-left:1px solid rgba(226,238,250,.18);padding-left:clamp(18px,2.5vw,34px);margin-left:clamp(18px,2.5vw,34px);}
+
+.wf-drought-metric{min-width:0;}
+.wf-drought-metric > span,.wf-drought-water-metric > span{
+  display:block;color:rgba(225,235,247,.72);font-size:clamp(12px,1.15vw,15px);line-height:1.25;
+}
+.wf-drought-metric > strong{display:block;margin-top:8px;font-size:clamp(24px,2.4vw,34px);font-weight:760;letter-spacing:-.03em;}
+.wf-drought-metric > small{display:block;margin-top:4px;color:rgba(222,233,246,.63);font-size:12px;}
+.wf-drought-trend > div{display:flex;align-items:center;gap:14px;margin-top:10px;}
+.wf-drought-trend > div > b{font-size:32px;color:rgba(220,232,246,.65);font-weight:350;line-height:1;}
+.wf-drought-trend > div > strong{font-size:clamp(14px,1.4vw,18px);line-height:1.35;font-weight:630;letter-spacing:0;}
+
+.wf-drought-soil-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:0;
+}
+.wf-drought-soil-grid > * + *{border-left:1px solid rgba(226,238,250,.16);padding-left:clamp(15px,2vw,27px);margin-left:clamp(15px,2vw,27px);}
+.wf-drought-soil-grid .wf-drought-metric > strong{font-size:clamp(22px,2.2vw,31px);}
+
+.wf-drought-water-card{
+  margin-top:clamp(28px,3vw,38px);
+  padding:clamp(17px,2vw,26px);
+  border-radius:clamp(20px,2.4vw,30px);
+  border:1px solid rgba(232,242,252,.24);
+  background:linear-gradient(145deg,rgba(255,255,255,.095),rgba(255,255,255,.025));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 26px rgba(4,12,22,.10);
+  -webkit-backdrop-filter:blur(18px) saturate(118%);
+  backdrop-filter:blur(18px) saturate(118%);
+}
+.wf-drought-water-title{display:flex;align-items:center;gap:12px;margin-bottom:22px;font-size:clamp(16px,1.6vw,21px);}
+.wf-drought-water-title span{width:27px;height:27px;display:grid;place-items:center;color:rgba(225,235,247,.78);}
+.wf-drought-water-title svg{width:100%;height:100%;fill:currentColor;}
+.wf-drought-water-title b{font-weight:720;}
+
+.wf-drought-water-grid{display:grid;gap:0;}
+.wf-drought-water-grid-top{grid-template-columns:repeat(4,minmax(0,1fr));}
+.wf-drought-water-grid-bottom{grid-template-columns:repeat(3,minmax(0,1fr));}
+.wf-drought-water-grid > * + *{border-left:1px solid rgba(226,238,250,.16);padding-left:clamp(13px,1.8vw,24px);margin-left:clamp(13px,1.8vw,24px);}
+.wf-drought-water-metric strong{display:block;margin-top:7px;font-size:clamp(20px,2vw,28px);font-weight:760;letter-spacing:-.025em;white-space:nowrap;}
+.wf-drought-water-metric.positive strong{color:#cfe8ff;}
+.wf-drought-water-metric.negative strong{color:#ffc48f;}
+.wf-drought-water-divider{height:1px;background:rgba(230,240,250,.20);margin:24px 0;}
+
+.wf-drought-data-row{
+  display:flex;align-items:center;gap:14px;margin-top:26px;padding:0 4px;color:rgba(225,235,247,.75);font-size:clamp(12px,1.15vw,15px);
+}
+.wf-drought-database{width:28px;height:28px;display:grid;place-items:center;color:rgba(222,234,248,.74);}
+.wf-drought-database svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;}
+
+.wf-drought-notice{
+  display:flex;align-items:center;gap:12px;margin-top:20px;padding-top:20px;border-top:1px solid rgba(230,240,250,.20);color:rgba(220,231,245,.62);font-size:clamp(11px,1.05vw,14px);line-height:1.4;
+}
+.wf-drought-info{width:24px;height:24px;flex:0 0 24px;border:1px solid rgba(225,237,250,.54);border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;color:rgba(229,239,250,.78);}
+.wf-drought-stale{margin-top:14px;padding:9px 12px;border-radius:12px;background:rgba(245,165,36,.10);border:1px solid rgba(245,165,36,.18);font-size:11px;color:rgba(244,235,214,.82);}
+.wf-drought-loading{min-height:180px;display:flex;align-items:center;}
+.wf-drought-actions{margin-top:14px;}
+
+@media (max-width:760px){
+  .wf-drought-card{padding:20px!important;border-radius:28px!important;}
+  .wf-drought-title{gap:12px;}
+  .wf-drought-primary-grid{grid-template-columns:1fr 1fr;row-gap:22px;}
+  .wf-drought-primary-grid .wf-drought-trend{grid-column:1/-1;border-left:0!important;padding-left:0!important;margin-left:0!important;padding-top:18px;border-top:1px solid rgba(226,238,250,.14);}
+  .wf-drought-soil-grid{grid-template-columns:1fr 1fr;row-gap:22px;}
+  .wf-drought-soil-grid > *:nth-child(3){border-left:0;padding-left:0;margin-left:0;}
+  .wf-drought-water-grid-top,.wf-drought-water-grid-bottom{grid-template-columns:1fr 1fr;row-gap:22px;}
+  .wf-drought-water-grid > *:nth-child(3){border-left:0;padding-left:0;margin-left:0;}
+}
+
+@media (max-width:430px){
+  .wf-drought-index strong{font-size:68px;}
+  .wf-drought-index span{font-size:31px;}
+  .wf-drought-primary-grid,.wf-drought-soil-grid,.wf-drought-water-grid-top,.wf-drought-water-grid-bottom{grid-template-columns:1fr;}
+  .wf-drought-primary-grid > * + *,
+  .wf-drought-soil-grid > * + *,
+  .wf-drought-water-grid > * + *{
+    border-left:0!important;padding-left:0!important;margin-left:0!important;padding-top:16px;border-top:1px solid rgba(226,238,250,.13);
+  }
+  .wf-drought-primary-grid .wf-drought-trend{grid-column:auto;}
+  .wf-drought-water-metric strong{white-space:normal;}
+}

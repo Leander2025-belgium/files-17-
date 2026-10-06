@@ -5041,6 +5041,255 @@ async function loadAtmosphereCard({force=false}={}){
 }
 
 
+
+/* -------------------------------------------------------------------------
+   Wheaterflow Droogte-kaart
+   Los van Bodem, Sea Mode en Atmosfeer. Wordt alleen geladen wanneer de
+   aparte tab "Droogte" wordt geopend.
+   ------------------------------------------------------------------------- */
+const WF_DROUGHT_CARD_TTL_MS = 30 * 60 * 1000;
+const WF_DROUGHT_CACHE_PREFIX = 'wheaterflow:drought-card:v1:';
+const wfDroughtCardCache = new Map();
+let wfDroughtRequestSeq = 0;
+
+function wfDroughtLocation(){
+  const loc = canonicalLocation();
+  const lat = Number(loc?.lat);
+  const lon = Number(loc?.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return {lat, lon, key:`${lat.toFixed(4)}:${lon.toFixed(4)}`};
+}
+
+function wfDroughtStorageKey(loc){
+  return `${WF_DROUGHT_CACHE_PREFIX}${loc.lat.toFixed(4)}:${loc.lon.toFixed(4)}`;
+}
+
+function wfDroughtReadCache(loc,{allowStale=false}={}){
+  const memory = wfDroughtCardCache.get(loc.key);
+  if(memory?.data?.ok && memory.data?.drought){
+    const age = Date.now() - Number(memory.savedAt || 0);
+    if(allowStale || age < WF_DROUGHT_CARD_TTL_MS) return {...memory, age};
+  }
+  try{
+    const parsed = JSON.parse(localStorage.getItem(wfDroughtStorageKey(loc)) || 'null');
+    if(!parsed?.data?.ok || !parsed.data?.drought) return null;
+    const age = Date.now() - Number(parsed.savedAt || 0);
+    if(!allowStale && age >= WF_DROUGHT_CARD_TTL_MS) return null;
+    wfDroughtCardCache.set(loc.key, parsed);
+    return {...parsed, age};
+  }catch(_e){ return null; }
+}
+
+function wfDroughtWriteCache(loc,data){
+  const entry = {savedAt:Date.now(), data};
+  wfDroughtCardCache.set(loc.key, entry);
+  try{ localStorage.setItem(wfDroughtStorageKey(loc), JSON.stringify(entry)); }catch(_e){}
+  return entry;
+}
+
+function wfDroughtValue(value){
+  if(value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function wfDroughtDecimal(value,decimals=1){
+  const n = wfDroughtValue(value);
+  if(n == null) return '—';
+  return n.toFixed(decimals).replace('.', ',');
+}
+
+function wfDroughtMm(value,{signed=false,decimals=1}={}){
+  const n = wfDroughtValue(value);
+  if(n == null) return '—';
+  const prefix = signed && n > 0 ? '+' : '';
+  return `${prefix}${n.toFixed(decimals).replace('.', ',')} mm`;
+}
+
+function wfDroughtPercent(value){
+  const n = wfDroughtValue(value);
+  return n == null ? '—' : `${n.toFixed(1).replace('.', ',')}%`;
+}
+
+function wfDroughtScore(value){
+  const n = wfDroughtValue(value);
+  return n == null ? '—' : String(Math.max(0,Math.min(100,Math.round(n))));
+}
+
+function wfDroughtTone(code){
+  const c = String(code || '').toLowerCase();
+  if(c === 'normal' || c === 'low') return 'good';
+  if(c === 'watch' || c === 'mild') return 'watch';
+  if(c === 'dry' || c === 'moderate') return 'dry';
+  if(c === 'very_dry' || c === 'high') return 'high';
+  if(c === 'extreme' || c === 'very_high') return 'extreme';
+  return 'neutral';
+}
+
+function wfDroughtLeafIcon(){
+  return `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M13 37c0-16 12-26 34-29-2 22-12 34-27 34-3 0-5-1-7-2"/><path d="M14 52c6-15 16-25 30-32"/><path class="drop" d="M45 37c5 7 8 11 8 15a8 8 0 0 1-16 0c0-4 3-8 8-15Z"/></svg>`;
+}
+
+function wfDroughtDatabaseIcon(){
+  return `<svg viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="7" rx="10" ry="4"/><path d="M6 7v6c0 2 4 4 10 4s10-2 10-4V7"/><path d="M6 13v6c0 2 4 4 10 4s10-2 10-4v-6"/><path d="M6 19v6c0 2 4 4 10 4s10-2 10-4v-6"/></svg>`;
+}
+
+function wfDroughtBarsIcon(){
+  return `<svg viewBox="0 0 28 28" aria-hidden="true"><rect x="3" y="13" width="5" height="11" rx="1"/><rect x="11.5" y="5" width="5" height="19" rx="1"/><rect x="20" y="9" width="5" height="15" rx="1"/></svg>`;
+}
+
+function droughtSection(){
+  return `<div class="card wf-drought-card" id="wfDroughtCard">
+    <div class="wf-drought-head">
+      <div class="wf-drought-title"><span class="wf-drought-logo">${wfDroughtLeafIcon()}</span><span>Droogte</span></div>
+      <span class="wf-drought-chevron" aria-hidden="true">›</span>
+    </div>
+    <div class="wf-drought-loading">${wheaterflowStatus('loading','Droogtegegevens worden geladen…')}</div>
+  </div>`;
+}
+
+function wfDroughtMetric(label,value,sub=''){
+  return `<div class="wf-drought-metric"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:''}</div>`;
+}
+
+function wfDroughtWaterMetric(label,value,tone=''){
+  return `<div class="wf-drought-water-metric ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+}
+
+function renderDroughtCard(data,{stale=false,errorMessage=''}={}){
+  const root = $('#wfDroughtCard');
+  if(!root) return;
+
+  const d = data?.drought || {};
+  const index = d.index || {};
+  const deficit = d.soilDeficit || {};
+  const stress = d.vegetationStress || {};
+  const moisture = d.soilMoisture || {};
+  const balance = d.waterBalance || {};
+  const trend = d.trend || {};
+  const availability = data?.dataAvailability || {};
+
+  const indexValue = wfDroughtScore(index.value);
+  const stressValue = wfDroughtScore(stress.value);
+  const indexTone = wfDroughtTone(index.code);
+  const stressTone = wfDroughtTone(stress.code);
+  const indexLabel = validText(index.label) || 'Droogtestatus beschikbaar';
+  const stressLabel = validText(stress.label) || '';
+  const trendLabel = validText(trend.label) || 'Trend niet beschikbaar';
+  const modelText = availability.modelDataActive === true ? 'Modeldata actief' : 'Modeldata niet actief';
+  const sensorText = availability.sensorDataActive === true ? 'Sensordata actief' : 'Sensordata niet actief';
+  const notice = validText(data?.notice) || 'Wheaterflow-modelschatting · geen officiële droogtewaarschuwing.';
+  const cacheStale = data?.cache?.stale === true || data?.degraded === true || stale;
+
+  root.innerHTML = `
+    <div class="wf-drought-head">
+      <div class="wf-drought-title"><span class="wf-drought-logo">${wfDroughtLeafIcon()}</span><span>Droogte</span></div>
+      <span class="wf-drought-chevron" aria-hidden="true">›</span>
+    </div>
+
+    <div class="wf-drought-hero">
+      <div class="wf-drought-index"><strong>${esc(indexValue)}</strong><span>/ 100</span></div>
+      <div class="wf-drought-index-label">Droogte-index</div>
+      <div class="wf-drought-pill ${indexTone}"><i></i><span>${esc(indexLabel)}</span></div>
+    </div>
+
+    <div class="wf-drought-divider"></div>
+
+    <div class="wf-drought-primary-grid">
+      ${wfDroughtMetric('Bodemtekort',wfDroughtMm(deficit.mm),deficit.estimated===true?'geschat':'')}
+      ${wfDroughtMetric('Vegetatiestress',`${stressValue} / 100`,stressLabel.replace(/vegetatiestress/i,'').trim() || stressLabel)}
+      <div class="wf-drought-metric wf-drought-trend"><span>Trend</span><div><b aria-hidden="true">⇄</b><strong>${esc(trendLabel)}</strong></div></div>
+    </div>
+
+    <div class="wf-drought-divider"></div>
+
+    <div class="wf-drought-soil-grid">
+      ${wfDroughtMetric('Bodemvocht oppervlak',wfDroughtPercent(moisture.surfacePct))}
+      ${wfDroughtMetric('Bodemvocht wortelzone',wfDroughtPercent(moisture.rootZonePct))}
+      ${wfDroughtMetric('Bodemvocht diep',wfDroughtPercent(moisture.deepPct))}
+      ${wfDroughtMetric('VPD',wfDroughtValue(d.vapourPressureDeficitKPa)==null?'—':`${wfDroughtDecimal(d.vapourPressureDeficitKPa,2)} kPa`)}
+    </div>
+
+    <section class="wf-drought-water-card">
+      <div class="wf-drought-water-title"><span>${wfDroughtBarsIcon()}</span><b>Waterbalans en neerslag</b></div>
+      <div class="wf-drought-water-grid wf-drought-water-grid-top">
+        ${wfDroughtWaterMetric('Waterbalans 7 dagen',wfDroughtMm(balance.past7DaysMm,{signed:true}),wfDroughtValue(balance.past7DaysMm)>=0?'positive':'negative')}
+        ${wfDroughtWaterMetric('Waterbalans 30 dagen',wfDroughtMm(balance.past30DaysMm,{signed:true}),wfDroughtValue(balance.past30DaysMm)>=0?'positive':'negative')}
+        ${wfDroughtWaterMetric('Neerslag 30 dagen',wfDroughtMm(balance.precipitation30DaysMm))}
+        ${wfDroughtWaterMetric('ET0 30 dagen',wfDroughtMm(balance.et0Past30DaysMm))}
+      </div>
+      <div class="wf-drought-water-divider"></div>
+      <div class="wf-drought-water-grid wf-drought-water-grid-bottom">
+        ${wfDroughtWaterMetric('Verwachting 7 dagen',wfDroughtMm(balance.forecast7DaysMm,{signed:true}),wfDroughtValue(balance.forecast7DaysMm)>=0?'positive':'negative')}
+        ${wfDroughtWaterMetric('Neerslag 7 dagen',wfDroughtMm(balance.forecastPrecipitation7DaysMm))}
+        ${wfDroughtWaterMetric('ET0 7 dagen',wfDroughtMm(balance.forecastEt07DaysMm))}
+      </div>
+    </section>
+
+    <div class="wf-drought-data-row">
+      <span class="wf-drought-database">${wfDroughtDatabaseIcon()}</span>
+      <span>${esc(modelText)} · ${esc(sensorText)}</span>
+    </div>
+
+    <div class="wf-drought-notice">
+      <span class="wf-drought-info" aria-hidden="true">i</span>
+      <span>${esc(notice.replace(/^Droogte-index, bodemtekort en vegetatiestress zijn /i,''))}</span>
+    </div>
+
+    ${cacheStale || errorMessage ? `<div class="wf-drought-stale">Gegevens mogelijk ouder${errorMessage?` · ${esc(errorMessage)}`:''}</div>` : ''}
+  `;
+}
+
+function renderDroughtUnavailable(message='Droogtegegevens tijdelijk niet beschikbaar'){
+  const root = $('#wfDroughtCard');
+  if(!root) return;
+  root.innerHTML = `
+    <div class="wf-drought-head">
+      <div class="wf-drought-title"><span class="wf-drought-logo">${wfDroughtLeafIcon()}</span><span>Droogte</span></div>
+      <span class="wf-drought-chevron" aria-hidden="true">›</span>
+    </div>
+    ${wheaterflowStatus('empty',message)}
+    <div class="wf-drought-actions"><button class="smallbtn" id="wfDroughtRetry" type="button">Opnieuw proberen</button></div>`;
+  $('#wfDroughtRetry')?.addEventListener('click',()=>loadDroughtCard({force:true}));
+}
+
+async function loadDroughtCard({force=false}={}){
+  const root = $('#wfDroughtCard');
+  const loc = wfDroughtLocation();
+  if(!root || !loc) return;
+
+  if(!force){
+    const fresh = wfDroughtReadCache(loc);
+    if(fresh){
+      renderDroughtCard(fresh.data);
+      return;
+    }
+  }
+
+  const seq = ++wfDroughtRequestSeq;
+  const params = new URLSearchParams({lat:String(loc.lat),lon:String(loc.lon)});
+
+  try{
+    const response = await fetch(`${WHEATERFLOW_API_BASE}/drought?${params.toString()}`,{cache:'no-store'});
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok || data?.ok === false || !data?.drought){
+      throw new Error(data?.error || `Drought HTTP ${response.status}`);
+    }
+    if(seq !== wfDroughtRequestSeq || wfDroughtLocation()?.key !== loc.key) return;
+    wfDroughtWriteCache(loc,data);
+    renderDroughtCard(data,{stale:data?.cache?.stale===true || data?.degraded===true});
+  }catch(error){
+    if(seq !== wfDroughtRequestSeq || wfDroughtLocation()?.key !== loc.key) return;
+    const old = wfDroughtReadCache(loc,{allowStale:true});
+    if(old){
+      renderDroughtCard(old.data,{stale:true,errorMessage:'Live update tijdelijk niet beschikbaar'});
+    }else{
+      renderDroughtUnavailable();
+    }
+    console.warn('Wheaterflow Drought laden faalde:',error?.message || error);
+  }
+}
+
 function appSections(){
   return `
     <section id="sec1" class="app-section">${mapLayerSection()}</section>
@@ -5056,6 +5305,7 @@ function appSections(){
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
         <button type="button" data-more-tab="atmosphere">Atmosfeer</button>
         <button type="button" data-more-tab="soil">Bodem</button>
+        <button type="button" data-more-tab="drought">Droogte</button>
         <button type="button" data-more-tab="storm">Onweer & storm</button>
         <button type="button" data-more-tab="webcam">Webcam</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
@@ -5073,6 +5323,7 @@ function renderMoreWeatherSections(tab='charts'){
     skycoast: `${airQualitySection()}${coastSection()}`,
     atmosphere: atmosphereSection(),
     soil: soilSection(),
+    drought: droughtSection(),
     storm: stormWeatherSection(),
     webcam: webcamWeatherSection(),
     travel: travelWeatherSection()
@@ -5198,7 +5449,7 @@ function wireMoreWeatherSections(){
   const content = $('#moreWeatherContent');
   const tabs = $$('#moreWeatherTabs [data-more-tab]');
   if(!content || !tabs.length) return;
-  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','atmosphere','soil','storm','webcam','travel']);
+  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','atmosphere','soil','drought','storm','webcam','travel']);
   const load = (tab = state.moreWeatherTab || 'charts') => {
     if(!validTabs.has(tab)) tab = 'charts';
     state.moreWeatherTab = tab;
@@ -5209,6 +5460,7 @@ function wireMoreWeatherSections(){
     positionSunPaths();
     wireTravelWeather();
     if(tab === 'atmosphere') loadAtmosphereCard();
+    if(tab === 'drought') loadDroughtCard();
     if(tab === 'storm') loadStormWeather();
     if(tab === 'webcam') wireWebcamSection();
   };
