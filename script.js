@@ -9662,6 +9662,8 @@ async function activateRadarScreen(){
       state.radar.layer=!state.radar.initialized ? 'precip' : (target==='satellite'?'satellite':'precip');
       syncRadarLayerUi(state.radar.layer);
       await refreshRadarSource();
+    }else if(WHEATERFLOW_MAP_LAYER_IDS.has(target)){
+      await setRadarWheaterflowMapLayer(target);
     }else{
       const ready=state.xweather.ready || await initXweatherMap(true);
       if(ready && await setXweatherLayer(target)) syncRadarLayerUi(target);
@@ -9743,6 +9745,11 @@ function initMapIfNeeded(){
   clearInterval(state.radar.refreshTimer);
   state.radar.refreshTimer = setInterval(()=>{
     if(document.hidden) return;
+    if(WHEATERFLOW_MAP_LAYER_IDS.has(state.radar.layer)){
+      wfMapsCache=null; wfMapsCacheAt=0;
+      setRadarWheaterflowMapLayer(state.radar.layer).catch(error=>console.warn('Wheaterflow Maps verversen faalde:',error));
+      return;
+    }
     if(state.xweather.ready && state.xweather.controller && state.xweather.activeLayer?.id !== 'radar'){
       try{
         state.xweather.controller.setRefreshInterval?.(5, true);
@@ -9942,6 +9949,53 @@ function xweatherLayerCodeCandidates(def){
 }
 
 
+const WHEATERFLOW_MAP_LAYER_IDS = new Set(['temperatures','wind-speeds','wind-particles']);
+
+function clearRadarWheaterflowMapLayer(){
+  if(state.radar.wfMapsLayer && state.map){
+    try{ state.map.removeLayer(state.radar.wfMapsLayer); }catch(e){}
+  }
+  state.radar.wfMapsLayer = null;
+}
+
+async function setRadarWheaterflowMapLayer(layerId){
+  if(!WHEATERFLOW_MAP_LAYER_IDS.has(layerId) || !state.map) return false;
+
+  // Deze drie lagen mogen Xweather nooit meer initialiseren of aanspreken.
+  if(state.xweather.ready || state.xweather.controller) teardownXweather();
+  clearRadarWheaterflowMapLayer();
+  clearOpenMeteoRadarLayer();
+  if(state.radar.animator){ state.radar.animator.destroy(); state.radar.animator=null; }
+  stopPlaying();
+
+  const data=await fetchWheaterflowMaps();
+  if(!Array.isArray(data?.grid) || !data.grid.length) throw new Error('Geen Wheaterflow Maps-grid beschikbaar');
+
+  if(layerId==='temperatures'){
+    state.radar.wfMapsLayer=wfCreateFieldLayer(state.map,data.grid,'temperature');
+    setXweatherStatus('Temperatuur · Wheaterflow Maps');
+  }else if(layerId==='wind-speeds'){
+    state.radar.wfMapsLayer=wfCreateFieldLayer(state.map,data.grid,'windSpeed');
+    setXweatherStatus('Windsnelheid · Wheaterflow Maps');
+  }else{
+    state.radar.wfMapsLayer=wfCreateWindParticleLayer(state.map,data.grid);
+    setXweatherStatus('Winddeeltjes · Wheaterflow Maps');
+  }
+
+  state.radar.layer=layerId;
+  state.xweather.activeLayer=null;
+  $('#liveRadarPanel')?.classList.add('hide');
+  $('#xweatherPanel')?.classList.add('hide');
+  $('#xweatherLayerBar')?.classList.add('hide');
+  syncRadarLayerUi(layerId);
+  rememberRadarLayer(layerId);
+  if($('#timeLabel')) $('#timeLabel').textContent='Nu';
+  const note=$('.radar-note');
+  if(note) note.textContent='Bron: Wheaterflow Maps · Open-Meteo';
+  refreshRadarLayout();
+  return true;
+}
+
 function wireRadarQuickLayers(){
   const mapping={
     chipPrecip:'precip',
@@ -9959,6 +10013,11 @@ function wireRadarQuickLayers(){
       const normalized=normalizeRadarLayerId(layer);
       if(normalized==='precip' || normalized==='satellite'){
         await switchLayer(normalized);
+        return;
+      }
+      if(WHEATERFLOW_MAP_LAYER_IDS.has(normalized)){
+        try{ await setRadarWheaterflowMapLayer(normalized); }
+        catch(error){ console.error('Wheaterflow Maps laag faalde:',error); toast('Deze kaartlaag kon niet worden geladen.'); }
         return;
       }
       const ready=state.xweather.ready || await initXweatherMap(true);
@@ -10038,6 +10097,11 @@ function canUseXweatherCode(code){
 }
 
 async function setXweatherLayer(id){
+  const normalized=normalizeRadarLayerId(id);
+  if(WHEATERFLOW_MAP_LAYER_IDS.has(normalized)){
+    try{ return await setRadarWheaterflowMapLayer(normalized); }
+    catch(error){ console.error('Wheaterflow Maps laag faalde:',error); return false; }
+  }
   const def = findAvailableXweatherLayer(id);
   if(!def){
     toast('Deze weerlaag is momenteel niet beschikbaar.');
@@ -11805,6 +11869,7 @@ $('#opacitySlider').addEventListener('input', (e)=>{
 });
 async function switchLayer(layerId){
   const l=normalizeRadarLayerId(layerId);
+  clearRadarWheaterflowMapLayer();
   if(state.xweather.ready || state.xweather.controller){
     teardownXweather();
     state.xweather.fallback = true;
