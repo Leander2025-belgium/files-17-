@@ -6,7 +6,7 @@
 const KNMI_OPEN_DATA_API_KEY = ''; // server-side via api.wheaterflow.be
 const KNMI_WMS_API_KEY = ''; // server-side via api.wheaterflow.be
 const RADAR_MAX_AGE_MINUTES = 90;
-const WHEATERFLOW_API_BASE = 'https://api.wheaterflow.be/api';
+const WHEATERFLOW_API_BASE = '/api';
 /* WF_CURRENT_CONDITIONS_FUSION_APP_V20 */
 const CURRENT_CONDITIONS_TTL_MS = 2 * 60 * 1000;
 const CURRENT_CONDITIONS_MAX_AGE_MS = 8 * 60 * 1000;
@@ -31,9 +31,7 @@ const TV_PAIRING_API_URLS = [
   FUNCTION_BASE + 'tv-pairing',
   new URL('/api/tv-pairing', location.origin).href
 ];
-const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-  ? new URL('/api/', location.origin).href
-  : 'https://api.wheaterflow.be/api/';
+const API_BASE = new URL('/api/', location.origin).href;
 const DEFAULT_WEATHER_PHOTO = 'Bewolkt.png';
 const WEATHER_PHOTO_FILES = new Set([
   'zonnig.png',
@@ -1512,7 +1510,7 @@ async function loadCurrentConditionsTruth({force=false}={}){
   const timeout = setTimeout(()=>controller.abort(), 8000);
 
   try{
-    const url = new URL(WHEATERFLOW_API_BASE + '/weather/current');
+    const url = new URL(WHEATERFLOW_API_BASE + '/current', location.origin);
     url.searchParams.set('lat', String(lat));
     url.searchParams.set('lon', String(lon));
     url.searchParams.set('_', String(Date.now()));
@@ -2928,37 +2926,25 @@ async function loadWeather(){
     state.elevation = validNumber(d?.elevation ?? d?.location?.elevation ?? d?.current?.elevation);
     state.tz = d.timezone; state.utcOffsetSec = d.utc_offset_seconds;
     state.lastUpdated = Date.now();
+// 3.0: laad alleen data die op het hoofdscherm nodig is. Zwaardere detailbronnen
+// (marine, luchtkwaliteit, bodem, terrain, atmosphere) laden pas wanneer de gebruiker
+// de bijbehorende sectie opent. Dat voorkomt dubbele en onnodige API-calls.
 const optionalResults = await Promise.allSettled([
   loadCurrentConditionsTruth({force:true}),
-  loadCurrentObservation(),
-  loadMarine(),
-  loadAirQuality(),
-  loadSoil(),
-  loadTerrain(),
   loadAlerts(),
   loadWheaterflowAdminAlerts(),
-  loadAstroEvents(),
   refreshRadarProximityIfStale(),
   loadLightning()
 ]);
     optionalResults.forEach((result, index)=>{
       if(result.status === 'rejected'){
-console.warn(
-  [
-    'Current Conditions Fusion',
-    'METAR',
-    'Marine',
-    'Luchtkwaliteit',
-    'Bodemdata',
-    'Terrain',
-    'Officiële meldingen',
-    'Wheaterflow adminmeldingen',
-    'Astro-events',
-    'Radar-nabijheid',
-    'Live bliksemdata'
-  ][index] + ' laden faalde:',
-  result.reason
-);
+        console.warn([
+          'Current Conditions Fusion',
+          'Officiële meldingen',
+          'Wheaterflow adminmeldingen',
+          'Radar-nabijheid',
+          'Live bliksemdata'
+        ][index] + ' laden faalde:', result.reason);
       }
     });
     try{
@@ -2999,7 +2985,7 @@ function startAutoRefresh(){
   state.refreshTimer = setInterval(()=>{
     if(document.hidden) return; // niet nodeloos verversen als het tabblad niet zichtbaar is
     loadWeather();
-  }, 60*1000);
+  }, 3*60*1000);
   state.clockTickTimer = setInterval(updateLastUpdatedText, 15*1000);
   document.addEventListener('visibilitychange', async ()=>{
     if(document.hidden) return;
@@ -3520,7 +3506,7 @@ async function loadLightning(force=false){
   if(!force && lastUpdate && Date.now() - lastUpdate < 90 * 1000) return state.lightning;
   state.lightning.loading = true;
   try{
-    const lightningUrl = `https://api.wheaterflow.be/api/lightning?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=100`;
+    const lightningUrl = `${WHEATERFLOW_API_BASE}/lightning?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=100`;
     const r = await fetch(lightningUrl, {cache:'no-store'});
     const data = await r.json().catch(()=>({}));
     if(!r.ok || data.ok === false) throw new Error(data.error || `Lightning API ${r.status}`);
@@ -4482,122 +4468,191 @@ function fixHomeHeaderPosition(){
   // doing so can create a stale visual offset after dynamic admin alerts.
 }
 
+function wf3FirstWarning(){
+  const alerts = Array.isArray(state.alerts) ? state.alerts : [];
+  if(!alerts.length) return null;
+  return alerts.find(a => isBelgiumLocation() ? isValidOfficialKmiAlert(a) : (a?.level && a.level !== 'green')) || alerts[0] || null;
+}
+
+function wf3WarningCard(){
+  const a = wf3FirstWarning();
+  if(!a) return '';
+  const level = String(a.level || '').toLowerCase();
+  const levelLabel = level === 'red' ? 'Code rood' : level === 'orange' ? 'Code oranje' : level === 'yellow' ? 'Code geel' : 'Waarschuwing';
+  const title = validText(a.headline) || validText(a.title) || levelLabel;
+  const period = validText(a.period) || (a.validTo ? `Geldig tot ${new Date(a.validTo).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}` : 'Actieve waarschuwing');
+  const description = validText(a.description) || validText(a.message) || 'Bekijk de details voor jouw regio.';
+  return `<article class="wf3-panel wf3-warning wf3-warning-${esc(level || 'info')}">
+    <div class="wf3-panel-head"><div class="wf3-title-with-icon"><img src="./assets/ui/onboarding/warning.png" alt=""><span>Weerwaarschuwing</span></div><span class="wf3-warning-level">${esc(levelLabel)}</span></div>
+    <h3>${esc(title)}</h3><p class="wf3-warning-period">${esc(period)}</p><p>${esc(description)}</p>
+  </article>`;
+}
+
+function wf3AiCard(){
+  const truth = currentConditionsTruth();
+  const confidence = validNumber(truth?.confidence);
+  const conflicts = Array.isArray(truth?.conflicts) ? truth.conflicts : [];
+  let label = 'Redelijke zekerheid';
+  if(confidence != null && confidence >= .78) label = 'Hoge zekerheid';
+  else if(confidence != null && confidence < .55) label = 'Voorzichtige inschatting';
+  const text = conflicts.length
+    ? 'Bronnen verschillen licht. Wheaterflow geeft actuele radar en Fusion-data voorrang.'
+    : 'De verwachting is stabiel. Geen grote afwijkingen tussen de belangrijkste bronnen.';
+  return `<article class="wf3-panel wf3-ai-card">
+    <div class="wf3-panel-head"><div class="wf3-title-with-icon"><img src="./assets/ui/home/wheaterflow-intelligence.png" alt=""><span>Wheaterflow AI</span></div><span class="wf3-ai-confidence">${esc(label)}</span></div>
+    <strong>${esc(text)}</strong>${confidence != null ? `<small>Fusion confidence ${Math.round(confidence*100)}%</small>` : ''}
+  </article>`;
+}
+
+function wf3NowcastHeadline(rain=nowcastEngine()){
+  const truth = currentConditionsTruth();
+  if(rain?.status === 'raining'){
+    const mins = validNumber(rain.endsInMinutes);
+    return {title: mins != null ? `Regen wordt over ±${Math.max(1,Math.round(mins))} min zwakker` : 'Het regent nu', sub: rain.reliabilityLabel || rain.intensityLabel || 'Actuele neerslag', wet:true};
+  }
+  if(rain?.status === 'rain_soon'){
+    const mins = validNumber(rain.startsInMinutes);
+    const reliable = validNumber(rain.reliabilityPct);
+    if(mins != null && (reliable == null || reliable >= 58)) return {title:`Regen verwacht over ±${Math.max(1,Math.round(mins))} min`, sub:rain.reliabilityLabel || 'Bui nadert jouw locatie', wet:true};
+    if(rain.startTime) return {title:`Mogelijke regen rond ${formatShortTime(rain.startTime)}`, sub:rain.reliabilityLabel || 'Onzekere timing', wet:true};
+  }
+  const km = validNumber(truth?.precipitation?.nearestEchoKm);
+  if(truth?.precipitation?.nearby && km != null){
+    return {title:`Regen op ongeveer ${Math.max(1,Math.round(km))} km`, sub:truth?.precipitation?.upcomingRain ? 'Beweegt mogelijk richting jouw locatie' : 'Nu droog op jouw locatie', wet:false};
+  }
+  return {title:'Geen regen in de buurt', sub:'Komende 2 uur waarschijnlijk overwegend droog', wet:false};
+}
+
+function wf3Metric(iconSrc,label,value,sub=''){
+  return `<article class="wf3-metric"><img src="${iconSrc}" alt=""><div><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:''}</div></article>`;
+}
+
+function wf3Metrics(cur, hourly, nowIdx){
+  const truth = currentConditionsTruth();
+  const vis = validNumber(hourly?.visibility?.[nowIdx]);
+  const precip = validNumber(truth?.precipitation?.now ?? cur?.precipitation);
+  return `<section class="wf3-metrics" aria-label="Huidige weerdata">
+    ${wf3Metric('./assets/ui/card-icons/05-neerslag.png','Neerslag',precip!=null?fmtPrecip(precip):'Niet beschikbaar', truth?.precipitation?.nearby?'Neerslag in de omgeving':'Actueel')}
+    ${wf3Metric('./assets/ui/card-icons/01-wind.png','Wind',fmtWind(cur?.wind_speed_10m), validNumber(cur?.wind_gusts_10m)!=null?`Windstoten ${fmtWind(cur.wind_gusts_10m)}`:'')}
+    ${wf3Metric('./assets/ui/card-icons/02-luchtdruk.png','Luchtdruk',fmtPress(cur?.pressure_msl))}
+    ${wf3Metric('./assets/ui/card-icons/07-vochtigheid.png','Luchtvochtigheid',validNumber(cur?.relative_humidity_2m)!=null?`${Math.round(cur.relative_humidity_2m)}%`:'Niet beschikbaar')}
+    ${wf3Metric('./assets/ui/card-icons/06-zicht.png','Zicht',vis!=null?`${(vis/1000).toFixed(vis>=10000?0:1)} km`:'Niet beschikbaar',vis!=null?(vis>=10000?'Uitstekend':vis>=5000?'Goed':'Beperkt'):'')}
+  </section>`;
+}
+
+function wf3Hourly(hourly, cur, isDay, nowIdx){
+  if(!hourly?.time?.length) return `<div class="wf3-empty">Uurverwachting tijdelijk niet beschikbaar.</div>`;
+  let items='';
+  for(let i=nowIdx;i<Math.min(nowIdx+9,hourly.time.length);i++){
+    const hd = hourlyForecastDisplay(i, nowIdx, cur, isDay);
+    const d = new Date(hourly.time[i]);
+    const label = i===nowIdx ? 'Nu' : d.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
+    const mm = validNumber(hourly.precipitation?.[i]);
+    const pop = validNumber(hourly.precipitation_probability?.[i]);
+    items += `<article class="wf3-hour ${i===nowIdx?'is-now':''}"><span>${esc(label)}</span>${icon(hd.info.ic,hd.isDay,42,'wf3-hour-icon')}<strong>${fmtTemp(hd.temperature)}</strong>${pop!=null&&pop>=20?`<small>${Math.round(pop)}%${mm!=null&&mm>0?` · ${fmtPrecip(mm)}`:''}</small>`:'<small>&nbsp;</small>'}</article>`;
+  }
+  return `<div class="wf3-hourly-strip">${items}</div>`;
+}
+
+function wf3RainChart(rain=nowcastEngine()){
+  const slots = Array.isArray(rain?.slots) ? rain.slots.slice(0,12) : [];
+  if(!slots.length) return `<div class="wf3-rain-empty"><img src="./assets/ui/rain/02-droog.png" alt=""><div><strong>Geen korte-termijnframes beschikbaar</strong><span>De hoofdverwachting blijft wel actief.</span></div></div>`;
+  const vals = slots.map(s=>Math.max(0,Number(s.precipitation)||0));
+  const max = Math.max(.4,...vals);
+  const wet = vals.some(v=>v>=.1);
+  if(!wet) return `<div class="wf3-rain-empty"><img src="./assets/ui/rain/02-droog.png" alt=""><div><strong>Geen regen verwacht in de komende 2 uur</strong><span>De radar en korte-termijnverwachting blijven rustig.</span></div></div>`;
+  const bars = slots.map((s,i)=>{
+    const h=Math.max(5,Math.round((vals[i]/max)*100));
+    const t=s.time instanceof Date?s.time:new Date(s.time);
+    const label=Number.isFinite(t.getTime())?t.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}):'';
+    return `<div class="wf3-rain-bar-wrap" title="${esc(label)} · ${vals[i].toFixed(1)} mm/u"><i style="height:${h}%"></i><span>${i%3===0?esc(label):''}</span></div>`;
+  }).join('');
+  return `<div class="wf3-rain-chart"><div class="wf3-rain-scale"><span>Zwaar</span><span>Matig</span><span>Licht</span></div><div class="wf3-rain-bars">${bars}</div></div>`;
+}
+
+function wf3Daily(daily){
+  if(!daily?.time?.length) return `<div class="wf3-empty">Meerdaagse verwachting tijdelijk niet beschikbaar.</div>`;
+  const n=Math.min(7,daily.time.length);
+  const lows=daily.temperature_2m_min.slice(0,n).map(Number).filter(Number.isFinite);
+  const highs=daily.temperature_2m_max.slice(0,n).map(Number).filter(Number.isFinite);
+  const minAll=lows.length?Math.min(...lows):0, maxAll=highs.length?Math.max(...highs):1, span=Math.max(1,maxAll-minAll);
+  let rows='';
+  for(let i=0;i<n;i++){
+    const d=new Date(daily.time[i]);
+    const lo=validNumber(daily.temperature_2m_min?.[i]);
+    const hi=validNumber(daily.temperature_2m_max?.[i]);
+    const pop=validNumber(daily.precipitation_probability_max?.[i]);
+    const mm=validNumber(daily.precipitation_sum?.[i]);
+    const gust=validNumber(daily.wind_gusts_10m_max?.[i]);
+    const info=wcInfo(daily.weather_code?.[i]);
+    const left=lo==null?0:((lo-minAll)/span)*100;
+    const width=lo==null||hi==null?0:Math.max(8,((hi-lo)/span)*100);
+    rows += `<div class="wf3-day daily-row" data-day-index="${i}" role="button" tabindex="0"><div class="wf3-day-name"><strong>${i===0?'Vandaag':d.toLocaleDateString(wfLocale(),{weekday:'long'})}</strong><span>${d.toLocaleDateString(wfLocale(),{day:'numeric',month:'short'})}</span></div>${icon(info.ic,true,36,'wf3-day-icon')}<div class="wf3-day-rain">${pop!=null?`${Math.round(pop)}%`:''}${mm!=null&&mm>0?`<small>${fmtPrecip(mm)}</small>`:''}</div><span class="wf3-day-low">${lo==null?'—':fmtTemp(lo)}</span><div class="wf3-temp-range"><i style="left:${left}%;width:${Math.min(100-left,width)}%"></i></div><strong class="wf3-day-high">${hi==null?'—':fmtTemp(hi)}</strong>${gust!=null&&gust>=60?`<small class="wf3-day-wind">${fmtWind(gust)}</small>`:''}</div>`;
+  }
+  return rows;
+}
+
+function wf3RadarPreview(){
+  return `<article class="wf3-panel wf3-radar-card"><div class="wf3-panel-head"><div><span class="wf3-eyebrow">Live</span><h2>Buienradar</h2></div><button class="wf3-link-button" type="button" data-open-radar>Open radar</button></div><div class="wf3-radar-map" id="homeWeatherMap"></div><div class="wf3-radar-status"><span id="homeMapStatus">Radar laden…</span><button class="map-retry-btn hidden" id="homeMapRetry" type="button">Opnieuw</button></div><div class="wf3-radar-legend"><span>Licht</span><i></i><span>Zwaar</span></div></article>`;
+}
+
+function wf3MoreWeatherSection(){
+  return `<section id="sec2" class="app-section more-weather-sections wf3-more-section"><div class="more-weather-head"><span>Meer weerdata</span><small>Verdiep je wanneer je dat wilt</small></div><div class="more-weather-tabs" id="moreWeatherTabs" role="tablist" aria-label="Meer weerdata"><button class="active" type="button" data-more-tab="charts">Grafieken</button><button type="button" data-more-tab="fourteen">14 dagen</button><button type="button" data-more-tab="sunmoon">Zon & maan</button><button type="button" data-more-tab="skycoast">Kust & lucht</button><button type="button" data-more-tab="atmosphere">Atmosfeer</button><button type="button" data-more-tab="soil">Bodem</button><button type="button" data-more-tab="storm">Storm</button><button type="button" data-more-tab="webcam">Webcam</button><button type="button" data-more-tab="travel">Reisweer</button></div><div class="more-weather-content" id="moreWeatherContent"></div></section>`;
+}
+
 function renderHome(){
   if(state.auth?.session?.user) setTimeout(renderProfileWeatherToday,0);
-  const cur = liveWeatherSnapshot(), hourly = state.hourly, daily = state.daily;
-  const wc = wcInfo(cur.weather_code);
-  const isDay = cur.is_day === 1;
-  const nowIdx = nowIndexInHourly();
-  const intel = weatherIntelligence();
-  const rain = intel.rain;
-  const todayMax = daily.temperature_2m_max[0], todayMin = daily.temperature_2m_min[0];
-  const truth = currentConditionsTruth();
-  const currentConditionLabel = truthImmediateVicinity(truth)
-    ? (truth?.condition?.label || 'Regen vlakbij')
-    : (truth?.condition?.label || wc.l);
-  // The home hero represents Wheaterflow's fused weather result.
-  // Do not expose the temporary/raw fallback model here when Fusion truth
-  // is still loading; that caused the label to jump back to HARMONIE.
-  const currentSource = 'Wheaterflow Fusion';
+  const cur=liveWeatherSnapshot(), hourly=state.hourly, daily=state.daily;
+  if(!cur || !hourly || !daily) return;
+  const wc=wcInfo(cur.weather_code), isDay=cur.is_day===1, nowIdx=nowIndexInHourly();
+  const truth=currentConditionsTruth(), rain=nowcastEngine();
+  const currentConditionLabel=truthImmediateVicinity(truth)?(truth?.condition?.label||'Regen vlakbij'):(truth?.condition?.label||wc.l);
+  const hi=validNumber(daily.temperature_2m_max?.[0]), lo=validNumber(daily.temperature_2m_min?.[0]);
+  const feels=validNumber(cur.apparent_temperature);
+  const nowcast=wf3NowcastHeadline(rain);
+  const summary=weatherTrendSummary();
 
-  applyWeatherBG(cur.weather_code, isDay, cur.cloud_cover);
+  applyWeatherBG(cur.weather_code,isDay,cur.cloud_cover);
 
-  let html = '';
-  html += `<div class="hero">
-    <div class="hero-kicker">MIJN LOCATIE</div>
-    <div class="locname">${esc(locationDisplayName('Locatie bepalen...'))}</div>
-    <div class="bignum display">${fmtTemp(cur.temperature_2m)}</div>
-    <div class="cond">${esc(currentConditionLabel)}</div>
-    <div class="hilo">${esc(weatherHeroLine(cur, rain))}</div>
-    <div class="updated"><span id="updatedText">Zojuist bijgewerkt</span>${state.loc.admin ? ' · ' + esc(state.loc.admin) : ''} · Bron: ${esc(currentSource)}</div>
+  let html=`<div id="sec0" class="wf3-home-shell">
+    <section class="wf3-hero" style="--wf3-hero-photo:var(--weather-photo)">
+      <div class="wf3-hero-shade"></div>
+      <div class="wf3-hero-content">
+        <div class="wf3-hero-location"><span class="wf3-location-dot"></span><div><small>Huidige locatie</small><strong>${esc(locationDisplayName('Locatie bepalen…'))}</strong>${state.loc.admin?`<span>${esc(state.loc.admin)}</span>`:''}</div></div>
+        <div class="wf3-hero-main"><div><div class="wf3-hero-temp">${fmtTemp(cur.temperature_2m)}</div><h1>${esc(currentConditionLabel)}</h1><p>${feels!=null?`Voelt als ${fmtTemp(feels)}`:''}${hi!=null&&lo!=null?` · ${fmtTemp(hi)} / ${fmtTemp(lo)}`:''}</p></div><div class="wf3-hero-icon">${icon(wc.ic,isDay,116,'wf3-hero-weather-icon')}</div></div>
+        <p class="wf3-summary">${esc(summary)}</p>
+        <div class="wf3-updated"><span id="updatedText">Zojuist bijgewerkt</span><span>Wheaterflow Fusion</span></div>
+      </div>
+    </section>
+
+    <article class="wf3-nowcast ${nowcast.wet?'is-wet':''}"><img src="./assets/ui/rain/${nowcast.wet?'01-regen':'02-droog'}.png" alt=""><div><small>Nowcast</small><strong>${esc(nowcast.title)}</strong><span>${esc(nowcast.sub)}</span></div></article>
+
+    ${wf3Metrics(cur,hourly,nowIdx)}
+
+    <div class="wf3-desktop-grid">
+      <main class="wf3-main-column">
+        <article class="wf3-panel wf3-hourly-card"><div class="wf3-panel-head"><div><span class="wf3-eyebrow">Vandaag</span><h2>Uur per uur</h2></div></div>${wf3Hourly(hourly,cur,isDay,nowIdx)}</article>
+        <article class="wf3-panel wf3-rain-card"><div class="wf3-panel-head"><div><span class="wf3-eyebrow">Komende 2 uur</span><h2>Neerslag</h2></div><span class="wf3-rain-badge">${esc(rain?.reliabilityLabel||'Live')}</span></div>${wf3RainChart(rain)}<div class="wf3-rain-callout"><img src="./assets/ui/rain/04-verwachting-2-uur.png" alt=""><div><strong>${esc(nowcast.title)}</strong><span>${esc(nowcast.sub)}</span></div></div></article>
+        <article class="wf3-panel wf3-forecast-card"><div class="wf3-panel-head"><div><span class="wf3-eyebrow">Vooruitblik</span><h2>7-daagse verwachting</h2></div><button class="wf3-link-button" id="openFull14" type="button">14 dagen</button></div><div class="wf3-daily-list">${wf3Daily(daily)}</div></article>
+      </main>
+      <aside class="wf3-side-column">
+        ${wf3RadarPreview()}
+        ${wf3WarningCard()}
+        ${wf3AiCard()}
+        ${stormModeCard()}
+      </aside>
+    </div>
+
+    ${wheaterflowAdminAlertsCard()}
+    ${wf3MoreWeatherSection()}
   </div>`;
 
-html += wheaterflowAdminAlertsCard();
-// Officiële waarschuwingen horen boven gewone intelligence wanneer ze relevant zijn.
-const validOfficialHomeAlert = state.alertsMeta?.official && state.alerts?.some(a => isBelgiumLocation() ? isValidOfficialKmiAlert(a) : (a.level && a.level !== 'green'));
-if(validOfficialHomeAlert) {
-  html += `<div class="hero-kmi-spacer" aria-hidden="true"></div>`;
-  html += alertsCard();
-}
-html += weatherSummaryCard();
-html += rainNowcastCard();
-
-  // hourly — bestaande 24-uursdata, alleen gerichte markup voor vaste uitlijning
-  html += `<div class="card hourly-24-card"><div class="card-title">${upcoming24Icon(30,'card-title-icon')} Komende 24 uur</div><div class="hourly-scroll" aria-label="Komende 24 uur">`;
-  for(let i=nowIdx; i<Math.min(nowIdx+24, hourly.time.length); i++){
-    const t = new Date(hourly.time[i]);
-    const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
-    const hd = hourlyForecastDisplay(i, nowIdx, cur, isDay);
-    html += `<div class="hour-item ${hd.isCurrentHour?'now':''}">
-      <div class="t">${esc(label)}</div>
-      <div class="hour-icon-wrap">${icon(hd.info.ic, hd.isDay, 58)}</div>
-      <div class="pop">${hd.pop}</div>
-      <div class="v">${fmtTemp(hd.temperature)}</div>
-    </div>`;
-  }
-  html += `</div></div>`;
-
-  // compacte 7-daagse verwachting op Vandaag
-  const nDays = Math.min(7, daily.time.length);
-  const allMax = daily.temperature_2m_max.slice(0,nDays).filter(v=>validNumber(v)!=null);
-  const allMin = daily.temperature_2m_min.slice(0,nDays).filter(v=>validNumber(v)!=null);
-  const gMax = allMax.length ? Math.max(...allMax) : 1, gMin = allMin.length ? Math.min(...allMin) : 0;
-  html += `<div class="card compact-forecast-card"><div class="card-title"><img class="forecast-seven-title-icon" src="assets/ui/7-daagse-verwachting.png" alt="" aria-hidden="true"> 7-daagse verwachting</div>`;
-  if(!nDays){
-    html += wheaterflowStatus('empty','Momenteel geen gegevens beschikbaar');
-  }else{
-    for(let i=0;i<nDays;i++){
-      const dwc=wcInfo(daily.weather_code?.[i]);
-      const d=new Date(daily.time[i]);
-      const dayName=i===0?tr('Vandaag'):d.toLocaleDateString(wfLocale(),{weekday:'short'});
-      const dateLabel=d.toLocaleDateString(wfLocale(),{day:'2-digit',month:'2-digit'});
-      const lo=validNumber(daily.temperature_2m_min?.[i]), hi=validNumber(daily.temperature_2m_max?.[i]);
-      const left=lo==null?0:((lo-gMin)/(gMax-gMin||1))*100;
-      const width=lo==null||hi==null?0:((hi-lo)/(gMax-gMin||1))*100;
-      const pop=validNumber(daily.precipitation_probability_max?.[i]);
-      const gust=validNumber(daily.wind_gusts_10m_max?.[i]);
-      html += `<div class="daily-row daily-row-compact ${i===0?'is-today':''}" data-day-index="${i}" role="button" tabindex="0" aria-label="Details voor ${esc(dayName)} ${esc(dateLabel)}">
-        <div class="dname"><b>${esc(dayName)}</b><small>${esc(dateLabel)}</small></div>
-        <div class="daily-icon-wrap">${icon(dwc.ic,true,56,'dicon')}</div>
-        <div class="daily-weather-data">
-          <div class="dpop">${pop!=null && pop>0 ? Math.round(pop)+'%' : ''}</div>
-          <div class="daily-wind-alert">${gust!=null && gust>=60 ? `stoten ${fmtWind(gust)}` : ''}</div>
-        </div>
-        <div class="dlow">${lo==null?'':fmtTemp(lo)}</div>
-        <div class="bar-track">${lo!=null&&hi!=null?`<div class="bar-fill" style="left:${left}%;width:${Math.max(width,6)}%;"></div>`:''}</div>
-        <div class="dhigh">${hi==null?'':fmtTemp(hi)}</div>
-      </div>`;
-    }
-  }
-  html += `<button class="forecast-14-button" id="openFull14" type="button"><span class="forecast-14-label"><svg class="forecast-calendar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bekijk alle 14 dagen</span></span><span class="forecast-14-chevron">›</span></button></div>`;
-  // details grid
-  const moon = moonPhase(new Date());
-  html += `<div class="detail-grid">`;
-  html += windCompassCard(cur.wind_speed_10m, cur.wind_gusts_10m, cur.wind_direction_10m);
-  html += pressureGaugeCard(cur.pressure_msl);
-  html += sunArcDetailCard(daily.sunrise[0], daily.sunset[0]);
-  html += uvBarCard(daily.uv_index_max[0]);
-  html += detailCard('drop','Neerslag', fmtPrecip(cur.precipitation), 'Kans '+(hourly.precipitation_probability[nowIdx]??0)+'%');
-  html += detailCard('eye','Zicht', (hourly.visibility[nowIdx]/1000).toFixed(1)+' km', hourly.visibility[nowIdx] > 8000 ? 'Goed zicht':'Beperkt zicht');
-  html += detailCard('gauge','Vochtigheid', cur.relative_humidity_2m+'%', 'Dauwpunt '+fmtTemp(hourly.dew_point_2m[nowIdx]));
-  html += moonCard(moon);
-  html += detailCard('cloud','Bewolking', cur.cloud_cover+'%', cur.cloud_cover<30?'Overwegend helder':cur.cloud_cover<70?'Half bewolkt':'Bewolkt', 'cloud-wide');
-  html += seaSparkDetailCard();
-  html += `</div>`;
-  html += compactAirQualityCard();
-  html += stormModeCard();
-  html += astroEventCards();
-  html += appSections();
-
-  $('#homeInner').innerHTML = html;
+  $('#homeInner').innerHTML=html;
   wireOfficialAlertDisclosure();
-  wireSectionNav();
-  $('#openFull14')?.addEventListener('click', ()=>{
-    document.querySelector('#moreWeatherTabs [data-more-tab="fourteen"]')?.click();
-    setTimeout(()=>document.querySelector('#sec2')?.scrollIntoView({behavior:'smooth',block:'start'}),40);
-  });
   wireHomeMapLayers();
   wireMoreWeatherSections();
+  $('#openFull14')?.addEventListener('click',()=>{ document.querySelector('#moreWeatherTabs [data-more-tab="fourteen"]')?.click(); setTimeout(()=>document.querySelector('#sec2')?.scrollIntoView({behavior:'smooth',block:'start'}),40); });
+  document.querySelector('[data-open-radar]')?.addEventListener('click',()=>document.querySelector('.tabbtn[data-tab="radarscreen"]')?.click());
   requestAnimationFrame(()=>requestAnimationFrame(()=>fixHomeHeaderPosition()));
 }
 
@@ -4999,296 +5054,45 @@ async function loadAtmosphereCard({force=false}={}){
   if(!root || !loc) return;
 
   const cached = wfAtmosphereCardCache.get(loc.key);
-  const cacheTtl = cached?.failedCount === 3 ? 60 * 1000 : WF_ATMOSPHERE_CARD_TTL_MS;
+  const cacheTtl = cached?.failedCount ? 60 * 1000 : WF_ATMOSPHERE_CARD_TTL_MS;
   if(!force && cached && Date.now() - cached.fetchedAt < cacheTtl){
-    renderAtmosphereCard(cached.bundle, cached.failedCount);
+    renderAtmosphereCard(cached.bundle, cached.failedCount || 0);
     return;
   }
 
-  root.innerHTML = `
-    <div class="wf-atmo-head">
-      <div>
-        <div class="card-title">${icon('cloud',true,18)} Atmosfeer</div>
-        <div class="wf-atmo-subtitle">Wolken, zicht, mist en sneeuwhoogtes</div>
-      </div>
-      <span class="wf-atmo-status loading">Laden…</span>
-    </div>
-    <div class="wf-atmo-loading">${wheaterflowStatus('loading','Atmosferische gegevens worden geladen…')}</div>`;
+  root.innerHTML = `<div class="wf-atmo-head"><div><div class="card-title">${icon('cloud',true,18)} Atmosfeer</div><div class="wf-atmo-subtitle">Wolken, zicht, mist en sneeuwhoogtes</div></div><span class="wf-atmo-status loading">Laden…</span></div><div class="wf-atmo-loading">${wheaterflowStatus('loading','Atmosferische gegevens worden geladen…')}</div>`;
 
   const seq = ++wfAtmosphereCardRequestSeq;
-  const [cloudsResult, visibilityResult, snowResult] = await Promise.allSettled([
-    wfAtmosphereFetchEndpoint('clouds', loc.lat, loc.lon),
-    wfAtmosphereFetchEndpoint('visibility', loc.lat, loc.lon),
-    wfAtmosphereFetchEndpoint('snow', loc.lat, loc.lon)
-  ]);
-
-  const bundle = {
-    clouds:cloudsResult.status === 'fulfilled' ? cloudsResult.value : null,
-    visibility:visibilityResult.status === 'fulfilled' ? visibilityResult.value : null,
-    snow:snowResult.status === 'fulfilled' ? snowResult.value : null
-  };
-  const failedCount = [cloudsResult,visibilityResult,snowResult].filter(result => result.status === 'rejected').length;
-
-  wfAtmosphereCardCache.set(loc.key, {
-    bundle,
-    failedCount,
-    fetchedAt:Date.now()
-  });
-
-  if(seq !== wfAtmosphereCardRequestSeq) return;
-  if(wfAtmosphereCardLocation()?.key !== loc.key) return;
-  renderAtmosphereCard(bundle, failedCount);
-}
-
-
-
-/* -------------------------------------------------------------------------
-   Wheaterflow Droogte-kaart
-   Los van Bodem, Sea Mode en Atmosfeer. Wordt alleen geladen wanneer de
-   aparte tab "Droogte" wordt geopend.
-   ------------------------------------------------------------------------- */
-const WF_DROUGHT_CARD_TTL_MS = 30 * 60 * 1000;
-const WF_DROUGHT_CACHE_PREFIX = 'wheaterflow:drought-card:v1:';
-const wfDroughtCardCache = new Map();
-let wfDroughtRequestSeq = 0;
-
-function wfDroughtLocation(){
-  const loc = canonicalLocation();
-  const lat = Number(loc?.lat);
-  const lon = Number(loc?.lon);
-  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return {lat, lon, key:`${lat.toFixed(4)}:${lon.toFixed(4)}`};
-}
-
-function wfDroughtStorageKey(loc){
-  return `${WF_DROUGHT_CACHE_PREFIX}${loc.lat.toFixed(4)}:${loc.lon.toFixed(4)}`;
-}
-
-function wfDroughtReadCache(loc,{allowStale=false}={}){
-  const memory = wfDroughtCardCache.get(loc.key);
-  if(memory?.data?.ok && memory.data?.drought){
-    const age = Date.now() - Number(memory.savedAt || 0);
-    if(allowStale || age < WF_DROUGHT_CARD_TTL_MS) return {...memory, age};
-  }
   try{
-    const parsed = JSON.parse(localStorage.getItem(wfDroughtStorageKey(loc)) || 'null');
-    if(!parsed?.data?.ok || !parsed.data?.drought) return null;
-    const age = Date.now() - Number(parsed.savedAt || 0);
-    if(!allowStale && age >= WF_DROUGHT_CARD_TTL_MS) return null;
-    wfDroughtCardCache.set(loc.key, parsed);
-    return {...parsed, age};
-  }catch(_e){ return null; }
-}
+    const params = new URLSearchParams({lat:String(loc.lat),lon:String(loc.lon)});
+    const response = await fetch(`${WHEATERFLOW_API_BASE}/atmosphere?${params.toString()}`, {cache:'no-store'});
+    let payload={};
+    try{ payload=await response.json(); }catch(_e){}
+    if(!response.ok || payload?.ok === false) throw new Error(payload?.error || `Atmosphere HTTP ${response.status}`);
 
-function wfDroughtWriteCache(loc,data){
-  const entry = {savedAt:Date.now(), data};
-  wfDroughtCardCache.set(loc.key, entry);
-  try{ localStorage.setItem(wfDroughtStorageKey(loc), JSON.stringify(entry)); }catch(_e){}
-  return entry;
-}
-
-function wfDroughtValue(value){
-  if(value === null || value === undefined || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function wfDroughtDecimal(value,decimals=1){
-  const n = wfDroughtValue(value);
-  if(n == null) return '—';
-  return n.toFixed(decimals).replace('.', ',');
-}
-
-function wfDroughtMm(value,{signed=false,decimals=1}={}){
-  const n = wfDroughtValue(value);
-  if(n == null) return '—';
-  const prefix = signed && n > 0 ? '+' : '';
-  return `${prefix}${n.toFixed(decimals).replace('.', ',')} mm`;
-}
-
-function wfDroughtPercent(value){
-  const n = wfDroughtValue(value);
-  return n == null ? '—' : `${n.toFixed(1).replace('.', ',')}%`;
-}
-
-function wfDroughtScore(value){
-  const n = wfDroughtValue(value);
-  return n == null ? '—' : String(Math.max(0,Math.min(100,Math.round(n))));
-}
-
-function wfDroughtTone(code){
-  const c = String(code || '').toLowerCase();
-  if(c === 'normal' || c === 'low') return 'good';
-  if(c === 'watch' || c === 'mild') return 'watch';
-  if(c === 'dry' || c === 'moderate') return 'dry';
-  if(c === 'very_dry' || c === 'high') return 'high';
-  if(c === 'extreme' || c === 'very_high') return 'extreme';
-  return 'neutral';
-}
-
-function wfDroughtLeafIcon(){
-  return `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M13 37c0-16 12-26 34-29-2 22-12 34-27 34-3 0-5-1-7-2"/><path d="M14 52c6-15 16-25 30-32"/><path class="drop" d="M45 37c5 7 8 11 8 15a8 8 0 0 1-16 0c0-4 3-8 8-15Z"/></svg>`;
-}
-
-function wfDroughtDatabaseIcon(){
-  return `<svg viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="7" rx="10" ry="4"/><path d="M6 7v6c0 2 4 4 10 4s10-2 10-4V7"/><path d="M6 13v6c0 2 4 4 10 4s10-2 10-4v-6"/><path d="M6 19v6c0 2 4 4 10 4s10-2 10-4v-6"/></svg>`;
-}
-
-function wfDroughtBarsIcon(){
-  return `<svg viewBox="0 0 28 28" aria-hidden="true"><rect x="3" y="13" width="5" height="11" rx="1"/><rect x="11.5" y="5" width="5" height="19" rx="1"/><rect x="20" y="9" width="5" height="15" rx="1"/></svg>`;
-}
-
-function droughtSection(){
-  return `<div class="card wf-drought-card" id="wfDroughtCard">
-    <div class="wf-drought-head">
-      <div class="wf-drought-title"><span class="wf-drought-logo">${wfDroughtLeafIcon()}</span><span>Droogte</span></div>
-      <span class="wf-drought-chevron" aria-hidden="true">›</span>
-    </div>
-    <div class="wf-drought-loading">${wheaterflowStatus('loading','Droogtegegevens worden geladen…')}</div>
-  </div>`;
-}
-
-function wfDroughtMetric(label,value,sub=''){
-  return `<div class="wf-drought-metric"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:''}</div>`;
-}
-
-function wfDroughtWaterMetric(label,value,tone=''){
-  return `<div class="wf-drought-water-metric ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
-}
-
-function renderDroughtCard(data,{stale=false,errorMessage=''}={}){
-  const root = $('#wfDroughtCard');
-  if(!root) return;
-
-  const d = data?.drought || {};
-  const index = d.index || {};
-  const deficit = d.soilDeficit || {};
-  const stress = d.vegetationStress || {};
-  const moisture = d.soilMoisture || {};
-  const balance = d.waterBalance || {};
-  const trend = d.trend || {};
-  const availability = data?.dataAvailability || {};
-
-  const indexValue = wfDroughtScore(index.value);
-  const stressValue = wfDroughtScore(stress.value);
-  const indexTone = wfDroughtTone(index.code);
-  const stressTone = wfDroughtTone(stress.code);
-  const indexLabel = validText(index.label) || 'Droogtestatus beschikbaar';
-  const stressLabel = validText(stress.label) || '';
-  const trendLabel = validText(trend.label) || 'Trend niet beschikbaar';
-  const modelText = availability.modelDataActive === true ? 'Modeldata actief' : 'Modeldata niet actief';
-  const sensorText = availability.sensorDataActive === true ? 'Sensordata actief' : 'Sensordata niet actief';
-  const notice = validText(data?.notice) || 'Wheaterflow-modelschatting · geen officiële droogtewaarschuwing.';
-  const cacheStale = data?.cache?.stale === true || data?.degraded === true || stale;
-
-  root.innerHTML = `
-    <div class="wf-drought-head">
-      <div class="wf-drought-title"><span class="wf-drought-logo">${wfDroughtLeafIcon()}</span><span>Droogte</span></div>
-      <span class="wf-drought-chevron" aria-hidden="true">›</span>
-    </div>
-
-    <div class="wf-drought-hero">
-      <div class="wf-drought-index"><strong>${esc(indexValue)}</strong><span>/ 100</span></div>
-      <div class="wf-drought-index-label">Droogte-index</div>
-      <div class="wf-drought-pill ${indexTone}"><i></i><span>${esc(indexLabel)}</span></div>
-    </div>
-
-    <div class="wf-drought-divider"></div>
-
-    <div class="wf-drought-primary-grid">
-      ${wfDroughtMetric('Bodemtekort',wfDroughtMm(deficit.mm),deficit.estimated===true?'geschat':'')}
-      ${wfDroughtMetric('Vegetatiestress',`${stressValue} / 100`,stressLabel.replace(/vegetatiestress/i,'').trim() || stressLabel)}
-      <div class="wf-drought-metric wf-drought-trend"><span>Trend</span><div><b aria-hidden="true">⇄</b><strong>${esc(trendLabel)}</strong></div></div>
-    </div>
-
-    <div class="wf-drought-divider"></div>
-
-    <div class="wf-drought-soil-grid">
-      ${wfDroughtMetric('Bodemvocht oppervlak',wfDroughtPercent(moisture.surfacePct))}
-      ${wfDroughtMetric('Bodemvocht wortelzone',wfDroughtPercent(moisture.rootZonePct))}
-      ${wfDroughtMetric('Bodemvocht diep',wfDroughtPercent(moisture.deepPct))}
-      ${wfDroughtMetric('VPD',wfDroughtValue(d.vapourPressureDeficitKPa)==null?'—':`${wfDroughtDecimal(d.vapourPressureDeficitKPa,2)} kPa`)}
-    </div>
-
-    <section class="wf-drought-water-card">
-      <div class="wf-drought-water-title"><span>${wfDroughtBarsIcon()}</span><b>Waterbalans en neerslag</b></div>
-      <div class="wf-drought-water-grid wf-drought-water-grid-top">
-        ${wfDroughtWaterMetric('Waterbalans 7 dagen',wfDroughtMm(balance.past7DaysMm,{signed:true}),wfDroughtValue(balance.past7DaysMm)>=0?'positive':'negative')}
-        ${wfDroughtWaterMetric('Waterbalans 30 dagen',wfDroughtMm(balance.past30DaysMm,{signed:true}),wfDroughtValue(balance.past30DaysMm)>=0?'positive':'negative')}
-        ${wfDroughtWaterMetric('Neerslag 30 dagen',wfDroughtMm(balance.precipitation30DaysMm))}
-        ${wfDroughtWaterMetric('ET0 30 dagen',wfDroughtMm(balance.et0Past30DaysMm))}
-      </div>
-      <div class="wf-drought-water-divider"></div>
-      <div class="wf-drought-water-grid wf-drought-water-grid-bottom">
-        ${wfDroughtWaterMetric('Verwachting 7 dagen',wfDroughtMm(balance.forecast7DaysMm,{signed:true}),wfDroughtValue(balance.forecast7DaysMm)>=0?'positive':'negative')}
-        ${wfDroughtWaterMetric('Neerslag 7 dagen',wfDroughtMm(balance.forecastPrecipitation7DaysMm))}
-        ${wfDroughtWaterMetric('ET0 7 dagen',wfDroughtMm(balance.forecastEt07DaysMm))}
-      </div>
-    </section>
-
-    <div class="wf-drought-data-row">
-      <span class="wf-drought-database">${wfDroughtDatabaseIcon()}</span>
-      <span>${esc(modelText)} · ${esc(sensorText)}</span>
-    </div>
-
-    <div class="wf-drought-notice">
-      <span class="wf-drought-info" aria-hidden="true">i</span>
-      <span>${esc(notice.replace(/^Droogte-index, bodemtekort en vegetatiestress zijn /i,''))}</span>
-    </div>
-
-    ${cacheStale || errorMessage ? `<div class="wf-drought-stale">Gegevens mogelijk ouder${errorMessage?` · ${esc(errorMessage)}`:''}</div>` : ''}
-  `;
-}
-
-function renderDroughtUnavailable(message='Droogtegegevens tijdelijk niet beschikbaar'){
-  const root = $('#wfDroughtCard');
-  if(!root) return;
-  root.innerHTML = `
-    <div class="wf-drought-head">
-      <div class="wf-drought-title"><span class="wf-drought-logo">${wfDroughtLeafIcon()}</span><span>Droogte</span></div>
-      <span class="wf-drought-chevron" aria-hidden="true">›</span>
-    </div>
-    ${wheaterflowStatus('empty',message)}
-    <div class="wf-drought-actions"><button class="smallbtn" id="wfDroughtRetry" type="button">Opnieuw proberen</button></div>`;
-  $('#wfDroughtRetry')?.addEventListener('click',()=>loadDroughtCard({force:true}));
-}
-
-async function loadDroughtCard({force=false}={}){
-  const root = $('#wfDroughtCard');
-  const loc = wfDroughtLocation();
-  if(!root || !loc) return;
-
-  if(!force){
-    const fresh = wfDroughtReadCache(loc);
-    if(fresh){
-      renderDroughtCard(fresh.data);
-      return;
-    }
-  }
-
-  const seq = ++wfDroughtRequestSeq;
-  const params = new URLSearchParams({lat:String(loc.lat),lon:String(loc.lon)});
-
-  try{
-    const response = await fetch(`${WHEATERFLOW_API_BASE}/drought?${params.toString()}`,{cache:'no-store'});
-    const data = await response.json().catch(()=>({}));
-    if(!response.ok || data?.ok === false || !data?.drought){
-      throw new Error(data?.error || `Drought HTTP ${response.status}`);
-    }
-    if(seq !== wfDroughtRequestSeq || wfDroughtLocation()?.key !== loc.key) return;
-    wfDroughtWriteCache(loc,data);
-    renderDroughtCard(data,{stale:data?.cache?.stale===true || data?.degraded===true});
+    // De gecombineerde endpoint kan velden rechtstreeks of onder data teruggeven.
+    const source = payload?.data && typeof payload.data === 'object' ? payload.data : payload;
+    const clouds = source?.clouds || null;
+    const visibility = source?.visibility || null;
+    const snow = source?.snow || null;
+    const bundle = {
+      clouds: clouds ? (clouds.clouds ? clouds : {clouds, source:source.source, version:source.version, generatedAt:source.generatedAt}) : null,
+      visibility: visibility ? (visibility.visibility ? visibility : {visibility, source:source.source, version:source.version, generatedAt:source.generatedAt}) : null,
+      snow: snow ? (snow.snow ? snow : {snow, source:source.source, version:source.version, generatedAt:source.generatedAt}) : null
+    };
+    const failedCount = ['clouds','visibility','snow'].filter(k=>!bundle[k]).length;
+    wfAtmosphereCardCache.set(loc.key,{bundle,failedCount,fetchedAt:Date.now()});
+    if(seq !== wfAtmosphereCardRequestSeq || wfAtmosphereCardLocation()?.key !== loc.key) return;
+    renderAtmosphereCard(bundle, failedCount);
   }catch(error){
-    if(seq !== wfDroughtRequestSeq || wfDroughtLocation()?.key !== loc.key) return;
-    const old = wfDroughtReadCache(loc,{allowStale:true});
-    if(old){
-      renderDroughtCard(old.data,{stale:true,errorMessage:'Live update tijdelijk niet beschikbaar'});
-    }else{
-      renderDroughtUnavailable();
-    }
-    console.warn('Wheaterflow Drought laden faalde:',error?.message || error);
+    console.warn('Atmosphere laden faalde:',error);
+    if(seq !== wfAtmosphereCardRequestSeq) return;
+    const previous = wfAtmosphereCardCache.get(loc.key);
+    if(previous?.bundle){ renderAtmosphereCard(previous.bundle, previous.failedCount || 0); return; }
+    renderAtmosphereCard({clouds:null,visibility:null,snow:null},3);
   }
 }
+
 
 function appSections(){
   return `
@@ -5305,7 +5109,6 @@ function appSections(){
         <button type="button" data-more-tab="skycoast">Sky & kust</button>
         <button type="button" data-more-tab="atmosphere">Atmosfeer</button>
         <button type="button" data-more-tab="soil">Bodem</button>
-        <button type="button" data-more-tab="drought">Droogte</button>
         <button type="button" data-more-tab="storm">Onweer & storm</button>
         <button type="button" data-more-tab="webcam">Webcam</button>
         <button type="button" data-more-tab="travel">Reisweer</button>
@@ -5323,7 +5126,6 @@ function renderMoreWeatherSections(tab='charts'){
     skycoast: `${airQualitySection()}${coastSection()}`,
     atmosphere: atmosphereSection(),
     soil: soilSection(),
-    drought: droughtSection(),
     storm: stormWeatherSection(),
     webcam: webcamWeatherSection(),
     travel: travelWeatherSection()
@@ -5449,26 +5251,36 @@ function wireMoreWeatherSections(){
   const content = $('#moreWeatherContent');
   const tabs = $$('#moreWeatherTabs [data-more-tab]');
   if(!content || !tabs.length) return;
-  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','atmosphere','soil','drought','storm','webcam','travel']);
-  const load = (tab = state.moreWeatherTab || 'charts') => {
+  const validTabs = new Set(['charts','fourteen','sunmoon','skycoast','atmosphere','soil','storm','webcam','travel']);
+  let loadSeq = 0;
+  const load = async (tab = state.moreWeatherTab || 'charts') => {
     if(!validTabs.has(tab)) tab = 'charts';
+    const seq = ++loadSeq;
     state.moreWeatherTab = tab;
-    content.innerHTML = renderMoreWeatherSections(tab);
     tabs.forEach(btn=>btn.classList.toggle('active', btn.dataset.moreTab === tab));
+    content.innerHTML = `<div class="wf3-detail-loading">${wheaterflowStatus('loading','Detailgegevens laden…')}</div>`;
+
+    try{
+      if(tab === 'skycoast') await Promise.allSettled([loadMarine(), loadAirQuality()]);
+      else if(tab === 'soil') await Promise.allSettled([loadSoil(), loadTerrain()]);
+      else if(tab === 'storm') await Promise.allSettled([loadLightning(), refreshRadarProximityIfStale()]);
+      else if(tab === 'sunmoon') await Promise.allSettled([loadAstroEvents()]);
+    }catch(error){ console.warn('Detaildata laden faalde:',error); }
+    if(seq !== loadSeq) return;
+
+    content.innerHTML = renderMoreWeatherSections(tab);
     wireDailyDetails();
     renderPremiumCharts();
     positionSunPaths();
     wireTravelWeather();
     if(tab === 'atmosphere') loadAtmosphereCard();
-    if(tab === 'drought') loadDroughtCard();
     if(tab === 'storm') loadStormWeather();
     if(tab === 'webcam') wireWebcamSection();
   };
-  tabs.forEach(btn=>{
-    btn.addEventListener('click', ()=>load(btn.dataset.moreTab));
-  });
+  tabs.forEach(btn=>btn.addEventListener('click', ()=>load(btn.dataset.moreTab)));
   load(state.moreWeatherTab || 'charts');
 }
+
 
 function wireSectionNav(){
 }
@@ -9285,6 +9097,22 @@ function addOpenFreeMapBase(map, options={}){
   }).addTo(map);
 }
 
+// Radar gebruikt bewust een raster-basemap. Xweather MapsGL rendert zijn
+// temperatuur-, wind- en wolkenlagen via WebGL. Een tweede MapLibre-WebGL
+// basemap in dezelfde Leaflet-kaart kan op iOS/zwakkere GPU's de weerlaag
+// onzichtbaar maken. De rasterbasis houdt de kaart hetzelfde bruikbaar,
+// maar laat Xweather zijn eigen WebGL-canvas exclusief gebruiken.
+function addRadarCompatibleBase(map, options={}){
+  if(!map || !window.L) return null;
+  const attribution = options.attribution !== false;
+  return L.tileLayer(OPENSTREETMAP_FALLBACK, {
+    maxZoom:19,
+    pane:'tilePane',
+    zIndex:100,
+    attribution: attribution ? '&copy; OpenStreetMap contributors' : ''
+  }).addTo(map);
+}
+
 /* =========================================================================
    RADAR MAP
    ========================================================================= */
@@ -9396,7 +9224,7 @@ function initMapIfNeeded(){
   state.map.getPane('labelPane').style.zIndex = 650;
   state.map.getPane('labelPane').style.pointerEvents = 'none';
   L.control.zoom({position:'bottomright'}).addTo(state.map);
-  addOpenFreeMapBase(state.map);
+  addRadarCompatibleBase(state.map);
 
   placeMarker(state.loc.lat, state.loc.lon, locationDisplayName());
 
@@ -9833,7 +9661,11 @@ async function refreshXweatherLayers(){
     }
   }
   applyWindParticleSettings();
-  try{ controller.redraw(); }catch(err){ console.error('Xweather redraw failed', err); }
+  try{
+    controller.redraw?.();
+    await controller.refresh?.();
+    controller.resize?.();
+  }catch(err){ console.error('Xweather refresh/redraw failed', err); }
   await syncCustomLightningOverlay(true);
   return state.xweather.activeCodes.includes(primaryCode);
 }
@@ -9939,7 +9771,7 @@ async function syncCustomLightningOverlay(force=false){
 
   state.xweather.lightningOverlayStamp = stamp;
   try{
-    const url = `https://api.wheaterflow.be/api/lightning?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${encodeURIComponent(radius)}`;
+    const url = `${WHEATERFLOW_API_BASE}/lightning?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${encodeURIComponent(radius)}`;
     const response = await fetch(url, {cache:'no-store'});
     const data = await response.json().catch(()=>({}));
     if(!response.ok || data.ok === false) throw new Error(data.error || `Lightning API ${response.status}`);
@@ -11226,7 +11058,7 @@ function isFreshRadarFrame(frame){
    WF_SMART_RADAR_FRONTEND_V22
    Wheaterflow toekomstige buienradar: gemeten RainViewer + eigen +2u nowcast.
    ============================================================ */
-const WF_SMART_RADAR_API = 'https://api.wheaterflow.be/api/radar/smart';
+const WF_SMART_RADAR_API = '/api/radar/smart';
 let wfSmartRadarMeta = null;
 let wfSmartRadarLastLoad = 0;
 
@@ -11776,7 +11608,6 @@ const WF_TV_ICON_BASE = '/assets/tv/';
 const WF_TV_ICON_VERSION = '20261004-tv-assets-v3';
 const WF_TV_ICONS = Object.freeze({
   radar:'radar.png',
-  radio:'radio.png',
   wind:'wind.png',
   pressure:'pressure.png',
   humidity:'humidity.png',
@@ -11804,8 +11635,6 @@ function tvFeatureSvg(name){
       return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><path d="M12 3l9 16H3L12 3z"/><path d="M12 9v4"/><circle cx="12" cy="16.5" r=".7" fill="currentColor" stroke="none"/></svg>`;
     case 'radar':
       return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><circle cx="12" cy="12" r="2"/><path d="M12 12l5-5"/><path d="M5.6 18.4a9 9 0 1 1 12.8 0"/><path d="M8.5 15.5a5 5 0 1 1 7 0"/></svg>`;
-    case 'radio':
-      return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><rect x="3" y="8" width="18" height="11" rx="2"/><path d="M7 8l8-5"/><circle cx="8" cy="13.5" r="2.5"/><path d="M14 12h4M14 15h4"/></svg>`;
     case 'hourly':
       return `<svg class="${cls}" viewBox="0 0 24 24" ${stroke}><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>`;
     case 'sevenDay':
@@ -11970,7 +11799,7 @@ async function initTvMap(){
     tv.map.createPane('labelPane');
     tv.map.getPane('labelPane').style.zIndex = 650;
     tv.map.getPane('labelPane').style.pointerEvents = 'none';
-    const base = addOpenFreeMapBase(tv.map, {attribution:false});
+    const base = addRadarCompatibleBase(tv.map, {attribution:false});
     if(base?.on) base.on('load', ()=>{ tv.baseMapLoaded = true; });
     // MapLibre vectorstijlen bevatten hun eigen labels, dus een aparte label-tegellaag is niet meer nodig.
     tv.locationMarker = L.circleMarker(rv.marker, {
