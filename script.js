@@ -5616,6 +5616,8 @@ async function setHomeMapLayer(layerId){
       await setHomeLegacyLayer('radar');
     }else if(layerId === 'satellite'){
       await setHomeLegacyLayer(layerId);
+    }else if(['temperatures','wind-speeds','wind-particles'].includes(layerId)){
+      await setHomeWheaterflowMapLayer(layerId);
     }else{
       const ok = await setHomeXweatherLayer(layerId);
       if(!ok) throw new Error('Xweather laag niet beschikbaar');
@@ -5681,6 +5683,285 @@ async function setHomeLegacyLayer(layerId){
     maxNativeZoom:10,
     crossOrigin:true
   }).addTo(map);
+}
+
+
+/* =========================================================================
+   WHEATERFLOW MAPS 1.0
+   Open-Meteo grid via Wheaterflow Maps API.
+   Vervangt Xweather alleen voor temperatuur en wind.
+   ========================================================================= */
+
+let wfMapsCache = null;
+let wfMapsCacheAt = 0;
+
+async function fetchWheaterflowMaps(){
+  const now = Date.now();
+
+  if(wfMapsCache && now - wfMapsCacheAt < 10 * 60 * 1000){
+    return wfMapsCache;
+  }
+
+  const r = await fetch(WHEATERFLOW_API_BASE + '/maps', {
+    cache:'no-store'
+  });
+
+  if(!r.ok) throw new Error('Wheaterflow Maps HTTP ' + r.status);
+
+  const data = await r.json();
+
+  if(!data?.ok || !Array.isArray(data.grid) || !data.grid.length){
+    throw new Error('Geen geldige Wheaterflow Maps-data');
+  }
+
+  wfMapsCache = data;
+  wfMapsCacheAt = now;
+
+  return data;
+}
+
+function wfTempColor(t){
+  const stops = [
+    [-15,[91,61,184]],
+    [-5,[67,103,213]],
+    [ 5,[53,181,220]],
+    [10,[61,204,163]],
+    [15,[139,207,72]],
+    [20,[236,207,62]],
+    [25,[244,145,50]],
+    [30,[231,75,53]],
+    [40,[166,44,74]]
+  ];
+
+  return wfInterpolateColor(t, stops);
+}
+
+function wfWindColor(v){
+  const stops = [
+    [0,[65,190,200]],
+    [10,[59,163,218]],
+    [20,[74,125,224]],
+    [35,[112,91,213]],
+    [50,[170,75,190]],
+    [70,[221,72,112]],
+    [100,[238,108,55]]
+  ];
+
+  return wfInterpolateColor(v, stops);
+}
+
+function wfInterpolateColor(value, stops){
+  if(value <= stops[0][0]){
+    const c = stops[0][1];
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+
+  for(let i=1;i<stops.length;i++){
+    if(value <= stops[i][0]){
+      const [v0,c0] = stops[i-1];
+      const [v1,c1] = stops[i];
+      const f = (value-v0)/(v1-v0);
+
+      const c = c0.map((x,j)=>Math.round(x+(c1[j]-x)*f));
+
+      return `rgb(${c[0]},${c[1]},${c[2]})`;
+    }
+  }
+
+  const c = stops[stops.length-1][1];
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+function wfCreateFieldLayer(map, grid, field){
+  const group = L.layerGroup();
+
+  for(const p of grid){
+    const value = Number(p[field]);
+    if(!Number.isFinite(value)) continue;
+
+    const color = field === 'temperature'
+      ? wfTempColor(value)
+      : wfWindColor(value);
+
+    L.circle([p.lat,p.lon],{
+      radius:21000,
+      stroke:false,
+      fillColor:color,
+      fillOpacity:.52,
+      interactive:false
+    }).addTo(group);
+  }
+
+  group.addTo(map);
+  return group;
+}
+
+function wfCreateWindParticleLayer(map, grid){
+  const canvas = document.createElement('canvas');
+  canvas.className = 'wf-wind-particles';
+
+  const pane = map.getPane('overlayPane');
+  pane.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  let frame = 0;
+  let stopped = false;
+  let particles = [];
+
+  function resize(){
+    const size = map.getSize();
+    canvas.width = size.x;
+    canvas.height = size.y;
+    canvas.style.width = size.x + 'px';
+    canvas.style.height = size.y + 'px';
+  }
+
+  function nearestWind(lat,lng){
+    let best = null;
+    let bestD = Infinity;
+
+    for(const p of grid){
+      const dlat = p.lat-lat;
+      const dlon = p.lon-lng;
+      const d = dlat*dlat + dlon*dlon;
+
+      if(d < bestD){
+        bestD = d;
+        best = p;
+      }
+    }
+
+    return best;
+  }
+
+  function spawn(){
+    const size = map.getSize();
+
+    return {
+      x:Math.random()*size.x,
+      y:Math.random()*size.y,
+      age:Math.random()*80
+    };
+  }
+
+  function resetParticles(){
+    const count = Math.max(
+      90,
+      Math.min(260, Math.round((canvas.width*canvas.height)/5000))
+    );
+
+    particles = Array.from({length:count},spawn);
+  }
+
+  function draw(){
+    if(stopped) return;
+
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.fillStyle = 'rgba(0,0,0,.90)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineWidth = 1.35;
+    ctx.lineCap = 'round';
+
+    for(let i=0;i<particles.length;i++){
+      const p = particles[i];
+
+      const ll = map.containerPointToLatLng([p.x,p.y]);
+      const wind = nearestWind(ll.lat,ll.lng);
+
+      if(!wind){
+        particles[i] = spawn();
+        continue;
+      }
+
+      const speed = Number(wind.windSpeed) || 0;
+      const dir = Number(wind.windDirection) || 0;
+
+      // Meteorologische richting = waar de wind vandaan komt.
+      const rad = (dir + 180) * Math.PI / 180;
+
+      const velocity = Math.max(.35, Math.min(3.2, speed/12));
+
+      const dx = Math.sin(rad) * velocity;
+      const dy = -Math.cos(rad) * velocity;
+
+      const ox = p.x;
+      const oy = p.y;
+
+      p.x += dx;
+      p.y += dy;
+      p.age++;
+
+      ctx.strokeStyle = wfWindColor(speed);
+      ctx.globalAlpha = .78;
+
+      ctx.beginPath();
+      ctx.moveTo(ox,oy);
+      ctx.lineTo(p.x,p.y);
+      ctx.stroke();
+
+      if(
+        p.age > 100 ||
+        p.x < 0 ||
+        p.y < 0 ||
+        p.x > canvas.width ||
+        p.y > canvas.height
+      ){
+        particles[i] = spawn();
+      }
+    }
+
+    frame = requestAnimationFrame(draw);
+  }
+
+  function reset(){
+    resize();
+    resetParticles();
+  }
+
+  resize();
+  resetParticles();
+
+  map.on('resize moveend zoomend', reset);
+
+  draw();
+
+  return {
+    remove(){
+      stopped = true;
+      cancelAnimationFrame(frame);
+      map.off('resize moveend zoomend', reset);
+      canvas.remove();
+    }
+  };
+}
+
+async function setHomeWheaterflowMapLayer(layerId){
+  const map = state.homeMap.map;
+  if(!map) throw new Error('Kaart ontbreekt');
+
+  const data = await fetchWheaterflowMaps();
+
+  if(layerId === 'temperatures'){
+    state.homeMap.overlay =
+      wfCreateFieldLayer(map,data.grid,'temperature');
+    return;
+  }
+
+  if(layerId === 'wind-speeds'){
+    state.homeMap.overlay =
+      wfCreateFieldLayer(map,data.grid,'windSpeed');
+    return;
+  }
+
+  if(layerId === 'wind-particles'){
+    state.homeMap.overlay =
+      wfCreateWindParticleLayer(map,data.grid);
+    return;
+  }
+
+  throw new Error('Onbekende Wheaterflow Maps-laag');
 }
 
 async function setHomeXweatherLayer(layerId){
