@@ -342,3 +342,89 @@ return true;          }
     cleanCode
   };
 })();
+
+/* Wheaterflow cloud-layer override: use real KMI satellite tiles for Bewolking instead of XWeather. */
+(function(){
+  const KMI_CLOUD_TILE_URL = 'https://opendata.meteo.be/geoserver/gwc/service/tms/1.0.0/satellite:visir@EPSG:900913@png/{z}/{x}/{y}.png';
+  const cloudLayers = new WeakMap();
+
+  function mapLayer(map, opacity=.62){
+    if(!map || !window.L) return null;
+    if(!map.getPane('cloudPane')){
+      map.createPane('cloudPane');
+      const pane = map.getPane('cloudPane');
+      pane.style.zIndex = '360';
+      pane.style.pointerEvents = 'none';
+    }
+    let layer = cloudLayers.get(map);
+    if(!layer){
+      layer = L.tileLayer(KMI_CLOUD_TILE_URL, {
+        tms:true,
+        opacity,
+        minZoom:3,
+        maxZoom:14,
+        pane:'cloudPane',
+        className:'kmi-cloud-layer',
+        keepBuffer:2,
+        updateWhenIdle:false,
+        updateWhenZooming:false,
+        attribution:'KMI / RMI'
+      });
+      layer.on('tileerror', error=>console.warn('KMI wolkentegel kon niet laden', error));
+      cloudLayers.set(map, layer);
+    }
+    layer.setOpacity(opacity);
+    if(!map.hasLayer(layer)) layer.addTo(map);
+    return layer;
+  }
+
+  function hideClouds(map){
+    const layer = map && cloudLayers.get(map);
+    if(layer && map.hasLayer(layer)) map.removeLayer(layer);
+  }
+
+  document.addEventListener('click', event=>{
+    const target = event.target?.closest?.('#radarQuickCloud, [data-home-layer="cloud-cover"], #homeMapCloudBtn');
+    const otherRadar = event.target?.closest?.('#chipPrecip, #chipSat, #radarQuickTemp, #radarQuickWind, #radarQuickLightning');
+    const otherHome = event.target?.closest?.('[data-home-layer]:not([data-home-layer="cloud-cover"])');
+
+    try{
+      if(otherRadar && typeof state !== 'undefined') hideClouds(state.map);
+      if(otherHome && typeof state !== 'undefined') hideClouds(state.homeMap?.map);
+      if(!target) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      if(typeof state === 'undefined') return;
+
+      if(target.matches('#radarQuickCloud')){
+        if(!state.map) return;
+        if(typeof teardownXweather === 'function' && (state.xweather?.ready || state.xweather?.controller)){
+          teardownXweather();
+          if(state.xweather) state.xweather.fallback = true;
+        }
+        state.radar.layer = 'cloud-cover';
+        mapLayer(state.map, .62);
+        if(typeof syncRadarLayerUi === 'function') syncRadarLayerUi('cloud-cover');
+        if(typeof rememberRadarLayer === 'function') rememberRadarLayer('cloud-cover');
+        document.querySelector('#liveRadarPanel')?.classList.remove('hide');
+        return;
+      }
+
+      if(!state.homeMap?.map && typeof initHomeWeatherMap === 'function') initHomeWeatherMap();
+      const homeMap = state.homeMap?.map;
+      if(!homeMap) return;
+      if(typeof clearHomeMapOverlay === 'function') clearHomeMapOverlay(homeMap);
+      const layer = mapLayer(homeMap, .62);
+      state.homeMap.overlay = layer;
+      state.homeMap.activeLayer = 'cloud-cover';
+      document.querySelectorAll('[data-home-layer]').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.homeLayer === 'cloud-cover');
+      });
+      if(typeof setHomeMapStatus === 'function') setHomeMapStatus('KMI satellietwolken', 'ok');
+    }catch(error){
+      console.error('KMI wolkenlaag kon niet worden geactiveerd', error);
+    }
+  }, true);
+})();
