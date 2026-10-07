@@ -12605,10 +12605,10 @@ async function init(){
   await safeInitStep('Locatie ophalen', async ()=>{
     if(state.cast.receiver || state.tvPairing.receiver) return;
     updateCanonicalLocationStatus('detecting', {persist:false, source:'startup'});
-    if(isFirstRunOnboarding()){
-      updateCanonicalLocationStatus('onboarding', {persist:false, source:'onboarding'});
-      return;
-    }
+    // Ook bij de allereerste start eerst de echte GPS-locatie proberen.
+    // De onboarding blijft daarna zichtbaar, maar het weer mag nooit stilletjes
+    // voor Oostende geladen worden wanneer de gebruiker elders is.
+    const firstRun = isFirstRunOnboarding();
     const p = await getBrowserLocation({fresh:true});
     if(p){
       const g = await resolveGpsLocation(p.lat, p.lon);
@@ -12622,7 +12622,10 @@ async function init(){
       }, 'gps', {persist:true, source:'startup-gps'});
       rememberResolvedLocation(state.loc.name, state.loc.admin, state.loc.country, p.lat, p.lon);
     }else{
-      updateCanonicalLocationStatus('denied', {persist:false, source:'startup-denied'});
+      // Geen GPS-toegang: behoud de tijdelijke fallback alleen om de app
+      // technisch te kunnen laden. De UI toont "Plaats kiezen" en de fallback
+      // wordt niet als gebruikerslocatie opgeslagen.
+      updateCanonicalLocationStatus(firstRun ? 'onboarding' : 'denied', {persist:false, source:firstRun ? 'onboarding-no-gps' : 'startup-denied'});
     }
   });
   await loadWeather();
