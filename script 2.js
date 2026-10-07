@@ -1452,6 +1452,37 @@ function truthSourceWeatherCode(truth){
   return candidates.length ? candidates[0] : null;
 }
 
+function currentPrecipitationDisplayLabel(cur=liveWeatherSnapshot(), truth=currentConditionsTruth()){
+  const raining = Boolean(truth?.isRaining || precipitationSignal(cur).confirmedNow);
+  if(!raining) return null;
+
+  const mm = Math.max(
+    0,
+    Number(truth?.precipitation?.now) || 0,
+    Number(cur?.precipitation) || 0,
+    Number(cur?.rain) || 0,
+    Number(cur?.showers) || 0
+  );
+  const code = Number(truthWeatherCode(truth, cur?.weather_code));
+  const conditionId = String(truth?.condition?.id || '').toLowerCase();
+  const storm = stormEngine();
+  const gust = Math.max(0, Number(truth?.windGusts) || 0, Number(cur?.wind_gusts_10m) || 0);
+  const thunder = [95,96,99].includes(code) || /thunder|onweer|storm/.test(conditionId) ||
+    Boolean(storm?.lightningAvailable && Number(storm?.score) >= 35);
+  const hardWind = gust >= 70 || Number(storm?.score) >= 60;
+
+  // Bij actief onweer of stormachtige wind krijgt de gevaarlijkste actuele
+  // toestand voorrang op het gewone regenlabel.
+  if(thunder || hardWind) return 'Storm';
+
+  const drizzle = [51,53,55,56,57].includes(code) || /drizzle|motregen/.test(conditionId);
+  if(drizzle && mm < 1.0) return 'Motregen';
+  if(mm < 0.30) return drizzle ? 'Motregen' : 'Lichte regen';
+  if(mm < 2.0) return 'Lichte regen';
+  if(mm < 7.5) return 'Regen';
+  return 'Zware regen';
+}
+
 function truthWeatherCode(truth, fallbackCode=0){
   if(!truth) return Number.isFinite(Number(fallbackCode)) ? Number(fallbackCode) : 0;
 
@@ -4002,7 +4033,7 @@ function rainNowcastCard(){
     ? rainIcon('01-regen','rain-status-icon')
     : rainIcon('02-droog','rain-status-icon');
   const statusText = rainingNow
-    ? 'Het regent nu'
+    ? (currentPrecipitationDisplayLabel(liveWeatherSnapshot(), truth) || 'Regen')
     : immediateVicinity
       ? 'Regen vlakbij'
       : 'Droog';
@@ -4492,9 +4523,11 @@ function renderHome(){
   const rain = intel.rain;
   const todayMax = daily.temperature_2m_max[0], todayMin = daily.temperature_2m_min[0];
   const truth = currentConditionsTruth();
-  const currentConditionLabel = truthImmediateVicinity(truth)
-    ? (truth?.condition?.label || 'Regen vlakbij')
-    : (truth?.condition?.label || wc.l);
+  const currentRainLabel = currentPrecipitationDisplayLabel(cur, truth);
+  const currentConditionLabel = currentRainLabel
+    || (truthImmediateVicinity(truth)
+      ? 'Regen vlakbij'
+      : (truth?.condition?.label || wc.l));
   // The home hero represents Wheaterflow's fused weather result.
   // Do not expose the temporary/raw fallback model here when Fusion truth
   // is still loading; that caused the label to jump back to HARMONIE.
