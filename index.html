@@ -1,1633 +1,647 @@
 <!DOCTYPE html>
 
-<html lang="nl-BE">
+<html lang="nl">
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
-<meta content="#0a3f8f" name="theme-color"/>
+<meta content="#F3FAFF" name="theme-color"/>
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="yes" name="mobile-web-app-capable"/>
-<meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
-<meta content="Wheaterflow" name="apple-mobile-web-app-title"/>
-<meta content="Wheaterflow" name="application-name"/>
-<title>Wheaterflow – live weer, radar en verwachtingen</title>
-<meta content="Wheaterflow is een Belgisch weerplatform voor live weer, regenradar, lokale weersverwachtingen en weerwaarschuwingen." name="description"/>
-<meta content="index,follow,max-image-preview:large" name="robots"/>
-<link href="https://wheaterflow.be/" rel="canonical"/>
-<!-- Open Graph -->
-<meta content="website" property="og:type"/>
-<meta content="Wheaterflow" property="og:site_name"/>
-<meta content="Wheaterflow – live weer, radar en verwachtingen" property="og:title"/>
-<meta content="Wheaterflow is een Belgisch weerplatform voor live weer, regenradar, lokale weersverwachtingen en weerwaarschuwingen." property="og:description"/>
-<meta content="https://wheaterflow.be/" property="og:url"/>
-<meta content="https://wheaterflow.be/icons/icon-512.png" property="og:image"/>
-<meta content="nl_BE" property="og:locale"/>
-<!-- Twitter / social -->
-<meta content="summary_large_image" name="twitter:card"/>
-<meta content="Wheaterflow – live weer, radar en verwachtingen" name="twitter:title"/>
-<meta content="Belgisch weerplatform voor live weer, regenradar, lokale verwachtingen en weerwaarschuwingen." name="twitter:description"/>
-<meta content="https://wheaterflow.be/icons/icon-512.png" name="twitter:image"/>
-<!-- Wheaterflow website -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  "@id": "https://wheaterflow.be/#website",
-  "name": "Wheaterflow",
-  "url": "https://wheaterflow.be/",
-  "description": "Wheaterflow is een Belgisch weerplatform voor live weer, regenradar, lokale weersverwachtingen en weerwaarschuwingen.",
-  "inLanguage": "nl-BE",
-  "publisher": {
-    "@id": "https://wheaterflow.be/#organization"
-  }
-}
-</script>
-<!-- Wheaterflow organisatie -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "@id": "https://wheaterflow.be/#organization",
-  "name": "Wheaterflow",
-  "url": "https://wheaterflow.be/",
-  "logo": {
-    "@type": "ImageObject",
-    "url": "https://wheaterflow.be/icons/icon-512.png"
-  },
-  "description": "Wheaterflow is een Belgisch weerplatform voor live weer, regenradar, lokale weersverwachtingen en weerwaarschuwingen.",
-  "areaServed": {
-    "@type": "Country",
-    "name": "Belgium"
-  },
-  "sameAs": [
-    "https://www.instagram.com/wheaterflow/"
-  ]
-}
-</script>
-<!-- Icons -->
-<link href="./icons/favicon-32.png" rel="icon" sizes="32x32" type="image/png"/>
-<link href="./icons/favicon-16.png" rel="icon" sizes="16x16" type="image/png"/>
-<link href="./icons/apple-touch-icon.png" rel="apple-touch-icon" sizes="180x180"/>
-<link href="./manifest.webmanifest" rel="manifest"/>
-<!-- Leaflet + MapLibre / OpenFreeMap -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" rel="stylesheet"/>
-<link href="https://unpkg.com/maplibre-gl@2.2.1/dist/maplibre-gl.css" rel="stylesheet"/>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" rel="stylesheet"/>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" rel="stylesheet"/>
-<!-- Fonts -->
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="style.css?v=20261004-marine-cards-v3" rel="stylesheet"/>
-<style>
-/*
-  Semantische Wheaterflow-intro.
-  Aanwezig voor toegankelijkheid en zoekmachines zonder je app-layout
-  visueel te veranderen.
-*/
-.seo-brand-intro {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
-}
-</style>
-<script>
-(function(){
-  try{
-    var params = new URLSearchParams(location.search);
-    var path = location.pathname.replace(/\/+$/, '');
-
-    if(
-      !params.has('castReceiver') &&
-      (path.endsWith('/tv') || params.has('tv'))
-    ){
-      document.documentElement.classList.add('tv-route');
-    }
-  }catch(error){}
-})();
-</script>
+<meta content="default" name="apple-mobile-web-app-status-bar-style"/>
+<title>OVFlow 4.8.0 — Eén reis</title>
+<link href="style.css?v=4.8.0" rel="stylesheet"/>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27%230b76ff%27/%3E%3Cpath d=%27M15 38c8-18 18-18 34-12%27 fill=%27none%27 stroke=%27white%27 stroke-width=%276%27 stroke-linecap=%27round%27/%3E%3Ccircle cx=%2748%27 cy=%2726%27 r=%275%27 fill=%27white%27/%3E%3C/svg%3E"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<link rel="apple-touch-icon" href="ovflow-icon-192.png"/>
 </head>
-<body>
-<section aria-label="Over Wheaterflow" class="seo-brand-intro">
-<h1>Wheaterflow – live weer voor België</h1>
-<p>
-    Wheaterflow is een Belgisch weerplatform voor live weer,
-    regenradar, lokale weersverwachtingen en weerwaarschuwingen.
-  </p>
-</section>
-<div id="alerts-container"></div>
-<div aria-label="Wheaterflow wordt geladen" class="app-splash" id="app-splash">
-<div class="app-splash-content">
-<div class="app-splash-logo-wrap">
-<img alt="Wheaterflow" class="app-splash-logo" src="./icons/icon-512.png"/>
+<body class="ovflow-v40">
+<div class="ambient a"></div>
+<div class="ambient b"></div>
+<div class="app">
+<header class="topbar">
+<a aria-label="OVFlow home" class="brand" href="#">
+<span class="brand-mark">
+<span class="brand-line"></span>
+<i class="brand-dot one"></i>
+<i class="brand-dot two"></i>
+</span>
+<span class="brand-copy">
+<strong>OVFlow</strong>
+<small>4.8.0</small>
+</span>
+</a>
+<div class="top-actions">
+<button class="live-status loading" id="apiStatusButton" type="button">
+<i></i>
+<span id="apiStatusText">Verbinden…</span>
+</button>
+<button aria-label="Instellingen" class="icon-button" id="settingsButton">
+<svg viewbox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"></path></svg>
+</button>
 </div>
-<div class="app-splash-name">Wheaterflow</div>
-<div class="app-splash-status">Live weer wordt geladen</div>
-<div aria-hidden="true" class="app-splash-progress">
-<span></span>
-</div>
-</div>
-</div>
-<div class="onboarding-shell hidden" id="firstRunOnboarding" aria-modal="true" role="dialog" aria-label="Welkom bij Wheaterflow">
-  <div class="onboarding-backdrop"></div>
-  <div class="onboarding-glow onboarding-glow-one"></div>
-  <div class="onboarding-glow onboarding-glow-two"></div>
-  <div class="onboarding-frame">
-    <div class="onboarding-topline">
-      <button class="onboarding-back hidden" id="onboardingBackBtn" type="button" aria-label="Vorige stap"><img src="./assets/ui/onboarding/back.png" alt=""></button>
-      <div class="onboarding-brand"><img src="./icons/icon-192.png" alt="" aria-hidden="true"><span>Wheaterflow</span></div>
-      <button class="onboarding-skip" id="onboardingSkipAll" type="button">Setup overslaan</button>
+</header>
+<main><section class="home-dashboard ov-screen" id="homeDashboard">
+  <div class="home-topline">
+    <div>
+      <span class="home-eyebrow">BELGIË · LIVE OPENBAAR VERVOER</span>
+      <h1>OVFlow</h1>
+      <p>Bus, tram en trein. Eén reis.</p>
     </div>
-
-    <section class="onboarding-page active" data-onboarding-page="0">
-      <div class="onboarding-hero-mark">
-        <div class="onboarding-orbit orbit-a"></div><div class="onboarding-orbit orbit-b"></div>
-        <img src="./icons/icon-512.png" alt="Wheaterflow">
-      </div>
-      <div class="onboarding-copy onboarding-copy-center">
-        <p class="onboarding-kicker">Welkom</p>
-        <h1>Weer dat met je meebeweegt.</h1>
-        <p>Live radar, slimme waarschuwingen en lokale verwachtingen in één rustige, persoonlijke app.</p>
-      </div>
-      <div class="onboarding-feature-row">
-        <span><img src="./assets/ui/onboarding/rain.png" alt=""><b>Live</b> radar</span>
-        <span><img src="./assets/ui/onboarding/warning.png" alt=""><b>Slimme</b> meldingen</span>
-        <span><img src="./assets/ui/onboarding/calendar.png" alt=""><b>Dagelijks</b> overzicht</span>
-      </div>
-      <div class="onboarding-actions single"><button class="onboarding-primary" data-onboarding-next type="button">Begin</button></div>
-    </section>
-
-    <section class="onboarding-page" data-onboarding-page="1">
-      <div class="onboarding-symbol" aria-hidden="true"><img src="./assets/ui/onboarding/location.png" alt=""></div>
-      <div class="onboarding-copy">
-        <p class="onboarding-kicker">Jouw locatie</p>
-        <h1>Hyperlokaal vanaf het eerste moment.</h1>
-        <p>Sta locatie toe om je huidige weer, regen-ETA, radar en waarschuwingen automatisch voor de juiste plek te tonen.</p>
-      </div>
-      <div class="onboarding-permission-card" id="onboardingLocationCard">
-        <span class="permission-dot"></span><div><b>Locatie</b><small id="onboardingLocationStatus">Nog niet ingesteld</small></div>
-      </div>
-      <div class="onboarding-actions"><button class="onboarding-secondary" id="onboardingLocationLater" type="button">Later instellen</button><button class="onboarding-primary" id="onboardingLocationBtn" type="button">Sta locatie toe</button></div>
-    </section>
-
-    <section class="onboarding-page" data-onboarding-page="2">
-      <div class="onboarding-symbol" aria-hidden="true"><img src="./assets/ui/onboarding/bell.png" alt=""></div>
-      <div class="onboarding-copy">
-        <p class="onboarding-kicker">Blijf op de hoogte</p>
-        <h1>Alleen meldingen die ertoe doen.</h1>
-        <p>Krijg een seintje bij naderende regen, onweer en officiële waarschuwingen. Je kunt alles later per type aanpassen.</p>
-      </div>
-      <div class="onboarding-mini-alerts">
-        <div><img src="./assets/ui/onboarding/rain.png" alt=""><p><b>Regen op komst</b><small>Bui bereikt je locatie over ongeveer 20 min.</small></p></div>
-        <div><img src="./assets/ui/onboarding/lightning.png" alt=""><p><b>Onweer in de buurt</b><small>Actieve onweerscel nadert jouw regio.</small></p></div>
-        <div><img src="./assets/ui/onboarding/warning.png" alt=""><p><b>Officiële waarschuwingen</b><small>Belangrijke weerwaarschuwingen voor jouw regio.</small></p></div>
-      </div>
-      <p class="onboarding-note" id="onboardingPushNote"></p>
-      <div class="onboarding-notification-choices hidden" id="onboardingNotificationChoices" aria-label="Kies je meldingen">
-        <label><img src="./assets/ui/onboarding/rain.png" alt=""><span><b>Regen op komst</b><small>Waarschuw wanneer een bui nadert.</small></span><input type="checkbox" data-onboarding-pref="rainSoon" checked><i></i></label>
-        <label><img src="./assets/ui/onboarding/lightning.png" alt=""><span><b>Onweer</b><small>Onweer of bliksem in jouw buurt.</small></span><input type="checkbox" data-onboarding-pref="thunder" checked><i></i></label>
-        <label><img src="./assets/ui/onboarding/warning.png" alt=""><span><b>Officiële waarschuwingen</b><small>Code geel, oranje en rood.</small></span><input type="checkbox" data-onboarding-pref="official" checked><i></i></label>
-        <label><img src="./assets/ui/onboarding/calendar.png" alt=""><span><b>Dagelijks weeroverzicht</b><small>Een korte ochtendverwachting.</small></span><input type="checkbox" data-onboarding-pref="dailyMorning"><i></i></label>
-      </div>
-      <div class="onboarding-actions"><button class="onboarding-secondary" id="onboardingPushLater" type="button">Later instellen</button><button class="onboarding-primary" id="onboardingPushBtn" type="button">Schakel meldingen in</button></div>
-    </section>
-
-
-    <section class="onboarding-page onboarding-install-page" data-onboarding-page="3" id="onboardingInstallPage">
-      <div class="onboarding-symbol onboarding-install-symbol" aria-hidden="true">
-        <img src="./icons/icon-192.png" alt="">
-      </div>
-      <div class="onboarding-copy">
-        <p class="onboarding-kicker">Als echte app</p>
-        <h1>Zet Wheaterflow op je beginscherm.</h1>
-        <p>Open Wheaterflow zonder browserbalk en krijg de beste ervaring voor radar, meldingen en je locaties.</p>
-      </div>
-      <div class="onboarding-install-steps" aria-label="Wheaterflow toevoegen aan beginscherm">
-        <div><span class="install-step-number">1</span><span class="install-step-icon share-glyph">↑</span><p><b>Tik op Delen</b><small>Onderaan in Safari.</small></p></div>
-        <div><span class="install-step-number">2</span><span class="install-step-icon homescreen-glyph">＋</span><p><b>Zet op beginscherm</b><small>Kies deze optie in het deelmenu.</small></p></div>
-        <div><span class="install-step-number">3</span><span class="install-step-icon check-glyph">✓</span><p><b>Tik op Voeg toe</b><small>Daarna opent Wheaterflow als app.</small></p></div>
-      </div>
-      <p class="onboarding-note onboarding-install-note">Dit scherm verschijnt alleen op iPhone/iPad wanneer Wheaterflow nog niet vanaf je beginscherm draait.</p>
-      <div class="onboarding-actions"><button class="onboarding-secondary" id="onboardingInstallLater" type="button">Later instellen</button><button class="onboarding-primary" id="onboardingInstallDone" type="button">Begrepen</button></div>
-    </section>
-
-    <section class="onboarding-page" data-onboarding-page="4">
-      <div class="onboarding-symbol" aria-hidden="true"><img src="./assets/ui/onboarding/profile.png" alt=""></div>
-      <div class="onboarding-copy">
-        <p class="onboarding-kicker">Maak het persoonlijk</p>
-        <h1>Je Wheaterflow, op elk toestel.</h1>
-        <p>Met een gratis profiel bewaar je thuislocatie, favorieten, eenheden, meldingsvoorkeuren en weermodelkeuze.</p>
-      </div>
-      <div class="onboarding-profile-preview">
-        <div class="onboarding-avatar">WF</div><div><b>Jouw profiel</b><span>Favorieten, voorkeuren en meldingen bewaren</span></div><em>Optioneel</em>
-      </div>
-      <div class="onboarding-actions"><button class="onboarding-secondary" id="onboardingProfileLater" type="button">Later instellen</button><button class="onboarding-primary" id="onboardingProfileBtn" type="button">Maak profiel</button></div>
-    </section>
-
-    <section class="onboarding-page" data-onboarding-page="5">
-      <div class="onboarding-finish-icon" aria-hidden="true"><img src="./assets/ui/onboarding/check.png" alt=""></div>
-      <div class="onboarding-copy onboarding-copy-center">
-        <p class="onboarding-kicker">Klaar</p>
-        <h1>Wheaterflow is ingesteld.</h1>
-        <p>Vanaf nu opent de app direct op je weer. Alles wat je net koos kun je later wijzigen via Profiel en Instellingen.</p>
-      </div>
-      <div class="onboarding-summary" id="onboardingSummary">
-        <button type="button" data-onboarding-edit="1"><span>Locatie</span><b id="onboardingSummaryLocation">Niet ingesteld</b><em>›</em></button>
-        <button type="button" data-onboarding-edit="2"><span>Meldingen</span><b id="onboardingSummaryPush">Niet ingesteld</b><em>›</em></button>
-        <button type="button" data-onboarding-edit="4"><span>Profiel</span><b id="onboardingSummaryProfile">Niet ingesteld</b><em>›</em></button>
-      </div>
-      <div class="onboarding-actions single"><button class="onboarding-primary onboarding-finish" id="onboardingFinishBtn" type="button">Start Wheaterflow</button></div>
-    </section>
-
-    <div class="onboarding-dots" aria-hidden="true"><i class="active"></i><i></i><i></i><i data-install-dot></i><i></i><i></i></div>
+    <span class="home-live-pill"><i></i> Live</span>
   </div>
-</div>
-<div class="sunny" id="weatherBG">
-<div class="wbg-sky"></div>
-<div aria-hidden="true" class="wbg-photo"></div>
-<div class="wbg-stars"></div>
-<div class="wbg-sun"></div>
-<div class="wbg-moon"></div>
-<div class="wbg-clouds">
-<div class="cloud c1"></div>
-<div class="cloud c2"></div>
-<div class="cloud c3"></div>
-<div class="cloud c4"></div>
-<div class="cloud c5"></div>
-<div class="cloud c6"></div>
-<div class="cloud c7"></div>
-<div class="cloud c8"></div>
-</div>
-<div class="wbg-rain"></div>
-<div class="wbg-snow"></div>
-<div class="wbg-lightning"></div>
-</div>
-<div id="app">
-<!-- ============ HOME ============ -->
-<div class="screen active" id="home">
-<div class="topbar">
-<div class="home-action-row">
-<div class="home-action-left">
-<button aria-label="TV koppelen of openen" class="home-round-btn" id="tvBtn" title="TV koppelen" type="button">
-<img alt="" aria-hidden="true" class="home-action-icon home-action-icon-tv" src="./assets/ui/home/tv.png"/>
-</button>
-<button aria-label="Instellingen openen" class="home-round-btn" id="openSheetBtn" title="Instellingen" type="button">
-<img alt="" aria-hidden="true" class="home-action-icon home-action-icon-settings" src="./assets/ui/home/settings.png"/>
-</button>
-</div>
-<button aria-label="Profiel openen" class="profile-trigger home-profile-trigger" id="profileBtn" title="Profiel" type="button">
-<span class="profile-mini" id="profileAvatarMini">?</span>
-</button>
-</div>
-<div class="searchwrap">
-<div class="searchbox">
-<svg fill="none" height="17" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="17">
-<circle cx="11" cy="11" r="7"></circle>
-<line x1="21" x2="16.65" y1="21" y2="16.65"></line>
-</svg>
-<input autocomplete="off" id="searchInput" placeholder="Zoek een plaats..."/>
-<svg class="clearbtn" fill="none" height="16" id="clearSearch" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16">
-<line x1="18" x2="6" y1="6" y2="18"></line>
-<line x1="6" x2="18" y1="6" y2="18"></line>
-</svg>
-<button class="search-location-btn" id="searchLocationBtn" type="button" aria-label="Gebruik huidige locatie">
-  <img src="./assets/ui/location/current-location-liquid-exact.png" alt="" aria-hidden="true" class="current-location-liquid-icon current-location-liquid-icon-compact"/>
-</button>
-</div>
-<div class="suggestions" id="suggestions"></div>
-</div>
-</div>
-<div class="screen-inner" id="homeInner">
-<div class="loader" id="homeLoader">
-<div class="spinner"></div>
-<span>Weer laden...</span>
-</div>
-</div>
-</div>
-<!-- ============ RADAR ============ -->
-<div class="screen" id="radarscreen">
-<div class="radar-wrap">
-<div id="map"></div>
-<div class="radar-top">
-<div class="chip-row radar-primary-layers" aria-label="Radar lagen">
-<button class="chip active" id="chipPrecip" type="button">Buienradar</button>
-<button class="chip" id="chipSat" type="button">Satelliet</button>
-<button class="chip" id="radarQuickTemp" type="button">Temperatuur</button>
-<button class="chip" id="radarQuickWind" type="button">Wind</button>
-<button class="chip" id="radarQuickCloud" type="button">Bewolking</button>
-<button class="chip" id="radarQuickLightning" type="button">Bliksem</button>
-</div>
-<div class="chip-row radar-duration-row" id="durationRow">
-<button class="chip active" data-dur="1">Radar +2u</button><button class="chip" data-dur="6">6 uur</button><button class="chip" data-dur="12">12 uur</button><button class="chip" data-dur="24">24 uur</button>
-</div>
-<div class="radar-utility-row"><button class="chip radar-compat-hidden" id="chipScheme" type="button"><span id="schemeLabel">Helder</span></button><button class="chip" id="chipLocate" type="button">Mijn locatie</button><button class="chip" id="radarFullscreen" type="button">Volledig scherm</button></div>
-<div aria-label="Professionele weerlagen" class="xweather-layerbar radar-hidden-layerbar" id="xweatherLayerBar"></div>
-</div>
-<div class="radar-info" id="radarInfo"></div>
-<div class="radar-bottom">
-<div class="xweather-panel hide" id="xweatherPanel">
-<div class="xweather-panel-head">
-<div>
-<b id="xweatherLayerTitle">Radar</b>
-<span id="xweatherLayerMeta">
-                Xweather MapsGL laden...
-              </span>
-</div>
-<button class="smallbtn" id="xweatherRetry" type="button">
-              Opnieuw proberen
-            </button>
-</div>
-<div class="radar-eta-line" id="xweatherEtaLine"></div>
-<div class="xweather-timeline" id="xweatherTimelinePanel">
-<button aria-label="Animatie afspelen" class="playbtn" id="xweatherPlay" type="button">
-<svg fill="currentColor" viewbox="0 0 24 24">
-<polygon points="6,4 20,12 6,20"></polygon>
-</svg>
-</button>
-<button class="chip" id="xweatherPrev" type="button">
-              Vorige
-            </button>
-<input aria-label="Tijdlijn" id="xweatherTimeSlider" max="100" min="0" type="range" value="100"/>
-<button class="chip" id="xweatherNext" type="button">
-              Volgende
-            </button>
-<button class="chip" id="xweatherNow" type="button">
-              Nu
-            </button>
-<select aria-label="Animatiesnelheid" id="xweatherSpeed">
-<option value="0.5">0,5x</option>
-<option selected="" value="1">1x</option>
-<option value="2">2x</option>
-</select>
-<span id="xweatherTimeLabel">--:--</span>
-</div>
-<div class="xweather-legend" id="xweatherLegend"></div>
-<details class="xweather-wind-settings" id="xweatherWindSettings">
-<summary>Windinstellingen</summary>
-<label>
-              Snelheid
-              <input id="windParticleSpeed" max="120" min="20" type="range" value="55"/>
-</label>
-<label>
-              Dichtheid
-              <input id="windParticleDensity" max="100" min="15" type="range" value="45"/>
-</label>
-<label>
-              Lengte
-              <input id="windParticleTrail" max="100" min="20" type="range" value="60"/>
-</label>
-<label>
-              Dekking
-              <input id="windParticleOpacity" max="100" min="25" type="range" value="75"/>
-</label>
-</details>
-</div>
-<div id="liveRadarPanel">
-<div class="radar-panel-head">
-<div>
-<b>Wheaterflow buienradar</b>
-<span id="radarPlaceLabel">
-                Radar rond België
-              </span>
-</div>
-<span class="radar-now-badge" id="radarNowBadge">
-              NU
-            </span>
-</div>
-<div class="radar-eta-line" id="radarEtaLine"></div>
-<div class="legend">
-<span>Licht</span>
-<div class="swatches">
-<div style="background:#3d7ff0"></div>
-<div style="background:#35c7e0"></div>
-<div style="background:#3fd07a"></div>
-<div style="background:#e8d64a"></div>
-<div style="background:#f0913c"></div>
-<div style="background:#e8503c"></div>
-<div style="background:#b13cd6"></div>
-</div>
-<span>Zwaar</span>
-</div>
-<div class="opacity-row">
-<span>Dekking</span>
-<input id="opacitySlider" max="100" min="20" type="range" value="90"/>
-</div>
-<div class="timeline-row" style="margin-top:8px;">
-<button class="playbtn" id="playBtn">
-<svg fill="currentColor" viewbox="0 0 24 24">
-<polygon points="6,4 20,12 6,20"></polygon>
-</svg>
-</button>
-<div class="timeline" id="timeline"></div>
-<div class="timelabel" id="timeLabel">
-              --:--
-            </div>
-</div>
-<input aria-label="Radartijdlijn" class="radar-frame-slider" id="radarFrameSlider" max="12" min="0" type="range" value="12"/>
-<div class="radar-axis">
-<span>-1u</span>
-<span>Nu</span>
-<span>+1u</span>
-<span>+2u</span>
-</div>
-<div class="radar-note">
-            Wheaterflow radar: gemeten neerslag en een slimme verwachting tot 2 uur vooruit. Toekomstframes zijn voorspellingen, geen metingen.
-          </div>
-</div>
-<div id="hourlyChartPanel">
-<div class="radar-note" id="hourlyChartNote">
-            Neerslagverwachting per uur - geen bewegend
-            radarbeeld beschikbaar over deze periode,
-            wel actuele modeldata.
-          </div>
-<div class="hourlychart" id="hourlyChart"></div>
-</div>
-</div>
-</div>
-</div>
-<!-- ============ COMMUNITY ============ -->
-<div class="screen" id="communityscreen">
-  <div class="screen-inner community-inner community-v2">
-    <div class="community-head-v2">
+
+  <button class="destination-search" id="homeDestinationSearch" type="button">
+    <span class="destination-search-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+    </span>
+    <span class="destination-search-copy">
+      <strong>Waar wil je naartoe?</strong>
+      <small>Zoek plaats, station of halte</small>
+    </span>
+    <svg class="destination-search-arrow" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"></path></svg>
+  </button>
+
+  <section class="nearby-home" aria-labelledby="nearbyTitle">
+    <div class="home-section-head">
       <div>
-        <h2>Community</h2>
-        <p>Praat mee, stel vragen en deel wat jij buiten ziet</p>
+        <span class="home-section-kicker">DICHTBIJ</span>
+        <h2 id="nearbyTitle">Vertrekt binnenkort</h2>
       </div>
-      <div class="community-create-actions"><button class="community-share-photo" id="communityUploadOpen" type="button"><span>＋</span> Nieuw bericht</button><button class="community-observation-btn" id="communityObservationOpen" type="button">Waarneming</button></div>
+      <button class="round-action" id="nearbyRefreshButton" type="button" aria-label="Vernieuw vertrekken dichtbij">
+        <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0 2 5.3"></path><path d="M20 4v7h-7"></path></svg>
+      </button>
     </div>
-
-    <div class="community-search-v2">
-      <span class="community-search-icon" aria-hidden="true">⌕</span>
-      <input autocomplete="off" id="communitySearch" placeholder="Zoek plaats, gebruiker of hashtag" type="search"/>
+    <div class="nearby-state" id="nearbyState">
+      <span class="nearby-state-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 3 5 20l7-3.5L19 20 12 3Z"></path></svg>
+      </span>
+      <div><strong>Haltes en stations rondom jou</strong><small>Locatie wordt pas gebruikt wanneer jij toestemming geeft.</small></div>
+      <button id="nearbyLocateButton" type="button">Gebruik locatie</button>
     </div>
+    <div class="nearby-places" id="nearbyPlaces"></div>
+  </section>
 
-    <div class="community-quick-filters" id="communityFilterChips" aria-label="Community filters">
-      <button class="active" data-community-filter="foryou" type="button"><span>★</span> Voor jou</button>
-      <button data-community-filter="nearby" type="button"><span>⌖</span> In de buurt</button>
-      <button data-community-filter="rain" type="button"><span>☔</span> Regen</button>
-      <button data-community-filter="thunder" type="button"><span>ϟ</span> Onweer</button>
-      <button data-community-filter="sun" type="button"><span>☀</span> Zon</button>
-    </div>
-
-    <select aria-label="Categorie filter" id="communityCategoryFilter" class="community-category-select-hidden">
-      <option value="">Alle categorieën</option>
-    </select>
-    <div class="community-live" id="communityLiveStats" aria-hidden="true"><span>Live</span><b>Community laden...</b></div>
-
-    <div class="community-tabs community-tabs-v2">
-      <button class="active" data-community-view="feed" type="button">Feed</button>
-      <button data-community-view="map" type="button">Kaart</button>
-    </div>
-
-    <section class="community-panel active" id="communityFeedPanel">
-      <div class="community-feed" id="communityFeed"></div>
-      <button class="smallbtn community-load-more" id="communityLoadMore" type="button">Meer laden</button>
-    </section>
-    <section class="community-panel" id="communityMapPanel">
-      <div class="community-map-card"><div id="communityMap"></div></div>
-    </section>
-    <section class="community-panel" id="communityCollectionPanel" hidden>
-      <div class="community-collection" id="communityCollection"></div>
-      <div class="community-leaderboard" id="communityLeaderboard"></div>
-    </section>
-  </div>
-</div>
-<!-- ============ MIJN KLIMAAT ============ -->
-<div class="screen" id="climatescreen">
-<div class="screen-inner climate-inner">
-<div class="climate-head">
-<div>
-<h2 class="section-h">
-            Mijn Klimaat
-          </h2>
-<p class="subtle">
-            Persoonlijk weerarchief van jouw opgeslagen
-            locaties. Geen officieel klimatologisch onderzoek.
-          </p>
-</div>
-<button class="smallbtn" id="climateBackBtn" type="button">
-          Terug
-        </button>
-</div>
-<div class="card climate-consent-card">
-<div class="settings-section-head">
-<span>Dagelijks bewaren</span>
-<strong id="climateStatus">Uit</strong>
-</div>
-<p class="subtle">
-          Wheaterflow bewaart maximaal een dagsamenvatting
-          per locatie. Er worden geen voortdurende
-          gps-bewegingen bijgehouden.
-        </p>
-<div class="climate-settings-grid">
-<label>
-            Privacy
-
-            <select id="climateMode">
-<option value="off">
-                Functie uit
-              </option>
-<option value="home">
-                Alleen thuislocatie
-              </option>
-<option value="municipality">
-                Alleen gemeente
-              </option>
-<option value="rounded">
-                Afgeronde locatie
-              </option>
-<option value="manual">
-                Handmatig opgeslagen locaties
-              </option>
-</select>
-</label>
-<label>
-            Periode
-
-            <select id="climatePeriod">
-<option value="month">
-                Deze maand
-              </option>
-<option value="year">
-                Dit jaar
-              </option>
-<option value="lastYear">
-                Vorig jaar
-              </option>
-<option value="all">
-                Alles
-              </option>
-</select>
-</label>
-<label>
-            Locatie
-
-            <select id="climateLocationFilter">
-<option value="all">
-                Alle locaties
-              </option>
-</select>
-</label>
-</div>
-<div class="climate-actions">
-<button class="smallbtn" id="climateSaveToday" type="button">
-            Vandaag bewaren
-          </button>
-<button class="smallbtn" id="climateExport" type="button">
-            Exporteren
-          </button>
-<button class="smallbtn danger" id="climateDeleteLocation" type="button">
-            Locatie wissen
-          </button>
-<button class="smallbtn danger" id="climateDeleteAll" type="button">
-            Alles wissen
-          </button>
-</div>
-<div class="auth-message" id="climateMessage"></div>
-</div>
-<div class="climate-summary" id="climateSummary"></div>
-<div class="card">
-<div class="card-title">
-          Temperatuur en neerslag
-        </div>
-<div class="climate-chart-wrap">
-<canvas id="climateChart"></canvas>
-</div>
-</div>
-<div class="climate-grid-2">
-<div class="card">
-<div class="card-title">
-            Kalender
-          </div>
-<div class="climate-calendar" id="climateCalendar"></div>
-</div>
-<div class="card">
-<div class="card-title">
-            Tijdlijn
-          </div>
-<div class="climateTimeline" id="climateTimeline"></div>
-</div>
-</div>
-<div class="card">
-<div class="card-title">
-          Weerherinneringen
-        </div>
-<div class="climate-memories" id="climateMemories"></div>
-</div>
-</div>
-</div>
-<!-- ============ STORM CHASER ============ -->
-<div class="screen" id="stormscreen">
-<div class="screen-inner">
-<h2 class="section-h">
-        Storm chaser
-      </h2>
-<p class="subtle">
-        Instabiliteitsdata (CAPE, lifted index,
-        vrieslaagniveau) per locatie, met filters om
-        kansrijke uren op te sporen.
-      </p>
-<div class="card">
-<div class="card-title">
-          Vergelijk locaties
-        </div>
-<div id="favchips"></div>
-<button class="smallbtn" id="addCurrentFav" style="margin-top:6px;">
-          + Huidige locatie toevoegen
-        </button>
-</div>
-<div class="card">
-<div class="card-title">
-          Storm-risico nu -
-          <span id="riskLocName">-</span>
-</div>
-<div class="risk-scope">
-<svg viewbox="0 0 150 150">
-<circle cx="75" cy="75" fill="none" r="62" stroke="#182543" stroke-width="11"></circle>
-<circle cx="75" cy="75" fill="none" id="riskArc" r="62" stroke="#f5a524" stroke-dasharray="389.6" stroke-dashoffset="389.6" stroke-linecap="round" stroke-width="11" transform="rotate(-90 75 75)"></circle>
-</svg>
-<div class="rs-val">
-<div class="rs-num" id="riskNum">
-              -
-            </div>
-<div class="rs-lbl">
-              risico-index
-            </div>
-</div>
-</div>
-<div class="detail-grid" style="margin-top:10px;">
-<div class="detail-card">
-<div class="dt-title">CAPE</div>
-<div class="dt-val mono" id="capeNow">
-              -
-            </div>
-<div class="dt-sub">J/kg</div>
-</div>
-<div class="detail-card">
-<div class="dt-title">
-              Lifted index
-            </div>
-<div class="dt-val mono" id="liNow">
-              -
-            </div>
-<div class="dt-sub">
-              instabiliteit
-            </div>
-</div>
-<div class="detail-card">
-<div class="dt-title">
-              Windstoten
-            </div>
-<div class="dt-val mono" id="gustNow">
-              -
-            </div>
-<div class="dt-sub">km/u</div>
-</div>
-<div class="detail-card">
-<div class="dt-title">
-              Vrieslaag
-            </div>
-<div class="dt-val mono" id="frzNow">
-              -
-            </div>
-<div class="dt-sub">
-              m hoogte
-            </div>
-</div>
-</div>
-</div>
-<div class="card">
-<div class="card-title">
-          Filters - komende 48 uur
-        </div>
-<div class="filter-grid">
-<div class="slider-block">
-<label for="fCape">
-              Min. CAPE
-              <b id="fCapeVal">500</b>
-              J/kg
-            </label>
-<input id="fCape" max="3500" min="0" step="50" type="range" value="500"/>
-</div>
-<div class="slider-block">
-<label for="fLi">
-              Max. lifted index
-              <b id="fLiVal">0</b>
-</label>
-<input id="fLi" max="6" min="-12" step="1" type="range" value="0"/>
-</div>
-<div class="slider-block">
-<label for="fGust">
-              Min. windstoten
-              <b id="fGustVal">40</b>
-              km/u
-            </label>
-<input id="fGust" max="150" min="0" step="5" type="range" value="40"/>
-</div>
-<div class="slider-block">
-<label for="fPop">
-              Min. neerslagkans
-              <b id="fPopVal">40</b>
-              %
-            </label>
-<input id="fPop" max="100" min="0" step="5" type="range" value="40"/>
-</div>
-</div>
-<div class="headerbar" style="margin-top:12px;">
-<span class="subtle" id="hitCount" style="font-size:12.5px;">
-            0 uur voldoet aan filters
-          </span>
-<button class="smallbtn" id="onlyHits">
-            Alleen treffers
-          </button>
-</div>
-<div class="tablewrap">
-<table class="hourtable" id="hourTable">
-<thead>
-<tr>
-<th>Tijd</th>
-<th>Weer</th>
-<th>CAPE</th>
-<th>LI</th>
-<th>Stoten</th>
-<th>Neerslag%</th>
-</tr>
-</thead>
-<tbody id="hourTableBody"></tbody>
-</table>
-</div>
-</div>
-<div class="safety-note">
-<b>Let op:</b>
-        dit is een indicatieve modelinschatting (GFS),
-        geen officiële waarschuwing. Volg voor veiligheid
-        altijd de waarschuwingen van het KMI/RMI en houd
-        voldoende afstand tot onweer en hagel.
+  <section class="home-saved-preview">
+    <div class="home-section-head compact-head">
+      <div>
+        <span class="home-section-kicker">SNEL OP WEG</span>
+        <h2>Opgeslagen</h2>
       </div>
-</div>
-</div>
-<!-- ============ TABBAR ============ -->
-<div class="tabbar">
-<div aria-hidden="true" class="tab-glass-indicator"></div>
-<button class="tabbtn active" data-section="#sec0" data-tab="home">
-<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/today.png"/>
-
-      Vandaag
-
-    </button>
-<button class="tabbtn" data-more-target="fourteen" data-section="#sec2" data-tab="home">
-<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/forecast.png"/>
-
-      Voorspelling
-
-    </button>
-<button class="tabbtn" data-tab="radarscreen">
-<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/radar.png"/>
-
-      Radar
-
-    </button>
-<button class="tabbtn" data-tab="communityscreen">
-<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/community.png"/>
-
-      Community
-
-    </button>
-<button class="tabbtn" data-tab="profile">
-<img alt="" aria-hidden="true" class="tab-icon-img" src="./assets/ui/profile/profile.png"/>
-
-      Profiel
-
-    </button>
-</div>
-<!-- ============ SETTINGS / DIALOGS ============ -->
-<div class="scrim" id="scrim"></div>
-<div class="auth-scrim" id="authScrim"></div>
-<div class="day-scrim" id="dayScrim"></div>
-<div class="community-scrim" id="communityScrim"></div>
-<div aria-labelledby="communityComposerTitle" aria-modal="true" class="community-composer" id="communityComposer" role="dialog">
-<header class="community-composer-head">
-<button aria-label="Sluiten" class="profile-close-button" id="communityComposerClose" type="button">
-        ×
+      <button class="text-action" id="homeOpenSaved" type="button">Alles</button>
+    </div>
+    <div class="saved-preview-grid" id="savedPreview">
+      <button class="saved-placeholder" id="homeAddFavorite" type="button">
+        <span><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></span>
+        <div><strong>Voeg een plek toe</strong><small>Thuis, school of favoriete halte</small></div>
       </button>
-<h3 id="communityComposerTitle">
-        Nieuw bericht
-      </h3>
-<button class="profile-done-button" id="communitySubmitPost" type="button">
-        Plaatsen
-      </button>
-</header>
-<div class="community-composer-body"><div class="community-composer-modes" id="communityComposerModes">
-<button class="active" data-community-mode="message" type="button">Bericht</button>
-<button data-community-mode="photo" type="button">Foto</button>
-<button data-community-mode="observation" type="button">Waarneming</button>
-</div>
-<div class="community-observation-picker-wrap hidden" id="communityObservationPickerWrap">
-  <div class="community-observation-picker-head">
-    <strong>Welk weer zie je nu?</strong>
-    <span>Kies één weersoort. Een foto is niet nodig.</span>
-  </div>
-  <div class="community-observation-picker" id="communityObservationPicker"></div>
-</div>
-<div class="community-photo-picker" id="communityPhotoPicker">
-<div class="community-photo-empty" id="communityPhotoEmpty">
-<div class="community-photo-picker-icon" aria-hidden="true">⌁</div>
-<strong>Voeg een weerfoto toe</strong>
-<span>Maak een nieuwe foto of kies er één uit je fotobibliotheek.</span>
-<div class="community-photo-source-actions community-picker-actions">
-<button class="community-picker-button primary" data-community-picker="camera" type="button">
-<span class="community-picker-icon" aria-hidden="true">⌁</span>
-<span>Maak foto</span>
-</button>
-<button class="community-picker-button" data-community-picker="library" type="button">
-<span class="community-picker-icon" aria-hidden="true">▧</span>
-<span>Kies foto</span>
-</button>
-</div>
-<input aria-label="Maak foto" accept="image/*" capture="environment" class="community-picker-native-input" id="communityCameraInput" type="file"/>
-<input aria-label="Kies foto" accept="image/*" class="community-picker-native-input" id="communityPhotoInput" type="file"/>
-<small>JPG, PNG, WebP of HEIC · grote foto’s worden automatisch verkleind</small>
-</div>
-<div class="community-photo-preview-wrap hidden" id="communityPhotoPreviewWrap">
-<img alt="Geselecteerde weerfoto" id="communityPhotoPreview"/>
-<div class="community-photo-preview-footer">
-<div class="community-photo-meta" id="communityPhotoMeta">Foto geselecteerd</div>
-<div class="community-photo-preview-actions">
-<button class="community-picker-button compact" data-community-picker="replace" type="button">
-<span>Andere foto</span>
-</button>
-<input aria-label="Andere foto" accept="image/*" class="community-picker-native-input" id="communityPhotoReplaceInput" type="file"/>
-<button class="danger" id="communityPhotoRemove" type="button">Verwijderen</button>
-</div>
-</div>
-</div>
-</div>
-<label id="communityCaptionField">
-        Bericht
-
-        <textarea id="communityCaption" maxlength="500" placeholder="Vraag iets of praat mee over het weer…"></textarea>
-</label>
-<label class="hidden" id="communityCategoryField">
-        Onderwerp van de foto
-        <select id="communityCategorySelect"></select>
-</label>
-<label>
-        Locatie delen
-
-        <select id="communityLocationPrivacy">
-<option value="municipality">
-            Alleen gemeente
-          </option>
-<option value="exact">
-            Exacte locatie
-          </option>
-<option value="none">
-            Geen locatie
-          </option>
-</select>
-</label>
-<label class="inline-check toggle-check" id="communityGpsToggleLabel">
-<input id="communityUseGps" type="checkbox"/>
-<span aria-hidden="true" class="toggle-track"><span class="toggle-thumb"></span></span>
-<span class="inline-check-copy">Gebruik huidige locatie</span>
-      </label>
-<div class="community-captured-weather" id="communityCapturedWeather">
-        Weergegevens worden toegevoegd bij plaatsen.
-      </div>
-<div class="auth-message" id="communityComposerMessage"></div>
-</div>
-</div>
-<div aria-labelledby="daySheetTitle" aria-modal="true" class="day-sheet" id="daySheet" role="dialog"></div>
-<div aria-labelledby="profileSheetTitle" aria-modal="true" class="auth-sheet" id="authSheet" role="dialog">
-<header class="profile-header">
-<button aria-label="Terug" class="profile-close-button profile-back-button" id="closeAuthSheet" type="button">
-        ←
-      </button>
-<h1 id="profileSheetTitle">
-        Profiel
-      </h1>
-<button aria-label="Profielinstellingen" class="profile-done-button" id="profileDoneBtn" title="Profielinstellingen" type="button"><img alt="" aria-hidden="true" class="profile-header-icon" src="./assets/ui/profile/settings.png"/></button>
-</header>
-<div class="auth-scroll">
-<div class="auth-brand">
-<img alt="Wheaterflow" src="./icons/icon-96.png"/>
-<div>
-<h3 id="authTitle">
-            Wheaterflow account
-          </h3>
-<p id="authSubtitle">
-            Synchroniseer favorieten, instellingen
-            en meldingen.
-          </p>
-</div>
-</div>
-<div id="authLoggedOut">
-<div class="auth-tabs">
-<button class="active" id="authLoginTab" type="button">
-            Inloggen
-          </button>
-<button id="authSignupTab" type="button">
-            Account aanmaken
-          </button>
-</div>
-<form class="auth-form" id="loginForm">
-<label>
-            E-mailadres
-
-            <input autocomplete="email" id="loginEmail" required="" type="email"/>
-</label>
-<label>
-            Wachtwoord
-
-            <input autocomplete="current-password" id="loginPassword" required="" type="password"/>
-</label>
-<label class="inline-check">
-<input id="showLoginPassword" type="checkbox"/>
-            Wachtwoord tonen
-          </label>
-<button class="smallbtn primary-auth" id="loginSubmitBtn" type="button">
-            Inloggen
-          </button>
-<button class="linkbtn" id="forgotPasswordBtn" type="button">
-            Wachtwoord vergeten?
-          </button>
-</form>
-<form class="auth-form hidden" id="signupForm">
-<label>
-            Weergavenaam
-
-            <input autocomplete="name" id="signupName" required="" type="text"/>
-</label>
-<label>
-            E-mailadres
-
-            <input autocomplete="email" id="signupEmail" required="" type="email"/>
-</label>
-<label>
-            Wachtwoord
-
-            <input autocomplete="new-password" id="signupPassword" required="" type="password"/>
-</label>
-<label>
-            Wachtwoord herhalen
-
-            <input autocomplete="new-password" id="signupPassword2" required="" type="password"/>
-</label>
-<label class="inline-check">
-<input id="signupPrivacy" type="checkbox"/>
-            Ik ga akkoord met de privacyvoorwaarden.
-          </label>
-<button class="smallbtn primary-auth" type="submit">
-            Account aanmaken
-          </button>
-</form>
-<div class="auth-message" id="authMessage"></div>
-<button class="linkbtn" id="continueGuestBtn" type="button">
-          Doorgaan als gast
-        </button>
-<details class="privacy-note">
-<summary>
-            Privacy in het kort
-          </summary>
-<p>
-            Wheaterflow bewaart alleen je e-mailadres,
-            profielnaam, avatar, favoriete plaatsen,
-            instellingen en meldingsvoorkeuren.
-            Locaties worden gebruikt om je weer,
-            favorieten en waarschuwingen te synchroniseren.
-            Je kunt je account en gegevens zelf verwijderen.
-          </p>
-</details>
-</div>
-<div class="hidden" id="authLoggedIn">
-<div class="profile-hero profile-hero-premium">
-<label class="profile-avatar-large" id="profileAvatarLarge">
-<span id="profileAvatarInitials">?</span>
-<img alt="" class="hidden" id="profileAvatarImage"/>
-<input accept="image/png,image/jpeg,image/webp" hidden="" id="avatarInput" type="file"/>
-</label>
-<div class="profile-identity">
-<h3 id="profileName">Profiel laden...</h3>
-<div class="profile-brand-badge">✦ Wheaterflow</div>
-<p class="profile-home-line"><img alt="" aria-hidden="true" class="profile-inline-icon" src="./assets/ui/profile/location.png"/><span id="profileHomeSummary">Locatie bepalen…</span></p>
-<button class="profile-edit-main" id="profileEditToggle" type="button"><img alt="" aria-hidden="true" class="profile-edit-icon" src="./assets/ui/profile/edit.png"/>Bewerk profiel</button>
-</div>
-</div>
-<section aria-label="Jouw weer vandaag" class="profile-weather-card">
-<div class="profile-weather-copy">
-<span>Jouw weer vandaag</span>
-<div><strong id="profileWeatherTemp">--°</strong><b id="profileWeatherLabel">Weer laden…</b></div>
-<p id="profileWeatherAdvice">Actuele weersinformatie voor jouw locatie.</p>
-</div>
-<div aria-hidden="true" class="profile-weather-icon" id="profileWeatherIcon">☁</div>
+    </div>
+  </section>
 </section>
-<div aria-label="Mijn Wheaterflow" class="profile-quick-grid profile-quick-grid-premium">
-<button class="profile-stat-card" id="profileFavoritesJump" type="button">
-<span class="profile-stat-icon"><img alt="" aria-hidden="true" src="./assets/ui/profile/location.png"/></span>
-<span><small>Favoriete locaties</small><b id="profileFavoritesCount">0</b></span>
-</button>
-<button class="profile-stat-card" id="profileNotificationsQuick" type="button">
-<span class="profile-stat-icon"><img alt="" aria-hidden="true" src="./assets/ui/profile/notifications.png"/></span>
-<span><small>Weermeldingen</small><b id="profileNotificationsStatus">0</b></span>
-</button>
-</div>
-<div class="profile-menu-list profile-main-menu">
-<button class="profile-menu-row" id="profileFavoritesMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/location.png"/><b>Favoriete locaties</b></span><strong>›</strong></button>
-<button class="profile-menu-row" id="profileNotificationsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/notifications.png"/><b>Meldingen</b></span><strong>›</strong></button>
-<button class="profile-menu-row" id="profileWeatherPrefsMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/preferences.png"/><b>Weervoorkeuren</b></span><strong>›</strong></button>
-<button class="profile-menu-row" id="profileCommunityMenu" type="button"><span><img alt="" aria-hidden="true" class="profile-menu-icon" src="./assets/ui/profile/community.png"/><b>Community</b></span><strong>›</strong></button>
 
+<section class="panel journey-planner" id="journeyPlanner">
+<div class="planner-title-row">
+<div>
+<span class="section-kicker">PLANNEN</span>
+<h2>Waar wil je naartoe?</h2>
+<p>Plan je reis met bus, tram en trein. Kies vertrek, bestemming en tijd.</p>
 </div>
-<div class="profile-pro-card">
-<div><b><img alt="" aria-hidden="true" class="profile-pro-icon" src="./assets/ui/profile/pro.png"/>Wheaterflow Pro</b><span>Binnenkort beschikbaar</span></div>
-<span class="profile-pro-pill">In de maak</span>
+<span class="planner-data-pill ready" id="plannerDataPill"><i></i><span>Actuele reisinfo</span></span>
 </div>
-<div class="profile-edit-panel hidden" id="profileEditPanel">
-<form class="auth-form" id="profileForm">
-<div class="profile-section-title">
-            Persoonlijke gegevens
-          </div>
-<label class="profile-edit-row">
-<span>Weergavenaam</span>
-<input autocomplete="name" id="profileDisplayName" type="text"/>
+<div class="journey-card">
+<div class="journey-inputs">
+<div class="journey-point from"></div>
+<label class="journey-field">
+<span>Van</span>
+<input autocomplete="off" id="plannerFrom" placeholder="Zoek vertrekhalte…"/>
+<button aria-label="Gebruik mijn locatie" class="journey-location" id="plannerUseLocation" type="button">
+<svg viewbox="0 0 24 24"><path d="M12 3 4 20l8-4 8 4-8-17Z"></path></svg>
+</button>
+<div class="planner-suggestions hidden" id="plannerFromResults"></div>
 </label>
-<label class="profile-edit-row">
-<span>Thuislocatie</span>
-<input id="profileHomeLocation" placeholder="Locatie bepalen…" type="text"/>
+<button aria-label="Wissel vertrek en bestemming" class="journey-swap" id="plannerSwap" type="button">
+<svg viewbox="0 0 24 24"><path d="M7 4v14"></path><path d="m3 14 4 4 4-4"></path><path d="M17 20V6"></path><path d="m13 10 4-4 4 4"></path></svg>
+</button>
+<div class="journey-point to"></div>
+<label class="journey-field">
+<span>Naar</span>
+<input autocomplete="off" id="plannerTo" placeholder="Zoek bestemmingshalte…"/>
+<button aria-label="Wis bestemming" class="journey-clear" id="plannerClearTo" type="button">×</button>
+<div class="planner-suggestions hidden" id="plannerToResults"></div>
 </label>
-<button class="profile-action-row" id="profileUseCurrentLocation" type="button">
+</div>
+<div class="journey-options">
+<div class="planner-segmented" id="plannerMode">
+<button class="active" data-mode="now" type="button">Nu</button>
+<button data-mode="depart" type="button">Vertrek</button>
+<button data-mode="arrive" type="button">Aankomst</button>
+</div>
+<div class="date-time-wrap hidden" id="plannerDateTimeWrap">
+<input id="plannerDate" type="date"/>
+<input id="plannerTime" type="time"/>
+</div>
+<button class="planner-pref" data-pref="fastest" id="plannerPref" type="button">
+<svg viewbox="0 0 24 24"><path d="M12 3v18M5 8l7-5 7 5"></path></svg>
+<span>Snelste</span>
+</button>
+</div>
+<button class="journey-plan-button" id="plannerGo" type="button">
+<span class="journey-plan-copy">
+<small>Snelste routes en overstappen</small>
+<strong>Plan mijn reis</strong>
+</span>
+<span class="journey-plan-arrow">→</span>
+</button>
+</div>
+<div class="planner-loading hidden" id="plannerLoading">
+<div class="planner-loading-head">
+<div class="planner-spinner"></div>
+<div>
+<strong>OVFlow berekent je reis</strong>
+<small id="plannerLoadingText">Dienstregeling en live-data combineren…</small>
+</div>
+</div>
+<div class="planner-loading-bar"><i></i></div>
+</div>
+<div class="planner-error hidden" id="plannerError">
+<span>!</span>
+<div>
+<strong>Geen route gevonden</strong>
+<small id="plannerErrorText"></small>
+</div>
+<button id="plannerRetry" type="button">Opnieuw</button>
+</div>
+<div class="planner-results hidden" id="plannerResults">
+<div class="planner-results-head">
+<div>
+<span class="section-kicker">OVFlow reisadvies</span>
+<h3 id="plannerResultsTitle">Routes</h3>
+</div>
+<span class="planner-live-chip" id="plannerResultsMeta">LIVE</span>
+</div>
+<div class="planner-result-cards" id="plannerResultCards"></div>
+<div class="planner-source-note">
+<span>Route-engine: Transitous / MOTIS</span>
+<a href="https://transitous.org/sources/" rel="noopener noreferrer" target="_blank">Databronnen</a>
+</div>
+</div>
+</section><section class="hero">
+<div class="hero-grid"></div>
+<div class="hero-glow"></div>
+<div class="hero-copy">
+<span class="kicker"><i></i> HALTES &amp; VERTREKKEN</span>
+<h1>Vind je halte.<br/><span>Vertrek op tijd.</span></h1>
+<p>Zoek een halte en bekijk meteen de actuele vertrektijden.</p>
+</div>
+<div class="search-card">
+<div class="stop-search">
+<div class="stop-search-box">
+<svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg>
+<input autocomplete="off" id="stopSearchInput" placeholder="Zoek halte, plaats of straat…" type="search"/>
+<button aria-label="Wis zoekopdracht" id="clearSearchButton" type="button">×</button>
+</div>
+<div class="stop-search-status" id="stopSearchStatus">Zoek in haltes en stations</div>
+<div class="stop-results hidden" id="stopResults"></div>
+</div>
+<div class="active-stop-card">
+<div class="search-icon">
+<svg viewbox="0 0 24 24"><path d="M12 3 4 20l8-4 8 4-8-17Z"></path></svg>
+</div>
+<div class="search-copy">
+<span>Geselecteerde halte</span>
+<strong id="activeStopName">Kies een halte</strong>
+<small id="activeStopCode">Zoek hierboven om live doorkomsten te zien</small>
+</div>
+<button class="small-button" id="changeStopButton">Zoek</button>
+</div>
+<div class="hero-actions">
+<button class="primary-action" id="refreshNowButton">
 <span>
-              Actuele gps-locatie gebruiken
-            </span>
-<b id="profileCurrentLocationName">
-              Locatie bepalen…
-            </b>
+<small>Laatste update</small>
+<strong id="lastUpdated">Nog niet bijgewerkt</strong>
+</span>
+<span class="refresh-symbol">
+<svg viewbox="0 0 24 24"><path d="M20 11a8 8 0 1 0 2 5.3"></path><path d="M20 4v7h-7"></path></svg>
+</span>
 </button>
-<button class="smallbtn primary-auth profile-save-btn" id="profileSaveBtn" type="submit">
-            Wijzigingen opslaan
+<button class="secondary-action" id="autoRefreshButton">
+<i class="toggle-dot"></i>
+<span>
+<small>Automatisch</small>
+<strong id="autoRefreshLabel">Elke 30 sec</strong>
+</span>
+</button>
+</div>
+</div>
+</section><section class="stats-grid">
+<article class="stat-card">
+<span class="stat-icon green">
+<svg viewbox="0 0 24 24"><path d="M5 17h14M7 17V7c0-2 2-3 5-3s5 1 5 3v10"></path><path d="M9 8h6"></path></svg>
+</span>
+<div>
+<span>Vertrekken</span>
+<strong id="departureCount">—</strong>
+</div>
+</article>
+<article class="stat-card">
+<span class="stat-icon blue">
+<svg viewbox="0 0 24 24"><path d="M12 3v18M5 8l7-5 7 5"></path></svg>
+</span>
+<div>
+<span>Eerstvolgende</span>
+<strong id="nextDeparture">—</strong>
+</div>
+</article>
+<article class="stat-card">
+<span class="stat-icon amber">
+<svg viewbox="0 0 24 24"><path d="M12 4v9"></path><circle cx="12" cy="17" r="1"></circle><path d="M10 2h4l8 18H2Z"></path></svg>
+</span>
+<div>
+<span>Vertragingen</span>
+<strong id="delayCount">—</strong>
+</div>
+</article>
+</section><section class="panel departures-panel">
+<div class="section-head">
+<div>
+<span class="section-kicker">ACTUEEL</span>
+<h2>Vertrekken · -5 min tot +3 uur</h2>
+</div>
+<button class="refresh-button" id="refreshButton">
+<svg viewbox="0 0 24 24"><path d="M20 11a8 8 0 1 0 2 5.3"></path><path d="M20 4v7h-7"></path></svg>
+            Vernieuw
           </button>
-</form>
 </div>
-<div class="profile-favorites" id="profileFavoritesSection">
-<div class="settings-section-head">
-<span>Favoriete locaties</span>
-<strong id="profileFavoritesHint">Op je account</strong>
+<div class="loading-card" id="loadingCard">
+<div class="spinner"></div>
+<div>
+<strong>Vertrektijden ophalen</strong>
+<span>Realtime haltegegevens worden geladen…</span>
 </div>
-<div class="profile-favorite-add">
-<div class="profile-favorite-search-wrap">
-<span>⌕</span>
-<input autocomplete="off" id="profileFavoriteSearch" placeholder="Zoek een plaats om toe te voegen…" type="search"/>
 </div>
-<button id="profileAddCurrentFavorite" type="button">+ Huidige locatie</button>
-<div class="profile-favorite-suggestions" id="profileFavoriteSuggestions"></div>
+<div class="error-card hidden" id="errorCard">
+<span class="error-icon">!</span>
+<div>
+<strong id="errorTitle">Data kon niet worden geladen</strong>
+<span id="errorMessage">Controleer de API-instellingen.</span>
 </div>
-<div class="profile-favorites-list" id="profileFavoritesList"></div>
+<button id="retryButton">Opnieuw</button>
 </div>
-<div class="profile-section-title account-management-title">
-  <svg class="account-title-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <circle cx="12" cy="8" r="4"></circle>
-    <path d="M4 21a8 8 0 0 1 16 0"></path>
-  </svg>
-  <span>ACCOUNTBEHEER</span>
+<div class="departures" id="departures"></div>
+<div class="empty-card hidden" id="emptyCard">
+<strong>Geen vertrekkende ritten gevonden</strong>
+<span>Voor deze halte zijn momenteel geen doorkomsten teruggegeven.</span>
 </div>
-
-<div class="account-settings-group" role="group" aria-label="Accountbeheer">
-  <button class="account-settings-row" id="syncLocalBtn" type="button">
-    <span class="account-row-icon" aria-hidden="true">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 13v8"></path>
-        <path d="m8 17 4 4 4-4"></path>
-        <path d="M20 16.6A5 5 0 0 0 18 7a7 7 0 0 0-13.2 2A4.5 4.5 0 0 0 5.5 18H7"></path>
-      </svg>
-    </span>
-    <span class="account-row-label">Lokale gegevens naar account kopiëren</span>
-    <span class="account-row-chevron" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-    </span>
+</section><section class="panel quick-live-panel" id="quickLivePanel">
+<div class="quick-live-head">
+<div>
+<span class="section-kicker">LIVE ONDERWEG</span>
+<h2>Start een Live rit</h2>
+<p>Kies je bus- of tramlijn en volg onderweg automatisch de volgende halte.</p>
+</div>
+<span class="browser-only-chip"><i></i> REALTIME</span>
+</div>
+<div class="quick-live-search">
+<div class="quick-live-input-wrap">
+<svg viewbox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 4 4"></path></svg>
+<input autocomplete="off" id="quickLiveLine" inputmode="text" placeholder="Lijn, bv. 50 of Kusttram" type="search"/>
+<button aria-label="Wis lijn" id="quickLiveClear" type="button"><svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"></path></svg></button>
+</div>
+<button class="quick-live-search-button" id="quickLiveSearch" type="button">
+<span><svg viewBox="0 0 24 24"><path d="M12 3 5 20l7-3.5L19 20 12 3Z"></path></svg></span>
+            Zoek rond mij
+          </button>
+</div>
+<div class="quick-live-status" id="quickLiveStatus">
+<span class="quick-live-status-dot"></span>
+<span>Klaar om ritten in je buurt te zoeken.</span>
+</div>
+<div class="quick-live-loading hidden" id="quickLiveLoading">
+<span class="mini-spinner"></span>
+<div>
+<strong id="quickLiveLoadingTitle">Haltes rond je zoeken…</strong>
+<small id="quickLiveLoadingText">GPS en realtime doorkomsten combineren.</small>
+</div>
+</div>
+<div class="quick-live-error hidden" id="quickLiveError">
+<span>!</span>
+<div>
+<strong id="quickLiveErrorTitle">Live rit kon niet worden gezocht</strong>
+<small id="quickLiveErrorText"></small>
+</div>
+<button id="quickLiveRetry" type="button">Opnieuw</button>
+</div>
+<div class="quick-live-results hidden" id="quickLiveResults">
+<div class="quick-live-results-head">
+<div>
+<span class="section-kicker">Ritten in de buurt</span>
+<h3 id="quickLiveResultsTitle">Gevonden ritten</h3>
+</div>
+<span id="quickLiveResultCount">0</span>
+</div>
+<div class="quick-live-result-list" id="quickLiveResultList"></div>
+</div>
+</section><section class="panel live-trip-session hidden" data-live-mode="bus" id="liveTripSession">
+<div class="live-trip-session-head">
+<div class="live-trip-title-wrap">
+<span class="section-kicker">OVFLOW 2.0 · LIVE TRIP</span>
+<h2 id="liveTripTitle">Je rit volgen</h2>
+<p id="liveTripDirection">Richting —</p>
+</div>
+<div class="live-trip-head-actions">
+<span class="live-trip-gps" id="liveTripGps"><i></i><span>GPS starten…</span></span>
+<button aria-label="Stop Live Trip" class="live-trip-close" id="liveTripClose" type="button">
+<svg viewbox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"></path></svg>
+</button>
+</div>
+</div>
+<div class="live-trip-hero premium-live-hero">
+<div class="live-trip-line-badge" id="liveTripLine">—</div>
+<div class="live-trip-heading">
+<span class="live-trip-next-kind" id="liveTripNextKind">VOLGENDE HALTE</span>
+<strong id="liveTripNextStop">Volgende halte laden…</strong>
+<small id="liveTripHeroDirection">Richting —</small>
+<div class="live-trip-hero-meta" id="liveTripNextMeta">GPS en dienstregeling worden gecombineerd</div>
+</div>
+<div class="live-trip-countdown">
+<strong id="liveTripEta">—</strong>
+<span class="live-trip-delay-badge neutral" id="liveTripRealtimeBadge">LIVE</span>
+<small id="liveTripDistance">—</small>
+<small class="live-trip-hero-extra hidden" id="liveTripHeroExtra"></small>
+</div>
+</div>
+<div class="live-trip-alert normal" id="liveTripAlert">
+<span class="live-trip-alert-icon">
+<svg viewbox="0 0 24 24"><path d="M12 3 4 20l8-4 8 4-8-17Z"></path></svg>
+</span>
+<div>
+<strong id="liveTripAlertTitle">Rit actief</strong>
+<small id="liveTripAlertText">OVFlow volgt je positie langs de route.</small>
+</div>
+</div>
+<div class="live-trip-progress-wrap">
+<div class="live-trip-progress-meta">
+<span id="liveTripFromLabel">Vertrek</span>
+<span class="live-trip-progress-center">
+<strong id="liveTripProgressPct">0%</strong>
+<small id="liveTripProgressStep">halte 1 van 2</small>
+</span>
+<span id="liveTripToLabel">Bestemming</span>
+</div>
+<div class="live-trip-progress"><i id="liveTripProgressBar"></i></div>
+</div>
+<div class="live-trip-status-grid" id="liveTripStatusGrid">
+<article class="live-trip-status-card" data-stat="status">
+<span>Ritstatus</span>
+<strong id="liveTripRideStatus">Actief</strong>
+<small id="liveTripRideStatusMeta">Live Trip actief</small>
+</article>
+<article class="live-trip-status-card hidden" data-stat="delay">
+<span>Vertraging</span>
+<strong id="liveTripDelay">—</strong>
+<small id="liveTripDelayMeta">Realtime</small>
+</article>
+<article class="live-trip-status-card hidden" data-stat="vehicle">
+<span id="liveTripVehicleLabel">Voertuig</span>
+<strong id="liveTripVehicle">—</strong>
+<small id="liveTripVehicleMeta">Rit</small>
+</article>
+<article class="live-trip-status-card hidden" data-stat="occupancy">
+<span>Bezetting</span>
+<strong id="liveTripOccupancy">—</strong>
+<small>Indien beschikbaar</small>
+</article>
+<article class="live-trip-status-card" data-stat="arrival">
+<span>Aankomst</span>
+<strong id="liveTripArrival">—</strong>
+<small id="liveTripArrivalMeta">Eindbestemming</small>
+</article>
+<article class="live-trip-status-card" data-stat="remaining">
+<span id="liveTripStopsLabel">Nog haltes</span>
+<strong id="liveTripStopsLeft">—</strong>
+<small id="liveTripRemainingMeta">Tot uitstappen</small>
+</article>
+<article class="live-trip-status-card hidden" data-stat="platform">
+<span id="liveTripPlatformLabel">Spoor</span>
+<strong id="liveTripPlatform">—</strong>
+<small>Volgend station</small>
+</article>
+<article class="live-trip-status-card hidden" data-stat="speed">
+<span>Snelheid</span>
+<strong id="liveTripSpeed">—</strong>
+<small>GPS-meting</small>
+</article>
+<article class="live-trip-status-card" data-stat="gps">
+<span>Positiebron</span>
+<strong id="liveTripAccuracy">—</strong>
+<small id="liveTripGpsMeta">Realtime ritdata</small>
+</article>
+</div>
+<div class="live-trip-map-stops-grid">
+<div class="live-trip-inline-map-card">
+<div class="live-trip-inline-map-head">
+<div>
+<span class="section-kicker">LIVE LOCATIE</span>
+<h3>Voertuig op de kaart</h3>
+</div>
+<button class="live-trip-map-button compact" id="liveTripMapButton" type="button">
+<svg viewbox="0 0 24 24"><path d="M12 3 4 20l8-4 8 4-8-17Z"></path></svg>
+<span>Grote kaart</span>
+</button>
+</div>
+<div class="live-trip-inline-map-shell">
+<div id="liveTripInlineMap" class="live-trip-inline-map live-map-deferred" aria-label="Live kaart van deze rit"><div class="live-inline-map-deferred">Live info opent eerst zonder zware kaart. Tik op Grote kaart om de kaart te laden.</div></div>
+<div class="live-trip-vehicle-status" id="liveTripVehicleStatus">LIVE INFO ACTIEF</div>
+</div>
+<p class="live-trip-position-note">De marker gebruikt voertuig-GPS wanneer beschikbaar; anders schat OVFlow de positie tussen realtime haltepassages.</p>
+</div>
+<div class="live-trip-overview">
+<div class="live-trip-overview-head">
+<div>
+<span class="section-kicker">ALLE HALTES</span>
+<h3 id="liveTripOverviewTitle">Onderweg</h3>
+</div>
+</div>
+<div class="live-trip-stop-list premium-timeline" id="liveTripStopList"></div>
+</div>
+</div>
+<div class="live-trip-realtime-card" id="liveTripRealtimeCard">
+<span class="live-trip-realtime-icon">
+<svg viewbox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7h.01"></path></svg>
+</span>
+<div class="live-trip-realtime-copy">
+<span class="section-kicker">Realtime info</span>
+<strong id="liveTripRealtimeMessage">Live ritgegevens actief</strong>
+<small id="liveTripRealtimeDetail">OVFlow combineert realtime-data, haltevolgorde en ritgeometrie.</small>
+</div>
+<div class="live-trip-realtime-update">
+<span id="liveTripLastUpdate">Laatste update —</span>
+<button aria-label="Vernieuw realtime ritgegevens" id="liveTripRefreshButton" type="button">
+<svg viewbox="0 0 24 24"><path d="M20 11a8 8 0 1 0 2 5.3"></path><path d="M20 4v7h-7"></path></svg>
+</button>
+</div>
+</div>
+<div class="live-trip-actions premium-actions">
+<button class="live-trip-save-button" id="liveTripSaveButton" type="button">
+<svg viewbox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4V4Z"></path></svg>
+<span><strong>Bewaar rit</strong><small>Opslaan op dit toestel</small></span>
+</button>
+<button class="live-trip-stop-button" id="liveTripStopButton" type="button">
+<svg viewbox="0 0 24 24"><rect height="10" rx="2" width="10" x="7" y="7"></rect></svg>
+<span>Stop Live Trip</span>
+</button>
+</div>
+<p class="live-trip-note" id="liveTripResumeNote">
+          Live Trip gebruikt actuele OV-data en de volledige haltevolgorde. De voertuigpositie is exact wanneer voertuig-GPS beschikbaar is, anders duidelijk gemarkeerd als schatting.
+        </p>
+</section><section class="saved-section ov-screen" id="savedSection">
+  <div class="saved-page-head">
+    <span class="home-section-kicker">JOUW OVFLOW</span>
+    <h1>Opgeslagen</h1>
+    <p>Favoriete plaatsen en bewaarde ritten op dit toestel.</p>
+  </div>
+  <div class="saved-page-list" id="savedPageList"></div>
+</section><section class="panel real-map-panel" id="mapSection">
+<div class="section-head">
+<div>
+<span class="section-kicker">IN DE BUURT</span>
+<h2>Haltes op de kaart</h2>
+</div>
+<div class="map-actions">
+<button class="refresh-button" id="nearbyButton"><svg viewbox="0 0 24 24"><path d="M12 3 4 20l8-4 8 4-8-17Z"></path></svg> Mijn locatie</button>
+<button class="refresh-button" id="fitStopsButton">Rond geselecteerde halte</button>
+</div>
+</div>
+<div class="map-shell">
+<div aria-label="Interactieve kaart met De Lijn-haltes" class="ov-map" id="ovMap"></div>
+<div class="map-loading" id="mapLoading">
+<div class="spinner"></div>
+<span>Kaart laden…</span>
+</div>
+<div class="map-legend">
+<span><i class="legend-stop"></i> De Lijn-halte</span>
+<span><i class="legend-selected"></i> geselecteerd</span>
+</div>
+</div>
+<div class="map-caption">
+<span>Kaart: OpenStreetMap</span>
+<span>Kaartlaag haltes: Digitaal Vlaanderen / De Lijn</span>
+</div>
+</section><section class="two-column technical-details">
+<section class="panel data-panel">
+<div class="section-head">
+<div>
+<span class="section-kicker">Databron</span>
+<h2>Live verbinding</h2>
+</div>
+<span class="source-badge">Transitous + iRail</span>
+</div>
+<div class="connection-list">
+<div class="connection-row">
+<span>Dataverbinding</span>
+<strong id="coreApiState">Open data</strong>
+</div>
+<div class="connection-row">
+<span>Realtime halte</span>
+<strong id="stopApiState">Controleren…</strong>
+</div>
+<div class="connection-row">
+<span>NMBS live via iRail</span>
+<strong id="irailApiState">Klaar</strong>
+</div>
+<div class="connection-row">
+<span>Auto refresh</span>
+<strong id="refreshState">Actief</strong>
+</div>
+<div class="connection-row">
+<span>Datamodus</span>
+<strong>Echte data</strong>
+</div>
+</div>
+<div class="api-note">
+<svg viewbox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7h.01"></path></svg>
+<p>OVFlow toont geen demovertrekken wanneer een bron mislukt. Je ziet dan bewust dat live-data niet beschikbaar is.</p>
+</div>
+</section>
+<section class="panel insight-panel">
+<div class="section-head">
+<div>
+<span class="section-kicker">OVFlow</span>
+<h2>Live inzicht</h2>
+</div>
+</div>
+<div class="big-time">
+<span id="clockTime">--:--</span>
+<small id="clockDate">Vandaag</small>
+</div>
+<div class="insight-card">
+<span>Volgende rit</span>
+<strong id="insightNextLine">Wachten op live data</strong>
+<small id="insightNextMeta">De API wordt geladen.</small>
+</div>
+<div class="insight-card">
+<span>API-status</span>
+<strong id="insightApi">Verbinden…</strong>
+<small>Rechtstreeks via open vervoersdata; geen lokale Core nodig.</small>
+</div>
+</section>
+</section><footer class="footer technical-footer">
+<span>OVFlow 4.8.0</span>
+<span>Transitous · iRail · OpenStreetMap</span>
+<span>Open Data</span>
+</footer></main>
+<nav aria-label="Hoofdnavigatie" class="bottom-nav">
+  <button class="nav-item active" data-target="home" type="button">
+    <svg viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"></path><path d="M5.5 10v10h13V10"></path></svg>
+    <small>Home</small>
   </button>
-
-  <button class="account-settings-row" id="resetPasswordLoggedInBtn" type="button">
-    <span class="account-row-icon" aria-hidden="true">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        <circle cx="12" cy="16" r="1"></circle>
-      </svg>
-    </span>
-    <span class="account-row-label">Wachtwoord wijzigen</span>
-    <span class="account-row-chevron" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-    </span>
+  <button class="nav-item" data-target="trips" type="button">
+    <svg viewBox="0 0 24 24"><path d="M5 17h14M7 17V8c0-2.3 2-4 5-4s5 1.7 5 4v9"></path><path d="M9 9h6M8 13h8"></path><circle cx="9" cy="17" r="1"></circle><circle cx="15" cy="17" r="1"></circle></svg>
+    <small>Reizen</small>
   </button>
-
-  <button class="account-settings-row account-settings-row-logout" id="logoutBtn" type="button">
-    <span class="account-row-icon" aria-hidden="true">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10 17l5-5-5-5"></path>
-        <path d="M15 12H3"></path>
-        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-      </svg>
-    </span>
-    <span class="account-row-label">Uitloggen</span>
-    <span class="account-row-end-spacer" aria-hidden="true"></span>
+  <button class="nav-item" data-target="stops" type="button">
+    <svg viewBox="0 0 24 24"><path d="M7 18V7c0-2 2-3 5-3s5 1 5 3v11"></path><path d="M9 9h6M8 13h8"></path><path d="M9 18v2M15 18v2"></path></svg>
+    <small>Haltes</small>
   </button>
-</div>
-
-<div class="account-danger-title">GEVAARLIJKE ACTIES</div>
-
-<div class="account-danger-card">
-  <button class="account-settings-row account-danger-row profile-delete-account" id="deleteAccountBtn" type="button">
-    <span class="account-row-icon account-row-icon-danger" aria-hidden="true">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 6h18"></path>
-        <path d="M8 6V4h8v2"></path>
-        <path d="M19 6l-1 14H6L5 6"></path>
-        <path d="M10 11v5M14 11v5"></path>
-      </svg>
-    </span>
-    <span class="account-row-label">Account verwijderen</span>
-    <span class="account-row-chevron" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-    </span>
+  <button class="nav-item" data-target="map" id="navMap" type="button">
+    <svg viewBox="0 0 24 24"><path d="m4 6 5-2 6 2 5-2v14l-5 2-6-2-5 2Z"></path><path d="M9 4v14M15 6v14"></path></svg>
+    <small>Kaart</small>
   </button>
+  <button class="nav-item" data-target="saved" type="button">
+    <svg viewBox="0 0 24 24"><path d="M6 4h12v16l-6-4-6 4V4Z"></path></svg>
+    <small>Opgeslagen</small>
+  </button>
+</nav>
 </div>
-<div class="auth-message" id="profileMessage"></div>
-</div>
-</div>
-</div>
-<div class="panelsheet" id="settingsSheet">
+<div class="sheet-backdrop hidden" id="sheetBackdrop"></div>
+<aside aria-hidden="true" class="settings-sheet" id="settingsSheet">
 <div class="sheet-handle"></div>
-<h3 style="margin:0 0 10px;">
-      Instellingen
-    </h3>
-<section class="settings-group settings-collapsible" data-settings-section="language" data-settings-open="true">
-<div class="settings-section-head" role="button" tabindex="0" aria-expanded="true">
-<span>Taal</span>
-<strong id="languageCurrent" data-i18n-ignore>Nederlands</strong>
-</div>
-<div class="sheet-row">
-<span>App-taal</span>
-<div class="seg" id="segLanguage" data-i18n-ignore aria-label="Taal">
-<button class="active" data-v="nl" data-wf-language="nl" type="button" aria-pressed="true">NL</button>
-<button data-v="fr" data-wf-language="fr" type="button" aria-pressed="false">FR</button>
-<button data-v="de" data-wf-language="de" type="button" aria-pressed="false">DE</button>
-<button data-v="en" data-wf-language="en" type="button" aria-pressed="false">EN</button>
-</div>
-</div>
-<span class="settings-hint">Kies de taal van Wheaterflow. De wijziging wordt direct toegepast en op je account bewaard.</span>
-</section>
-<section class="settings-group settings-collapsible" data-settings-section="display" data-settings-open="true">
-<div class="settings-section-head" role="button" tabindex="0" aria-expanded="true">
-<span>Eenheden</span>
-<strong>Weergave</strong>
-</div>
-<div class="sheet-row">
-<span>Temperatuur</span>
-<div class="seg" id="segTemp">
-<button class="active" data-v="C">
-            °C
-          </button>
-<button data-v="F">
-            °F
-          </button>
-</div>
-</div>
-<div class="sheet-row">
-<span>Windsnelheid</span>
-<div class="seg" id="segWind">
-<button class="active" data-v="kmh">
-            km/u
-          </button>
-<button data-v="ms">
-            m/s
-          </button>
-<button data-v="kn">
-            kn
-          </button>
-<button data-v="mph">
-            mph
-          </button>
-</div>
-</div>
-<div class="sheet-row">
-<span>Neerslag</span>
-<div class="seg" id="segPrecip">
-<button class="active" data-v="mm">
-            mm
-          </button>
-<button data-v="in">
-            inch
-          </button>
-</div>
-</div>
-<div class="sheet-row">
-<span>Luchtdruk</span>
-<div class="seg" id="segPress">
-<button class="active" data-v="hpa">
-            hPa
-          </button>
-<button data-v="inhg">
-            inHg
-          </button>
-</div>
-</div>
-</section>
-<section class="settings-group settings-collapsible" data-settings-section="forecast" data-settings-open="false">
-<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
-<span>Voorspelling</span>
-<strong>Model</strong>
-</div>
-<div class="sheet-row">
-<span>Vooruitzicht</span>
-<div class="seg" id="segDays">
-<button class="active" data-v="7">
-            7 dagen
-          </button>
-<button data-v="14">
-            14 dagen
-          </button>
-</div>
-</div>
-<div class="sheet-row" style="flex-direction:column;align-items:stretch;gap:8px;">
-<span>Weermodel</span>
-<div class="seg" id="segModel" style="flex-wrap:wrap;">
-<button class="active" data-v="best_match">
-            Automatisch
-          </button>
-<button data-v="ecmwf_ifs025">
-            ECMWF
-          </button>
-<button data-v="icon_eu">
-            ICON-EU
-          </button>
-<button data-v="gfs_seamless">
-            GFS
-          </button>
-<button data-v="knmi_seamless">
-            Harmonie (Benelux)
-          </button>
-</div>
-<span class="settings-hint">
-<b>Automatisch</b> kiest het beste beschikbare
-          model. <b>Harmonie</b> is sterk voor Benelux,
-          <b>ECMWF</b> voor middellange termijn,
-          <b>ICON-EU</b> voor Europa en <b>GFS</b>
-          als globale fallback.
-        </span>
-</div>
-</section>
-<section class="settings-group settings-collapsible" data-settings-section="data" data-settings-open="false">
-<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
-<span>Data</span>
-<strong>Actueel</strong>
-</div>
-<button class="smallbtn" id="manualRefresh" style="width:100%;padding:10px;">
-        Nu verversen
-      </button>
-<span class="settings-hint">
-        Laatste update staat op het beginscherm
-        bij je actuele weer.
-      </span>
-</section>
-<section class="settings-group onboarding-settings-group settings-collapsible" data-settings-section="setup" data-settings-open="false">
-<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
-<span>Wheaterflow setup</span>
-<strong>Onboarding</strong>
-</div>
-<button class="smallbtn" id="replayOnboardingBtn" type="button" style="width:100%;padding:10px;">Onboarding opnieuw bekijken</button>
-<span class="settings-hint">Doorloop locatie, meldingen en profiel opnieuw. Je huidige instellingen blijven behouden totdat je iets wijzigt.</span>
-</section>
-<section class="settings-group tv-settings-group settings-collapsible" data-settings-section="tv" data-settings-open="false">
-<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
-<span>TV &amp; apparaten</span>
-<strong id="tvSettingsStatus">
-          Niet gekoppeld
-        </strong>
-</div>
-<div class="tv-device-card">
+<div class="sheet-head">
 <div>
-<b id="tvSettingsTitle">
-            TV-modus
-          </b>
-<span id="tvSettingsSubtitle">
-            Open wheaterflow.be/tv op je TV en
-            koppel met de code.
-          </span>
+<span class="section-kicker">OVFlow 4.8.0</span>
+<h2>Instellingen</h2>
 </div>
-<button class="smallbtn" id="pairTvBtn" type="button">
-          TV koppelen
-        </button>
+<button aria-label="Sluiten" class="icon-button" id="closeSettings">
+<svg viewbox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"></path></svg>
+</button>
 </div>
-<div class="tv-settings-actions">
-<button class="smallbtn" hidden="" id="tvPairRefresh" type="button">
-          TV verversen
-        </button>
-<button class="smallbtn danger" hidden="" id="tvPairDisconnect" type="button">
-          TV ontkoppelen
-        </button>
+<div class="sheet-info">
+<strong>Actuele open vervoersdata</strong>
+<p>OVFlow kiest zelf de juiste halte en databron. Je hoeft geen haltenummers of API-codes meer in te vullen.</p>
 </div>
-<button class="smallbtn" hidden="" id="castBtn" type="button">
-        Cast laden...
-      </button>
-<span class="settings-hint">
-        TV-koppeling gebruikt je actieve plaats
-        en vernieuwt het TV-scherm zonder extra
-        knoppen op het beginscherm.
-      </span>
-</section>
-<section class="settings-group notification-settings settings-collapsible" style="flex-direction:column;align-items:stretch;gap:10px;" data-settings-section="notifications" data-settings-open="false">
-<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false">
-<span>Meldingen</span>
-<strong id="pushStatusText">
-          Controleren...
-        </strong>
+<div class="sheet-info">
+<strong>Haltebordvenster</strong>
+<p>OVFlow toont altijd vertrekken van 5 minuten geleden tot 3 uur vooruit.</p>
 </div>
-<div class="install-card" id="pushInstallCard">
-<img alt="Wheaterflow" class="settings-logo" src="./icons/icon-96.png"/>
-<b>
-          Installeer Wheaterflow op je beginscherm
-          om weerwaarschuwingen te ontvangen.
-        </b>
-<ol>
-<li>Tik op Deel.</li>
-<li>Kies 'Zet op beginscherm'.</li>
-<li>
-            Open daarna Wheaterflow via het appicoon.
-          </li>
-<li>
-            Schakel meldingen in via Instellingen.
-          </li>
-</ol>
-</div>
-<div class="notify-actions">
-<button class="smallbtn" id="enablePushBtn" type="button">
-          Meldingen inschakelen
-        </button>
-<button class="smallbtn" id="testPushBtn" type="button">
-          Testmelding sturen
-        </button>
-<button class="smallbtn" id="disablePushBtn" type="button">
-          Meldingen uitschakelen
-        </button>
-</div>
-<div class="notify-prefs" id="pushPrefs">
-<div class="notify-group-title">
-          Officiële waarschuwingen
-        </div>
-<label>
-<input checked="" data-pref="codeYellow" type="checkbox"/>
-          Code geel
-        </label>
-<label>
-<input checked="" data-pref="codeOrange" type="checkbox"/>
-          Code oranje
-        </label>
-<label>
-<input checked="" data-pref="codeRed" type="checkbox"/>
-          Code rood
-        </label>
-<div class="notify-group-title">
-          Regen en onweer
-        </div>
-<label>
-<input checked="" data-pref="thunder" type="checkbox"/>
-          Onweer in de buurt
-        </label>
-<label>
-<input checked="" data-pref="heavyRain" type="checkbox"/>
-          Zware regen
-        </label>
-<label>
-<input checked="" data-pref="snow" type="checkbox"/>
-          Sneeuw
-        </label>
-<label>
-<input checked="" data-pref="ice" type="checkbox"/>
-          Gladheid
-        </label>
-<div class="notify-group-title">
-          Wind en temperatuur
-        </div>
-<label>
-<input checked="" data-pref="wind" type="checkbox"/>
-          Extreme windstoten
-        </label>
-<label>
-<input checked="" data-pref="heat" type="checkbox"/>
-          Hitte
-        </label>
-<label>
-<input checked="" data-pref="frost" type="checkbox"/>
-          Vorst
-        </label>
-<div class="notify-group-title">
-          UV &amp; gezondheid
-        </div>
-<label>
-<input checked="" data-pref="uv" type="checkbox"/>
-          Sterke UV
-        </label>
-<div class="notify-group-title">
-          Dagelijks en lokaal
-        </div>
-<label>
-<input checked="" data-pref="rainSoon" type="checkbox"/>
-          Regen binnen 30 minuten
-        </label>
-<label>
-<input data-pref="dailyMorning" type="checkbox"/>
-          Dagelijkse ochtendverwachting
-        </label>
-<label>
-<input checked="" data-pref="coast" type="checkbox"/>
-<span id="pushCoastLabel">
-            Kustwaarschuwingen · Oostende
-          </span>
-</label>
-</div>
-<div class="threshold-grid">
-<label>
-          Neerslag vanaf
-          <input id="pushRainThreshold" max="100" min="0" type="number" value="70"/>
-          %
-        </label>
-<label>
-          Windstoten vanaf
-          <input id="pushWindThreshold" max="160" min="0" type="number" value="70"/>
-          km/u
-        </label>
-<label>
-          Hitte vanaf
-          <input id="pushHeatThreshold" max="50" min="20" type="number" value="30"/>
-          °C
-        </label>
-<label>
-          Vorst onder
-          <input id="pushFrostThreshold" max="10" min="-30" type="number" value="0"/>
-          °C
-        </label>
-</div>
-<span class="subtle" id="pushHelpText" style="font-size:11.5px;">
-        Vraag toestemming alleen via deze knop.
-        Op iPhone werkt dit na installatie op je beginscherm.
-      </span>
-</section>
-<!-- Over Wheaterflow -->
-<section class="settings-group about-weerscoop settings-collapsible" style="flex-direction:column;align-items:stretch;gap:8px;" data-settings-section="about" data-settings-open="false">
-<div class="settings-section-head" role="button" tabindex="0" aria-expanded="false"><span>Over Wheaterflow</span><strong>Info</strong></div>
-<div class="about-brand">
-<img alt="Wheaterflow" src="./icons/icon-96.png"/>
-<div>
-<b>Wheaterflow</b>
-<span>
-            Belgisch weerplatform voor live weer,
-            radar en persoonlijke waarschuwingen
-          </span>
-</div>
-</div>
-<a class="smallbtn" href="/over-wheaterflow/" style="display:block;text-align:center;text-decoration:none;">
-        Over Wheaterflow
-      </a>
-<a class="smallbtn" href="https://www.instagram.com/wheaterflow/" rel="noopener noreferrer" style="display:block;text-align:center;text-decoration:none;" target="_blank">
-        Wheaterflow op Instagram
-      </a>
-</section>
-<button class="smallbtn" id="closeSheet" style="width:100%;margin-top:8px;padding:12px;">
-      Sluiten
-    </button>
-</div>
-<div class="tv-pair-scrim" id="tvPairScrim"></div>
-<div aria-labelledby="tvPairTitle" aria-modal="true" class="tv-pair-sheet" id="tvPairSheet" role="dialog">
-<button aria-label="Koppelen sluiten" class="tv-pair-close" id="tvPairClose" type="button">
-      ×
-    </button>
-<div class="tv-pair-head">
-<span class="tv-pair-icon">
-        TV
-      </span>
-<div>
-<h3 id="tvPairTitle">
-          TV koppelen
-        </h3>
-<p>
-          Open <b>wheaterflow.be/tv</b>
-          op je TV en vul hier de code in.
-        </p>
-</div>
-</div>
-<label class="tv-pair-code-label" for="tvPairCodeInput">
-      Koppelcode
-    </label>
-<div class="tv-pair-code-entry" id="tvPairCodeSlots" role="presentation">
-<span class="tv-pair-code-slot" aria-hidden="true"></span>
-<span class="tv-pair-code-slot" aria-hidden="true"></span>
-<span class="tv-pair-code-slot" aria-hidden="true"></span>
-<span class="tv-pair-code-slot" aria-hidden="true"></span>
-<span class="tv-pair-code-slot" aria-hidden="true"></span>
-<span class="tv-pair-code-slot" aria-hidden="true"></span>
-<input autocomplete="one-time-code" aria-label="Zescijferige TV koppelcode" class="tv-pair-code-input tv-pair-code-hidden" id="tvPairCodeInput" inputmode="numeric" maxlength="6" pattern="[0-9]*" placeholder=""/>
-</div>
-<button class="smallbtn primary-auth" id="tvPairSubmit" type="button">
-      Koppelen
-    </button>
-<div class="tv-pair-message" id="tvPairMessage"></div>
-</div>
-</div>
-<!-- ============ TV MODE ============ -->
-<div id="tvscreen">
-<div class="tv-pair-overlay" hidden="" id="tvPairOverlay">
-<div class="tv-pair-overlay-card">
-<span class="tv-pair-overlay-eyebrow">
-        Wheaterflow TV
-      </span>
-<h2>
-        Koppel met je telefoon
-      </h2>
-<div class="tv-pair-code" id="tvPairCodeDisplay">
-        ------
-      </div>
-<p id="tvPairCountdown">
-        Koppelcode wordt opgehaald...
-      </p>
-<small id="tvPairOverlayMessage">
-        Open Wheaterflow op je telefoon
-        en kies TV koppelen.
-      </small>
-</div>
-</div>
-<div class="tv-top">
-<div class="tv-loc">
-<div class="tv-locname" id="tvLocName">
-        -
-      </div>
-<div class="tv-admin" id="tvAdmin"></div>
-<div class="tv-cast-status" id="tvCastStatus"></div>
-</div>
-<div class="tv-clockwrap">
-<div class="tv-date" id="tvDate"></div>
-<div class="tv-clock mono" id="tvClock">
-        --:--
-      </div>
-<button id="tvExitBtn" title="Tv-modus verlaten (Esc)">
-<svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18">
-<line x1="18" x2="6" y1="6" y2="18"></line>
-<line x1="6" x2="18" y1="6" y2="18"></line>
-</svg>
-
-        Sluiten
-
-      </button>
-</div>
-</div>
-<div class="tv-grid">
-<div class="tv-left">
-<div class="tv-current">
-<div class="tv-icon" id="tvIcon"></div>
-<div>
-<div class="tv-temp display" id="tvTemp">
-            -°
-          </div>
-<div class="tv-cond" id="tvCond">
-            -
-          </div>
-<div class="tv-hilo" id="tvHiLo">
-            H: -   L: -
-          </div>
-</div>
-</div>
-<div class="tv-hourly" id="tvHourly"></div>
-<div class="tv-details" id="tvDetails"></div>
-</div>
-<div class="tv-right">
-<div class="tv-radar-card">
-<div class="tv-radar-label">
-          Live buienradar
-        </div>
-<div id="tvmap"></div>
-</div>
-<div class="tv-daily" id="tvDaily"></div>
-</div>
-</div>
-</div>
+<button class="sheet-primary" id="saveSettings">Sluiten</button>
+<div class="security-warning"><span>i</span><p><strong>OVFlow 4.8.0.</strong> Zoeken, vertrekken en routes hebben publieke fallbacks. Voor exacte De Lijn voertuig-GPS gebruikt OVFlow optioneel je eigen backend.</p></div>
+</aside>
 <div class="toast" id="toast"></div>
-<!-- Externe libraries -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://unpkg.com/maplibre-gl@2.2.1/dist/maplibre-gl.js"></script>
-<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
-<!-- Wheaterflow scripts -->
-<script src="i18n.js?v=20260911-community-showpicker-v10"></script>
-<script src="location-engine.js?v=20260911-location-i18n-v2"></script>
-<script src="castService.js?v=20260820-tv-route-1"></script>
-<script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20261007-first-run-gps-v1"></script>
+<script src="config.js?v=4.8.0"></script>
+<script src="live-link.js?v=4.8.0"></script>
+<script src="core-client.js?v=4.8.0"></script>
+<script src="app.js?v=4.8.0"></script>
+<script src="planner.js?v=4.8.0"></script>
+<script src="quick-live.js?v=4.8.0"></script>
+<script src="ui.js?v=4.8.0"></script>
 </body>
 </html>
