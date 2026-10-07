@@ -5587,12 +5587,29 @@ async function setHomeMapLayer(layerId){
   setHomeMapStatus('Kaartlaag laden...');
   clearHomeMapOverlay();
   try{
-    if(layerId === 'radar'){
-      await setHomeLegacyLayer('radar');
-    }else if(layerId === 'satellite'){
-      await setHomeLegacyLayer(layerId);
-    }else if(['temperatures','wind-speeds','wind-particles'].includes(layerId)){
-      await setHomeWheaterflowMapLayer(layerId);
+    const xweatherPrimary = [
+      'radar',
+      'satellite',
+      'temperatures',
+      'wind-speeds',
+      'wind-particles',
+      'cloud-cover',
+      'lightning-strikes-icons'
+    ];
+
+    if(xweatherPrimary.includes(layerId)){
+      const ok = await setHomeXweatherLayer(layerId);
+
+      if(!ok){
+        // Bestaande Wheaterflow/Open-Meteo bronnen blijven fallback.
+        if(layerId === 'radar' || layerId === 'satellite'){
+          await setHomeLegacyLayer(layerId);
+        }else if(['temperatures','wind-speeds','wind-particles'].includes(layerId)){
+          await setHomeWheaterflowMapLayer(layerId);
+        }else{
+          throw new Error('Xweather laag niet beschikbaar');
+        }
+      }
     }else{
       const ok = await setHomeXweatherLayer(layerId);
       if(!ok) throw new Error('Xweather laag niet beschikbaar');
@@ -10073,10 +10090,9 @@ function canUseXweatherCode(code){
 
 async function setXweatherLayer(id){
   const normalized=normalizeRadarLayerId(id);
-  if(WHEATERFLOW_MAP_LAYER_IDS.has(normalized)){
-    try{ return await setRadarWheaterflowMapLayer(normalized); }
-    catch(error){ console.error('Wheaterflow Maps laag faalde:',error); return false; }
-  }
+
+  // XWeather MapsGL is primair.
+  // Wheaterflow Maps/Open-Meteo blijft alleen fallback.
   const def = findAvailableXweatherLayer(id);
   if(!def){
     toast('Deze weerlaag is momenteel niet beschikbaar.');
@@ -11845,16 +11861,38 @@ $('#opacitySlider').addEventListener('input', (e)=>{
 async function switchLayer(layerId){
   const l=normalizeRadarLayerId(layerId);
   clearRadarWheaterflowMapLayer();
-  if(state.xweather.ready || state.xweather.controller){
-    teardownXweather();
-    state.xweather.fallback = true;
-    $('#liveRadarPanel')?.classList.remove('hide');
+
+  const xweatherId = l === 'precip' ? 'radar' : l;
+
+  // XWeather MapsGL is de primaire bron.
+  const ready = state.xweather.ready || await initXweatherMap(true);
+
+  if(ready){
+    const ok = await setXweatherLayer(xweatherId);
+
+    if(ok){
+      state.radar.layer = l === 'satellite' ? 'satellite' : 'precip';
+      syncRadarLayerUi(l);
+      rememberRadarLayer(l);
+      return;
+    }
   }
+
+  // Alleen bij een XWeather-fout terugvallen op de bestaande radar.
+  state.xweather.fallback = true;
+  $('#liveRadarPanel')?.classList.remove('hide');
+
   state.radar.layer = l === 'satellite' ? 'satellite' : 'precip';
   syncRadarLayerUi(state.radar.layer);
   rememberRadarLayer(state.radar.layer);
-  if(state.radar.animator){ state.radar.animator.destroy(); state.radar.animator = null; }
+
+  if(state.radar.animator){
+    state.radar.animator.destroy();
+    state.radar.animator = null;
+  }
+
   clearOpenMeteoRadarLayer();
+
   if(state.radar.layer === 'precip') startLegacyRadar();
   else await loadRadarFrames();
 }
