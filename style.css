@@ -16013,3 +16013,38 @@ body .tabbar .tabbtn:focus-visible{
   .wf-drought-primary-grid .wf-drought-trend{grid-column:auto;}
   .wf-drought-water-metric strong{white-space:normal;}
 }
+
+/* 2026-10-07 — Rain card premium mock-up match */
+#home .rain-now-card.rain-reference-layout{padding:18px!important;border-radius:32px!important;background:linear-gradient(155deg,rgba(25,74,119,.58),rgba(15,52,91,.48))!important;border:1px solid rgba(176,224,255,.42)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 18px 45px rgba(0,24,54,.24)!important;backdrop-filter:blur(22px) saturate(145%)!important;-webkit-backdrop-filter:blur(22px) saturate(145%)!important}
+#home .rain-reference-layout .rain-brand strong{text-transform:none!important;letter-spacing:0!important;font-size:17px!important;font-weight:800!important}
+#home .rain-reference-layout .rain-now-top{padding:9px 10px 13px!important;border-bottom:1px solid rgba(210,239,255,.15)!important}
+#home .rain-reference-layout .rain-status-hero{padding:10px 5px 4px!important}
+#home .rain-reference-layout .rain-status-line{margin-bottom:13px!important;align-items:center!important}
+#home .rain-reference-layout .rain-status-line h3{font-size:clamp(31px,8vw,44px)!important}
+#home .rain-reference-layout .rain-status-line p{margin:6px 0 0;color:rgba(222,239,255,.78);font-size:15px;font-weight:650}
+#home .rain-reference-layout .rain-status-icon{width:76px!important;height:76px!important}
+#home .rain-reference-layout .rain-location-summary{display:flex;align-items:center;gap:10px;padding:13px 15px;margin:0 0 14px;border:1px solid rgba(190,230,255,.25);border-radius:20px;background:rgba(88,139,182,.16);color:rgba(241,249,255,.93);font-size:13px;line-height:1.35;font-weight:600}
+#home .rain-reference-layout .rain-location-icon{width:25px!important;height:25px!important;flex:0 0 25px}
+#home .rain-reference-layout .rain-main-card{min-height:118px!important;border-radius:22px!important;background:linear-gradient(145deg,rgba(69,121,166,.25),rgba(35,81,124,.18))!important;border-color:rgba(191,230,255,.26)!important}
+#home .rain-reference-layout .rain-main-card-icon{width:55px!important;height:55px!important;flex-basis:55px!important;background:transparent!important;border:0!important}
+#home .rain-reference-layout .rain-main-card-copy strong{font-size:clamp(20px,5vw,27px)!important}
+#home .rain-reference-layout .rain-main-card-copy span{font-size:13px!important}
+#home .rain-reference-layout .rain-forecast-card{border-radius:23px!important;padding:16px!important;background:linear-gradient(145deg,rgba(61,112,158,.25),rgba(27,70,111,.18))!important;border-color:rgba(190,230,255,.25)!important}
+#home .rain-reference-layout .rain-forecast-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+#home .rain-reference-layout .rain-forecast-title{margin:0!important}
+#home .rain-reference-layout .rain-range{display:flex;align-items:center;border:1px solid rgba(190,230,255,.2);border-radius:999px;overflow:hidden;font-size:9px;color:rgba(229,242,255,.8);white-space:nowrap}
+#home .rain-reference-layout .rain-range span,#home .rain-reference-layout .rain-range b{padding:7px 9px;font-weight:650}
+#home .rain-reference-layout .rain-range b{background:rgba(82,190,255,.28);box-shadow:inset 0 0 0 1px rgba(128,220,255,.48);border-radius:999px;color:#fff}
+#home .rain-reference-layout .rain-now-chart{height:135px!important;background:linear-gradient(to bottom,rgba(230,245,255,.13) 1px,transparent 1px) 0 0/100% 25%!important}
+#home .rain-reference-layout .rain-now-scale{height:135px!important;font-size:9px!important}
+#home .rain-reference-layout .rain-now-chart i{max-width:16px!important;background:linear-gradient(180deg,#63e5ff,#1594f3)!important;box-shadow:0 0 12px rgba(49,193,255,.22)!important;border-radius:7px 7px 2px 2px!important}
+#home .rain-reference-layout .rain-bottom-stats{width:100%!important;display:grid!important;grid-template-columns:1fr 1fr!important}
+#home .rain-reference-layout .rain-bottom-stat{width:auto!important;min-height:102px!important;border-radius:22px!important;background:linear-gradient(145deg,rgba(62,113,159,.25),rgba(27,70,111,.18))!important;border-color:rgba(190,230,255,.25)!important}
+#home .rain-reference-layout .rain-bottom-stat strong{font-size:30px!important}
+#home .rain-reference-layout .rain-bottom-stat span{margin-top:5px;color:rgba(226,241,252,.72);font-size:10px}
+#home .rain-reference-layout .rain-smart-summary{display:grid;grid-template-columns:42px 1fr 20px;align-items:center;gap:11px;margin-top:11px;padding:14px 15px;border-radius:22px;background:linear-gradient(145deg,rgba(68,119,164,.26),rgba(30,73,113,.2));border:1px solid rgba(190,230,255,.25)}
+#home .rain-reference-layout .rain-smart-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;background:rgba(72,177,239,.2);color:#75e7ff;font-size:22px}
+#home .rain-reference-layout .rain-smart-summary strong{display:block;color:#fff;font-size:14px;line-height:1.2}
+#home .rain-reference-layout .rain-smart-summary p{margin:4px 0 0;color:rgba(226,241,252,.76);font-size:11px;line-height:1.35}
+#home .rain-reference-layout .rain-smart-arrow{font-size:28px;color:rgba(235,248,255,.9)}
+@media(max-width:390px){#home .rain-reference-layout .rain-status-icon{width:62px!important;height:62px!important}#home .rain-reference-layout .rain-range span,#home .rain-reference-layout .rain-range b{padding:6px 7px}#home .rain-reference-layout .rain-main-card-icon{width:44px!important;height:44px!important;flex-basis:44px!important}}
