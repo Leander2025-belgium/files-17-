@@ -9953,7 +9953,9 @@ function clearRadarWheaterflowMapLayer(){
 async function setRadarWheaterflowMapLayer(layerId){
   if(!WHEATERFLOW_MAP_LAYER_IDS.has(layerId) || !state.map) return false;
 
-  // Deze drie lagen mogen Xweather nooit meer initialiseren of aanspreken.
+  // FALLBACK ONLY:
+  // Deze functie wordt uitsluitend gebruikt wanneer de primaire
+  // XWeather MapsGL-laag niet beschikbaar is.
   if(state.xweather.ready || state.xweather.controller) teardownXweather();
   clearRadarWheaterflowMapLayer();
   clearOpenMeteoRadarLayer();
@@ -10133,7 +10135,13 @@ async function setXweatherLayer(id){
   const lightningToggle = $('#xweatherLightningOverlay');
   if(lightningToggle) lightningToggle.checked = state.xweather.overlayLightning || def.id === 'lightning-strikes-icons';
   if($('#xweatherLayerTitle')) $('#xweatherLayerTitle').textContent = def.label;
-  if($('#xweatherWindSettings')) $('#xweatherWindSettings').open = def.id === 'wind-particles';
+  const windSettings = $('#xweatherWindSettings');
+  if(windSettings){
+    const isWindLayer = def.id === 'wind-particles' || def.id === 'wind-speeds';
+    windSettings.classList.toggle('hide', !isWindLayer);
+    windSettings.hidden = !isWindLayer;
+    windSettings.open = def.id === 'wind-particles';
+  }
   updateXweatherLegend();
   updateXweatherTimelineUi();
   rememberRadarLayer(def.id);
