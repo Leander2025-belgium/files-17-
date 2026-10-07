@@ -1,56 +1,78 @@
-# OVFlow 4.2 — Static-first live OV
+# Wheaterflow
 
-OVFlow is een mobile-first Belgische OV-app voor bus, tram en trein. Versie 4.2 herbouwt de datalaag zodat de frontend ook op gewone statische hosting blijft werken en niet leegvalt wanneer er geen eigen Node `/api`-backend draait.
+Live weer, radar, waarschuwingen, community, persoonlijke klimaatdata en een professionele weerkaart.
 
-## Wat 4.2 oplost
+## Online plaatsen zonder Netlify
 
-De 4.1-frontend probeerde eerst lokale routes zoals `/api/v4/health`, `/api/health` en `/api/delijn/nearby`. Op GitHub Pages of andere statische hosting bestaan die routes niet, waardoor de browser 404's gaf en onderdelen zonder informatie bleven.
+Gebruik bij voorkeur Vercel voor deze versie. De app ondersteunt automatisch:
 
-4.2 doet dat niet meer:
+- Netlify Functions via `/.netlify/functions/...`
+- Vercel Functions via `/api/...`
 
-- geen automatische lokale `/api/*` probes vanuit de browser;
-- halte/station zoeken rechtstreeks via Transitous/MOTIS geocoding;
-- haltes/stations dichtbij via Transitous reverse geocoding;
-- vertrekborden via MOTIS `/api/v6/stoptimes` met realtime waar beschikbaar;
-- routeplanner rechtstreeks via MOTIS `/api/v6/plan`;
-- Live Trip refresh rechtstreeks via MOTIS `/api/v6/trip`;
-- extra NMBS-ritdetails via iRail;
-- Digitaal Vlaanderen WFS blijft beschikbaar voor de optionele De Lijn-kaartlaag;
-- geen fake ritten of nepvertragingen.
+In Vercel:
 
-## Starten — aanbevolen
+1. Maak een account op `vercel.com`.
+2. Kies `Add New` -> `Project`.
+3. Kies je GitHub-repository.
+4. Framework preset: `Other`.
+5. Build command: `npm run build`.
+6. Output directory: laat leeg of gebruik `.`.
+7. Voeg de environment variables hieronder toe.
+8. Klik `Deploy`.
 
-OVFlow 4.2 kan als statische website gehost worden. Zet de inhoud van deze map op een HTTPS-host en open `index.html` via de website. HTTPS is belangrijk voor browser-geolocatie buiten localhost.
+## Environment variables
 
-Voor lokaal testen kun je bijvoorbeeld een eenvoudige lokale webserver gebruiken. Open de bestanden niet rechtstreeks met `file://`, omdat browsers dan netwerk- en locatiefunctionaliteit kunnen beperken.
+Zet deze waarden in Vercel bij `Project Settings` -> `Environment Variables`:
 
-## Optionele Node-server
-
-`server.js` blijft in het project voor oudere/uitgebreide serverfuncties, maar de hoofdinterface heeft hem niet meer nodig voor zoeken, dichtbij, reisadvies en live OV-data. Daardoor blijft de app bruikbaar als alleen de frontend wordt gedeployed.
-
-## Databronnen
-
-- Transitous / MOTIS: zoeken, haltes/stations, vertrekborden, routing en live tripdata.
-- iRail: extra NMBS/SNCB-ritinformatie.
-- OpenStreetMap: kaart en routeringsgeografie via Transitous.
-- Digitaal Vlaanderen / De Lijn: geografische De Lijn-haltelaag waar gebruikt.
-
-De Transitous-attributielink staat zichtbaar in de routeplanner. Controleer voor een publieke of commerciële release altijd de actuele gebruiksvoorwaarden en licenties van alle databronnen.
-
-## Kwaliteitschecks
-
-Voer uit:
-
-```bash
-npm run check
+```text
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=
+XWEATHER_CLIENT_ID=
+XWEATHER_CLIENT_SECRET=
 ```
 
-Dit controleert de syntax van de belangrijkste JavaScript-bestanden.
+`SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PRIVATE_KEY` en `XWEATHER_CLIENT_SECRET` mogen nooit in frontendcode of GitHub staan.
+
+## Xweather MapsGL instellen
+
+De professionele weerkaart gebruikt Xweather MapsGL. Zet deze waarden in Netlify bij:
+
+`Project configuration` -> `Environment variables`
+
+```text
+XWEATHER_CLIENT_ID=
+XWEATHER_CLIENT_SECRET=
+```
+
+Gebruik hier je eigen Xweather API & Maps gegevens. Zet deze waarden niet in `script.js`, `index.html`, GitHub of een publieke frontend-variabele.
+
+De app haalt de instellingen op via Netlify of Vercel:
+
+```text
+/.netlify/functions/xweather-config
+/api/xweather-config
+```
+
+Wanneer Xweather niet geconfigureerd is of een laag niet beschikbaar is binnen je abonnement, blijft de bestaande radar werken.
+
+## Build
+
+```bash
+npm run build
+```
+
+## Native iOS companion
+
+De geïsoleerde SwiftUI/WidgetKit/ActivityKit companion staat in `ios/`. Open op macOS `ios/Wheaterflow.xcodeproj` en volg `ios/README.md` voor signing, App Group, widget-, Live Activity- en API-deploymentstappen.
 
 
-## OVFlow 4.8.0
-Live bij heeft nu een licht thema en een live routekaart met haltes en voertuigpositie. Zie `OVFLOW-4.7-LIGHT-LIVE-MAP.md`.
+## Wheaterflow Shop
 
+De webshop staat in `shop/` en is direct bereikbaar via `https://wheaterflow.be/shop/` zodra de repository is gedeployed.
+De shop bevat momenteel de complete storefront, productopties, lokaal winkelmandje en checkout-UI. Productfoto’s, live orderverwerking en een betaalprovider zijn bewust nog niet gekoppeld.
 
-## OVFlow 4.8.0
-Exacte De Lijn GTFS shapes op de Live bij-kaart. Zie `OVFLOW-4.8-EXACT-GTFS-ROUTE.md`.
+Belangrijk voor live verkoop: sluit eerst een server-side orderflow en betaalprovider aan en vervang de voorlopige juridische teksten in `shop/privacy.html` en `shop/voorwaarden.html` door definitieve bedrijfsinformatie.
