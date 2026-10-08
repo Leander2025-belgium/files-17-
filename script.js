@@ -4068,49 +4068,42 @@ function rainNowcastCard(){
     </div>`;
   }
 
-  const trendText = rainingNow ? (change.label === 'DROGER ROND' ? 'Neemt af' : 'Neemt toe') : (rain?.status === 'rain_soon' ? 'Op komst' : 'Stabiel');
-  const trendSub = rainingNow ? (change.sub || '± 2 uur regen verwacht') : (change.sub || 'Komende 2 uur');
-  const locationName = state?.location?.name || state?.locationName || 'jouw locatie';
-  const smartLine = rainingNow
-    ? `${esc(statusText)} in ${esc(locationName)}, ${change.label === 'DROGER ROND' ? `wordt waarschijnlijk droger ${esc(change.sub||'')}` : 'regen houdt voorlopig aan'}.`
-    : immediateVicinity ? `Regen ligt vlakbij ${esc(locationName)}.` : `Momenteel droog in ${esc(locationName)}.`;
-  const summaryLine = rainingNow
-    ? (change.label === 'DROGER ROND' ? `De regen neemt later af. ${esc(change.sub||'')}` : 'Regen houdt voorlopig aan. De intensiteit kan de komende twee uur variëren.')
-    : rain?.status === 'rain_soon' ? `Regen wordt verwacht ${esc(change.sub||'binnenkort')}.` : 'Geen regen verwacht in de komende twee uur.';
-
-  return `<div class="card rain-now-card rain-reference-layout rain-premium-v2 ${rain.status} ${rain.heavyShower?'heavy':''}">
+  return `<div class="card rain-now-card rain-reference-layout ${rain.status} ${rain.heavyShower?'heavy':''}">
     <div class="rain-now-top">
-      <span class="rain-brand">${rainIcon('01-regen','rain-brand-icon')}<strong>Regen</strong></span>
-      <span class="rain-updated">${rainIcon('05-bijgewerkt','rain-updated-icon')}<span>Zojuist bijgewerkt</span></span>
+      <span class="rain-brand">${rainIcon('01-regen','rain-brand-icon')}<strong>WHEATERFLOW RAIN</strong></span>
+      <span class="rain-updated">${rainIcon('05-bijgewerkt','rain-updated-icon')}${esc(updateLabel)}</span>
     </div>
 
-    <div class="rain-premium-hero">
-      ${statusIcon}
-      <div><h3>${esc(statusText)}</h3><p>${currentMm.toFixed(1).replace('.',',')} mm/u · ${esc(trendText.toLowerCase())}</p></div>
-    </div>
-    <div class="rain-smart-line"><span class="rain-pin">⌖</span><span>${smartLine}</span><b>›</b></div>
+    <div class="rain-status-line">${statusIcon}<h3>${esc(statusText)}</h3></div>
 
     <div class="rain-main-grid">
       <div class="rain-main-card intensity-card">
         <div class="rain-main-card-icon">${intensityIcon}</div>
-        <div class="rain-main-card-copy"><small>INTENSITEIT</small><strong>${currentMm.toFixed(1).replace('.',',')} <em>mm/u</em></strong><span>${esc(displayedIntensity.label)}</span></div>
+        <div class="rain-main-card-copy">
+          <small>INTENSITEIT</small>
+          <strong>${esc(displayedIntensity.label)}</strong>
+          <span>${currentMm.toFixed(1)} mm/u</span>
+        </div>
       </div>
       <div class="rain-main-card change-card">
         <div class="rain-main-card-icon">${rainIcon('04-verwachting-2-uur','rain-metric-icon')}</div>
-        <div class="rain-main-card-copy"><small>VERLOOP</small><strong>${esc(trendText)}</strong><span>${esc(trendSub)}</span></div>
+        <div class="rain-main-card-copy">
+          <small>${esc(change.label)}</small>
+          <strong>${esc(change.main)}</strong>
+          ${change.sub?`<span>${esc(change.sub)}</span>`:''}
+        </div>
       </div>
     </div>
 
     <div class="rain-forecast-card">
-      <div class="rain-forecast-head"><div class="rain-forecast-title">VERWACHTE REGENINTENSITEIT</div><div class="rain-range"><span>30 min</span><span>1 uur</span><b>2 uur</b></div></div>
-      ${slots.length ? `<div class="rain-now-plot"><div class="rain-now-scale" aria-hidden="true"><span>Zwaar</span><span>Matig</span><span>Licht</span><span>Zeer<br>licht</span></div><div class="rain-now-chart" style="--rain-slot-count:${Math.max(1,slots.length)}">${barSlots}</div></div><div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 uur</span></div>` : `<div class="rain-chart-empty">Geen korte-termijnframes beschikbaar</div>`}
+      <div class="rain-forecast-title">VERWACHTE REGENINTENSITEIT</div>
+      ${slots.length ? `<div class="rain-now-plot"><div class="rain-now-scale" aria-hidden="true"><span>ZWAAR</span><span>MATIG</span><span>LICHT</span><span>ZEER LICHT</span></div><div class="rain-now-chart" style="--rain-slot-count:${Math.max(1,slots.length)}">${barSlots}</div></div><div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 uur</span></div>` : `<div class="rain-chart-empty">Geen korte-termijnframes beschikbaar</div>`}
     </div>
 
     <div class="rain-bottom-stats">
-      ${precipChance!=null ? `<div class="rain-bottom-stat"><div class="rain-stat-icon">☂</div><div><small>KANS OP<br>NEERSLAG</small><strong>${Math.round(precipChance)}%</strong></div></div>` : ''}
-      ${precipAmount!=null ? `<div class="rain-bottom-stat"><div class="rain-stat-icon">♧</div><div><small>VERWACHTE<br>HOEVEELHEID</small><strong>${esc(precipAmount>0 && precipAmount<0.1 && state.units.precip==='mm' ? '<0.1 mm' : fmtPrecip(precipAmount))}</strong><span>in de komende 2 uur</span></div></div>` : ''}
+      ${precipChance!=null ? `<div class="rain-bottom-stat"><small>KANS OP NEERSLAG</small><strong>${Math.round(precipChance)}%</strong></div>` : ''}
+      ${precipAmount!=null ? `<div class="rain-bottom-stat"><small>NEERSLAG HOEVEELHEID</small><strong>${esc(precipAmount>0 && precipAmount<0.1 && state.units.precip==='mm' ? '<0.1 mm' : fmtPrecip(precipAmount))}</strong></div>` : ''}
     </div>
-    <div class="rain-premium-summary"><div class="summary-bars">▥</div><div><strong>${rainingNow?'Regen houdt voorlopig aan':rain?.status==='rain_soon'?'Regen op komst':'Voorlopig droog'}</strong><span>${summaryLine}</span></div><b>›</b></div>
   </div>`;
 }
 
