@@ -1641,7 +1641,7 @@ async function loadXweatherConditions(){
   const key=`${lat.toFixed(3)},${lon.toFixed(3)}`;
   if(xweatherConditionsState.key===key && Date.now()-xweatherConditionsState.updated<300000) return;
   try{
-    const response=await fetch(`/api/xweather-conditions?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`, {cache:'no-store'});
+    const response=await fetch(`https://api.wheaterflow.be/api/xweather-conditions?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`, {cache:'no-store'});
     if(!response.ok) throw new Error(`Xweather HTTP ${response.status}`);
     const data=await response.json();
     if(!data?.success || !data?.observation) throw new Error(data?.error||'No observation');

@@ -23,6 +23,34 @@ const { getWeather } = require('./weather-engine');
 
 const app = express();
 
+// Xweather observations for current temperature, wind and cloud cover.
+// Secrets stay server-side. Frontend uses this endpoint with Fusion fallback.
+app.get('/api/xweather-conditions', async (req,res)=>{
+  res.set('Cache-Control','public, max-age=120');
+  const lat=Number(req.query.lat), lon=Number(req.query.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)
+    return res.status(400).json({success:false,error:'invalid_coordinates'});
+  const id=process.env.XWEATHER_CLIENT_ID, secret=process.env.XWEATHER_CLIENT_SECRET;
+  if(!id||!secret)return res.status(503).json({success:false,error:'missing_credentials'});
+  try{
+    const url=new URL(`https://api.aerisapi.com/observations/${lat.toFixed(4)},${lon.toFixed(4)}`);
+    url.searchParams.set('client_id',id);
+    url.searchParams.set('client_secret',secret);
+    url.searchParams.set('limit','1');
+    const response=await fetch(url,{signal:AbortSignal.timeout(7000)});
+    if(!response.ok)return res.status(502).json({success:false,error:`upstream_${response.status}`});
+    const data=await response.json();
+    const ob=Array.isArray(data?.response)?data.response[0]?.ob:data?.response?.ob;
+    if(!data?.success||!ob)return res.status(502).json({success:false,error:'no_observation'});
+    return res.json({success:true,source:'Xweather Conditions',observation:{
+      tempC:ob.tempC??null,windSpeedKPH:ob.windSpeedKPH??null,
+      windGustKPH:ob.windGustKPH??null,windDirDEG:ob.windDirDEG??null,
+      cloudCover:ob.cloudCover??null
+    }});
+  }catch(err){console.warn('Xweather conditions:',err.message);return res.status(502).json({success:false,error:'xweather_unavailable'});}
+});
+
+
 const PORT = Number(process.env.PORT || 3000);
 
 const DB = new Pool({host:process.env.DB_HOST || 'postgres', port:5432, database:process.env.POSTGRES_DB || 'wheaterflow', user:process.env.POSTGRES_USER || 'wheaterflow', password:process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD});
