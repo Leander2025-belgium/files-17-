@@ -1633,6 +1633,36 @@ async function loadCurrentObservation(){
   }
 }
 
+// Xweather Conditions: separate from the MapsGL map layers.
+const xweatherConditionsState = {data:null, key:'', updated:0, source:'Fusion'};
+async function loadXweatherConditions(){
+  const lat=Number(state.loc?.lat), lon=Number(state.loc?.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)) return;
+  const key=`${lat.toFixed(3)},${lon.toFixed(3)}`;
+  if(xweatherConditionsState.key===key && Date.now()-xweatherConditionsState.updated<300000) return;
+  try{
+    const response=await fetch(`/api/xweather-conditions?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`, {cache:'no-store'});
+    if(!response.ok) throw new Error(`Xweather HTTP ${response.status}`);
+    const data=await response.json();
+    if(!data?.success || !data?.observation) throw new Error(data?.error||'No observation');
+    xweatherConditionsState.data=data.observation;
+    xweatherConditionsState.key=key;
+    xweatherConditionsState.updated=Date.now();
+    xweatherConditionsState.source='Xweather';
+  }catch(error){
+    xweatherConditionsState.data=null;
+    xweatherConditionsState.key=key;
+    xweatherConditionsState.updated=Date.now();
+    xweatherConditionsState.source='Fusion (Xweather niet beschikbaar)';
+    console.warn('Xweather Conditions fallback:',error);
+  }
+}
+function xweatherCurrentObservation(){
+  const lat=Number(state.loc?.lat),lon=Number(state.loc?.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)) return null;
+  const key=`${lat.toFixed(3)},${lon.toFixed(3)}`;
+  return xweatherConditionsState.key===key && Date.now()-xweatherConditionsState.updated<600000 ? xweatherConditionsState.data : null;
+}
 function liveWeatherSnapshot(){
   const cur = {...(state.current || {})};
 
@@ -1680,6 +1710,17 @@ function liveWeatherSnapshot(){
     cur._wheaterflowFusion = truth;
   }
 
+  // Apply Xweather last, so METAR and Fusion cannot overwrite these three categories.
+  const xw=xweatherCurrentObservation();
+  if(xw){
+    const apply=(field,value)=>{if(value!==null && value!==undefined && value!=='' && Number.isFinite(Number(value))) cur[field]=Number(value);};
+    apply('temperature_2m',xw.tempC);
+    apply('wind_speed_10m',xw.windSpeedKPH);
+    apply('wind_gusts_10m',xw.windGustKPH);
+    apply('wind_direction_10m',xw.windDirDEG);
+    apply('cloud_cover',xw.cloudCover);
+  }
+  cur._conditionsSource=xw?'Xweather':'Fusion / METAR';
   cur.weather_code = effectiveCurrentWeatherCode(cur);
   return cur;
 }
@@ -2962,6 +3003,7 @@ async function loadWeather(){
     state.lastUpdated = Date.now();
 const optionalResults = await Promise.allSettled([
   loadCurrentConditionsTruth({force:true}),
+  loadXweatherConditions(),
   loadCurrentObservation(),
   loadMarine(),
   loadAirQuality(),
@@ -2978,6 +3020,7 @@ const optionalResults = await Promise.allSettled([
 console.warn(
   [
     'Current Conditions Fusion',
+    'Xweather Conditions',
     'METAR',
     'Marine',
     'Luchtkwaliteit',
