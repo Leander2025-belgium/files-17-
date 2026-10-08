@@ -2992,6 +2992,89 @@ async function fetchForecastWithFallback(model){
   }
 }
 
+// Noodherstel: toon actuele waarnemingen zonder een geldige forecast te simuleren.
+// Deze weergave gebruikt uitsluitend de bestaande Fusion-endpoint en vervangt
+// de volledige weerpagina alleen wanneer /forecast niet beschikbaar is.
+async function renderWeatherWithoutForecast(forecastError){
+  const locKey = currentTruthLocKey();
+  if(!locKey) return false;
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 8500);
+  let data;
+  try{
+    const url = new URL(WHEATERFLOW_API_BASE + '/current');
+    url.searchParams.set('lat', String(state.loc.lat));
+    url.searchParams.set('lon', String(state.loc.lon));
+    const response = await fetch(url.href, {cache:'no-store',signal:controller.signal,headers:{accept:'application/json'}});
+    if(!response.ok) return false;
+    data = await response.json();
+  }catch(error){
+    console.warn('Noodweergave actuele metingen niet bereikbaar:', error);
+    return false;
+  }finally{
+    clearTimeout(timeout);
+  }
+  // Locatie kan veranderd zijn terwijl het verzoek onderweg was.
+  if(currentTruthLocKey() !== locKey || data?.ok !== true || data?.status !== 'ok') return false;
+  const numberOrNull = v => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
+  const temp = numberOrNull(data.temperature);
+  const humidity = numberOrNull(data.humidity);
+  const wind = numberOrNull(data.windSpeed);
+  const gust = numberOrNull(data.windGusts);
+  const radar = data.radar?.available === true ? data.radar : null;
+  if(temp == null && humidity == null && wind == null && gust == null && !radar) return false;
+
+  state.currentTruth = {data,locKey,fetchedAt:Date.now(),error:null};
+  state.lastUpdated = Date.now();
+  // Niet toestaan dat een oude forecast van een vorige locatie de UI vervuilt.
+  state.current = null;
+  state.hourly = null;
+  state.daily = null;
+  state.minutely = null;
+
+  const metric = (label,value,unit,decimals=0) => `<div class="card" style="padding:16px;min-width:0"><div style="opacity:.75;font-size:.85rem">${esc(label)}</div><strong style="font-size:1.4rem">${value == null ? '—' : esc(value.toFixed(decimals).replace('.', ',') + unit)}</strong></div>`;
+  const measurements = data.stationFallback?.measurements || {};
+  const observedTimes = Object.values(measurements).map(m=>Date.parse(m?.observedAt)).filter(Number.isFinite);
+  const newest = observedTimes.length ? new Date(Math.max(...observedTimes)).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'}) : null;
+  const isStation = Boolean(data.stationFallback?.degraded);
+  const sourceLabel = isStation ? 'Wheaterflow Station Network · nabijgelegen meetstations' : 'Wheaterflow Fusion';
+  const rainLabel = data.isRaining === true ? 'Regen gedetecteerd' :
+    radar?.localDetected === true ? 'Regen gedetecteerd op radar' :
+    radar?.nearbyDetected === true ? 'Regen in de omgeving' :
+    radar ? 'Geen regen gedetecteerd op de locatie' : 'Regenstatus onbekend';
+  const condition = data.condition?.id && data.condition.id !== 'unavailable' ? data.condition.label : 'Actuele stationsmetingen';
+  const note = isStation ? 'De waarden zijn afkomstig van nabijgelegen stations en kunnen afwijken van jouw exacte locatie. KMI-metingen kunnen nog niet gevalideerd zijn.' : 'De actuele metingen zijn beschikbaar, maar de voorspelling tijdelijk niet.';
+  const html = `<div class="hero">
+    <div class="hero-kicker">MIJN LOCATIE</div>
+    <div class="locname">${esc(locationDisplayName('Locatie bepalen...'))}</div>
+    <div class="bignum display">${temp == null ? '—' : esc(fmtTemp(temp))}</div>
+    <div class="cond">${esc(condition)}</div>
+    <div class="updated">Actuele metingen${newest ? ' · meting '+esc(newest) : ''} · ${esc(sourceLabel)}</div>
+  </div>
+  <div class="card" role="status" style="padding:18px;margin-bottom:14px">
+    <div class="card-title">Voorspelling tijdelijk niet beschikbaar</div>
+    <p style="margin:8px 0">De weerdienst heeft tijdelijk zijn aanvraaglimiet bereikt. Je kunt de actuele metingen hieronder wel bekijken.</p>
+    <p style="opacity:.8;font-size:.88rem;margin:0">${esc(note)}</p>
+    <button type="button" id="wfEmergencyRetry" style="margin-top:12px;padding:10px 16px;border-radius:12px">Opnieuw proberen</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px">
+    ${metric('Temperatuur',temp,' °C',1)}
+    ${metric('Luchtvochtigheid',humidity,'%',0)}
+    ${metric('Wind',wind,' km/u',1)}
+    ${metric('Windstoten',gust,' km/u',1)}
+  </div>
+  <div class="card" style="padding:18px;margin-bottom:14px">
+    <div class="card-title">Radar en neerslag</div>
+    <p>${esc(rainLabel)}</p>
+    ${radar && Number.isFinite(Number(radar.nearestEchoKm)) && radar.nearbyDetected ? `<p style="opacity:.8">Dichtstbijzijnde radarecho: ${esc(Number(radar.nearestEchoKm).toFixed(1).replace('.', ','))} km</p>` : ''}
+    <p style="opacity:.8;font-size:.88rem">De regenradar blijft beschikbaar via het tabblad Radar. Er worden geen ontbrekende voorspellingen verzonnen.</p>
+  </div>`;
+  $('#homeInner').innerHTML = html;
+  $('#wfEmergencyRetry')?.addEventListener('click',()=>loadWeather());
+  console.warn('Wheaterflow noodweergave actief; forecast niet beschikbaar:', forecastError?.message || forecastError);
+  return true;
+}
+
 async function loadWeather(){
   $('#homeLoader')?.classList.remove('hide');
   try{
@@ -3049,7 +3132,15 @@ console.warn(
     try{ if($('#radarscreen')?.classList.contains('active') && state.radar.duration>1) renderHourlyChart(); }catch(error){ console.warn('Radar grafiek update faalde:', error); }
   }catch(e){
     console.error('Weather load failed:', e);
-    $('#homeInner').innerHTML = `<div class="empty-state">${icon('cloud',true,38)}<div>Kon het weer niet laden.<br>Controleer je internetverbinding en probeer opnieuw.</div></div>`;
+    // Bij een falende forecast blijft de Vandaag-pagina bruikbaar via /api/current.
+    // Renderfouten en netwerkproblemen mogen de rest van de app niet blokkeren.
+    let recovered = false;
+    try{ recovered = await renderWeatherWithoutForecast(e); }
+    catch(recoveryError){ console.warn('Noodweergave renderen mislukt:', recoveryError); }
+    if(!recovered){
+      $('#homeInner').innerHTML = `<div class="empty-state">${icon('cloud',true,38)}<div>Kon het weer niet laden. Probeer het later opnieuw.</div><button type="button" id="wfWeatherRetry">Opnieuw proberen</button></div>`;
+      $('#wfWeatherRetry')?.addEventListener('click',()=>loadWeather());
+    }
   }finally{
     $('#homeLoader')?.classList.add('hide');
     setTimeout(hideAppSplash, 260);
