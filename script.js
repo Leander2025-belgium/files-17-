@@ -5557,10 +5557,6 @@ function smartMessages(){
 function mapLayerSection(){
   const layers = [
     ['radar','Buienradar'],
-    ['temperatures','Temperatuur'],
-    ['wind-speeds','Wind'],
-    ['cloud-cover','Bewolking'],
-    ['lightning-strikes-icons','Onweer'],
     ['wave-heights','Zeetemperatuur'],
     ['snow','Sneeuw'],
     ['satellite','Satelliet']
