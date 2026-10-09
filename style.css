@@ -16059,26 +16059,6 @@ body .tabbar .tabbtn:focus-visible{
   color:rgba(246,251,255,.92)!important;
   white-space:nowrap;
 }
-#home .rain-explorer-step{
-  flex:0 0 auto;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  min-height:28px;
-  padding:5px 10px;
-  border:1px solid rgba(195,231,255,.22);
-  border-radius:999px;
-  background:rgba(34,103,153,.15);
-  color:rgba(229,243,255,.78);
-  font-size:10px;
-  line-height:1;
-  white-space:nowrap;
-}
-#home .rain-explorer-step b{
-  color:#78ddff;
-  font-size:13px;
-  line-height:1;
-}
 #home .rain-explorer{
   --rain-tip-x:50%;
   position:relative;
@@ -16294,8 +16274,6 @@ body .tabbar .tabbtn:focus-visible{
   }
   #home .rain-explorer-head{gap:7px;margin-bottom:7px;}
   #home .rain-explorer-card .rain-forecast-title{font-size:10.5px!important;letter-spacing:.075em!important;}
-  #home .rain-explorer-step{min-height:24px;padding:4px 7px;font-size:8px;gap:4px;}
-  #home .rain-explorer-step b{font-size:11px;}
   #home .rain-explorer-plot{grid-template-columns:43px minmax(0,1fr);gap:5px;}
   #home .rain-explorer-scale{height:194px;padding:66px 0 24px;font-size:7px!important;}
   #home .rain-explorer-stage{height:216px;padding-top:65px;}

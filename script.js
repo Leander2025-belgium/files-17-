@@ -4220,7 +4220,6 @@ function rainNowcastCard(){
     <div class="rain-forecast-card rain-explorer-card">
       <div class="rain-explorer-head">
         <div class="rain-forecast-title">VERWACHTE REGENINTENSITEIT</div>
-        <span class="rain-explorer-step"><b aria-hidden="true">▥</b> elk balkje = 10 min</span>
       </div>
       ${slots.length ? `<div class="rain-explorer" data-rain-intensity-chart style="--rain-tip-x:${(rainPeakIndex/(rainTenMinutePoints.length-1)*100).toFixed(1)}%">
         <div class="rain-explorer-plot">
