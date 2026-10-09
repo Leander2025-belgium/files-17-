@@ -16028,3 +16028,342 @@ body .tabbar .tabbtn:focus-visible{
 #home .rain-premium-v2 .rain-bottom-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}.rain-premium-v2 .rain-bottom-stat{display:flex;align-items:center;gap:12px;min-height:112px;padding:14px;border:1px solid rgba(205,233,255,.25)!important;border-radius:25px!important;background:rgba(31,77,119,.20)!important;text-align:left}.rain-stat-icon{font-size:42px;color:#73ddff;text-shadow:0 0 12px rgba(60,200,255,.65)}.rain-premium-v2 .rain-bottom-stat small{display:block;font-size:12px;line-height:1.2}.rain-premium-v2 .rain-bottom-stat strong{display:block;font-size:29px;margin-top:5px}.rain-premium-v2 .rain-bottom-stat span{display:block;font-size:11px;color:rgba(225,239,255,.7)}
 #home .rain-premium-summary{display:grid;grid-template-columns:46px 1fr 18px;gap:12px;align-items:center;margin-top:14px;padding:14px 16px;border:1px solid rgba(205,233,255,.25);border-radius:25px;background:rgba(34,83,127,.20)}.rain-premium-summary .summary-bars{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:rgba(83,184,240,.18);font-size:26px;color:#83e6ff}.rain-premium-summary strong,.rain-premium-summary span{display:block}.rain-premium-summary strong{font-size:16px}.rain-premium-summary span{margin-top:3px;font-size:12px;line-height:1.35;color:rgba(229,241,255,.82)}.rain-premium-summary>b{font-size:30px;font-weight:300}
 @media(max-width:560px){#home .rain-premium-v2{padding:14px;border-radius:30px!important}.rain-premium-hero{gap:10px!important;padding:20px 4px 14px!important}.rain-premium-hero .rain-status-icon{width:78px!important;height:78px!important}.rain-premium-hero h3{font-size:34px!important;letter-spacing:-1.2px!important}.rain-premium-hero p{font-size:16px}.rain-premium-v2 .rain-main-card{min-height:116px;padding:12px 10px!important}.rain-premium-v2 .rain-main-card-icon img{width:52px!important;height:52px!important}.rain-premium-v2 .rain-main-card-copy strong{font-size:21px}.rain-forecast-head{align-items:flex-start;flex-direction:column}.rain-range{align-self:flex-end}.rain-premium-v2 .rain-bottom-stat{padding:11px;gap:8px}.rain-stat-icon{font-size:31px}.rain-premium-v2 .rain-bottom-stat strong{font-size:25px}}
+
+/* ======================================================================
+   Wheaterflow Rain — interactieve 10-minuten regenintensiteit
+   Scope: alleen de kaart "Verwachte regenintensiteit".
+   ====================================================================== */
+#home .rain-now-card.rain-reference-layout .rain-forecast-card.rain-explorer-card{
+  position:relative;
+  overflow:hidden;
+  padding:16px 16px 14px!important;
+  border:1px solid rgba(240,249,255,.24)!important;
+  border-radius:25px!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08)!important;
+}
+#home .rain-explorer-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+#home .rain-explorer-card .rain-forecast-title{
+  margin:0!important;
+  padding:0!important;
+  font-size:13px!important;
+  line-height:1.2!important;
+  letter-spacing:.11em!important;
+  font-weight:850!important;
+  color:rgba(246,251,255,.92)!important;
+  white-space:nowrap;
+}
+#home .rain-explorer-step{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:28px;
+  padding:5px 10px;
+  border:1px solid rgba(195,231,255,.22);
+  border-radius:999px;
+  background:rgba(34,103,153,.15);
+  color:rgba(229,243,255,.78);
+  font-size:10px;
+  line-height:1;
+  white-space:nowrap;
+}
+#home .rain-explorer-step b{
+  color:#78ddff;
+  font-size:13px;
+  line-height:1;
+}
+#home .rain-explorer{
+  --rain-tip-x:50%;
+  position:relative;
+  min-width:0;
+}
+#home .rain-explorer-plot{
+  display:grid;
+  grid-template-columns:58px minmax(0,1fr);
+  gap:10px;
+  align-items:stretch;
+  min-width:0;
+}
+#home .rain-explorer-scale{
+  height:208px;
+  padding:71px 0 25px;
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  color:rgba(231,242,255,.70)!important;
+  font-size:9px!important;
+  font-weight:800!important;
+  line-height:1.05!important;
+  letter-spacing:.035em!important;
+  text-align:left;
+}
+#home .rain-explorer-scale span{
+  display:block;
+  padding:0!important;
+  background:none!important;
+}
+#home .rain-explorer-stage{
+  position:relative;
+  min-width:0;
+  height:232px;
+  padding-top:70px;
+  box-sizing:border-box;
+}
+#home .rain-explorer-tooltip{
+  position:absolute;
+  z-index:5;
+  top:0;
+  left:var(--rain-tip-x);
+  transform:translateX(-50%);
+  width:142px;
+  min-height:66px;
+  box-sizing:border-box;
+  padding:8px 11px 9px;
+  border:1px solid rgba(165,222,255,.56);
+  border-radius:16px;
+  background:linear-gradient(160deg,rgba(16,57,96,.88),rgba(13,41,73,.80));
+  box-shadow:0 10px 24px rgba(3,25,52,.20),inset 0 1px 0 rgba(255,255,255,.12);
+  -webkit-backdrop-filter:blur(16px) saturate(135%);
+  backdrop-filter:blur(16px) saturate(135%);
+  pointer-events:none;
+  text-align:left;
+  color:#f6fbff;
+}
+#home .rain-explorer-tooltip::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  bottom:-7px;
+  width:12px;
+  height:12px;
+  transform:translateX(-50%) rotate(45deg);
+  border-right:1px solid rgba(165,222,255,.56);
+  border-bottom:1px solid rgba(165,222,255,.56);
+  background:rgba(13,41,73,.90);
+}
+#home .rain-explorer-tooltip .rain-tip-time{
+  display:block;
+  font-size:10px;
+  line-height:1.1;
+  color:rgba(230,243,255,.76);
+}
+#home .rain-explorer-tooltip strong{
+  display:block;
+  margin-top:2px;
+  color:#78dcff;
+  font-size:17px;
+  line-height:1.05;
+  letter-spacing:-.02em;
+}
+#home .rain-explorer-tooltip .rain-tip-label{
+  display:block;
+  margin-top:3px;
+  font-size:10px;
+  font-weight:700;
+  color:#fff;
+}
+#home .rain-explorer-tooltip small{
+  display:block;
+  margin-top:6px;
+  padding-top:5px;
+  border-top:1px solid rgba(225,242,255,.12);
+  font-size:9px;
+  line-height:1.15;
+  color:rgba(230,243,255,.72);
+}
+#home .rain-explorer-bars{
+  position:absolute;
+  left:0;
+  right:0;
+  top:80px;
+  height:122px;
+  display:grid;
+  grid-template-columns:repeat(13,minmax(0,1fr));
+  align-items:end;
+  gap:clamp(3px,1vw,8px);
+  touch-action:pan-y;
+  user-select:none;
+  -webkit-user-select:none;
+}
+#home .rain-explorer-bars::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(191,232,255,.52) 8%,rgba(191,232,255,.52) 92%,transparent);
+  pointer-events:none;
+}
+#home .rain-explorer-bar{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  height:100%;
+  min-width:0;
+  margin:0;
+  padding:0;
+  border:0;
+  outline:0;
+  background:transparent!important;
+  box-shadow:none!important;
+  cursor:crosshair;
+  -webkit-tap-highlight-color:transparent;
+}
+#home .rain-explorer-bar i{
+  display:block;
+  width:min(82%,18px);
+  min-width:7px;
+  min-height:3px;
+  border-radius:999px 999px 6px 6px;
+  background:linear-gradient(180deg,rgba(142,239,255,.96),rgba(42,155,244,.72))!important;
+  border:1px solid rgba(202,246,255,.44);
+  box-shadow:0 0 9px rgba(58,191,255,.18),inset 0 1px 0 rgba(255,255,255,.35)!important;
+  opacity:.76;
+  transition:height .18s ease,opacity .14s ease,filter .14s ease,transform .14s ease,box-shadow .14s ease;
+}
+#home .rain-explorer-bar.is-dry i{
+  min-height:2px;
+  opacity:.22;
+  box-shadow:none!important;
+}
+#home .rain-explorer-bar.is-selected i,
+#home .rain-explorer-bar:focus-visible i{
+  opacity:1;
+  transform:scaleX(1.08);
+  filter:brightness(1.13);
+  box-shadow:0 0 16px rgba(88,216,255,.58),inset 0 1px 0 rgba(255,255,255,.54)!important;
+}
+#home .rain-explorer-bar.is-selected::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:0;
+  bottom:-2px;
+  width:1px;
+  transform:translateX(-50%);
+  background:linear-gradient(180deg,rgba(105,218,255,.85),rgba(105,218,255,.18) 72%,transparent);
+  box-shadow:0 0 8px rgba(80,205,255,.45);
+  pointer-events:none;
+}
+#home .rain-explorer-bar.is-selected::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:-3px;
+  width:7px;
+  height:7px;
+  transform:translateX(-50%);
+  border-radius:50%;
+  background:#d9f8ff;
+  box-shadow:0 0 10px rgba(100,221,255,.95);
+  pointer-events:none;
+}
+#home .rain-explorer-axis{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  align-items:start;
+  color:rgba(231,243,255,.76);
+  font-size:9px;
+  font-weight:650;
+  line-height:1;
+  pointer-events:none;
+}
+#home .rain-explorer-axis span{text-align:center;white-space:nowrap;}
+#home .rain-explorer-axis span:first-child{text-align:left;font-weight:850;color:#fff;}
+#home .rain-explorer-axis span:last-child{text-align:right;font-weight:850;color:#fff;}
+#home .rain-explorer-summary{
+  display:grid;
+  grid-template-columns:1.15fr 1fr 1fr;
+  gap:0;
+  margin-top:11px;
+  padding-top:12px;
+  border-top:1px solid rgba(226,243,255,.12);
+}
+#home .rain-explorer-summary>div{
+  min-width:0;
+  display:grid;
+  grid-template-columns:30px minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  padding:0 11px;
+  border-right:1px solid rgba(226,243,255,.12);
+}
+#home .rain-explorer-summary>div:first-child{padding-left:0;}
+#home .rain-explorer-summary>div:last-child{padding-right:0;border-right:0;}
+#home .rain-summary-icon{
+  display:grid;
+  place-items:center;
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:rgba(48,137,199,.16);
+  border:1px solid rgba(177,225,255,.20);
+  color:#83e4ff;
+  font-size:16px;
+  line-height:1;
+}
+#home .rain-explorer-summary p{
+  min-width:0;
+  margin:0;
+  color:rgba(236,247,255,.78);
+  font-size:9.5px;
+  line-height:1.25;
+}
+#home .rain-explorer-summary b{
+  color:#7fe2ff;
+  font-size:12px;
+  white-space:nowrap;
+}
+#home .rain-explorer-summary small{
+  display:block;
+  margin-top:2px;
+  color:rgba(229,243,255,.58);
+  font-size:8.5px;
+}
+
+@media(max-width:520px){
+  #home .rain-now-card.rain-reference-layout .rain-forecast-card.rain-explorer-card{
+    padding:14px 12px 12px!important;
+    border-radius:22px!important;
+  }
+  #home .rain-explorer-head{gap:7px;margin-bottom:7px;}
+  #home .rain-explorer-card .rain-forecast-title{font-size:10.5px!important;letter-spacing:.075em!important;}
+  #home .rain-explorer-step{min-height:24px;padding:4px 7px;font-size:8px;gap:4px;}
+  #home .rain-explorer-step b{font-size:11px;}
+  #home .rain-explorer-plot{grid-template-columns:43px minmax(0,1fr);gap:5px;}
+  #home .rain-explorer-scale{height:194px;padding:66px 0 24px;font-size:7px!important;}
+  #home .rain-explorer-stage{height:216px;padding-top:65px;}
+  #home .rain-explorer-tooltip{width:118px;min-height:60px;padding:7px 9px;border-radius:14px;}
+  #home .rain-explorer-tooltip strong{font-size:15px;}
+  #home .rain-explorer-tooltip .rain-tip-time,
+  #home .rain-explorer-tooltip .rain-tip-label{font-size:8.5px;}
+  #home .rain-explorer-tooltip small{margin-top:5px;padding-top:4px;font-size:7.5px;}
+  #home .rain-explorer-bars{top:75px;height:112px;gap:3px;}
+  #home .rain-explorer-bar i{width:72%;min-width:5px;}
+  #home .rain-explorer-axis{font-size:7.5px;}
+  #home .rain-explorer-summary{grid-template-columns:1fr;gap:7px;padding-top:10px;}
+  #home .rain-explorer-summary>div{
+    grid-template-columns:27px minmax(0,1fr);
+    min-height:31px;
+    padding:0!important;
+    border-right:0;
+  }
+  #home .rain-summary-icon{width:27px;height:27px;font-size:14px;}
+  #home .rain-explorer-summary p{font-size:9px;}
+  #home .rain-explorer-summary b{font-size:11px;}
+}

@@ -4096,21 +4096,52 @@ function rainNowcastCard(){
     return {label:'GEEN REGEN VERWACHT', main:'Komende 2 uur', sub:''};
   })();
 
-  // Als het nu al regent via de live snapshot maar het eerste 15-minutenframe nog
-  // droog staat, tonen we toch een "Nu"-balk zodat de grafiek overeenkomt met de status.
-  // Lege slots blijven verder ruimtelijk bestaan zodat de tijdas klopt.
-  const barSlots = displaySlots.map((slot,i)=>{
-    const hourlyMm = Math.max(0,(Number(slot.precipitation)||0)*4);
-    const level = rainIntensityToLevel(hourlyMm);
-    const current = Number(slot.minutes) === 0 || i === 0;
-    const barHeight = hourlyMm > 0
-      ? Math.min(96, Math.max(6, Math.round(rainIntensityToHeight(hourlyMm)*1.32)))
-      : 0;
-    const bar = hourlyMm > 0
-      ? `<i class="${current?'now':''} ${level.id}" title="${Math.round(Number(slot.minutes)||0)} min: ${hourlyMm.toFixed(1)} mm/u · ${level.label}" style="height:${barHeight}px"></i>`
-      : '';
-    return `<span class="rain-slot ${hourlyMm>0?'has-rain':'is-dry'}">${bar}</span>`;
-  }).join('');
+  // Premium Rain Explorer: 10-minutenbalken op basis van de bestaande
+  // korte-termijnframes. Tussenliggende punten worden alleen visueel geïnterpoleerd;
+  // de onderliggende nowcast-data en regenlogica blijven volledig ongewijzigd.
+  const sourcePoints = displaySlots
+    .map(slot=>({
+      minutes:Math.max(0,Number(slot.minutes)||0),
+      hourlyMm:Math.max(0,(Number(slot.precipitation)||0)*4)
+    }))
+    .filter(point=>point.minutes <= 120)
+    .sort((a,b)=>a.minutes-b.minutes);
+
+  if(sourcePoints.length && sourcePoints[0].minutes > 0){
+    sourcePoints.unshift({minutes:0,hourlyMm:rainingNow ? currentMm : 0});
+  }
+
+  const interpolatedRainAt = minute=>{
+    if(!sourcePoints.length) return 0;
+    const exact = sourcePoints.find(point=>point.minutes === minute);
+    if(exact) return exact.hourlyMm;
+    let before = null, after = null;
+    for(const point of sourcePoints){
+      if(point.minutes < minute) before = point;
+      if(point.minutes > minute){ after = point; break; }
+    }
+    if(!before) return after?.hourlyMm || 0;
+    if(!after) return before.minutes >= 105 ? before.hourlyMm : 0;
+    const span = Math.max(1,after.minutes-before.minutes);
+    const mix = (minute-before.minutes)/span;
+    return Math.max(0,before.hourlyMm + (after.hourlyMm-before.hourlyMm)*mix);
+  };
+
+  const rainTenMinutePoints = Array.from({length:13},(_,index)=>{
+    const minutes=index*10;
+    const hourlyMm=interpolatedRainAt(minutes);
+    const level=rainIntensityToLevel(hourlyMm);
+    const amount10m=hourlyMm/6;
+    const at=new Date(Date.now()+minutes*60000);
+    const time=at.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
+    const heightPct=hourlyMm > 0
+      ? Math.min(96,Math.max(12,12+Math.sqrt(Math.min(hourlyMm,9)/9)*84))
+      : 3;
+    return {minutes,hourlyMm,amount10m,level,time,heightPct};
+  });
+  const rainPeakPoint = rainTenMinutePoints.reduce((best,point)=>point.hourlyMm>best.hourlyMm?point:best,rainTenMinutePoints[0]);
+  const rainPeakIndex = Math.max(0,rainTenMinutePoints.indexOf(rainPeakPoint));
+  const rainExplorerBars = rainTenMinutePoints.map((point,index)=>`<button type="button" class="rain-explorer-bar ${point.hourlyMm>0?'has-rain':'is-dry'} ${index===rainPeakIndex?'is-selected':''}" data-rain-index="${index}" data-rain-time="${esc(point.time)}" data-rain-mm="${point.hourlyMm.toFixed(2)}" data-rain-amount="${point.amount10m.toFixed(2)}" data-rain-label="${esc(point.level.label)}" aria-label="${esc(point.time)} · ${point.hourlyMm.toFixed(1)} mm/u · ${esc(point.level.label)}"><i class="${point.level.id}" style="height:${point.heightPct.toFixed(1)}%"></i></button>`).join('');
 
   const hourly = state.hourly || {};
   const nowIdx = nowIndexInHourly();
@@ -4186,9 +4217,31 @@ function rainNowcastCard(){
       </div>
     </div>
 
-    <div class="rain-forecast-card">
-      <div class="rain-forecast-title">VERWACHTE REGENINTENSITEIT</div>
-      ${slots.length ? `<div class="rain-now-plot"><div class="rain-now-scale" aria-hidden="true"><span>ZWAAR</span><span>MATIG</span><span>LICHT</span><span>ZEER LICHT</span></div><div class="rain-now-chart" style="--rain-slot-count:${Math.max(1,slots.length)}">${barSlots}</div></div><div class="rain-now-axis"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 uur</span></div>` : `<div class="rain-chart-empty">Geen korte-termijnframes beschikbaar</div>`}
+    <div class="rain-forecast-card rain-explorer-card">
+      <div class="rain-explorer-head">
+        <div class="rain-forecast-title">VERWACHTE REGENINTENSITEIT</div>
+        <span class="rain-explorer-step"><b aria-hidden="true">▥</b> elk balkje = 10 min</span>
+      </div>
+      ${slots.length ? `<div class="rain-explorer" data-rain-intensity-chart style="--rain-tip-x:${(rainPeakIndex/(rainTenMinutePoints.length-1)*100).toFixed(1)}%">
+        <div class="rain-explorer-plot">
+          <div class="rain-explorer-scale" aria-hidden="true"><span>ZWAAR</span><span>MATIG</span><span>LICHT</span><span>ZEER<br>LICHT</span></div>
+          <div class="rain-explorer-stage">
+            <div class="rain-explorer-tooltip" aria-live="polite">
+              <span class="rain-tip-time">${esc(rainPeakPoint.time)}</span>
+              <strong><span class="rain-tip-mm">${rainPeakPoint.hourlyMm.toFixed(1)}</span> mm/u</strong>
+              <span class="rain-tip-label">${esc(rainPeakPoint.level.label)}</span>
+              <small>± <span class="rain-tip-amount">${rainPeakPoint.amount10m.toFixed(2)}</span> mm in 10 min</small>
+            </div>
+            <div class="rain-explorer-bars">${rainExplorerBars}</div>
+            <div class="rain-explorer-axis" aria-hidden="true"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 uur</span></div>
+          </div>
+        </div>
+        <div class="rain-explorer-summary">
+          <div><span class="rain-summary-icon">◷</span><p>${rainingNow?'Regen nu':rain?.status==='rain_soon'&&Number.isFinite(Number(rain?.startsInMinutes))?`Regen verwacht over <b>±${Math.max(0,Math.round(Number(rain.startsInMinutes)))} min</b>`:'Geen regen verwacht binnen 2 uur'}</p></div>
+          <div><span class="rain-summary-icon">▥</span><p>Piek: <b>${rainPeakPoint.hourlyMm.toFixed(1)} mm/u</b><small>rond ${esc(rainPeakPoint.time)}</small></p></div>
+          <div><span class="rain-summary-icon">💧</span><p>Komende 2 uur: <b>${precipAmount!=null?esc(precipAmount>0&&precipAmount<0.1&&state.units.precip==='mm'?'<0.1 mm':fmtPrecip(precipAmount)):'—'}</b></p></div>
+        </div>
+      </div>` : `<div class="rain-chart-empty">Geen korte-termijnframes beschikbaar</div>`}
     </div>
 
     <div class="rain-bottom-stats">
@@ -4196,6 +4249,68 @@ function rainNowcastCard(){
       ${precipAmount!=null ? `<div class="rain-bottom-stat"><small>NEERSLAG HOEVEELHEID</small><strong>${esc(precipAmount>0 && precipAmount<0.1 && state.units.precip==='mm' ? '<0.1 mm' : fmtPrecip(precipAmount))}</strong></div>` : ''}
     </div>
   </div>`;
+}
+
+
+function wireRainIntensityExplorer(){
+  document.querySelectorAll('[data-rain-intensity-chart]').forEach(explorer=>{
+    if(explorer.dataset.rainWired === '1') return;
+    explorer.dataset.rainWired='1';
+    const bars=[...explorer.querySelectorAll('.rain-explorer-bar')];
+    const stage=explorer.querySelector('.rain-explorer-stage');
+    const barsWrap=explorer.querySelector('.rain-explorer-bars');
+    const tipTime=explorer.querySelector('.rain-tip-time');
+    const tipMm=explorer.querySelector('.rain-tip-mm');
+    const tipLabel=explorer.querySelector('.rain-tip-label');
+    const tipAmount=explorer.querySelector('.rain-tip-amount');
+    if(!bars.length || !stage || !barsWrap) return;
+
+    let activeIndex=Math.max(0,bars.findIndex(bar=>bar.classList.contains('is-selected')));
+    let dragging=false;
+
+    const selectBar=(bar,feedback=false)=>{
+      if(!bar) return;
+      const index=Math.max(0,bars.indexOf(bar));
+      if(index<0) return;
+      bars.forEach(item=>item.classList.toggle('is-selected',item===bar));
+      activeIndex=index;
+      const x=bars.length<=1?50:(index/(bars.length-1))*100;
+      explorer.style.setProperty('--rain-tip-x',`${Math.max(8,Math.min(92,x)).toFixed(1)}%`);
+      if(tipTime) tipTime.textContent=bar.dataset.rainTime||'';
+      if(tipMm) tipMm.textContent=Number(bar.dataset.rainMm||0).toFixed(1);
+      if(tipLabel) tipLabel.textContent=bar.dataset.rainLabel||'';
+      if(tipAmount) tipAmount.textContent=Number(bar.dataset.rainAmount||0).toFixed(2);
+      if(feedback && navigator.vibrate) navigator.vibrate(4);
+    };
+
+    const selectFromPointer=e=>{
+      const rect=barsWrap.getBoundingClientRect();
+      if(!rect.width) return;
+      const ratio=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+      const index=Math.max(0,Math.min(bars.length-1,Math.round(ratio*(bars.length-1))));
+      if(index!==activeIndex) selectBar(bars[index],true);
+    };
+
+    bars.forEach(bar=>{
+      bar.addEventListener('focus',()=>selectBar(bar));
+      bar.addEventListener('click',()=>selectBar(bar,true));
+      bar.addEventListener('pointerenter',e=>{ if(e.pointerType==='mouse') selectBar(bar); });
+    });
+    barsWrap.addEventListener('pointerdown',e=>{
+      dragging=true;
+      try{ barsWrap.setPointerCapture(e.pointerId); }catch(_){}
+      selectFromPointer(e);
+    });
+    barsWrap.addEventListener('pointermove',e=>{
+      if(dragging || e.pointerType==='mouse') selectFromPointer(e);
+    });
+    const stop=e=>{
+      dragging=false;
+      try{ if(barsWrap.hasPointerCapture?.(e.pointerId)) barsWrap.releasePointerCapture(e.pointerId); }catch(_){}
+    };
+    barsWrap.addEventListener('pointerup',stop);
+    barsWrap.addEventListener('pointercancel',stop);
+  });
 }
 
 function weatherHeroLine(cur, rain){
@@ -4739,6 +4854,7 @@ html += rainNowcastCard();
     setTimeout(()=>document.querySelector('#sec2')?.scrollIntoView({behavior:'smooth',block:'start'}),40);
   });
   wireHomeMapLayers();
+  wireRainIntensityExplorer();
   wireMoreWeatherSections();
   requestAnimationFrame(()=>requestAnimationFrame(()=>fixHomeHeaderPosition()));
 }
