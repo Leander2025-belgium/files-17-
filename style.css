@@ -16286,55 +16286,6 @@ body .tabbar .tabbtn:focus-visible{
 #home .rain-explorer-axis span{text-align:center;white-space:nowrap;}
 #home .rain-explorer-axis span:first-child{text-align:left;font-weight:850;color:#fff;}
 #home .rain-explorer-axis span:last-child{text-align:right;font-weight:850;color:#fff;}
-#home .rain-explorer-summary{
-  display:grid;
-  grid-template-columns:1.15fr 1fr 1fr;
-  gap:0;
-  margin-top:11px;
-  padding-top:12px;
-  border-top:1px solid rgba(226,243,255,.12);
-}
-#home .rain-explorer-summary>div{
-  min-width:0;
-  display:grid;
-  grid-template-columns:30px minmax(0,1fr);
-  align-items:center;
-  gap:8px;
-  padding:0 11px;
-  border-right:1px solid rgba(226,243,255,.12);
-}
-#home .rain-explorer-summary>div:first-child{padding-left:0;}
-#home .rain-explorer-summary>div:last-child{padding-right:0;border-right:0;}
-#home .rain-summary-icon{
-  display:grid;
-  place-items:center;
-  width:30px;
-  height:30px;
-  border-radius:50%;
-  background:rgba(48,137,199,.16);
-  border:1px solid rgba(177,225,255,.20);
-  color:#83e4ff;
-  font-size:16px;
-  line-height:1;
-}
-#home .rain-explorer-summary p{
-  min-width:0;
-  margin:0;
-  color:rgba(236,247,255,.78);
-  font-size:9.5px;
-  line-height:1.25;
-}
-#home .rain-explorer-summary b{
-  color:#7fe2ff;
-  font-size:12px;
-  white-space:nowrap;
-}
-#home .rain-explorer-summary small{
-  display:block;
-  margin-top:2px;
-  color:rgba(229,243,255,.58);
-  font-size:8.5px;
-}
 
 @media(max-width:520px){
   #home .rain-now-card.rain-reference-layout .rain-forecast-card.rain-explorer-card{
@@ -16356,14 +16307,4 @@ body .tabbar .tabbtn:focus-visible{
   #home .rain-explorer-bars{top:75px;height:112px;gap:3px;}
   #home .rain-explorer-bar i{width:72%;min-width:5px;}
   #home .rain-explorer-axis{font-size:7.5px;}
-  #home .rain-explorer-summary{grid-template-columns:1fr;gap:7px;padding-top:10px;}
-  #home .rain-explorer-summary>div{
-    grid-template-columns:27px minmax(0,1fr);
-    min-height:31px;
-    padding:0!important;
-    border-right:0;
-  }
-  #home .rain-summary-icon{width:27px;height:27px;font-size:14px;}
-  #home .rain-explorer-summary p{font-size:9px;}
-  #home .rain-explorer-summary b{font-size:11px;}
 }

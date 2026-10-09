@@ -4236,11 +4236,6 @@ function rainNowcastCard(){
             <div class="rain-explorer-axis" aria-hidden="true"><span>Nu</span><span>30 min</span><span>60 min</span><span>90 min</span><span>2 uur</span></div>
           </div>
         </div>
-        <div class="rain-explorer-summary">
-          <div><span class="rain-summary-icon">◷</span><p>${rainingNow?'Regen nu':rain?.status==='rain_soon'&&Number.isFinite(Number(rain?.startsInMinutes))?`Regen verwacht over <b>±${Math.max(0,Math.round(Number(rain.startsInMinutes)))} min</b>`:'Geen regen verwacht binnen 2 uur'}</p></div>
-          <div><span class="rain-summary-icon">▥</span><p>Piek: <b>${rainPeakPoint.hourlyMm.toFixed(1)} mm/u</b><small>rond ${esc(rainPeakPoint.time)}</small></p></div>
-          <div><span class="rain-summary-icon">💧</span><p>Komende 2 uur: <b>${precipAmount!=null?esc(precipAmount>0&&precipAmount<0.1&&state.units.precip==='mm'?'<0.1 mm':fmtPrecip(precipAmount)):'—'}</b></p></div>
-        </div>
       </div>` : `<div class="rain-chart-empty">Geen korte-termijnframes beschikbaar</div>`}
     </div>
 
