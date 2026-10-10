@@ -5864,8 +5864,17 @@ async function setHomeMapLayer(layerId){
   setHomeMapStatus('Kaartlaag laden...');
   clearHomeMapOverlay();
   try{
+    // Buienradar gebruikt altijd de bestaande Wheaterflow/legacy radar.
+    // Zo wordt Xweather MapsGL niet meer automatisch gestart voor radar.
+    if(layerId === 'radar'){
+      await setHomeLegacyLayer('radar');
+      setHomeMapStatus('');
+      refreshHomeMapLayout();
+      $('#mapLayerTime').textContent = `Laatst bijgewerkt om ${new Date().toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}`;
+      return;
+    }
+
     const xweatherPrimary = [
-      'radar',
       'satellite',
       'temperatures',
       'wind-speeds',
