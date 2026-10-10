@@ -1644,7 +1644,16 @@ async function loadXweatherConditions(){
     const response=await fetch(`https://api.wheaterflow.be/api/xweather-conditions?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`, {cache:'no-store'});
     if(!response.ok) throw new Error(`Xweather HTTP ${response.status}`);
     const data=await response.json();
-    if(!data?.success || !data?.observation) throw new Error(data?.error||'No observation');
+
+    // Rate-limit/backoff is een normale fallback, geen consolefout.
+    if(!data?.success || !data?.observation){
+      xweatherConditionsState.data=null;
+      xweatherConditionsState.key=key;
+      xweatherConditionsState.updated=Date.now();
+      xweatherConditionsState.source='Fusion';
+      return;
+    }
+
     xweatherConditionsState.data=data.observation;
     xweatherConditionsState.key=key;
     xweatherConditionsState.updated=Date.now();
@@ -4278,7 +4287,6 @@ function wireRainIntensityExplorer(){
       if(tipMm) tipMm.textContent=Number(bar.dataset.rainMm||0).toFixed(1);
       if(tipLabel) tipLabel.textContent=bar.dataset.rainLabel||'';
       if(tipAmount) tipAmount.textContent=Number(bar.dataset.rainAmount||0).toFixed(2);
-      if(feedback && navigator.vibrate) navigator.vibrate(4);
     };
 
     const selectFromPointer=e=>{
