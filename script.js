@@ -4181,7 +4181,7 @@ function rainNowcastCard(){
     ? (currentPrecipitationDisplayLabel(liveWeatherSnapshot(), truth) || 'Regen')
     : immediateVicinity
       ? 'Regen vlakbij'
-      : 'Droog';
+      : 'Nu droog';
   const displayedIntensity = immediateVicinity && !rainingNow
     ? {id:'nearby', label:'Niet bevestigd op locatie'}
     : intensity;
