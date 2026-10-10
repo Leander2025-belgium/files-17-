@@ -4096,42 +4096,46 @@ function rainNowcastCard(){
     return {label:'GEEN REGEN VERWACHT', main:'Komende 2 uur', sub:''};
   })();
 
-  // Premium Rain Explorer: 10-minutenbalken op basis van de bestaande
-  // korte-termijnframes. Tussenliggende punten worden alleen visueel geïnterpoleerd;
-  // de onderliggende nowcast-data en regenlogica blijven volledig ongewijzigd.
-  const sourcePoints = displaySlots
+  // Premium Rain Explorer: elk balkje stelt exact 10 minuten voor.
+  // Open-Meteo minutely_15 levert neerslagHOEVEELHEID per 15-minutenvenster.
+  // Verdeel die hoeveelheid proportioneel over de overlappende 10-minutenvensters
+  // en reken pas daarna om naar mm/u. Zo gebruikt ieder balkje zijn eigen waarde
+  // in plaats van telkens dezelfde afgeronde 15-minutenwaarde × 4 te tonen.
+  const sourceIntervals = displaySlots
     .map(slot=>({
-      minutes:Math.max(0,Number(slot.minutes)||0),
-      hourlyMm:Math.max(0,(Number(slot.precipitation)||0)*4)
+      start:Math.max(0,Number(slot.minutes)||0),
+      amount15m:Math.max(0,Number(slot.precipitation)||0)
     }))
-    .filter(point=>point.minutes <= 120)
-    .sort((a,b)=>a.minutes-b.minutes);
+    .filter(interval=>interval.start < 120)
+    .sort((a,b)=>a.start-b.start);
 
-  if(sourcePoints.length && sourcePoints[0].minutes > 0){
-    sourcePoints.unshift({minutes:0,hourlyMm:rainingNow ? currentMm : 0});
-  }
+  const tenMinuteAmount = minute=>{
+    const start=minute;
+    const end=Math.min(120,minute+10);
+    if(end<=start) return 0;
 
-  const interpolatedRainAt = minute=>{
-    if(!sourcePoints.length) return 0;
-    const exact = sourcePoints.find(point=>point.minutes === minute);
-    if(exact) return exact.hourlyMm;
-    let before = null, after = null;
-    for(const point of sourcePoints){
-      if(point.minutes < minute) before = point;
-      if(point.minutes > minute){ after = point; break; }
+    let amount=0;
+    for(const interval of sourceIntervals){
+      const intervalStart=interval.start;
+      const intervalEnd=intervalStart+15;
+      const overlap=Math.max(0,Math.min(end,intervalEnd)-Math.max(start,intervalStart));
+      if(overlap>0) amount += interval.amount15m*(overlap/15);
     }
-    if(!before) return after?.hourlyMm || 0;
-    if(!after) return before.minutes >= 105 ? before.hourlyMm : 0;
-    const span = Math.max(1,after.minutes-before.minutes);
-    const mix = (minute-before.minutes)/span;
-    return Math.max(0,before.hourlyMm + (after.hourlyMm-before.hourlyMm)*mix);
+
+    // Voor het eerste tijdvak mag een bevestigde actuele radarintensiteit
+    // nauwkeuriger zijn dan de afgeronde 15-minutenvoorspelling.
+    if(minute===0 && rainingNow && currentMm>0){
+      const liveAmount=currentMm/6;
+      amount=Math.max(amount,liveAmount);
+    }
+    return Math.max(0,amount);
   };
 
   const rainTenMinutePoints = Array.from({length:13},(_,index)=>{
     const minutes=index*10;
-    const hourlyMm=interpolatedRainAt(minutes);
+    const amount10m=tenMinuteAmount(minutes);
+    const hourlyMm=amount10m*6;
     const level=rainIntensityToLevel(hourlyMm);
-    const amount10m=hourlyMm/6;
     const at=new Date(Date.now()+minutes*60000);
     const time=at.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'});
     const heightPct=hourlyMm > 0
