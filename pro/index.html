@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="nl-BE">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07111f" />
+  <title>Wheaterflow Pro – Voorinschrijving</title>
+  <meta name="description" content="Schrijf je in voor Wheaterflow Pro Early Access." />
+  <link rel="icon" href="../icons/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png" sizes="180x180" />
+  <style>
+    :root{
+      color-scheme:dark;
+      --bg:#06101c;
+      --bg2:#0b1930;
+      --glass:rgba(13,28,49,.66);
+      --glass-strong:rgba(18,38,66,.82);
+      --line:rgba(255,255,255,.10);
+      --line-strong:rgba(255,255,255,.16);
+      --text:#f7fbff;
+      --muted:#a9bad0;
+      --blue:#56a8ff;
+      --blue2:#7bc8ff;
+      --cyan:#7fe9ff;
+      --shadow:0 30px 80px rgba(0,0,0,.34);
+    }
+    *{box-sizing:border-box}
+    html{background:var(--bg)}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Inter,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 0%,rgba(57,125,255,.24),transparent 34%),
+        radial-gradient(circle at 88% 22%,rgba(65,220,255,.16),transparent 30%),
+        linear-gradient(180deg,#07111f 0%,#0a1628 52%,#07111f 100%);
+      overflow-x:hidden;
+    }
+    body:before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background-image:
+        linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);
+      background-size:34px 34px;
+      mask-image:linear-gradient(to bottom,rgba(0,0,0,.5),transparent 82%);
+    }
+    a{color:inherit}
+    button,input{font:inherit}
+    .shell{width:min(760px,100%);margin:0 auto;padding:env(safe-area-inset-top) 16px calc(34px + env(safe-area-inset-bottom))}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 10px}
+    .back{
+      width:42px;height:42px;border-radius:14px;border:1px solid var(--line);display:grid;place-items:center;
+      text-decoration:none;background:rgba(255,255,255,.06);backdrop-filter:blur(18px);font-size:24px;line-height:1;
+    }
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em}
+    .brand img{width:34px;height:34px;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.28)}
+    .status-chip{font-size:12px;font-weight:800;padding:8px 10px;border-radius:999px;border:1px solid rgba(123,200,255,.25);background:rgba(83,154,255,.12);color:#bfe4ff}
+    .hero{padding:28px 0 18px;text-align:center}
+    .pro-mark{width:84px;height:84px;margin:0 auto 18px;border-radius:26px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(86,168,255,.26),rgba(127,233,255,.13));border:1px solid rgba(176,224,255,.24);box-shadow:0 18px 50px rgba(31,132,255,.22),inset 0 1px rgba(255,255,255,.18);backdrop-filter:blur(22px)}
+    .pro-mark svg{width:46px;height:46px;filter:drop-shadow(0 5px 14px rgba(59,163,255,.35))}
+    .eyebrow{margin:0 0 8px;color:#8ccaff;text-transform:uppercase;letter-spacing:.16em;font-size:12px;font-weight:850}
+    h1{font-size:clamp(34px,8vw,56px);line-height:.98;letter-spacing:-.055em;margin:0}
+    .hero p{max-width:570px;margin:16px auto 0;color:var(--muted);font-size:16px;line-height:1.55}
+    .hero strong{color:#fff}
+    .glass{background:linear-gradient(180deg,rgba(18,40,70,.78),rgba(10,25,45,.68));border:1px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+    .benefits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0 14px}
+    .benefit{border-radius:20px;padding:16px;min-height:126px;position:relative;overflow:hidden}
+    .benefit:after{content:"";position:absolute;width:120px;height:120px;border-radius:50%;right:-48px;top:-48px;background:radial-gradient(circle,rgba(91,177,255,.14),transparent 66%)}
+    .benefit-icon{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(93,174,255,.14);border:1px solid rgba(128,203,255,.16);margin-bottom:14px;color:#aaddff}
+    .benefit b{display:block;font-size:15px;margin-bottom:5px}
+    .benefit span{display:block;color:var(--muted);font-size:12.5px;line-height:1.42}
+    .signup-card{border-radius:28px;padding:20px;margin-top:14px}
+    .signup-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px}
+    .signup-head h2{font-size:24px;letter-spacing:-.035em;margin:0 0 5px}
+    .signup-head p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    .early{padding:8px 10px;border-radius:999px;font-size:11px;font-weight:850;color:#ccecff;background:rgba(76,164,255,.14);border:1px solid rgba(123,200,255,.18);white-space:nowrap}
+    .form-grid{display:grid;gap:12px}
+    label.field{display:grid;gap:7px;font-size:12px;font-weight:800;color:#c7d5e5}
+    .field input{width:100%;height:50px;border-radius:16px;border:1px solid var(--line);outline:none;background:rgba(4,12,22,.58);color:white;padding:0 15px;transition:.2s;border-color:.2s}
+    .field input:focus{border-color:rgba(105,188,255,.62);box-shadow:0 0 0 4px rgba(86,168,255,.10)}
+    .choice-title{font-size:12px;font-weight:800;color:#c7d5e5;margin-top:2px}
+    .plan-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .plan{border:1px solid var(--line);background:rgba(5,15,28,.56);border-radius:16px;padding:13px;display:flex;align-items:center;justify-content:space-between;gap:10px;color:white;text-align:left;cursor:pointer}
+    .plan strong{display:block;font-size:14px}.plan small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+    .plan i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(255,255,255,.28);display:block;box-shadow:inset 0 0 0 4px transparent}
+    .plan.active{border-color:rgba(101,188,255,.58);background:rgba(60,143,235,.14)}
+    .plan.active i{border-color:#7cc8ff;box-shadow:inset 0 0 0 4px #0f2c4c;background:#8ad0ff}
+    .check{display:flex;align-items:flex-start;gap:10px;color:var(--muted);font-size:12px;line-height:1.4;margin-top:2px}
+    .check input{margin-top:2px;accent-color:#69b8ff}
+    .cta{height:54px;border:0;border-radius:17px;cursor:pointer;font-weight:850;font-size:15px;color:#04111f;background:linear-gradient(180deg,#8ad3ff,#59adff);box-shadow:0 16px 38px rgba(62,156,255,.28);transition:.18s transform,.18s filter}
+    .cta:active{transform:scale(.985)}.cta:disabled{opacity:.55;cursor:not-allowed;filter:saturate(.5)}
+    .fine{font-size:11px;line-height:1.45;color:#75889f;text-align:center;margin:10px 8px 0}
+    .message{display:none;margin-top:12px;border-radius:16px;padding:13px 14px;font-size:13px;line-height:1.45}
+    .message.show{display:block}.message.ok{background:rgba(67,208,139,.10);border:1px solid rgba(95,232,163,.18);color:#baf4d5}.message.err{background:rgba(255,92,105,.10);border:1px solid rgba(255,118,129,.18);color:#ffc0c7}
+    .mini-note{display:flex;gap:10px;align-items:flex-start;margin:14px 3px 4px;color:#8ea2ba;font-size:11.5px;line-height:1.45}
+    .mini-note svg{flex:0 0 17px;margin-top:1px;color:#6fbaff}
+    footer{text-align:center;color:#63768c;font-size:11px;padding:24px 0 0}
+    @media(max-width:560px){
+      .benefits{grid-template-columns:1fr 1fr}.benefit{padding:14px;min-height:132px}.signup-card{padding:17px;border-radius:24px}.plan-row{grid-template-columns:1fr}.signup-head{align-items:center}.hero{padding-top:22px}
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <a class="back" href="../" aria-label="Terug naar Wheaterflow">‹</a>
+      <div class="brand"><img src="../icons/icon-96.png" alt=""><span>Wheaterflow</span></div>
+      <span class="status-chip">PRO</span>
+    </div>
+
+    <section class="hero">
+      <div class="pro-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.4 14.5 9l6.7 2.4-6.7 2.3L12 20.4l-2.5-6.7-6.7-2.3L9.5 9 12 2.4Z" fill="url(#g)"/><defs><linearGradient id="g" x1="5" y1="4" x2="19" y2="21" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"/><stop offset="1" stop-color="#71C9FF"/></linearGradient></defs></svg>
+      </div>
+      <p class="eyebrow">Wheaterflow Pro Early Access</p>
+      <h1>Meer uit elk<br>weermoment.</h1>
+      <p>Schrijf je in voor de eerste versie van <strong>Wheaterflow Pro</strong>. Je account blijft gratis totdat Pro officieel wordt geactiveerd.</p>
+    </section>
+
+    <section class="benefits" aria-label="Pro voordelen">
+      <article class="benefit glass"><div class="benefit-icon">🌧</div><b>Rain Pro</b><span>Meer detail in neerslag, timing en lokale regeninzichten.</span></article>
+      <article class="benefit glass"><div class="benefit-icon">⚡</div><b>Slimmere waarschuwingen</b><span>Meer persoonlijke drempels voor regen, wind en onweer.</span></article>
+      <article class="benefit glass"><div class="benefit-icon">◫</div><b>Extra weerdetails</b><span>Uitgebreidere atmosfeer-, storm- en modelinformatie.</span></article>
+      <article class="benefit glass"><div class="benefit-icon">✦</div><b>Pro-profiel</b><span>Pro-status, nieuwe functies eerder testen en toekomstige extra's.</span></article>
+    </section>
+
+    <section class="signup-card glass">
+      <div class="signup-head">
+        <div><h2>Schrijf je in</h2><p>Reserveer je plek voor Wheaterflow Pro.</p></div>
+        <span class="early">EARLY ACCESS</span>
+      </div>
+
+      <form id="proSignupForm" class="form-grid" novalidate>
+        <label class="field">Naam
+          <input id="proName" name="name" autocomplete="name" maxlength="80" placeholder="Jouw naam" required>
+        </label>
+        <label class="field">E-mailadres
+          <input id="proEmail" name="email" type="email" autocomplete="email" maxlength="160" placeholder="jij@voorbeeld.be" required>
+        </label>
+
+        <div class="choice-title">Voorkeur</div>
+        <div class="plan-row" role="radiogroup" aria-label="Pro voorkeur">
+          <button class="plan active" type="button" data-plan="monthly" aria-pressed="true"><span><strong>Maandelijks</strong><small>Flexibel zodra Pro lanceert</small></span><i aria-hidden="true"></i></button>
+          <button class="plan" type="button" data-plan="yearly" aria-pressed="false"><span><strong>Jaarlijks</strong><small>Voorkeur voor een jaarplan</small></span><i aria-hidden="true"></i></button>
+        </div>
+
+        <label class="check"><input id="proPrivacy" type="checkbox" required><span>Ik ga akkoord dat Wheaterflow mijn naam en e-mailadres gebruikt om mij over Pro Early Access en de lancering te informeren.</span></label>
+
+        <button class="cta" id="proSubmit" type="submit">Inschrijven voor Wheaterflow Pro</button>
+        <div class="message" id="proMessage" role="status" aria-live="polite"></div>
+      </form>
+
+      <p class="fine">Dit is een voorinschrijving. Er wordt nu niets aangerekend en er start nog geen betaald abonnement.</p>
+    </section>
+
+    <div class="mini-note">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="1.7"/><path d="M12 10v6M12 7.2v.1" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+      <span>Heb je al een Wheaterflow-account? Dan proberen we je profielgegevens automatisch in te vullen.</span>
+    </div>
+
+    <footer>© Wheaterflow · Pro Early Access</footer>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+      const API = 'https://api.wheaterflow.be/api';
+      const AUTH_STORAGE_KEY = 'wheaterflow:auth';
+      const PENDING_KEY = 'wheaterflow:pro-signup-pending:v1';
+      const DONE_KEY = 'wheaterflow:pro-signup:v1';
+      const $ = s => document.querySelector(s);
+      const form = $('#proSignupForm');
+      const name = $('#proName');
+      const email = $('#proEmail');
+      const privacy = $('#proPrivacy');
+      const submit = $('#proSubmit');
+      const message = $('#proMessage');
+      let plan = 'monthly';
+
+      function session(){
+        try{return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY)||'null')}catch{return null}
+      }
+      function show(text,type='ok'){
+        message.textContent=text;
+        message.className='message show '+type;
+      }
+      function payload(){
+        return {
+          name:name.value.trim(),
+          email:email.value.trim().toLowerCase(),
+          plan,
+          source:'wheaterflow-pro-page',
+          createdAt:new Date().toISOString()
+        };
+      }
+      function token(){return session()?.access_token || ''}
+
+      document.querySelectorAll('.plan').forEach(btn => btn.addEventListener('click', () => {
+        plan = btn.dataset.plan || 'monthly';
+        document.querySelectorAll('.plan').forEach(other => {
+          const active = other === btn;
+          other.classList.toggle('active',active);
+          other.setAttribute('aria-pressed',active?'true':'false');
+        });
+      }));
+
+      try{
+        const s=session();
+        const u=s?.user;
+        if(u){
+          email.value=u.email || '';
+          name.value=u.user_metadata?.display_name || u.username || (u.email||'').split('@')[0] || '';
+        }
+        const done=JSON.parse(localStorage.getItem(DONE_KEY)||'null');
+        if(done?.email){
+          show('Je bent al vooringeschreven voor Wheaterflow Pro.','ok');
+        }
+      }catch{}
+
+      async function send(data){
+        const headers={'content-type':'application/json'};
+        if(token()) headers.authorization='Bearer '+token();
+        const response=await fetch(API+'/pro/signup',{
+          method:'POST',headers,body:JSON.stringify(data),cache:'no-store'
+        });
+        let body={};
+        try{body=await response.json()}catch{}
+        if(!response.ok) throw new Error(body.error || 'HTTP '+response.status);
+        return body;
+      }
+
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        if(!name.value.trim() || !email.validity.valid){
+          show('Vul je naam en een geldig e-mailadres in.','err');
+          return;
+        }
+        if(!privacy.checked){
+          show('Ga eerst akkoord met de voorwaarden voor de voorinschrijving.','err');
+          return;
+        }
+        const data=payload();
+        submit.disabled=true;
+        submit.textContent='Inschrijving bewaren…';
+        try{
+          await send(data);
+          localStorage.setItem(DONE_KEY,JSON.stringify(data));
+          localStorage.removeItem(PENDING_KEY);
+          show('Gelukt. Je staat op de Wheaterflow Pro Early Access-lijst.','ok');
+          submit.textContent='Je bent ingeschreven';
+        }catch(error){
+          localStorage.setItem(PENDING_KEY,JSON.stringify(data));
+          localStorage.setItem(DONE_KEY,JSON.stringify({...data,pending:true}));
+          show('Je voorinschrijving is bewaard. Zodra Pro-inschrijvingen op de server actief zijn, kan deze aanvraag worden doorgestuurd.','ok');
+          submit.textContent='Voorinschrijving bewaard';
+        }finally{
+          submit.disabled=false;
+        }
+      });
+
+      // Probeer een eerder lokaal bewaarde voorinschrijving opnieuw te versturen.
+      (async()=>{
+        try{
+          const pending=JSON.parse(localStorage.getItem(PENDING_KEY)||'null');
+          if(!pending?.email) return;
+          await send(pending);
+          localStorage.setItem(DONE_KEY,JSON.stringify({...pending,pending:false}));
+          localStorage.removeItem(PENDING_KEY);
+          show('Je eerdere Pro-voorinschrijving is nu bevestigd.','ok');
+        }catch{}
+      })();
+    })();
+  </script>
+</body>
+</html>
