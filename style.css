@@ -16406,3 +16406,80 @@ body .tabbar .tabbtn:focus-visible{
   opacity:1!important;
   visibility:visible!important;
 }
+
+/* =========================================================
+   Wheaterflow TV forecast icon polish v3
+   - uuriconen minstens 2x groter
+   - dagiconen minstens 2x groter
+   - vaste middenrij zodat alle iconen mooi recht staan
+   ========================================================= */
+#tvscreen.active #tvHourly>.hitem{
+  display:grid!important;
+  grid-template-rows:auto minmax(52px,1fr) auto auto!important;
+  justify-items:center!important;
+  align-items:center!important;
+  align-content:stretch!important;
+  text-align:center!important;
+  row-gap:clamp(2px,.32vh,4px)!important;
+}
+#tvscreen.active #tvHourly>.hitem>svg,
+#tvscreen.active #tvHourly>.hitem>img{
+  width:clamp(52px,3.8vw,70px)!important;
+  height:clamp(52px,3.8vw,70px)!important;
+  min-width:52px!important;
+  min-height:52px!important;
+  max-width:none!important;
+  max-height:none!important;
+  display:block!important;
+  place-self:center!important;
+  margin:0 auto!important;
+  object-fit:contain!important;
+  transform:none!important;
+  transform-origin:center center!important;
+  vertical-align:middle!important;
+  filter:drop-shadow(0 5px 10px rgba(0,29,75,.18));
+}
+#tvscreen.active #tvHourly>.hitem .t,
+#tvscreen.active #tvHourly>.hitem .p,
+#tvscreen.active #tvHourly>.hitem .v{
+  width:100%!important;
+  text-align:center!important;
+  justify-self:center!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+}
+
+#tvscreen.active #tvDaily>.ditem{
+  display:grid!important;
+  grid-template-rows:auto minmax(38px,1fr) auto!important;
+  justify-items:center!important;
+  align-items:center!important;
+  align-content:stretch!important;
+  text-align:center!important;
+  row-gap:1px!important;
+}
+#tvscreen.active #tvDaily>.ditem>svg,
+#tvscreen.active #tvDaily>.ditem>img{
+  width:clamp(34px,2.5vw,46px)!important;
+  height:clamp(34px,2.5vw,46px)!important;
+  min-width:34px!important;
+  min-height:34px!important;
+  max-width:none!important;
+  max-height:none!important;
+  display:block!important;
+  place-self:center!important;
+  margin:0 auto!important;
+  object-fit:contain!important;
+  transform:none!important;
+  transform-origin:center center!important;
+  vertical-align:middle!important;
+  filter:drop-shadow(0 4px 8px rgba(0,29,75,.16));
+}
+#tvscreen.active #tvDaily>.ditem .dn,
+#tvscreen.active #tvDaily>.ditem .dv{
+  width:100%!important;
+  text-align:center!important;
+  justify-self:center!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+}

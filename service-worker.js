@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20261015-tv-forecast-hard-restore-v2";
+const CACHE_VERSION = "wheaterflow-v20261015-tv-forecast-icons-v3";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
