@@ -12761,7 +12761,7 @@ function renderTV(){
       tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust), 'wind'),
       tvMetricCard('drop','Rain ETA',tvRainValue(null),tvRainSubtitle(null), 'rainTiming'),
       tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint), 'humidity'),
-      tvMetricCard('thermo','Druk', fmtPress(pressure), 'Niet beschikbaar', 'pressure'),
+      tvMetricCard('thermo','Druk', fmtPress(pressure), pressure != null ? (pressure>1013?'Hoge druk':'Lage druk') : '', 'pressure'),
       tvMarineCard(),
       tvMetricCard('gauge','Weermelding','Code groen','','warnings')
     ].join('');
@@ -12965,11 +12965,11 @@ function tvRainFallback(){
         subtitle: ['Uurverwachting', chance].filter(Boolean).join(' · ')
       };
     }
-    return {value:'Droog', subtitle:'Geen regen verwacht binnen 2 u'};
+    return {value:'Droog', subtitle:''};
   }
 
   if(truth?.isRaining === false){
-    return {value:'Droog', subtitle:'Geen regen op de huidige locatie'};
+    return {value:'Droog', subtitle:''};
   }
   return null;
 }
@@ -12984,7 +12984,7 @@ function tvRainValue(rain){
 
 function tvRainSubtitle(rain){
   if(!rain || rain.status === 'unavailable') return tvRainFallback()?.subtitle || 'Nowcast tijdelijk niet beschikbaar';
-  if(rain.status === 'dry') return tvLaterRainTrend()?.detail || `Minstens ${rain.dryWindowMinutes} min droog`;
+  if(rain.status === 'dry') return '';
   if(rain.status === 'raining') return rain.endTime ? `Droger rond ${formatShortTime(rain.endTime)}` : 'Geen droog venster';
   return rain.endTime ? `${formatShortTime(rain.startTime)}-${formatShortTime(rain.endTime)}` : `${Math.round(rain.confidence * 100)}% zeker`;
 }
