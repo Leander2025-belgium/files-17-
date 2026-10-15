@@ -12472,7 +12472,8 @@ const tv = {
   radarProvider:'rainviewer',
   resizeObserver:null,
   resizeFrame:null,
-  resizeTimers:[]
+  resizeTimers:[],
+  forecastTimer:null
 };
 
 async function enterTV(options={}){
@@ -12495,6 +12496,11 @@ async function enterTV(options={}){
   tv.refreshTimer = setInterval(()=>{ loadWeather(); }, 60*1000);
 
   initTvMap();
+  clearInterval(tv.forecastTimer);
+  tv.forecastTimer = setInterval(ensureTvForecastPanels, 3000);
+  requestAnimationFrame(()=>ensureTvForecastPanels());
+  setTimeout(ensureTvForecastPanels, 350);
+  setTimeout(ensureTvForecastPanels, 1400);
 }
 function exitTV(){
   if(state.cast.receiver || state.tvPairing.receiver) return;
@@ -12502,7 +12508,7 @@ function exitTV(){
   document.getElementById('tvscreen').classList.remove('active');
   document.body.classList.remove('tv-cast-receiver');
   document.body.classList.remove('tv-pairing-receiver');
-  clearInterval(tv.clockTimer); clearInterval(tv.refreshTimer); clearInterval(tv.loopTimer);
+  clearInterval(tv.clockTimer); clearInterval(tv.refreshTimer); clearInterval(tv.loopTimer); clearInterval(tv.forecastTimer);
   disposeTvXweatherRadar();
   if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
 }
@@ -12604,49 +12610,94 @@ function tvForecastEmpty(kind, message){
   return `<div class="tv-forecast-empty tv-forecast-empty-${kind}">${tvFeatureIcon(iconName, kind === 'daily' ? 'Dagverwachting' : 'Uurverwachting')}<div><b>${kind === 'daily' ? 'Dagverwachting' : 'Uurverwachting'}</b><span>${esc(message)}</span></div></div>`;
 }
 
+function tvSeries(source, ...keys){
+  for(const key of keys){
+    const value = source?.[key];
+    if(Array.isArray(value)) return value;
+  }
+  return [];
+}
+
+function tvSafeTemp(value){
+  const n = validNumber(value);
+  return n == null ? '—' : fmtTemp(n);
+}
+
 function renderTvHourlyForecast(cur, isDay){
   const wrap = $('#tvHourly');
   if(!wrap) return;
-  const hourly = state.hourly;
-  const times = Array.isArray(hourly?.time) ? hourly.time : [];
+  const hourly = state.hourly || {};
+  const times = tvSeries(hourly, 'time', 'times');
   if(!times.length){
     wrap.innerHTML = tvForecastEmpty('hourly','Weerdata wordt opnieuw geladen.');
+    wrap.dataset.tvForecastState = 'empty';
     return;
   }
 
-  const nowIdx = closestIndex(times, Date.now());
+  const temperatures = tvSeries(hourly, 'temperature_2m', 'temperature2m', 'temperature');
+  const codes = tvSeries(hourly, 'weather_code', 'weathercode', 'weatherCode');
+  const pops = tvSeries(hourly, 'precipitation_probability', 'precipitationProbability', 'pop');
+  const nowIdx = Math.max(0, Math.min(times.length - 1, closestIndex(times, Date.now())));
   const items = [];
   for(let i=nowIdx; i<Math.min(nowIdx+8, times.length); i++){
     const t = new Date(times[i]);
-    const label = i===nowIdx ? 'Nu' : (Number.isNaN(t.getTime()) ? '--:--' : t.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit',timeZone:state.tz || undefined}));
-    const hd = hourlyForecastDisplay(i, nowIdx, cur, isDay);
-    items.push(`<div class="hitem ${hd.isCurrentHour?'now':''}"><div class="t">${esc(label)}</div>${icon(hd.info.ic,hd.isDay,24)}<div class="p">${esc(hd.pop || '')}</div><div class="v">${fmtTemp(hd.temperature)}</div></div>`);
+    const currentHour = i === nowIdx;
+    const label = currentHour ? 'Nu' : (Number.isNaN(t.getTime()) ? '--:--' : t.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit',timeZone:state.tz || undefined}));
+    const code = currentHour ? (cur?.weather_code ?? codes[i]) : codes[i];
+    const info = wcInfo(code);
+    const temp = currentHour ? (cur?.temperature_2m ?? temperatures[i]) : temperatures[i];
+    const itemIsDay = currentHour ? isDay : isDayForTime(times[i]);
+    const popNum = validNumber(pops[i]);
+    const pop = popNum != null && popNum >= 10 ? `${Math.round(Math.max(0,Math.min(100,popNum)))}%` : '';
+    items.push(`<div class="hitem ${currentHour?'now':''}" data-tv-hour="${i}"><div class="t">${esc(label)}</div>${icon(info.ic,itemIsDay,24)}<div class="p">${esc(pop)}</div><div class="v">${tvSafeTemp(temp)}</div></div>`);
   }
   wrap.innerHTML = items.length ? items.join('') : tvForecastEmpty('hourly','Geen uren beschikbaar.');
+  wrap.dataset.tvForecastState = items.length ? 'ready' : 'empty';
 }
 
 function renderTvDailyForecast(){
   const wrap = $('#tvDaily');
   if(!wrap) return;
-  const daily = state.daily;
-  const times = Array.isArray(daily?.time) ? daily.time : [];
+  const daily = state.daily || {};
+  const times = tvSeries(daily, 'time', 'times');
   if(!times.length){
     wrap.innerHTML = tvForecastEmpty('daily','Weerdata wordt opnieuw geladen.');
+    wrap.dataset.tvForecastState = 'empty';
     return;
   }
 
-  const maxTemps = Array.isArray(daily?.temperature_2m_max) ? daily.temperature_2m_max : [];
-  const minTemps = Array.isArray(daily?.temperature_2m_min) ? daily.temperature_2m_min : [];
-  const codes = Array.isArray(daily?.weather_code) ? daily.weather_code : [];
+  const maxTemps = tvSeries(daily, 'temperature_2m_max', 'temperature2mMax', 'temperature_max');
+  const minTemps = tvSeries(daily, 'temperature_2m_min', 'temperature2mMin', 'temperature_min');
+  const codes = tvSeries(daily, 'weather_code', 'weathercode', 'weatherCode');
   const count = Math.min(6, times.length);
   const items = [];
   for(let i=0;i<count;i++){
     const dwc = wcInfo(codes[i]);
     const d = new Date(times[i]);
     const dn = i===0 ? tr('Vandaag') : (Number.isNaN(d.getTime()) ? `Dag ${i+1}` : d.toLocaleDateString(wfLocale(),{weekday:'short',timeZone:state.tz || undefined}));
-    items.push(`<div class="ditem"><div class="dn">${esc(dn)}</div>${icon(dwc.ic,true,22)}<div class="dv">${fmtTemp(maxTemps[i])} <span class="lo">${fmtTemp(minTemps[i])}</span></div></div>`);
+    items.push(`<div class="ditem" data-tv-day="${i}"><div class="dn">${esc(dn)}</div>${icon(dwc.ic,true,22)}<div class="dv"><span class="hi">${tvSafeTemp(maxTemps[i])}</span><span class="lo">${tvSafeTemp(minTemps[i])}</span></div></div>`);
   }
   wrap.innerHTML = items.length ? items.join('') : tvForecastEmpty('daily','Geen dagen beschikbaar.');
+  wrap.dataset.tvForecastState = items.length ? 'ready' : 'empty';
+}
+
+function ensureTvForecastPanels(){
+  if(!tv.active) return;
+  const hourlyWrap = $('#tvHourly');
+  const dailyWrap = $('#tvDaily');
+  const hourlyTimes = tvSeries(state.hourly || {}, 'time', 'times');
+  const dailyTimes = tvSeries(state.daily || {}, 'time', 'times');
+  const cur = liveWeatherSnapshot();
+  const isDay = cur?.is_day === 1 || (cur?.is_day == null && isDayForTime(new Date().toISOString()));
+
+  // Sommige TV-browsers/cast-receivers herbouwen delen van de layout. Als zo'n
+  // rebuild de forecast-kinderen wist, zetten we alleen die twee panelen terug.
+  if(hourlyWrap && (hourlyWrap.querySelectorAll('.hitem').length < Math.min(2, hourlyTimes.length) || hourlyWrap.dataset.tvForecastState !== 'ready')){
+    try{ renderTvHourlyForecast(cur, isDay); }catch(error){ console.warn('TV uurpaneel herstel faalde:', error); }
+  }
+  if(dailyWrap && (dailyWrap.querySelectorAll('.ditem').length < Math.min(2, dailyTimes.length) || dailyWrap.dataset.tvForecastState !== 'ready')){
+    try{ renderTvDailyForecast(); }catch(error){ console.warn('TV dagpaneel herstel faalde:', error); }
+  }
 }
 
 function renderTV(){

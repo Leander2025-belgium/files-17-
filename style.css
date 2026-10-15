@@ -16355,3 +16355,54 @@ body .tabbar .tabbtn:focus-visible{
   white-space:nowrap;
   text-overflow:ellipsis;
 }
+
+/* =========================================================
+   Wheaterflow TV forecast hard restore v2
+   Forceer de uur- en dagkaartjes zichtbaar op oudere TV/cast browsers.
+   ========================================================= */
+#tvscreen.active #tvHourly{
+  display:grid!important;
+  grid-template-columns:repeat(8,minmax(0,1fr))!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+}
+#tvscreen.active #tvDaily{
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+}
+#tvscreen.active #tvHourly>.hitem,
+#tvscreen.active #tvDaily>.ditem{
+  display:flex!important;
+  position:relative!important;
+  z-index:2!important;
+  opacity:1!important;
+  visibility:visible!important;
+  transform:none!important;
+  filter:none!important;
+  color:#fff!important;
+}
+#tvscreen.active #tvHourly>.hitem>* ,
+#tvscreen.active #tvDaily>.ditem>*{
+  opacity:1!important;
+  visibility:visible!important;
+}
+#tvscreen.active #tvHourly .t,
+#tvscreen.active #tvHourly .v,
+#tvscreen.active #tvDaily .dn,
+#tvscreen.active #tvDaily .dv,
+#tvscreen.active #tvDaily .hi{
+  display:block!important;
+  color:#fff!important;
+}
+#tvscreen.active #tvHourly .p{display:block!important;color:#7cecff!important;}
+#tvscreen.active #tvDaily .lo{display:block!important;color:rgba(255,255,255,.72)!important;}
+#tvscreen.active #tvHourly img,
+#tvscreen.active #tvDaily img,
+#tvscreen.active #tvHourly svg,
+#tvscreen.active #tvDaily svg{
+  display:block!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
