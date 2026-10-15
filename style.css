@@ -16484,3 +16484,24 @@ body .tabbar .tabbtn:focus-visible{
   margin-left:auto!important;
   margin-right:auto!important;
 }
+
+
+/* =========================================================
+   Wheaterflow TV hourly temperature position fix v5
+   Houd kaartje, icoon en lettergrootte exact gelijk.
+   Verwijder alleen de lege neerslagrij uit de layout en
+   schuif de temperatuur visueel iets omhoog.
+   ========================================================= */
+#tvscreen.active #tvHourly>.hitem .p:empty{
+  display:none!important;
+  height:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  line-height:0!important;
+}
+#tvscreen.active #tvHourly>.hitem .v{
+  position:relative!important;
+  top:-7px!important;
+  margin-top:0!important;
+}
