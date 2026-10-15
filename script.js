@@ -12759,7 +12759,7 @@ function renderTV(){
     console.warn('TV details render faalde:', error);
     $('#tvDetails').innerHTML = [
       tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust), 'wind'),
-      tvMetricCard('drop','Rain ETA','N.b.','Nowcast tijdelijk niet beschikbaar', 'rainTiming'),
+      tvMetricCard('drop','Rain ETA',tvRainValue(null),tvRainSubtitle(null), 'rainTiming'),
       tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint), 'humidity'),
       tvMetricCard('thermo','Druk', fmtPress(pressure), 'Niet beschikbaar', 'pressure'),
       tvMarineCard(),
@@ -12912,8 +12912,70 @@ async function initTvMap(){
   tv.loopTimer = setInterval(refreshTvRadarFrame, TV_RADAR_REFRESH_MS);
 }
 
+function tvRainFallback(){
+  const now = Date.now();
+  const truth = currentConditionsTruth();
+  const radar = state.radar?.proximity;
+  const radarFresh = Boolean(radar && Date.now() - Number(radar.checkedAt || 0) <= 12 * 60 * 1000);
+
+  // Actuele regen op de locatie heeft altijd voorrang.
+  if(truth?.isRaining === true || (radarFresh && radar.atLocation)){
+    const intensity = radar?.localIntensity || radar?.intensity;
+    const label = intensity === 'heavy' ? 'Zware regen' : intensity === 'moderate' ? 'Regen' : 'Lichte regen';
+    return {value:label, subtitle:'Regen op de huidige locatie'};
+  }
+
+  // Als een verse radarcel effectief naar de locatie toe beweegt, kunnen we
+  // een bruikbare ETA tonen zonder minutely_15-data nodig te hebben.
+  if(radarFresh && radar.upwind && Number.isFinite(Number(radar.etaMinutes)) && Number(radar.etaMinutes) > 0 && Number(radar.etaMinutes) <= 120){
+    const minutes = Math.max(1, Math.round(Number(radar.etaMinutes)));
+    const arrival = new Date(now + minutes * 60000);
+    const distance = Number.isFinite(Number(radar.distanceKm)) ? `${Number(radar.distanceKm).toFixed(1).replace('.', ',')} km` : '';
+    return {
+      value: minutes <= 60 ? `Over ${minutes} min` : `Rond ${formatShortTime(arrival)}`,
+      subtitle: ['Live radar', distance ? `bui op ${distance}` : 'bui nadert'].filter(Boolean).join(' · ')
+    };
+  }
+
+  // Fallback op de uurverwachting. Dit is minder precies dan een nowcast,
+  // maar voorkomt dat de TV onnodig N.b. toont wanneer de forecast wél bestaat.
+  const h = state.hourly || {};
+  const times = Array.isArray(h.time) ? h.time : [];
+  if(times.length){
+    const start = Math.max(0, closestIndex(times, now));
+    const rainCodes = new Set([51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99]);
+    let firstWet = null;
+    const end = Math.min(times.length, start + 4);
+    for(let i=start; i<end; i++){
+      const t = Date.parse(times[i]);
+      if(!Number.isFinite(t) || t < now - 20 * 60000) continue;
+      const amount = Math.max(0, Number(h.precipitation?.[i]) || 0);
+      const probability = Math.max(0, Number(h.precipitation_probability?.[i]) || 0);
+      const code = Number(h.weather_code?.[i]);
+      if(amount >= 0.1 || probability >= 55 || rainCodes.has(code)){
+        firstWet = {time:t, amount, probability};
+        break;
+      }
+    }
+    if(firstWet){
+      const minutes = Math.max(0, Math.round((firstWet.time - now) / 60000));
+      const chance = firstWet.probability ? `${Math.round(firstWet.probability)}% kans` : '';
+      return {
+        value: minutes <= 15 ? 'Regen mogelijk' : `Rond ${formatShortTime(new Date(firstWet.time))}`,
+        subtitle: ['Uurverwachting', chance].filter(Boolean).join(' · ')
+      };
+    }
+    return {value:'Droog', subtitle:'Geen regen verwacht binnen 2 u'};
+  }
+
+  if(truth?.isRaining === false){
+    return {value:'Droog', subtitle:'Geen regen op de huidige locatie'};
+  }
+  return null;
+}
+
 function tvRainValue(rain){
-  if(!rain || rain.status === 'unavailable') return 'N.b.';
+  if(!rain || rain.status === 'unavailable') return tvRainFallback()?.value || 'N.b.';
   if(rain.status === 'dry') return 'Droog';
   if(rain.status === 'raining') return rain.intensityLabel;
   if(rain.startTime) return `Rond ${formatShortTime(rain.startTime)}`;
@@ -12921,7 +12983,7 @@ function tvRainValue(rain){
 }
 
 function tvRainSubtitle(rain){
-  if(!rain || rain.status === 'unavailable') return 'Nowcast tijdelijk niet beschikbaar';
+  if(!rain || rain.status === 'unavailable') return tvRainFallback()?.subtitle || 'Nowcast tijdelijk niet beschikbaar';
   if(rain.status === 'dry') return tvLaterRainTrend()?.detail || `Minstens ${rain.dryWindowMinutes} min droog`;
   if(rain.status === 'raining') return rain.endTime ? `Droger rond ${formatShortTime(rain.endTime)}` : 'Geen droog venster';
   return rain.endTime ? `${formatShortTime(rain.startTime)}-${formatShortTime(rain.endTime)}` : `${Math.round(rain.confidence * 100)}% zeker`;

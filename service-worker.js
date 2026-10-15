@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20261015-tv-hour-temp-position-v5";
+const CACHE_VERSION = "wheaterflow-v20261015-tv-rain-eta-fallback-v6";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
