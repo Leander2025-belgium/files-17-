@@ -732,19 +732,69 @@ function tideStateFromMarineHourly(hourly, now=new Date()){
   };
 }
 
+const TV_MARINE_CACHE_KEY = 'wheaterflow:marine-cache:v1';
+const TV_MARINE_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+function reviveMarineTide(tide){
+  if(!tide || typeof tide !== 'object') return tide || null;
+  const revived = {...tide};
+  ['nextTime','nextHighTime','nextLowTime','nearestTime'].forEach(key=>{
+    if(!revived[key]) return;
+    const d = revived[key] instanceof Date ? revived[key] : new Date(revived[key]);
+    revived[key] = Number.isNaN(d.getTime()) ? null : d;
+  });
+  return revived;
+}
+
+function saveMarineCache(marine){
+  if(!marine?.place) return;
+  try{
+    localStorage.setItem(TV_MARINE_CACHE_KEY, JSON.stringify({savedAt:Date.now(), marine}));
+  }catch(_error){}
+}
+
+function loadMarineCache(coast){
+  if(!coast) return null;
+  try{
+    const cached = JSON.parse(localStorage.getItem(TV_MARINE_CACHE_KEY) || 'null');
+    if(!cached?.marine || Date.now() - Number(cached.savedAt || 0) > TV_MARINE_CACHE_MAX_AGE_MS) return null;
+    const lat = Number(cached.marine.latitude), lon = Number(cached.marine.longitude);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon) || kmDistance(coast.lat,coast.lon,lat,lon) > 20) return null;
+    return {...cached.marine, tide:reviveMarineTide(cached.marine.tide), cachedAt:Number(cached.savedAt || 0)};
+  }catch(_error){
+    return null;
+  }
+}
+
 async function loadMarine(){
-  state.marine = null;
+  const previous = state.marine;
   state.seaspark = null;
   const coast = nearestCoastalPlace();
-  if(!coast || coast.dist > 18) return;
+  if(!coast || coast.dist > 18){
+    state.marine = null;
+    return;
+  }
+
+  const useFallback = ()=>{
+    const previousSameCoast = previous && Number.isFinite(Number(previous.latitude)) && Number.isFinite(Number(previous.longitude))
+      && kmDistance(coast.lat,coast.lon,Number(previous.latitude),Number(previous.longitude)) <= 20
+      ? previous
+      : null;
+    state.marine = previousSameCoast || loadMarineCache(coast);
+    if(state.marine) state.marine.tide = reviveMarineTide(state.marine.tide) || (coast.name === 'Oostende' ? tideStateForOostende(new Date()) : null);
+  };
+
   try{
     const qs = new URLSearchParams({lat:String(coast.lat), lon:String(coast.lon)});
     const d = await apiJson(`/marine?${qs.toString()}`);
-    if(!d?.ok) return;
+    if(!d?.ok){
+      useFallback();
+      return;
+    }
 
     const hourly = d.hourly && typeof d.hourly === 'object' ? d.hourly : {};
     const idx = Array.isArray(hourly.time) && hourly.time.length ? closestIndex(hourly.time, Date.now()) : 0;
-    const tide = tideStateFromMarineHourly(hourly, new Date()) || tideStateForOostende(new Date());
+    const tide = tideStateFromMarineHourly(hourly, new Date()) || (coast.name === 'Oostende' ? tideStateForOostende(new Date()) : null);
 
     state.marine = {
       place:coast.name,
@@ -768,14 +818,14 @@ async function loadMarine(){
       tide
     };
 
+    saveMarineCache(state.marine);
     state.seaspark = buildSeaSparkForecast(coast, hourly);
     // Zeevonk alleen tonen wanneer het seizoen/klimaat zinvol is.
-    // België/gematigde streken: mei t/m september.
-    // Buiten dat seizoen alleen in warme kustgebieden met warm zeewater.
     if(state.seaspark && !shouldShowSeaSparkCard(state.seaspark, new Date())){
       state.seaspark = null;
     }
   }catch(e){
+    useFallback();
     console.warn('Wheaterflow Marine laden faalde:', e);
   }
 }
@@ -2952,12 +3002,43 @@ function loadForecastCache(){
   }catch(_e){ return null; }
 }
 
+function normalizeForecastPayload(payload){
+  if(!payload || typeof payload !== 'object') return payload;
+  const layers = [payload, payload.forecast, payload.weather, payload.data, payload.result]
+    .filter(value=>value && typeof value === 'object' && !Array.isArray(value));
+  const pick = key => {
+    for(const layer of layers){
+      if(layer[key] != null) return layer[key];
+    }
+    return null;
+  };
+  return {
+    ...payload,
+    current:pick('current') || pick('current_weather'),
+    hourly:pick('hourly'),
+    daily:pick('daily'),
+    minutely_15:pick('minutely_15') || pick('minutely'),
+    elevation:pick('elevation'),
+    timezone:pick('timezone') || payload.timezone,
+    utc_offset_seconds:pick('utc_offset_seconds') ?? payload.utc_offset_seconds
+  };
+}
+
+function forecastBlockHasTime(block){
+  return Boolean(block && Array.isArray(block.time) && block.time.length);
+}
+
 async function fetchForecast(model){
   const response = await fetch(buildForecastUrl(model), {cache:'no-store'});
   let data = null;
   try{ data = await response.json(); }catch(error){}
-  if(!response.ok || data?.error || !data?.current || !data?.hourly || !data?.daily){
-    const reason = data?.reason || data?.error || `HTTP ${response.status}`;
+  data = normalizeForecastPayload(data);
+  const validCurrent = data?.current && typeof data.current === 'object';
+  const validHourly = forecastBlockHasTime(data?.hourly);
+  const validDaily = forecastBlockHasTime(data?.daily);
+  if(!response.ok || data?.error || !validCurrent || !validHourly || !validDaily){
+    const missing = [!validCurrent?'current':null,!validHourly?'hourly':null,!validDaily?'daily':null].filter(Boolean).join(', ');
+    const reason = data?.reason || data?.error || (missing ? `Onvolledige forecast: ${missing}` : `HTTP ${response.status}`);
     const err = new Error(reason);
     err.status = response.status;
     throw err;
@@ -3080,6 +3161,14 @@ async function renderWeatherWithoutForecast(forecastError){
   </div>`;
   $('#homeInner').innerHTML = html;
   $('#wfEmergencyRetry')?.addEventListener('click',()=>loadWeather());
+  if(tv.active){
+    try{
+      await loadMarine();
+      renderTV();
+    }catch(tvError){
+      console.warn('TV noodweergave kon niet volledig worden vernieuwd:', tvError);
+    }
+  }
   console.warn('Wheaterflow noodweergave actief; forecast niet beschikbaar:', forecastError?.message || forecastError);
   return true;
 }
@@ -12399,7 +12488,7 @@ async function enterTV(options={}){
     }catch(e){ /* fullscreen kan geweigerd zijn - dashboard blijft gewoon zichtbaar */ }
   }
 
-  if(state.current) renderTV();
+  if(state.current || currentConditionsTruth()) renderTV();
   tickClock();
   clearInterval(tv.clockTimer); clearInterval(tv.refreshTimer);
   tv.clockTimer = setInterval(tickClock, 1000);
@@ -12510,14 +12599,69 @@ function tvFeatureIcon(name, alt=''){
   return `<span class="tv-feature-icon tv-feature-icon-${name}" role="img" aria-label="${esc(alt)}">${tvFeatureSvg(name)}</span>`;
 }
 
+function tvForecastEmpty(kind, message){
+  const iconName = kind === 'daily' ? 'sevenDay' : 'hourly';
+  return `<div class="tv-forecast-empty tv-forecast-empty-${kind}">${tvFeatureIcon(iconName, kind === 'daily' ? 'Dagverwachting' : 'Uurverwachting')}<div><b>${kind === 'daily' ? 'Dagverwachting' : 'Uurverwachting'}</b><span>${esc(message)}</span></div></div>`;
+}
+
+function renderTvHourlyForecast(cur, isDay){
+  const wrap = $('#tvHourly');
+  if(!wrap) return;
+  const hourly = state.hourly;
+  const times = Array.isArray(hourly?.time) ? hourly.time : [];
+  if(!times.length){
+    wrap.innerHTML = tvForecastEmpty('hourly','Weerdata wordt opnieuw geladen.');
+    return;
+  }
+
+  const nowIdx = closestIndex(times, Date.now());
+  const items = [];
+  for(let i=nowIdx; i<Math.min(nowIdx+8, times.length); i++){
+    const t = new Date(times[i]);
+    const label = i===nowIdx ? 'Nu' : (Number.isNaN(t.getTime()) ? '--:--' : t.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit',timeZone:state.tz || undefined}));
+    const hd = hourlyForecastDisplay(i, nowIdx, cur, isDay);
+    items.push(`<div class="hitem ${hd.isCurrentHour?'now':''}"><div class="t">${esc(label)}</div>${icon(hd.info.ic,hd.isDay,24)}<div class="p">${esc(hd.pop || '')}</div><div class="v">${fmtTemp(hd.temperature)}</div></div>`);
+  }
+  wrap.innerHTML = items.length ? items.join('') : tvForecastEmpty('hourly','Geen uren beschikbaar.');
+}
+
+function renderTvDailyForecast(){
+  const wrap = $('#tvDaily');
+  if(!wrap) return;
+  const daily = state.daily;
+  const times = Array.isArray(daily?.time) ? daily.time : [];
+  if(!times.length){
+    wrap.innerHTML = tvForecastEmpty('daily','Weerdata wordt opnieuw geladen.');
+    return;
+  }
+
+  const maxTemps = Array.isArray(daily?.temperature_2m_max) ? daily.temperature_2m_max : [];
+  const minTemps = Array.isArray(daily?.temperature_2m_min) ? daily.temperature_2m_min : [];
+  const codes = Array.isArray(daily?.weather_code) ? daily.weather_code : [];
+  const count = Math.min(6, times.length);
+  const items = [];
+  for(let i=0;i<count;i++){
+    const dwc = wcInfo(codes[i]);
+    const d = new Date(times[i]);
+    const dn = i===0 ? tr('Vandaag') : (Number.isNaN(d.getTime()) ? `Dag ${i+1}` : d.toLocaleDateString(wfLocale(),{weekday:'short',timeZone:state.tz || undefined}));
+    items.push(`<div class="ditem"><div class="dn">${esc(dn)}</div>${icon(dwc.ic,true,22)}<div class="dv">${fmtTemp(maxTemps[i])} <span class="lo">${fmtTemp(minTemps[i])}</span></div></div>`);
+  }
+  wrap.innerHTML = items.length ? items.join('') : tvForecastEmpty('daily','Geen dagen beschikbaar.');
+}
+
 function renderTV(){
-  if(!state.current) return;
-  const cur = liveWeatherSnapshot(), hourly = state.hourly, daily = state.daily;
-  const intel = weatherIntelligence();
+  const truth = currentConditionsTruth();
+  if(!state.current && !truth) return;
+  const cur = liveWeatherSnapshot();
+  const hourly = state.hourly;
+  const daily = state.daily;
+  let intel = {rain:null};
+  try{ intel = weatherIntelligence(); }catch(error){ console.warn('TV intelligence tijdelijk niet beschikbaar:', error); }
   const wc = wcInfo(cur.weather_code);
-  const isDay = cur.is_day === 1;
-  const nowIdx = nowIndexInHourly();
-  const dewPoint = hourly?.dew_point_2m?.[nowIdx];
+  const isDay = cur.is_day === 1 || (cur.is_day == null && isDayForTime(new Date().toISOString()));
+  const hourlyTimes = Array.isArray(hourly?.time) ? hourly.time : [];
+  const nowIdx = hourlyTimes.length ? closestIndex(hourlyTimes, Date.now()) : 0;
+  const dewPoint = hourly?.dew_point_2m?.[nowIdx] ?? cur.dew_point_2m;
   const humidity = cur.relative_humidity_2m ?? hourly?.relative_humidity_2m?.[nowIdx];
   const pressure = cur.pressure_msl ?? hourly?.pressure_msl?.[nowIdx];
   const gust = cur.wind_gusts_10m ?? hourly?.wind_gusts_10m?.[nowIdx];
@@ -12537,14 +12681,23 @@ function renderTV(){
   $('#tvIcon').innerHTML = icon(wc.ic, isDay, 165);
   $('#tvTemp').innerHTML = fmtTemp(cur.temperature_2m);
   $('#tvCond').textContent = wc.l;
-  const sunrise = formatTvSunTime(daily.sunrise?.[0]);
-  const sunset = formatTvSunTime(daily.sunset?.[0]);
-  $('#tvHiLo').innerHTML = `H: <b>${fmtTemp(daily.temperature_2m_max[0])}</b> &nbsp; L: <b>${fmtTemp(daily.temperature_2m_min[0])}</b> &nbsp; Voelt als ${fmtTemp(cur.apparent_temperature)}<div class="tv-sunline">${icon('sunrise',true,18)} Zon op ${sunrise} &nbsp; Zon onder ${sunset}</div>`;
+
+  const hi = validNumber(daily?.temperature_2m_max?.[0]);
+  const lo = validNumber(daily?.temperature_2m_min?.[0]);
+  const feels = validNumber(cur.apparent_temperature);
+  const summaryParts = [];
+  if(hi != null) summaryParts.push(`H: <b>${fmtTemp(hi)}</b>`);
+  if(lo != null) summaryParts.push(`L: <b>${fmtTemp(lo)}</b>`);
+  if(feels != null) summaryParts.push(`Voelt als ${fmtTemp(feels)}`);
+  const sunrise = formatTvSunTime(daily?.sunrise?.[0]);
+  const sunset = formatTvSunTime(daily?.sunset?.[0]);
+  const hasSun = sunrise !== '--:--' || sunset !== '--:--';
+  $('#tvHiLo').innerHTML = `${summaryParts.join(' &nbsp; ')}${hasSun ? `<div class="tv-sunline">${icon('sunrise',true,18)} Zon op ${sunrise} &nbsp; Zon onder ${sunset}</div>` : ''}`;
 
   try{
     $('#tvDetails').innerHTML = [
       tvMetricCard('wind','Wind', fmtWind(cur.wind_speed_10m), 'Stoten '+fmtWind(gust), 'wind'),
-      tvMetricCard('drop','Rain ETA', tvRainValue(intel.rain), tvRainSubtitle(intel.rain), 'rainTiming'),
+      tvMetricCard('drop','Rain ETA', tvRainValue(intel?.rain), tvRainSubtitle(intel?.rain), 'rainTiming'),
       tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint), 'humidity'),
       tvMetricCard('thermo','Druk', fmtPress(pressure), pressure != null ? (pressure>1013?'Hoge druk':'Lage druk') : 'Niet beschikbaar', 'pressure'),
       tvMarineCard(),
@@ -12558,29 +12711,25 @@ function renderTV(){
       tvMetricCard('drop','Rain ETA','N.b.','Nowcast tijdelijk niet beschikbaar', 'rainTiming'),
       tvMetricCard('gauge','Vochtigheid', humidity != null ? humidity+'%' : '-', 'Dauwpunt '+fmtTemp(dewPoint), 'humidity'),
       tvMetricCard('thermo','Druk', fmtPress(pressure), 'Niet beschikbaar', 'pressure'),
-      tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar','tide'),
+      tvMarineCard(),
       tvMetricCard('gauge','Weermelding','Code groen','','warnings')
     ].join('');
     wireTvFeatureIconFallbacks($('#tvDetails'));
   }
 
-  let hh = '';
-  for(let i=nowIdx; i<Math.min(nowIdx+8, hourly.time.length); i++){
-    const t = new Date(hourly.time[i]);
-    const label = i===nowIdx ? 'Nu' : t.getHours()+':00';
-    const hd = hourlyForecastDisplay(i, nowIdx, cur, isDay);
-    hh += `<div class="hitem ${hd.isCurrentHour?'now':''}"><div class="t">${label}</div>${icon(hd.info.ic,hd.isDay,24)}<div class="p">${hd.pop}</div><div class="v">${fmtTemp(hd.temperature)}</div></div>`;
+  // Uur- en dagverwachting afzonderlijk renderen: één fout mag nooit beide vakken leeg maken.
+  try{ renderTvHourlyForecast(cur, isDay); }
+  catch(error){
+    console.warn('TV uurverwachting render faalde:', error);
+    const wrap = $('#tvHourly');
+    if(wrap) wrap.innerHTML = tvForecastEmpty('hourly','Uurverwachting tijdelijk niet beschikbaar.');
   }
-  $('#tvHourly').innerHTML = hh;
-
-  let dd = '';
-  for(let i=0;i<6;i++){
-    const dwc = wcInfo(daily.weather_code[i]);
-    const d = new Date(daily.time[i]);
-    const dn = i===0?tr('Vandaag'):d.toLocaleDateString(wfLocale(),{weekday:'short'});
-    dd += `<div class="ditem"><div class="dn">${dn}</div>${icon(dwc.ic,true,22)}<div class="dv">${fmtTemp(daily.temperature_2m_max[i])} <span class="lo">${fmtTemp(daily.temperature_2m_min[i])}</span></div></div>`;
+  try{ renderTvDailyForecast(); }
+  catch(error){
+    console.warn('TV dagverwachting render faalde:', error);
+    const wrap = $('#tvDaily');
+    if(wrap) wrap.innerHTML = tvForecastEmpty('daily','Dagverwachting tijdelijk niet beschikbaar.');
   }
-  $('#tvDaily').innerHTML = dd;
 }
 
 function tvMetricCard(ic,title,val,sub,tvIconName=''){
@@ -12610,15 +12759,35 @@ function tvAlertCard(){
 }
 
 function tvMarineCard(){
-  if(!state.marine || !state.marine.tide) return tvMetricCard('drop','Kust','N.b.','Geen kustdata beschikbaar','tide');
-  const tide = state.marine.tide;
-  const nextLabel = tide.nextType === 'hoogwater' ? 'vloed' : 'eb';
-  const nextTime = tide.nextTime instanceof Date && !Number.isNaN(tide.nextTime.getTime())
-    ? tide.nextTime.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})
-    : '--:--';
-  const wave = state.marine.waveHeight != null ? `${state.marine.waveHeight.toFixed(1)} m` : 'n.b.';
-  const spark = state.seaspark ? ` - zeevonk ${Math.round(state.seaspark.score)}/100` : '';
-  return `<div class="dcard tv-marine">${tvFeatureIcon('tide','Kust')}<div><div class="dt-title">Kust</div><div class="dt-val">${esc(tide.state || 'Kust')}</div><div class="dt-sub">Volgende ${nextLabel} ${nextTime} - golfhoogte ${wave}${spark}</div></div></div>`;
+  const coast = nearestCoastalPlace();
+  if(!coast || coast.dist > 18){
+    return tvMetricCard('drop','Kust','N.b.','Geen kustlocatie','tide');
+  }
+
+  const marine = state.marine;
+  const tide = reviveMarineTide(marine?.tide) || (coast.name === 'Oostende' ? tideStateForOostende(new Date()) : null);
+  const seaTemp = validNumber(marine?.seaSurfaceTemperature);
+  const waveHeight = validNumber(marine?.waveHeight);
+  const seaLevel = validNumber(marine?.seaLevelHeightMsl);
+  const nextLabel = tide?.nextType === 'hoogwater' ? 'hoogwater' : tide?.nextType === 'laagwater' ? 'laagwater' : null;
+  const nextTime = tide?.nextTime instanceof Date && !Number.isNaN(tide.nextTime.getTime())
+    ? tide.nextTime.toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit',timeZone:state.tz || undefined})
+    : null;
+
+  const main = [];
+  if(seaTemp != null) main.push(`${seaTemp.toFixed(1).replace('.',',')}° zee`);
+  if(waveHeight != null) main.push(`${waveHeight.toFixed(1).replace('.',',')} m`);
+  if(!main.length && tide?.state) main.push(tide.state);
+  if(!main.length) main.push(coast.name);
+
+  const sub = [];
+  if(tide?.state && main[0] !== tide.state) sub.push(tide.state);
+  if(nextLabel && nextTime) sub.push(`${nextLabel} ${nextTime}`);
+  if(seaLevel != null) sub.push(`water ${seaLevel.toFixed(2).replace('.',',')} m`);
+  if(!marine && tide) sub.push('getij indicatief');
+  if(!sub.length) sub.push(marine ? 'Kustdata beschikbaar' : 'Kustdata wordt geladen');
+
+  return `<div class="dcard tv-marine">${tvFeatureIcon('tide','Kust')}<div><div class="dt-title">Kust · ${esc(coast.name)}</div><div class="dt-val">${esc(main.join(' · '))}</div><div class="dt-sub">${esc(sub.join(' · '))}</div></div></div>`;
 }
 
 function resizeTvMap({refit=true}={}){

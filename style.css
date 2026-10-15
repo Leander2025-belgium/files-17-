@@ -16286,3 +16286,72 @@ body .tabbar .tabbtn:focus-visible{
   #home .rain-explorer-bar i{width:72%;min-width:5px;}
   #home .rain-explorer-axis{font-size:7.5px;}
 }
+
+
+/* =========================================================
+   Wheaterflow TV forecast restore v1
+   - hourly stays visible below current weather
+   - daily stays visible below radar
+   - robust empty state instead of a blank glass panel
+   ========================================================= */
+#tvscreen.active .tv-hourly,
+#tvscreen.active .tv-daily{
+  color:#fff!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+#tvscreen.active .tv-hourly .hitem,
+#tvscreen.active .tv-daily .ditem{
+  opacity:1!important;
+  visibility:visible!important;
+}
+#tvscreen.active .tv-hourly .hitem img,
+#tvscreen.active .tv-daily .ditem img{
+  display:block!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+#tvscreen.active .tv-forecast-empty{
+  grid-column:1/-1;
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(9px,.9vw,14px);
+  padding:clamp(10px,1vw,16px);
+  box-sizing:border-box;
+  color:#fff;
+  text-align:left;
+  background:linear-gradient(135deg,rgba(0,116,230,.22),rgba(0,64,154,.08));
+}
+#tvscreen.active .tv-forecast-empty .tv-feature-icon{
+  width:clamp(30px,2.8vw,46px)!important;
+  height:clamp(30px,2.8vw,46px)!important;
+  flex:0 0 auto;
+}
+#tvscreen.active .tv-forecast-empty>div{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+#tvscreen.active .tv-forecast-empty b{
+  font-size:clamp(12px,.95vw,16px);
+  line-height:1.1;
+}
+#tvscreen.active .tv-forecast-empty span{
+  font-size:clamp(10px,.76vw,13px);
+  line-height:1.15;
+  color:rgba(255,255,255,.72);
+}
+#tvscreen.active .tv-marine .dt-val{
+  font-size:clamp(13px,1.05vw,19px)!important;
+}
+#tvscreen.active .tv-marine .dt-sub{
+  -webkit-line-clamp:1!important;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
