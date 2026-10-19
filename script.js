@@ -12165,6 +12165,7 @@ function renderTimeline(){
     slider.max=String(Math.max(0,state.radar.frames.length-1));
     slider.value=String(state.radar.index);
   }
+  window.wfUpdateRadarTimeline?.();
   state.radar.frames.forEach((f,i)=>{
     const b=document.createElement('div');
     b.className='tframe'+(f.isNowcast?' nowcast':'')+(f.isNow?' now':'')+(i===state.radar.index?' active':'');
@@ -12217,10 +12218,13 @@ function setFrame(i){
   $('#timeLabel').title=wfRadarFrameTitle(f);
   $('#radarNowBadge')?.classList.toggle('show',state.radar.layer==='precip'&&Boolean(f.isNow));
   if($('#radarFrameSlider')) $('#radarFrameSlider').value=String(i);
+  window.wfUpdateRadarTimeline?.();
   $$('.tframe').forEach((el,idx)=>el.classList.toggle('active',idx===i));
 }
 function stopPlaying(){
   state.radar.playing = false;
+  $('#playBtn')?.setAttribute('aria-label','Radar afspelen');
+  $('#playBtn')?.setAttribute('aria-pressed','false');
   clearTimeout(state.radar.timer);
   $('#playBtn').innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>`;
 }
@@ -12237,6 +12241,8 @@ function scheduleRadarPlayback(){
 $('#playBtn').addEventListener('click', ()=>{
   if(state.radar.playing){ stopPlaying(); return; }
   state.radar.playing = true;
+  $('#playBtn').setAttribute('aria-label','Radar pauzeren');
+  $('#playBtn').setAttribute('aria-pressed','true');
   $('#playBtn').innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`;
   scheduleRadarPlayback();
 });

@@ -79,6 +79,7 @@
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
 <link href="style.css?v=20261015-tv-details-clean-v7" rel="stylesheet"/>
+<link href="radar-design.css?v=20261019-radar-glass-v1" rel="stylesheet"/>
 <style>
 /*
   Semantische Wheaterflow-intro.
@@ -315,18 +316,22 @@
 <div class="radar-wrap">
 <div id="map"></div>
 <div class="radar-top">
-<div class="chip-row radar-primary-layers" aria-label="Radar lagen">
-<button class="chip active" id="chipPrecip" type="button">Buienradar</button>
-<button class="chip" id="chipSat" type="button">Satelliet</button>
+<div class="radar-design-heading"><h2>Buienradar</h2><p>Rond jouw locatie</p></div>
+<div class="chip-row radar-primary-layers" aria-label="Kaartlagen">
+<button class="chip active" id="chipPrecip" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15a4 4 0 0 1 0-8 6 6 0 0 1 11-1 4.5 4.5 0 0 1 1 9"/><path d="m8 16-1 3m6-3-1 3m6-3-1 3"/></svg><span>Regen</span></button>
+<button class="chip" id="chipSat" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 9 6 6m-8-8 3-5 4 4-3 5m2 2 5-3 4 4-5 3M5 15a4 4 0 0 1 4 4m-7-4a7 7 0 0 1 7 7"/></svg><span>Satelliet</span></button>
+<button class="chip" id="radarQuickWind" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h12a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h5a3 3 0 1 1-3 3"/></svg><span>Wind</span></button>
+<button class="chip" id="radarLayersToggle" type="button" aria-expanded="false" aria-controls="radarExtraLayers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 6-10 6L2 9l10-6Zm-10 10 10 6 10-6M2 17l10 6 10-6"/></svg><span>Lagen</span></button>
+</div>
+<div class="chip-row radar-duration-row" id="durationRow">
+<button class="chip active" data-dur="1" type="button">Radar +2u</button><button class="chip" data-dur="6" type="button">6u</button><button class="chip" data-dur="12" type="button">12u</button><button class="chip" data-dur="24" type="button">24u</button>
+</div>
+<div id="radarExtraLayers" class="radar-extra-layers" hidden>
 <button class="chip" id="radarQuickTemp" type="button">Temperatuur</button>
-<button class="chip" id="radarQuickWind" type="button">Wind</button>
 <button class="chip" id="radarQuickCloud" type="button">Bewolking</button>
 <button class="chip" id="radarQuickLightning" type="button">Bliksem</button>
 </div>
-<div class="chip-row radar-duration-row" id="durationRow">
-<button class="chip active" data-dur="1">Radar +2u</button><button class="chip" data-dur="6">6 uur</button><button class="chip" data-dur="12">12 uur</button><button class="chip" data-dur="24">24 uur</button>
-</div>
-<div class="radar-utility-row"><button class="chip radar-compat-hidden" id="chipScheme" type="button"><span id="schemeLabel">Helder</span></button><button class="chip" id="chipLocate" type="button">Mijn locatie</button><button class="chip" id="radarFullscreen" type="button">Volledig scherm</button></div>
+<div class="radar-utility-row"><button class="chip radar-compat-hidden" id="chipScheme" type="button"><span id="schemeLabel">Helder</span></button><button class="chip" id="chipLocate" type="button" aria-label="Mijn locatie" title="Mijn locatie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 3-6 18-4-8-8-4 18-6Z" fill="currentColor"/></svg></button><button class="chip" id="radarFullscreen" type="button" aria-label="Volledig scherm" title="Volledig scherm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button></div>
 <div aria-label="Professionele weerlagen" class="xweather-layerbar radar-hidden-layerbar" id="xweatherLayerBar"></div>
 </div>
 <div class="radar-info" id="radarInfo"></div>
@@ -391,14 +396,12 @@
 <div id="liveRadarPanel">
 <div class="radar-panel-head">
 <div>
-<b>Wheaterflow buienradar</b>
+<b>Radarverloop</b>
 <span id="radarPlaceLabel">
                 Radar rond België
               </span>
 </div>
-<span class="radar-now-badge" id="radarNowBadge">
-              NU
-            </span>
+<span class="radar-now-badge" id="radarNowBadge">NU</span><span class="timelabel" id="timeLabel" aria-live="off">--:--</span>
 </div>
 <div class="radar-eta-line" id="radarEtaLine"></div>
 <div class="legend">
@@ -419,23 +422,17 @@
 <input id="opacitySlider" max="100" min="20" type="range" value="90"/>
 </div>
 <div class="timeline-row" style="margin-top:8px;">
-<button class="playbtn" id="playBtn">
+<button class="playbtn" id="playBtn" type="button" aria-label="Radar afspelen" aria-pressed="false">
 <svg fill="currentColor" viewbox="0 0 24 24">
 <polygon points="6,4 20,12 6,20"></polygon>
 </svg>
 </button>
 <div class="timeline" id="timeline"></div>
-<div class="timelabel" id="timeLabel">
-              --:--
-            </div>
+
 </div>
 <input aria-label="Radartijdlijn" class="radar-frame-slider" id="radarFrameSlider" max="12" min="0" type="range" value="12"/>
-<div class="radar-axis">
-<span>-1u</span>
-<span>Nu</span>
-<span>+1u</span>
-<span>+2u</span>
-</div>
+<div class="radar-axis" id="radarDesignAxis" aria-hidden="true"></div>
+<div class="radar-design-caption" id="radarDesignCaption">Radargegevens laden…</div>
 <div class="radar-note">
             Wheaterflow radar: gemeten neerslag en een slimme verwachting tot 2 uur vooruit. Toekomstframes zijn voorspellingen, geen metingen.
           </div>
@@ -1631,6 +1628,7 @@
 <script src="location-engine.js?v=20260911-location-i18n-v2"></script>
 <script src="castService.js?v=20260820-tv-route-1"></script>
 <script src="tvPairingService.js?v=20260820-tv-route-1"></script>
-<script src="script.js?v=20261015-tv-details-clean-v7"></script>
+<script src="script.js?v=20261019-radar-glass-v1"></script>
+<script src="radar-design.js?v=20261019-radar-glass-v1"></script>
 </body>
 </html>
