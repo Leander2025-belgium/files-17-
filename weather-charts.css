@@ -1,0 +1,40 @@
+/* The four forecast cards; all styling is scoped to this component. */
+#home .wf-chart-toolbar{display:flex;justify-content:space-between;gap:15px;align-items:center;margin:4px 0 15px;color:#fff;}
+#home .wf-chart-toolbar b{display:block;font-size:15px;}
+#home .wf-chart-toolbar span{display:block;font-size:12px;color:#dceafa;margin-top:4px;}
+#home .wf-chart-reset{border:1px solid rgba(219,241,255,.4);border-radius:18px;background:rgba(59,107,153,.45);padding:9px 14px;color:#fff;cursor:pointer;white-space:nowrap;font:600 12px Inter,sans-serif;}
+#home .wf-weather-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px!important;}
+#home .wf-weather-charts .wf-weather-card{
+  box-sizing:border-box;min-width:0;padding:18px 20px 14px!important;border-radius:25px!important;
+  background:linear-gradient(135deg,rgba(79,126,169,.77),rgba(34,73,112,.72))!important;
+  border:1px solid rgba(219,239,255,.45)!important;box-shadow:inset 0 1px 3px rgba(255,255,255,.18),0 8px 25px rgba(8,27,48,.10)!important;
+  backdrop-filter:blur(15px) saturate(115%)!important;-webkit-backdrop-filter:blur(15px) saturate(115%)!important;
+  color:#fff!important;
+}
+#home .wf-chart-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px;}
+#home .wf-chart-heading h3{display:flex;align-items:center;gap:9px;font:700 18px/1.3 Inter,sans-serif;margin:0;color:#fff;white-space:nowrap;}
+#home .wf-chart-heading svg{width:25px;height:25px;color:#8bddff;flex:none;}
+#home .wf-chart-badge{font:400 11px/1.3 Inter,sans-serif;color:#deefff;border:1px solid rgba(210,238,255,.3);border-radius:20px;padding:5px 9px;text-align:right;}
+#home .wf-chart-metric{display:flex;align-items:center;gap:13px;min-height:53px;margin:3px 0 5px;}
+#home .wf-chart-metric strong{font:700 clamp(25px,2.6vw,38px)/1.15 Inter,sans-serif;letter-spacing:-.9px;color:#fff;}
+#home .wf-chart-metric>span{font:500 13px/1.4 Inter,sans-serif;border-left:1px solid rgba(215,238,255,.35);padding-left:13px;color:#f0f7ff;}
+#home .wf-chart-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px;margin-bottom:8px;}
+#home [data-chart-time]{color:#cbe0f3;font:400 11px/1.3 Inter,sans-serif;white-space:nowrap;}
+#home .wf-chart-legend{display:flex;gap:15px;justify-content:flex-end;flex-wrap:wrap;font:500 11px/1.4 Inter,sans-serif;color:#edf7ff;}
+#home .wf-chart-legend span{display:flex;align-items:center;gap:6px;white-space:nowrap;}
+#home .wf-chart-legend i{display:inline-block;width:20px;height:3px;border-radius:3px;background:#42def3;}
+#home .wf-chart-legend i.yellow{background:#ffda58;color:#ffda58;}#home .wf-chart-legend i.orange{background:#ffa34b;color:#ffa34b;}
+#home .wf-chart-legend i.dashed{height:0;background:none;border-top:3px dashed;}
+#home .wf-chart-legend i.bar{width:12px;height:12px;border-radius:1px;background:linear-gradient(#65b4f8,#327ac6);}
+#home .wf-weather-card .apple-chart-wrap{position:relative;height:210px!important;min-height:210px!important;}
+#home .wf-weather-card canvas{touch-action:pan-y;cursor:crosshair;border-radius:4px;}
+#home .wf-weather-card canvas:focus-visible,#home .wf-chart-reset:focus-visible{outline:2px solid #9ceeff;outline-offset:4px;}
+#home .wf-chart-tooltip{position:absolute;top:12px;z-index:3;pointer-events:none;max-width:calc(100% - 8px);padding:9px 11px;border-radius:13px;border:1px solid rgba(177,227,255,.55);background:rgba(13,40,68,.95);box-shadow:0 6px 20px rgba(0,0,0,.22);font:500 11px/1.5 Inter,sans-serif;color:#f3faff;box-sizing:border-box;}
+#home .wf-chart-tooltip[hidden]{display:none!important;}
+#home .wf-chart-tooltip b,#home .wf-chart-tooltip span{display:block;white-space:nowrap;}
+#home .wf-chart-tooltip b{margin-bottom:4px;color:#8ee9ff;}
+.wf-chart-accessible{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}
+#home .wf-chart-no-data{position:absolute;top:45%;left:0;right:0;text-align:center;color:#e1efff;font-size:13px;pointer-events:none;}
+#home .wf-chart-unavailable{padding:28px 12px;font:500 13px/1.5 Inter,sans-serif;color:#eef6ff;}
+@media(max-width:760px){#home .wf-weather-charts{grid-template-columns:1fr!important;gap:12px!important;}#home .wf-weather-charts .wf-weather-card{padding:14px 13px 12px!important;border-radius:22px!important;}#home .wf-chart-heading h3{font-size:17px;}#home .wf-chart-metric strong{font-size:30px;}#home .wf-chart-badge{font-size:10px;}#home .wf-chart-legend{gap:10px;font-size:10px;}#home .wf-chart-metric>span{font-size:12px;}#home .wf-chart-meta{gap:6px;}#home .wf-chart-toolbar{align-items:flex-start;}#home .wf-chart-toolbar span{max-width:220px;}#home .wf-chart-reset{padding:8px 10px;font-size:11px;}}
+@media(prefers-reduced-motion:reduce){#home .wf-weather-card *{scroll-behavior:auto!important;transition:none!important;}}

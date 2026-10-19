@@ -6442,101 +6442,10 @@ function homeMapLayerError(layerId){
 }
 
 function chartsSection(){
-  if(!state.hourly?.time?.length) return `<div class="card">${wheaterflowStatus('empty','Momenteel geen gegevens beschikbaar')}</div>`;
-  const idx = nowIndexInHourly();
-  const points = Array.from({length:24},(_,n)=>idx+n).filter(i=>i<state.hourly.time.length);
-  const stat = (label, vals, unit='') => {
-    const clean = vals.filter(v=>v!=null && isFinite(v));
-    if(!clean.length) return `<span>${label}<b>-</b></span>`;
-    const min = Math.min(...clean), max = Math.max(...clean);
-    return `<span>${label}<b>${Math.round(min)}-${Math.round(max)}${unit}</b></span>`;
-  };
-  return `<div class="more-weather-section-title">${upcoming24Icon(30,'card-title-icon')} Grafieken komende 24 uur</div>
-    <div class="premium-chart-summary">
-      ${stat('Temperatuur', points.map(i=>state.hourly.temperature_2m[i]), '°')}
-      ${stat('Neerslagkans', points.map(i=>state.hourly.precipitation_probability[i]), '%')}
-      ${stat('Wind', points.map(i=>state.hourly.wind_speed_10m[i]), ' km/u')}
-    </div>
-    <div class="chart-grid premium-charts">
-      ${premiumChartShell('temp','Temperatuur','Gevoelstemperatuur en luchttemperatuur','°C')}
-      ${premiumChartShell('rain','Neerslag','Kans en hoeveelheid per uur','% / mm')}
-      ${premiumChartShell('uv','UV-index','Sterkte van de zon doorheen de dag','UV')}
-      ${premiumChartShell('wind','Wind','Windsnelheid en windstoten','km/u')}
-    </div>`;
+  return window.WFWeatherCharts.markup(state.hourly, nowIndexInHourly(), state.daily);
 }
-
-function premiumChartShell(id, title, sub, unit){
-  return `<div class="card mini-chart apple-chart-card" data-chart="${id}">
-    <div class="mini-chart-head"><b>${title}</b><span>${unit}</span></div>
-    <div class="chart-caption">${sub}</div>
-    <div class="apple-chart-wrap"><canvas id="chart-${id}" height="190"></canvas></div>
-  </div>`;
-}
-
-let premiumChartInstances = [];
 function renderPremiumCharts(){
-  premiumChartInstances.forEach(ch=>ch.destroy?.());
-  premiumChartInstances = [];
-  if(!window.Chart || !state.hourly?.time) return renderFallbackCharts();
-  const idx = nowIndexInHourly();
-  const points = Array.from({length:24},(_,n)=>idx+n).filter(i=>i<state.hourly.time.length);
-  const labels = points.map(i=>new Date(state.hourly.time[i]).toLocaleTimeString(wfLocale(),{hour:'2-digit'}));
-  const h = state.hourly;
-  const charts = [
-    ['temp', labels, [
-      premiumDataset('Temperatuur', points.map(i=>h.temperature_2m[i]), '#65d8ff', true),
-      premiumDataset('Voelt als', points.map(i=>h.apparent_temperature?.[i]), '#ffd36b', false)
-    ], '°C'],
-    ['rain', labels, [
-      premiumDataset('Neerslagkans', points.map(i=>h.precipitation_probability[i]), '#69e7ff', true),
-      premiumDataset('Neerslag mm', points.map(i=>h.precipitation[i]), '#4ade80', false, 'bar')
-    ], ''],
-    ['uv', labels, [
-      premiumDataset('UV-index', points.map(i=>h.uv_index?.[i] ?? null), '#ffd43b', true)
-    ], ''],
-    ['wind', labels, [
-      premiumDataset('Wind', points.map(i=>h.wind_speed_10m[i]), '#8be7ff', true),
-      premiumDataset('Stoten', points.map(i=>h.wind_gusts_10m[i]), '#ff9f43', false)
-    ], ' km/u']
-  ];
-  charts.forEach(([id, labs, datasets, unit])=>renderOnePremiumChart(id, labs, datasets, unit));
-}
-
-function premiumDataset(label, data, color, fill, type='line'){
-  return {
-    type, label, data, borderColor:color, backgroundColor:fill ? color+'24' : color+'33',
-    borderWidth:type==='bar'?0:2.5, pointRadius:0, pointHoverRadius:4, tension:.42,
-    fill:type==='line' && fill, borderRadius:type==='bar'?6:0, maxBarThickness:12
-  };
-}
-
-function renderOnePremiumChart(id, labels, datasets, unit){
-  const canvas = document.getElementById(`chart-${id}`);
-  if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const chart = new Chart(ctx, {
-    data:{labels,datasets},
-    options:{
-      responsive:true, maintainAspectRatio:false, animation:{duration:420},
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{display:true,labels:{color:'rgba(245,249,255,.78)',boxWidth:10,boxHeight:10,usePointStyle:true,font:{size:11,weight:'600'}}},
-        tooltip:{backgroundColor:'rgba(8,16,32,.92)',borderColor:'rgba(255,255,255,.18)',borderWidth:1,padding:10,titleColor:'#fff',bodyColor:'#dbeafe',
-          callbacks:{label:ctx=>`${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(id==='rain'&&ctx.dataset.label.includes('mm')?1:0)}${unit}`}}
-      },
-      scales:{
-        x:{grid:{display:false},ticks:{color:'rgba(235,244,255,.55)',maxTicksLimit:6,font:{size:10}}},
-        y:{beginAtZero:id==='rain'||id==='uv',grid:{color:'rgba(255,255,255,.09)'},ticks:{color:'rgba(235,244,255,.55)',font:{size:10},maxTicksLimit:5}}
-      }
-    }
-  });
-  premiumChartInstances.push(chart);
-}
-
-function renderFallbackCharts(){
-  $$('.apple-chart-card').forEach(card=>{
-    card.insertAdjacentHTML('beforeend', '<div class="subtle">Grafiekbibliotheek niet geladen. Probeer de pagina opnieuw te verversen.</div>');
-  });
+  window.WFWeatherCharts.render(state.hourly, nowIndexInHourly(), state.daily);
 }
 
 function miniChart(title, points, y1, y2, unit){

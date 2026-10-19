@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20261019-radar-glass-v1";
+const CACHE_VERSION = "wheaterflow-v20261019-charts-v1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -7,6 +7,8 @@ const STATIC_ASSETS = [
   "./style.css",
   "./radar-design.css",
   "./radar-design.js",
+  "./weather-charts.js",
+  "./weather-charts.css",
   "./script.js",
   "./i18n.js",
   "./location-engine.js",
