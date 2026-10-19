@@ -13,14 +13,14 @@ Deze levering bevat zowel de eerder aangepaste radarpagina als de nieuwe kaarten
 
 ## Bediening
 
-Beweeg de muis, tik of sleep horizontaal over een grafiek. Een verticale markering en detailvenster verschijnen op ALLE vier de kaarten voor hetzelfde uur. De kernwaarden bovenaan volgen het gekozen uur.
+Beweeg de muis, tik of sleep horizontaal over een grafiek. Alleen de kaart waarop je wijst of sleept krijgt een verticale markering en detailvenster. Iedere kaart bewaart haar eigen gekozen uur; de andere kaarten blijven ongewijzigd. De kernwaarden bovenaan de gekozen kaart volgen het gekozen uur.
 
 - Temperatuur en gevoelstemperatuur in °C.
 - Neerslagintensiteit, hoeveelheid in mm/u en neerslagkans in %.
 - Exacte UV-index.
 - Wind en windstoten in km/u, plus windrichting wanneer beschikbaar.
 
-De selectie blijft staan tot je een ander uur kiest of op Terug naar nu drukt. Met Tab kun je een grafiek focussen. Links/Rechts kiezen een uur; Home/End gaan naar het eerste/laatste uur; Escape wist de selectie. Verticaal vegen blijft gewoon de pagina scrollen.
+De selectie blijft staan tot je een ander uur kiest of op Terug naar nu drukt (die knop zet alle kaarten terug). Met Tab kun je een grafiek focussen. Links/Rechts kiezen een uur; Home/End gaan naar het eerste/laatste uur; Escape wist uitsluitend de selectie van de kaart met toetsenbordfocus. Verticaal vegen blijft gewoon de pagina scrollen.
 
 ## Gegevens
 
@@ -40,4 +40,4 @@ De service-worker-cacheversie is vernieuwd. Plaats index.html, script.js en beid
 
 npm test: acht tests geslaagd, inclusief vier nieuwe controles voor intensiteitsdrempels, exacte mm-waarden, ontbrekende gegevens en tijdreeksen over middernacht. Syntaxcontroles zijn geslaagd.
 
-In Chromium gecontroleerd: vier gesynchroniseerde markeringen, numerieke neerslagdetails, slepen buiten de grafiekrand, toetsenbordbediening, reset, opnieuw openen van de kaarten, korte/onvolledige tijdreeksen, echte touchgebeurtenissen op mobiel en verticaal scrollen over een grafiek. Geen JavaScript-fouten tijdens deze controles.
+In Chromium gecontroleerd: onafhankelijke tijdmarkeringen, numerieke neerslagdetails, slepen buiten de grafiekrand, toetsenbordbediening, reset, opnieuw openen van de kaarten, korte/onvolledige tijdreeksen, echte touchgebeurtenissen op mobiel en verticaal scrollen over een grafiek. Geen JavaScript-fouten tijdens deze controles.

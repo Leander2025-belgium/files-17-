@@ -60,7 +60,7 @@
           <div class="wf-chart-heading"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[id]}</svg>${titles[id]}</h3><span class="wf-chart-badge">${esc(badge)}</span></div>
           <div class="wf-chart-metric"><strong data-chart-value>${esc(value)}</strong><span data-chart-sub>${esc(sub)}</span></div>
           <div class="wf-chart-meta"><span data-chart-time>Dit uur</span><div class="wf-chart-legend">${legend[id].map(([label,color])=>`<span><i class="${color}" aria-hidden="true"></i>${label}</span>`).join('')}</div></div>
-          <div class="apple-chart-wrap"><canvas id="chart-${id}" tabindex="0" role="slider" aria-label="${titles[id]} per uur. Gebruik de pijltjestoetsen om hetzelfde uur op alle kaarten te kiezen." aria-valuemin="0" aria-valuemax="${data.length-1}" aria-valuenow="0"></canvas><div class="wf-chart-tooltip" hidden></div></div>
+          <div class="apple-chart-wrap"><canvas id="chart-${id}" tabindex="0" role="slider" aria-label="${titles[id]} per uur. Gebruik de pijltjestoetsen om een uur op deze kaart te kiezen." aria-valuemin="0" aria-valuemax="${data.length-1}" aria-valuenow="0"></canvas><div class="wf-chart-tooltip" hidden></div></div>
           <div class="wf-chart-accessible" data-chart-description></div>
         </section>`;
       }).join('')}</div><div class="wf-chart-accessible" id="wfChartAnnouncement" role="status" aria-live="polite"></div>`;
@@ -68,19 +68,19 @@
   let charts = [];
   let cleanup = [];
   let data = [];
-  let selected = null;
+  let selections = {};
   function destroy() {
     cleanup.forEach(fn=>fn());cleanup=[];
-    charts.forEach(chart=>chart.destroy());charts=[];selected=null;
+    charts.forEach(chart=>chart.destroy());charts=[];selections={};
   }
-  function select(index,announce=false) {
-    if (!data.length) return;
+  function select(id,index,announce=false) {
+    if (!data.length || !charts.some(chart=>chart.$wfId===id)) return;
     const next = Math.max(0,Math.min(data.length-1,Math.round(index)));
-    if (!Number.isFinite(next) || next === selected) return;
-    selected = next;
+    if (!Number.isFinite(next) || next === selections[id]) return;
+    selections[id] = next;
+    const selected = next;
     const row = data[selected];
-    charts.forEach(chart=>{
-      const id = chart.$wfId;
+    charts.filter(chart=>chart.$wfId===id).forEach(chart=>{
       const card = chart.canvas.closest('.wf-weather-card');
       const [value,sub] = values(id,row);
       card.querySelector('[data-chart-value]').textContent = value;
@@ -102,11 +102,11 @@
     });
     if (announce) {
       const status = document.getElementById('wfChartAnnouncement');
-      if (status) status.textContent = `${fullTime(row.time)}. ${Object.keys(titles).map(id=>details(id,row).join('. ')).join('. ')}`;
+      if (status) status.textContent = `${fullTime(row.time)}. ${titles[id]}. ${details(id,row).join('. ')}`;
     }
   }
   const markerPlugin = {
-    id:'wfSharedHour',
+    id:'wfIndependentHour',
     beforeDatasetsDraw(chart) {
       const {ctx,chartArea:a,scales:{x}} = chart;if(!a)return;
       ctx.save();ctx.beginPath();ctx.rect(a.left,a.top,a.width,a.height);ctx.clip();
@@ -114,7 +114,8 @@
       ctx.fillStyle='rgba(4,20,44,.13)';data.forEach((row,i)=>{if(row.night)ctx.fillRect(x.getPixelForValue(i)-half,a.top,half*2,a.height);});ctx.restore();
     },
     afterDatasetsDraw(chart) {
-      if(selected===null)return;
+      const selected=selections[chart.$wfId];
+      if(selected===undefined)return;
       const {ctx,chartArea:a,scales:{x}}=chart;if(!a)return;
       const px=x.getPixelForValue(selected);ctx.save();ctx.beginPath();ctx.moveTo(px,a.top);ctx.lineTo(px,a.bottom);ctx.strokeStyle='rgba(242,253,255,.88)';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.stroke();ctx.restore();
     }
@@ -155,11 +156,11 @@
       const description=canvas.closest('.wf-weather-card').querySelector('[data-chart-description]');
       description.id=`wfChartDescription-${id}`;description.textContent=canvas.getAttribute('aria-valuetext');canvas.setAttribute('aria-describedby',description.id);
       let dragging=false;
-      const at=event=>{const rect=canvas.getBoundingClientRect();const px=(event.clientX-rect.left)*chart.width/rect.width;select(chart.scales.x.getValueForPixel(px));};
+      const at=event=>{const rect=canvas.getBoundingClientRect();const px=(event.clientX-rect.left)*chart.width/rect.width;select(id,chart.scales.x.getValueForPixel(px));};
       const down=event=>{if(event.button!==0)return;dragging=true;canvas.setPointerCapture?.(event.pointerId);at(event);};
       const move=event=>{if(event.pointerType==='mouse'||dragging)at(event);};
       const up=event=>{dragging=false;if(canvas.hasPointerCapture?.(event.pointerId))canvas.releasePointerCapture(event.pointerId);};
-      const key=event=>{const current=selected??0;const target=({ArrowLeft:current-1,ArrowRight:current+1,Home:0,End:data.length-1})[event.key];if(target!==undefined){event.preventDefault();select(target,true);}if(event.key==='Escape'){event.preventDefault();reset();}};
+      const key=event=>{const current=selections[id]??0;const target=({ArrowLeft:current-1,ArrowRight:current+1,Home:0,End:data.length-1})[event.key];if(target!==undefined){event.preventDefault();select(id,target,true);}if(event.key==='Escape'){event.preventDefault();reset(id);}};
       const events={pointerdown:down,pointermove:move,pointerup:up,pointercancel:up,lostpointercapture:()=>{dragging=false;},keydown:key};
       Object.entries(events).forEach(([name,fn])=>canvas.addEventListener(name,fn));
       cleanup.push(()=>Object.entries(events).forEach(([name,fn])=>canvas.removeEventListener(name,fn)));
@@ -167,9 +168,18 @@
     const resetButton=document.getElementById('wfChartReset');
     resetButton?.addEventListener('click',reset);cleanup.push(()=>resetButton?.removeEventListener('click',reset));
   }
-  function reset() {
-    select(0);selected=null;
-    charts.forEach(chart=>{chart.canvas.closest('.wf-weather-card').querySelector('.wf-chart-tooltip').hidden=true;chart.canvas.closest('.wf-weather-card').querySelector('[data-chart-time]').textContent='Dit uur';chart.setActiveElements([]);chart.draw();});
+  function reset(id) {
+    const targets=typeof id==='string'?charts.filter(chart=>chart.$wfId===id):charts;
+    targets.forEach(chart=>{
+      const key=chart.$wfId;
+      select(key,0);
+      delete selections[key];
+      const card=chart.canvas.closest('.wf-weather-card');
+      card.querySelector('.wf-chart-tooltip').hidden=true;
+      card.querySelector('[data-chart-time]').textContent='Dit uur';
+      chart.setActiveElements([]);
+      chart.draw();
+    });
   }
-  window.WFWeatherCharts={markup,render,destroy,select,reset,rows,rainLevel,details,getSelection:()=>selected};
+  window.WFWeatherCharts={markup,render,destroy,select,reset,rows,rainLevel,details,getSelection:id=>selections[id]??null};
 })();
