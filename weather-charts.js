@@ -3,6 +3,7 @@
   'use strict';
   const num = value => value === null || value === undefined || value === '' || typeof value === 'boolean' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
   const amount = value => { const n = num(value); return n === null || n < 0 ? null : n; };
+  const uvAmount = value => (typeof value === 'number' || (typeof value === 'string' && value.trim())) ? amount(value) : null;
   const rainLevel = value => { const n = amount(value); return n === null ? null : n < 0.1 ? 0 : n < 1 ? 1 : n < 3 ? 2 : 3; };
   const rainNames = ['Droog','Lichte regen','Matige regen','Zware regen'];
   const esc = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -22,7 +23,7 @@
       const day = daily.time?.indexOf(String(time).slice(0,10)) ?? -1;
       const isDay = get('is_day');
       const night = isDay !== null ? isDay === 0 : day >= 0 && daily.sunrise?.[day] && daily.sunset?.[day] ? time < daily.sunrise[day] || time >= daily.sunset[day] : false;
-      return {time, temp:get('temperature_2m'), feels:get('apparent_temperature'), rain, level:rainLevel(rain), pop:pop !== null && pop >= 0 && pop <= 100 ? pop : null, uv:amount(hourly.uv_index?.[i]), wind:amount(hourly.wind_speed_10m?.[i]), gust:amount(hourly.wind_gusts_10m?.[i]), direction:get('wind_direction_10m'), night:Boolean(night)};
+      return {time, temp:get('temperature_2m'), feels:get('apparent_temperature'), rain, level:rainLevel(rain), pop:pop !== null && pop >= 0 && pop <= 100 ? pop : null, uv:uvAmount(hourly.uv_index?.[i]) ?? uvAmount(hourly.uvIndex?.[i]), wind:amount(hourly.wind_speed_10m?.[i]), gust:amount(hourly.wind_gusts_10m?.[i]), direction:get('wind_direction_10m'), night:Boolean(night)};
     });
   }
   const icons = {

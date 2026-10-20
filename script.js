@@ -2998,8 +2998,40 @@ function loadForecastCache(){
     const lonDiff = Math.abs(Number(cached.lon) - Number(state.loc?.lon));
     // Ongeveer max. 25 km: voorkom dat oude data van een verre locatie wordt getoond.
     if(!Number.isFinite(latDiff) || !Number.isFinite(lonDiff) || latDiff > 0.23 || lonDiff > 0.36) return null;
-    return cached.data;
+    return normalizeForecastPayload(cached.data);
   }catch(_e){ return null; }
+}
+
+// Keep missing/invalid UV separate from a measured zero, including cached forecasts.
+function uvNumber(value){
+  if(typeof value !== 'number' && typeof value !== 'string') return null;
+  if(typeof value === 'string' && !value.trim()) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function normalizeUvBlock(block, key, alias){
+  if(!block || typeof block !== 'object') return block;
+  if(Array.isArray(block.time)){
+    return {...block, [key]:block.time.map((_, i)=>
+      uvNumber(block[key]?.[i]) ?? uvNumber(block[alias]?.[i]))};
+  }
+  return {...block, [key]:uvNumber(block[key]) ?? uvNumber(block[alias])};
+}
+
+function dailyUvValue(index){
+  const daily = state.daily || {};
+  const reported = uvNumber(daily.uv_index_max?.[index]) ?? uvNumber(daily.uvIndexMax?.[index]);
+  if(reported !== null) return reported;
+  const date = daily.time?.[index];
+  if(!date) return null;
+  const hourly = state.hourly || {};
+  const values = (hourly.time || []).flatMap((time, i)=>{
+    if(String(time).slice(0,10) !== date) return [];
+    const value = uvNumber(hourly.uv_index?.[i]) ?? uvNumber(hourly.uvIndex?.[i]);
+    return value === null ? [] : [value];
+  });
+  return values.length ? Math.max(...values) : null;
 }
 
 function normalizeForecastPayload(payload){
@@ -3014,9 +3046,9 @@ function normalizeForecastPayload(payload){
   };
   return {
     ...payload,
-    current:pick('current') || pick('current_weather'),
-    hourly:pick('hourly'),
-    daily:pick('daily'),
+    current:normalizeUvBlock(pick('current') || pick('current_weather'), 'uv_index', 'uvIndex'),
+    hourly:normalizeUvBlock(pick('hourly'), 'uv_index', 'uvIndex'),
+    daily:normalizeUvBlock(pick('daily'), 'uv_index_max', 'uvIndexMax'),
     minutely_15:pick('minutely_15') || pick('minutely'),
     elevation:pick('elevation'),
     timezone:pick('timezone') || payload.timezone,
@@ -3322,7 +3354,7 @@ function normalizedWeatherState(){
     dewPoint:valid(h.dew_point_2m?.[idx]),
     visibility:valid(h.visibility?.[idx]),
     cloudCover:valid(cur.cloud_cover ?? h.cloud_cover?.[idx]),
-    uv:valid(h.uv_index?.[idx] ?? state.daily?.uv_index_max?.[0]),
+    uv:uvNumber(cur.uv_index ?? cur.uvIndex) ?? uvNumber(h.uv_index?.[idx]),
     sunrise:state.daily?.sunrise?.[0] || null,
     sunset:state.daily?.sunset?.[0] || null,
     warnings:Array.isArray(state.alerts) ? state.alerts : []
@@ -3922,7 +3954,7 @@ function seaEngine(){
   const seaTemp = Number(m.seaSurfaceTemperature);
   const wind = Number(cur.wind_speed_10m);
   const gust = Number(cur.wind_gusts_10m);
-  const uv = Number(state.daily?.uv_index_max?.[0]) || 0;
+  const uv = dailyUvValue(0);
   const visibility = Number(state.hourly?.visibility?.[nowIndexInHourly()]) || null;
   const alertPenalty = (state.alerts || []).some(a=>a.level && a.level !== 'green') ? 10 : 0;
 
@@ -4928,7 +4960,7 @@ html += rainNowcastCard();
   html += windCompassCard(cur.wind_speed_10m, cur.wind_gusts_10m, cur.wind_direction_10m);
   html += pressureGaugeCard(cur.pressure_msl);
   html += sunArcDetailCard(daily.sunrise[0], daily.sunset[0]);
-  html += uvBarCard(daily.uv_index_max[0]);
+  html += uvBarCard(dailyUvValue(0));
   html += detailCard('drop','Neerslag', fmtPrecip(cur.precipitation), 'Kans '+(hourly.precipitation_probability[nowIdx]??0)+'%');
   html += detailCard('eye','Zicht', (hourly.visibility[nowIdx]/1000).toFixed(1)+' km', hourly.visibility[nowIdx] > 8000 ? 'Goed zicht':'Beperkt zicht');
   html += detailCard('gauge','Vochtigheid', cur.relative_humidity_2m+'%', 'Dauwpunt '+fmtTemp(hourly.dew_point_2m[nowIdx]));
@@ -5846,7 +5878,8 @@ function smartMessages(){
   for(let i=idx;i<Math.min(idx+24,h.time.length);i++){
     if([95,96,99].includes(h.weather_code[i])){ msgs.push(`Kans op onweer rond ${new Date(h.time[i]).toLocaleTimeString(wfLocale(),{hour:'2-digit',minute:'2-digit'})}.`); break; }
   }
-  const uvMax = Math.max(...(h.uv_index||[]).slice(idx, idx+24).map(v=>v||0));
+  const uvValues = (h.uv_index||[]).slice(idx, idx+24).map(uvNumber).filter(v=>v!==null);
+  const uvMax = uvValues.length ? Math.max(...uvValues) : null;
   if(uvMax >= 6) msgs.push('De UV-index wordt hoog vandaag. Bescherm je huid tussen de middag.');
   const gust = Math.max(...h.wind_gusts_10m.slice(idx, idx+24).map(v=>v||0));
   if(gust >= 60) msgs.push(`Sterke windstoten mogelijk tot ${Math.round(gust)} km/u.`);
@@ -6586,6 +6619,7 @@ function dayDetailSheet(i){
   const pressureAvg = avg('pressure_msl');
   const dirAvg = avgWindDirection(hours.map(h=>hourly.wind_direction_10m?.[h]).filter(v=>v!=null && isFinite(v)));
   const dayAlerts = alertsForDay(i);
+  const uv = dailyUvValue(i);
   return `<div class="day-sheet-handle"></div>
     <button class="day-sheet-close" type="button" aria-label="Sluiten">&times;</button>
     <div class="day-detail-hero">
@@ -6602,7 +6636,7 @@ function dayDetailSheet(i){
       ${dayMetric('wind','Gemiddelde wind', windAvg == null ? 'Niet beschikbaar' : fmtWind(windAvg), validNumber(daily.wind_gusts_10m_max?.[i])==null ? 'Geen stootdata' : `Windstoten ${fmtWind(daily.wind_gusts_10m_max[i])}`)}
       ${dayMetric('gauge','Windrichting', dirAvg == null ? '-' : windDirectionLabel(dirAvg), dirAvg == null ? '-' : `${Math.round(dirAvg)} deg`)}
       ${dayMetric('gauge','Vochtigheid', humAvg == null ? '-' : `${Math.round(humAvg)}%`, 'gemiddeld')}
-      ${dayMetric('uv','UV-index', `${Math.round(daily.uv_index_max?.[i] ?? max('uv_index') ?? 0)}`, uvLabel(daily.uv_index_max?.[i] ?? max('uv_index') ?? 0))}
+      ${dayMetric('uv','UV-index', uv === null ? '—' : `${Math.round(uv)}`, uvLabel(uv))}
       ${dayMetric('thermo','Luchtdruk', pressureAvg == null ? '-' : fmtPress(pressureAvg), 'gemiddeld')}
       ${dayMetric('sunrise','Zon', `${formatDayTime(daily.sunrise[i])}`, `Onder ${formatDayTime(daily.sunset[i])}`)}
     </div>
@@ -6664,7 +6698,7 @@ function alertsForDay(dayIndex){
   const hIdx = dayHourlyIndexes(dayIndex);
   if((d.precipitation_probability_max[dayIndex] ?? 0) >= 70) out.push('Verhoogde kans op neerslag.');
   if((d.wind_gusts_10m_max[dayIndex] ?? 0) >= 60) out.push('Kans op sterke windstoten.');
-  if((d.uv_index_max?.[dayIndex] ?? 0) >= 6) out.push('Hoge UV-index, bescherm je huid.');
+  if(dailyUvValue(dayIndex) >= 6) out.push('Hoge UV-index, bescherm je huid.');
   if(hIdx.some(i=>[95,96,99].includes(state.hourly.weather_code[i]))) out.push('Kans op onweer.');
   const official = (state.alerts || []).filter(a=>a.level && a.level !== 'green').map(a=>a.headline || a.description).filter(Boolean);
   return [...new Set(out.concat(dayIndex === 0 ? official : []))];
@@ -7242,10 +7276,14 @@ function detailCard(ic, title, val, sub, extraClass=''){
   return `<div class="${className}"><div class="dt-title">${titleIcon} ${title}</div><div class="dt-val mono">${val}</div><div class="dt-sub">${sub}</div></div>`;
 }
 function uvLabel(uv){
+  uv = uvNumber(uv);
+  if(uv === null) return 'Onbekend';
   if(uv<3) return 'Laag'; if(uv<6) return 'Matig'; if(uv<8) return 'Hoog'; if(uv<11) return 'Zeer hoog'; return 'Extreem';
 }
 
 function uvAdvice(uv){
+  uv = uvNumber(uv);
+  if(uv === null) return 'UV-gegevens niet beschikbaar.';
   if(uv<3) return 'Geen bijzondere bescherming nodig.';
   if(uv<6) return 'Smeer je in bij langere tijd buiten.';
   if(uv<8) return 'Bescherm je huid tussen de middag.';
@@ -7318,11 +7356,12 @@ function pressureGaugeCard(hpa){
   </div>`;
 }
 function uvBarCard(uv){
+  uv = uvNumber(uv);
   const pct = Math.min(100, (uv/11)*100);
   return `<div class="detail-card">
     <div class="dt-title">${wfCardIcon('uv','UV-index')} UV-index</div>
-    <div class="dt-val mono">${Math.round(uv)} <span style="font-size:14px;color:var(--dim);font-weight:600;">${uvLabel(uv)}</span></div>
-    <div class="uvbar"><div class="uvdot" style="left:${pct}%;"></div></div>
+    <div class="dt-val mono">${uv === null ? '—' : Math.round(uv)} <span style="font-size:14px;color:var(--dim);font-weight:600;">${uvLabel(uv)}</span></div>
+    <div class="uvbar">${uv === null ? '' : `<div class="uvdot" style="left:${pct}%;"></div>`}</div>
     <div class="dt-sub">${uvAdvice(uv)}</div>
   </div>`;
 }
@@ -13535,8 +13574,8 @@ function forecastDayDetailCard(i){
   const pop=Number(d.precipitation_probability_max?.[i]||0);
   const rain=Number(d.precipitation_sum?.[i]||0);
   const gust=Number(d.wind_gusts_10m_max?.[i]||0);
-  const uv=Number(d.uv_index_max?.[i]||0);
-  return `<div class="forecast-day-sheet-backdrop" data-close-day-detail><section class="forecast-day-sheet liquid-panel" role="dialog" aria-modal="true"><button class="forecast-day-close" data-close-day-detail aria-label="Sluiten">×</button><div class="forecast-day-kicker">${esc(name)}</div><div class="forecast-day-main">${icon(wc.ic,true,54)}<div><strong>${esc(wc.l)}</strong><span>${fmtTemp(d.temperature_2m_min?.[i])} – ${fmtTemp(d.temperature_2m_max?.[i])}</span></div></div><div class="forecast-day-grid"><div><b>${pop}%</b><span>neerslagkans</span></div><div><b>${rain.toFixed(1)} mm</b><span>neerslag</span></div><div><b>${Math.round(gust)} km/u</b><span>windstoten</span></div><div><b>${uv.toFixed(1)}</b><span>UV-index</span></div></div><p>Tik buiten dit venster om terug te gaan naar de verwachting.</p></section></div>`;
+  const uv=dailyUvValue(i);
+  return `<div class="forecast-day-sheet-backdrop" data-close-day-detail><section class="forecast-day-sheet liquid-panel" role="dialog" aria-modal="true"><button class="forecast-day-close" data-close-day-detail aria-label="Sluiten">×</button><div class="forecast-day-kicker">${esc(name)}</div><div class="forecast-day-main">${icon(wc.ic,true,54)}<div><strong>${esc(wc.l)}</strong><span>${fmtTemp(d.temperature_2m_min?.[i])} – ${fmtTemp(d.temperature_2m_max?.[i])}</span></div></div><div class="forecast-day-grid"><div><b>${pop}%</b><span>neerslagkans</span></div><div><b>${rain.toFixed(1)} mm</b><span>neerslag</span></div><div><b>${Math.round(gust)} km/u</b><span>windstoten</span></div><div><b>${uv === null ? '—' : uv.toFixed(1)}</b><span>UV-index</span></div></div><p>Tik buiten dit venster om terug te gaan naar de verwachting.</p></section></div>`;
 }
 function openForecastDayDetail(i){ document.querySelector('.forecast-day-sheet-backdrop')?.remove(); document.body.insertAdjacentHTML('beforeend',forecastDayDetailCard(i)); }
 document.addEventListener('click',e=>{ const row=e.target.closest?.('.daily-row[data-day-index]'); if(row){ openForecastDayDetail(Number(row.dataset.dayIndex)); return; } if(e.target.matches?.('[data-close-day-detail]')) document.querySelector('.forecast-day-sheet-backdrop')?.remove(); });
