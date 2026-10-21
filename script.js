@@ -3020,6 +3020,11 @@ function normalizeUvBlock(block, key, alias){
 }
 
 function dailyUvValue(index){
+  // Het dagmaximum van de live Fusion API is bruikbaar wanneer de forecast geen UV levert.
+  if(index === 0){
+    const truthMax = uvNumber(currentConditionsTruth()?.uvIndexMax);
+    if(truthMax !== null) return truthMax;
+  }
   const daily = state.daily || {};
   const reported = uvNumber(daily.uv_index_max?.[index]) ?? uvNumber(daily.uvIndexMax?.[index]);
   if(reported !== null) return reported;
@@ -3354,7 +3359,7 @@ function normalizedWeatherState(){
     dewPoint:valid(h.dew_point_2m?.[idx]),
     visibility:valid(h.visibility?.[idx]),
     cloudCover:valid(cur.cloud_cover ?? h.cloud_cover?.[idx]),
-    uv:uvNumber(cur.uv_index ?? cur.uvIndex) ?? uvNumber(h.uv_index?.[idx]),
+    uv:uvNumber(currentConditionsTruth()?.uvIndex) ?? uvNumber(cur.uv_index ?? cur.uvIndex) ?? uvNumber(h.uv_index?.[idx]),
     sunrise:state.daily?.sunrise?.[0] || null,
     sunset:state.daily?.sunset?.[0] || null,
     warnings:Array.isArray(state.alerts) ? state.alerts : []
