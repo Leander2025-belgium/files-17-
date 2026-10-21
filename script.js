@@ -3210,6 +3210,74 @@ async function renderWeatherWithoutForecast(forecastError){
   return true;
 }
 
+// Vul ontbrekende UV-uurwaarden aan met echte Open-Meteo-uurdata.
+// Geen schatting op basis van het dagmaximum: dat zou een misleidende curve geven.
+async function fillMissingHourlyUv(){
+  const hourly = state.hourly;
+  const times = hourly?.time;
+  if(!Array.isArray(times) || !times.length) return;
+  const start = Math.max(0, nowIndexInHourly());
+  const available = times.slice(start, start+24).some((_, i)=>
+    uvNumber(hourly.uv_index?.[start+i]) !== null ||
+    uvNumber(hourly.uvIndex?.[start+i]) !== null);
+  if(available) return;
+
+  const lat = Number(state.loc?.lat), lon = Number(state.loc?.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+  const locKey = currentTruthLocKey(lat,lon);
+  const cacheKey = 'wheaterflow:uv-hourly:' + lat.toFixed(2) + ',' + lon.toFixed(2);
+  let hourlyUv = null;
+  try{
+    const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+    if(cached && Date.now()-cached.savedAt < 30*60*1000 &&
+       Array.isArray(cached.time) && Array.isArray(cached.values)){
+      hourlyUv = cached;
+    }
+  }catch(_e){}
+
+  if(!hourlyUv){
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 6500);
+    try{
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.searchParams.set('latitude',String(lat));
+      url.searchParams.set('longitude',String(lon));
+      url.searchParams.set('hourly','uv_index');
+      url.searchParams.set('timezone','auto');
+      url.searchParams.set('past_days','1');
+      url.searchParams.set('forecast_days','3');
+      const response = await fetch(url.href,{signal:controller.signal});
+      if(!response.ok) throw new Error('UV hourly HTTP '+response.status);
+      const data = await response.json();
+      if(!Array.isArray(data?.hourly?.time) || !Array.isArray(data?.hourly?.uv_index))
+        throw new Error('UV hourly ontbreekt');
+      hourlyUv = {savedAt:Date.now(),time:data.hourly.time,values:data.hourly.uv_index};
+      try{localStorage.setItem(cacheKey,JSON.stringify(hourlyUv));}catch(_e){}
+    }catch(error){
+      console.warn('UV-uurgegevens tijdelijk niet beschikbaar:',error);
+    }finally{
+      clearTimeout(timeout);
+    }
+  }
+
+  // Geen oude locatiegegevens op de nieuwe locatie tekenen.
+  if(currentTruthLocKey() !== locKey || state.hourly !== hourly) return;
+  const uvByTime = new Map((hourlyUv?.time || []).map((time,i)=>
+    [String(time).slice(0,16),uvNumber(hourlyUv.values?.[i])]));
+  const values = times.map((time,i)=>
+    uvNumber(hourly.uv_index?.[i]) ??
+    uvNumber(hourly.uvIndex?.[i]) ??
+    uvByTime.get(String(time).slice(0,16)) ?? null);
+
+  // Als de uurprognose faalt, toon alleen het echte huidige UV-punt.
+  // Vul andere uren NIET met dezelfde waarde of het dagmaximum.
+  if(!values.some(value=>value !== null)){
+    const current = uvNumber(currentConditionsTruth()?.uvIndex);
+    if(current !== null && start < values.length) values[start] = current;
+  }
+  hourly.uv_index = values;
+}
+
 async function loadWeather(){
   $('#homeLoader')?.classList.remove('hide');
   try{
@@ -3254,6 +3322,7 @@ console.warn(
 );
       }
     });
+    await fillMissingHourlyUv();
     try{
       renderHome();
     }catch(renderError){

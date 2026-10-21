@@ -133,7 +133,7 @@
     const configurations = {
       temp:[dataset('Temperatuur',data.map(r=>r.temp),'#42def3',{fill:true}),dataset('Voelt als',data.map(r=>r.feels),'#ffda58',{dashed:true})],
       rain:[dataset('Kans',data.map(r=>r.pop),'#42def3',{fill:true}),dataset('Intensiteit',data.map(r=>r.level),'#509fec',{bar:true,axis:'intensity'})],
-      uv:[dataset('UV-index',data.map(r=>r.uv),'#ffd43b',{fill:true})],
+      uv:[{...dataset('UV-index',data.map(r=>r.uv),'#ffd43b',{fill:true}),pointRadius:data.filter(r=>r.uv!==null).length===1?5:0}],
       wind:[dataset('Wind',data.map(r=>r.wind),'#79e3fa',{fill:true}),dataset('Stoten',data.map(r=>r.gust),'#ffa34b',{dashed:true})]
     };
     Object.entries(configurations).forEach(([id,datasets])=>{
