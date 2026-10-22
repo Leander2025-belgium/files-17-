@@ -61,10 +61,10 @@ svg{display:block}.ico{width:19px;height:19px;stroke:currentColor;fill:none;stro
     <div class="logo-row"><div class="logo-mark">WF</div><div><strong>Wheaterflow</strong><small>Control Center</small></div></div>
     <h1>Admin aanmelden</h1>
     <p>Beheer Wheaterflow, gebruikers, meldingen, push, community en systeemstatus vanuit één dashboard.</p>
-    <div class="field"><label>Admin token</label><input id="loginToken" type="password" autocomplete="current-password" placeholder="Voer ADMIN_TOKEN in"></div>
+    <div class="field"><label>Wachtwoord</label><input id="loginToken" type="password" autocomplete="current-password" placeholder="Voer je wachtwoord in"></div>
     <button id="loginBtn" class="btn btn-primary" style="width:100%" onclick="login()">Aanmelden</button>
     <div id="loginMessage" class="message"></div>
-    <div class="login-help">Het token wordt alleen in deze browsersessie bewaard. Zorg dat dezelfde <strong>ADMIN_TOKEN</strong> op de Wheaterflow backend en meldingen-API staat.</div>
+    <div class="login-help">Beveiligde toegang tot het Wheaterflow-beheer. Je sessie verloopt automatisch na maximaal 8 uur.</div>
   </div>
 </div>
 
@@ -181,10 +181,61 @@ function toast(msg,type='ok'){const el=document.createElement('div');el.classNam
 function showMessage(id,msg,type='ok'){const el=document.getElementById(id);if(!el)return;el.textContent=msg;el.className=`message show ${type==='err'?'err':'ok'}`}
 function clearMessage(id){const el=document.getElementById(id);if(el){el.textContent='';el.className='message'}}
 async function adminApi(path,options={}){const headers={...(options.headers||{}),'Authorization':`Bearer ${S.token}`};if(options.body&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(`${API_BASE}${path}`,{...options,headers,cache:'no-store'});let data={};try{data=await r.json()}catch{}if(r.status===401){logout(false);throw new Error('Je adminsessie is verlopen.')}if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data}
-async function alertApi(path='',options={}){const headers={...(options.headers||{}),'Authorization':`Bearer ${S.token}`};if(options.body&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(`${ALERTS_API}${path}`,{...options,headers,cache:'no-store'});let data={};try{data=await r.json()}catch{}if(r.status===401)throw new Error('Beheertoken ongeldig voor meldingen-API.');if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data}
+async function alertApi(path='',options={}){const headers={...(options.headers||{})};if(options.body&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(`${ALERTS_API}${path}`,{...options,headers,credentials:'same-origin',cache:'no-store'});let data={};try{data=await r.json()}catch{}if(r.status===401){
+  $('#adminShell').classList.add('hidden');
+  $('#loginScreen').classList.remove('hidden');
+  throw new Error('Je sessie is verlopen. Meld je opnieuw aan.');
+}if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data}
 
-async function login(){const token=$('#loginToken').value.trim();if(!token)return showMessage('loginMessage','Vul je admin token in.','err');S.token=token;$('#loginBtn').disabled=true;$('#loginBtn').textContent='Controleren…';clearMessage('loginMessage');try{await alertApi('?admin=1');sessionStorage.setItem('wfAdminToken',token);showAdmin();await loadOverview()}catch(e){S.token='';showMessage('loginMessage',e.message,'err')}finally{$('#loginBtn').disabled=false;$('#loginBtn').textContent='Aanmelden'}}
-function logout(reload=true){sessionStorage.removeItem('wfAdminToken');S.token='';if(reload)location.reload();else{$('#adminShell').classList.add('hidden');$('#loginScreen').classList.remove('hidden')}}
+async function login(){
+  const password=$('#loginToken').value;
+  if(!password)return showMessage('loginMessage','Vul je wachtwoord in.','err');
+
+  const btn=$('#loginBtn');
+  btn.disabled=true;
+  btn.textContent='Aanmelden…';
+  clearMessage('loginMessage');
+
+  try{
+    const r=await fetch('/api/admin-login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body:JSON.stringify({password})
+    });
+
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Aanmelden mislukt');
+
+    $('#loginToken').value='';
+    sessionStorage.removeItem('wfAdminToken');
+    S.token='';
+    showAdmin();
+    setView('alerts');
+  }catch(e){
+    showMessage('loginMessage',e.message,'err');
+  }finally{
+    btn.disabled=false;
+    btn.textContent='Aanmelden';
+  }
+}
+async function logout(reload=true){
+  try{
+    await fetch('/api/admin-login',{
+      method:'DELETE',
+      credentials:'same-origin'
+    });
+  }catch(e){
+    console.error('Uitloggen mislukt:',e);
+  }
+  sessionStorage.removeItem('wfAdminToken');
+  S.token='';
+  if(reload)location.reload();
+  else{
+    $('#adminShell').classList.add('hidden');
+    $('#loginScreen').classList.remove('hidden');
+  }
+}
 function showAdmin(){$('#loginScreen').classList.add('hidden');$('#adminShell').classList.remove('hidden')}
 
 const pageMeta={overview:['Dashboard','Alles wat er in Wheaterflow gebeurt.'],alerts:['Meldingen','In-app waarschuwingen en geplande communicatie.'],push:['Pushmeldingen','Bereik apparaten en bekijk pushdekking.'],community:['Community','Moderatie, rapporten en inhoud.'],users:['Gebruikers','Accounts, rollen en activiteit beheren.'],system:['Systeem','Backend, databronnen en e-mailstatus.']};
@@ -242,7 +293,34 @@ async function sendEmailTest(){clearMessage('emailTestMessage');const to=$('#ema
 async function loadSystemWarnings(){const el=$('#officialWarnings');if(!el)return;el.innerHTML='<div class="empty">Officiële waarschuwingen ophalen…</div>';try{const [kmi,knmi]=await Promise.allSettled([fetch(`${API_BASE}/api/kmi/warnings`,{cache:'no-store'}).then(r=>r.json()),fetch(`${API_BASE}/api/knmi/warnings`,{cache:'no-store'}).then(r=>r.json())]);const warnings=[];if(kmi.status==='fulfilled')for(const a of(kmi.value.alerts||[]))warnings.push({...a,country:'België'});if(knmi.status==='fulfilled')for(const a of(knmi.value.alerts||[]))warnings.push({...a,country:'Nederland'});if(!warnings.length){el.innerHTML='<div class="empty">Geen officiële waarschuwingen geladen.</div>';return}el.innerHTML=warnings.map((w,i)=>{const level=String(w.level||w.color||'').toLowerCase();const cls=level.includes('red')||level.includes('rood')?'level-red':level.includes('orange')||level.includes('oranje')?'level-orange':level.includes('yellow')||level.includes('geel')?'level-yellow':'';return `<div class="warning-box ${cls}"><div class="badges"><span class="pill ${cls==='level-red'?'red':cls==='level-yellow'?'yellow':''}">${esc(w.country)}</span><span class="pill">${esc(w.source||'Officieel')}</span></div><h3>${esc(w.headline||w.title||'Weerwaarschuwing')}</h3><p>${esc(w.description||w.message||'Geen beschrijving')}</p><div class="actions" style="margin-top:10px"><button class="btn btn-soft btn-sm" onclick='warningToAlert(${JSON.stringify(JSON.stringify(w))})'>Maak Wheaterflow-melding</button></div></div>`}).join('')}catch(e){el.innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 function warningToAlert(raw){let w={};try{w=JSON.parse(raw)}catch{}setView('alerts');setAlertType((String(w.level||'').toLowerCase().match(/red|rood|orange|oranje/))?'danger':'warning');$('#alertTitle').value=w.headline||w.title||'Officiële weerwaarschuwing';$('#alertMessage').value=(w.description||w.message||'').slice(0,500);setAlertScope('all');$('#alertSendPush').checked=true;updateAlertPreview()}
 
-window.addEventListener('DOMContentLoaded',async()=>{resetAlertForm();const hash=location.hash.slice(1);if(pageMeta[hash])S.view=hash;if(S.token){showAdmin();try{await loadOverview();setView(S.view)}catch{logout(false)}}else{$('#loginToken').focus()}});
+window.addEventListener('DOMContentLoaded',async()=>{
+  resetAlertForm();
+
+  const hash=location.hash.slice(1);
+  if(pageMeta[hash])S.view=hash;
+
+  sessionStorage.removeItem('wfAdminToken');
+  S.token='';
+
+  try{
+    const response=await fetch('/api/admin-login',{
+      method:'GET',
+      credentials:'same-origin',
+      cache:'no-store'
+    });
+
+    if(!response.ok)throw new Error('Sessiecontrole mislukt');
+
+    const data=await response.json();
+
+    if(data.authenticated){
+      showAdmin();
+      setView(S.view==='overview'?'alerts':S.view);
+    }
+  }catch(error){
+    console.error('Sessiecontrole:',error);
+  }
+});
 </script>
 </body>
 </html>
