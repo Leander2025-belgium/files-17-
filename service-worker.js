@@ -1,4 +1,4 @@
-const CACHE_VERSION = "wheaterflow-v20261020-uv-fields-v1";
+const CACHE_VERSION = "wheaterflow-v20261022-performance-v1";
 const APP_CACHE = `${CACHE_VERSION}-app`;
 const STATIC_ASSETS = [
   "./",
@@ -10,6 +10,7 @@ const STATIC_ASSETS = [
   "./weather-charts.js",
   "./weather-charts.css",
   "./script.js",
+  "./performance.js",
   "./i18n.js",
   "./location-engine.js",
   "./castService.js",
@@ -139,10 +140,15 @@ const STATIC_ASSETS = [
   "./assets/ui/profile/profile.png"
 ];
 
+// Fetch large weather/background illustrations only when they are actually used.
+// STATIC_ASSETS stays complete so their existing cache-first runtime policy remains.
+const PRECACHE_ASSETS = STATIC_ASSETS.filter(asset => !asset.startsWith('./assets/'));
+const STATIC_PATHS = new Set(STATIC_ASSETS.map(asset => new URL(asset, self.location.href).pathname));
+
 self.addEventListener("install", event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(APP_CACHE).then(cache => cache.addAll(STATIC_ASSETS).catch(() => undefined))
+    caches.open(APP_CACHE).then(cache => cache.addAll(PRECACHE_ASSETS).catch(() => undefined))
   );
 });
 
@@ -160,10 +166,7 @@ self.addEventListener("message", event => {
 
 function isStaticShellAsset(url){
   if(url.origin !== self.location.origin) return false;
-  return STATIC_ASSETS.some(asset=>{
-    try{ return new URL(asset,self.location.href).pathname === url.pathname; }
-    catch{ return false; }
-  });
+  return STATIC_PATHS.has(url.pathname);
 }
 
 function isDynamicImageRequest(request,url){

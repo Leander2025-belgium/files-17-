@@ -3278,15 +3278,25 @@ async function fillMissingHourlyUv(){
   hourly.uv_index = values;
 }
 
-async function loadWeather(){
+function loadWeather(){
+  const key = JSON.stringify([state.loc.lat, state.loc.lon, preferredWeatherModel()]);
+  return window.WFPerformance.singleFlight(key, isCurrent => loadWeatherRun(isCurrent));
+}
+
+async function loadWeatherRun(isCurrent){
   $('#homeLoader')?.classList.remove('hide');
   try{
     let requestedModel = preferredWeatherModel();
     let d = await fetchForecastWithFallback(requestedModel);
+    if(!isCurrent()) return;
     state.current = d.current; state.hourly = d.hourly; state.daily = d.daily; state.minutely = d.minutely_15;
     state.elevation = validNumber(d?.elevation ?? d?.location?.elevation ?? d?.current?.elevation);
     state.tz = d.timezone; state.utcOffsetSec = d.utc_offset_seconds;
     state.lastUpdated = Date.now();
+    // Show the forecast as soon as it arrives; optional sources refine it later.
+    renderHome();
+    $('#homeLoader')?.classList.add('hide');
+    hideAppSplash();
 const optionalResults = await Promise.allSettled([
   loadCurrentConditionsTruth({force:true}),
   loadXweatherConditions(),
@@ -3322,7 +3332,9 @@ console.warn(
 );
       }
     });
+    if(!isCurrent()) return;
     await fillMissingHourlyUv();
+    if(!isCurrent()) return;
     try{
       renderHome();
     }catch(renderError){
@@ -3335,6 +3347,7 @@ console.warn(
     try{ if($('#stormscreen')?.classList.contains('active')) updateStormTab(); }catch(error){ console.warn('Storm tab update faalde:', error); }
     try{ if($('#radarscreen')?.classList.contains('active') && state.radar.duration>1) renderHourlyChart(); }catch(error){ console.warn('Radar grafiek update faalde:', error); }
   }catch(e){
+    if(!isCurrent()) return;
     console.error('Weather load failed:', e);
     // Bij een falende forecast blijft de Vandaag-pagina bruikbaar via /api/current.
     // Renderfouten en netwerkproblemen mogen de rest van de app niet blokkeren.
@@ -3346,6 +3359,7 @@ console.warn(
       $('#wfWeatherRetry')?.addEventListener('click',()=>loadWeather());
     }
   }finally{
+    if(!isCurrent()) return;
     $('#homeLoader')?.classList.add('hide');
     setTimeout(hideAppSplash, 260);
   }
@@ -3363,6 +3377,7 @@ function updateLastUpdatedText(){
   el.textContent = txt;
 }
 
+let weatherVisibilityHandler = null;
 function startAutoRefresh(){
   clearInterval(state.refreshTimer);
   clearInterval(state.clockTickTimer);
@@ -3371,7 +3386,8 @@ function startAutoRefresh(){
     loadWeather();
   }, 60*1000);
   state.clockTickTimer = setInterval(updateLastUpdatedText, 15*1000);
-  document.addEventListener('visibilitychange', async ()=>{
+  if(weatherVisibilityHandler) document.removeEventListener('visibilitychange', weatherVisibilityHandler);
+  weatherVisibilityHandler = async ()=>{
     if(document.hidden) return;
     const weatherAge = state.lastUpdated ? Date.now()-state.lastUpdated : Infinity;
     if(weatherAge > 30*1000) loadWeather();
@@ -3380,7 +3396,8 @@ function startAutoRefresh(){
       refreshRadarLayout();
       refreshRadarSource().catch(error=>console.warn('Radar hervatten faalde:', error));
     }
-  });
+  };
+  document.addEventListener('visibilitychange', weatherVisibilityHandler);
 }
 
 function nowIndexInHourly(){
@@ -4635,6 +4652,7 @@ function weatherTrendSummary(){
   return sentences.slice(0,3).join(' ');
 }
 
+let wheaterflowAdminAlerts = [];
 async function loadWheaterflowAdminAlerts(){
   try{
     const params = new URLSearchParams();
@@ -5047,6 +5065,11 @@ html += rainNowcastCard();
   html += astroEventCards();
   html += appSections();
 
+  window.WFPerformance.clearVisible();
+  window.WFWeatherCharts.destroy();
+  try{ state.homeMap.xweatherController?.dispose?.(); state.homeMap.map?.remove(); }catch(error){ console.warn('Homekaart opruimen:', error); }
+  state.homeMap.map=null; state.homeMap.base=null; state.homeMap.overlay=null;
+  state.homeMap.locationMarker=null; state.homeMap.xweatherController=null;
   $('#homeInner').innerHTML = html;
   wireOfficialAlertDisclosure();
   wireSectionNav();
@@ -5054,7 +5077,7 @@ html += rainNowcastCard();
     document.querySelector('#moreWeatherTabs [data-more-tab="fourteen"]')?.click();
     setTimeout(()=>document.querySelector('#sec2')?.scrollIntoView({behavior:'smooth',block:'start'}),40);
   });
-  wireHomeMapLayers();
+  window.WFPerformance.whenVisible('home-map', $('#homeWeatherMap'), wireHomeMapLayers);
   wireRainIntensityExplorer();
   wireMoreWeatherSections();
   requestAnimationFrame(()=>requestAnimationFrame(()=>fixHomeHeaderPosition()));
@@ -6552,7 +6575,11 @@ function chartsSection(){
   return window.WFWeatherCharts.markup(state.hourly, nowIndexInHourly(), state.daily);
 }
 function renderPremiumCharts(){
-  window.WFWeatherCharts.render(state.hourly, nowIndexInHourly(), state.daily);
+  window.WFPerformance.cancel('weather-charts');
+  window.WFWeatherCharts.destroy();
+  window.WFPerformance.whenVisible('weather-charts', document.querySelector('.wf-weather-charts'), ()=>{
+    window.WFWeatherCharts.render(state.hourly, nowIndexInHourly(), state.daily);
+  });
 }
 
 function miniChart(title, points, y1, y2, unit){
@@ -13248,7 +13275,8 @@ async function init(){
   await safeInitStep('Favorieten laden', loadStoredFavorites);
   await safeInitStep('Auth starten', initAuth);
   await safeInitStep('Community realtime starten', subscribeCommunityRealtime);
-  await safeInitStep('Google Cast starten', initCast);
+  const castStartup = safeInitStep('Google Cast starten', initCast);
+  if(window.WheaterflowCastService?.isReceiverMode()) await castStartup;
   await safeInitStep('TV koppeling starten', initTvPairing);
   await safeInitStep('Instellingenknoppen herstellen', ()=>refreshSettingsSegments());
 
@@ -13280,7 +13308,7 @@ async function init(){
   });
   await loadWeather();
   if(state.locationStatus === 'gps') startLiveLocationTracking();
-  await safeInitStep('Cast locatie synchroniseren', notifyCastLocationChanged);
+  castStartup.then(()=>safeInitStep('Cast locatie synchroniseren', notifyCastLocationChanged));
   await safeInitStep('TV koppeling synchroniseren', notifyTvPairingLocationChanged);
   safeInitStep('Eigen weermeldingen laden', laadWeerMeldingen);
   setInterval(()=>safeInitStep('Eigen weermeldingen verversen', laadWeerMeldingen), 5 * 60 * 1000);
