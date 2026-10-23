@@ -1,3 +1,4 @@
+import { verifySession } from "../_lib/admin-session.js";
 // Wheaterflow Alerts API v2
 // Cloudflare Pages Function — /api/alerts
 //
@@ -103,10 +104,27 @@ function errorResponse(
    AUTH
    ========================================================= */
 
-function isAuthorized(
+async function isAuthorized(
   request,
   env
 ) {
+  if (env.ADMIN_SESSION_SECRET &&
+      request.method === "GET" &&
+      await verifySession(request, env.ADMIN_SESSION_SECRET)) {
+    return true;
+  }
+
+  if (env.ADMIN_SESSION_SECRET &&
+      ["POST", "PATCH", "DELETE"].includes(request.method)) {
+    const origin = request.headers.get("Origin");
+    const expected = new URL(request.url).origin;
+
+    if (origin === expected &&
+        await verifySession(request, env.ADMIN_SESSION_SECRET)) {
+      return true;
+    }
+  }
+
   if (!env.ADMIN_TOKEN) {
     return false;
   }
@@ -444,7 +462,7 @@ export async function onRequestGet(
      */
     if (adminMode) {
       if (
-        !isAuthorized(
+        !await isAuthorized(
           request,
           env
         )
@@ -578,7 +596,7 @@ export async function onRequestPost(
   } = context;
 
   if (
-    !isAuthorized(
+    !await isAuthorized(
       request,
       env
     )
@@ -828,7 +846,7 @@ export async function onRequestPatch(
 
 
   if (
-    !isAuthorized(
+    !await isAuthorized(
       request,
       env
     )
@@ -1127,7 +1145,7 @@ export async function onRequestDelete(
 
 
   if (
-    !isAuthorized(
+    !await isAuthorized(
       request,
       env
     )
