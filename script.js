@@ -7158,18 +7158,7 @@ function seaSparkSummary(s){
 }
 
 function travelWeatherSection(){
-  return `<div class="card travel-weather-card"><div class="card-title">${icon('wind',true,13)} Reisweer</div>
-    <div class="travel-form travel-form-v2">
-      <label><span>${icon('gauge',true,16)} Vertrekpunt</span><input id="travelFrom" autocomplete="off" placeholder="Bijv. Oostende"></label>
-      <button class="travel-swap" id="travelSwap" type="button" aria-label="Vertrekpunt en bestemming omwisselen">⇅ <span>Wissel</span></button>
-      <label><span>${icon('gauge',true,16)} Bestemming</span><input id="travelTo" autocomplete="off" placeholder="Bijv. Antwerpen"></label>
-      <label class="travel-time"><span>${icon('gauge',true,16)} Vertrektijd</span><div class="travel-time-row"><input id="travelTime" type="datetime-local"><button id="travelNow" type="button">Nu</button></div></label>
-      <div class="travel-modes" role="group" aria-label="Vervoer"><button class="active" data-travel-mode="car" type="button">Auto</button><button data-travel-mode="bike" type="button">Fiets</button><button data-travel-mode="walk" type="button">Wandelen</button><button data-travel-mode="transit" type="button">Openbaar vervoer</button></div>
-      <div class="travel-validation" id="travelValidation">Vul vertrekpunt en bestemming in.</div>
-      <button class="smallbtn travel-calc" id="travelCalculate" type="button" disabled>Routeweer berekenen</button>
-    </div>
-    <div id="travelResult"></div>
-  </div>`;
+  return `<section class="card travel-weather-card"><div class="card-title">${icon('wind',true,13)} Wheaterflow Travel</div><p>Plan een echte route met kaart, route-instructies en het verwachte weer op meerdere punten onderweg.</p><p><a class="smallbtn" href="./travel/" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:13px 19px">↗ Open Wheaterflow Travel</a></p><small>De vernieuwde reisplanner opent in een eigen navigatiepagina. Live locatie vereist je toestemming.</small></section>`;
 }
 async function travelGeocode(q){
   const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=${encodeURIComponent(wfLanguage())}&format=json`,{cache:'no-store'});
