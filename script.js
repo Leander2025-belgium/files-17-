@@ -10999,104 +10999,73 @@ $('#xweatherLayersBtn')?.addEventListener('click', async ()=>{
 
 /* ----- flikkervrije tegel-animator (dubbele buffer: nieuwe laag pas tonen als tegels geladen zijn) ----- */
 function createRadarAnimator(map){
-  const layers = [null, null];
-  let active = 0;
-  let requestId = 0;
+  // Each timeline selection owns a fresh Leaflet layer. Reusing a buffered
+  // tileLayer via setUrl() can display tiles from an earlier forecast lead.
+  let visibleLayer = null;
+  let pendingLayer = null;
   let pendingTimer = null;
-  let pendingCleanup = null;
+  let generation = 0;
   let requestedOpacity = 1;
-
-  function cancelPending(){
+  const remove = layer => { if(layer && map.hasLayer(layer)) map.removeLayer(layer); };
+  const clearPending = () => {
     if(pendingTimer !== null){ clearTimeout(pendingTimer); pendingTimer = null; }
-    if(pendingCleanup){ pendingCleanup(); pendingCleanup = null; }
-  }
-
-  function ensureLayer(idx, url){
-    if(!layers[idx]){
-      layers[idx] = L.tileLayer(url, {
-        opacity:0, maxZoom:14, maxNativeZoom:7,
-        pane:'radarPane', className:'radar-tile-layer', crossOrigin:true,
-        keepBuffer:4, updateWhenIdle:false, updateWhenZooming:false
-      });
-      layers[idx].addTo(map);
-    }else{
-      layers[idx].setOpacity(0);
-      layers[idx].setUrl(url);
-    }
-    return layers[idx];
-  }
-
+    if(pendingLayer){ pendingLayer.off(); remove(pendingLayer); pendingLayer = null; }
+  };
   return {
     showFrame(url, opacity, fallbackUrl=''){
-      // An older tile load must never promote its frame after the slider moves.
-      const id = ++requestId;
-      cancelPending();
+      const id = ++generation;
       requestedOpacity = opacity;
-      // Until the requested frame is ready, do not leave old rain cells visible.
-      layers.forEach(existing => existing?.setOpacity(0));
-      const next = 1-active;
-      let usingFallback = false;
-      let hadError = false;
-      let completed = false;
-      let layer;
-
-      const isCurrent = () => id === requestId && !completed;
-      const detach = () => {
-        if(!layer) return;
-        layer.off('load', onLoad);
-        layer.off('tileerror', onError);
-      };
-      const finish = (success) => {
-        if(!isCurrent()) return;
-        completed = true;
-        cancelPending();
-        if(success){
+      clearPending();
+      // Do not show a past forecast as if it belonged to the new timestamp.
+      if(visibleLayer) visibleLayer.setOpacity(0);
+      if(!url){ showRadarInfo('Radarbeeld ontbreekt voor dit tijdstip.'); return; }
+      let fallback = false;
+      let hadTileError = false;
+      function startLayer(tileUrl){
+        if(id !== generation) return;
+        clearPending();
+        hadTileError = false;
+        const layer = L.tileLayer(tileUrl, {
+          opacity:0, maxZoom:14, maxNativeZoom:7,
+          pane:'radarPane', className:'radar-tile-layer', crossOrigin:true,
+          keepBuffer:1, updateWhenIdle:false, updateWhenZooming:false
+        });
+        pendingLayer = layer;
+        const failed = () => {
+          if(id !== generation || pendingLayer !== layer) return;
+          if(!fallback && fallbackUrl && fallbackUrl !== url){
+            fallback = true;
+            startLayer(fallbackUrl);
+          }else{
+            clearPending();
+            showRadarInfo('Radarbeeld voor dit tijdstip niet beschikbaar.');
+          }
+        };
+        layer.on('tileerror', () => { hadTileError = true; });
+        layer.on('load', () => {
+          if(id !== generation || pendingLayer !== layer) return;
+          if(hadTileError){ failed(); return; }
+          if(pendingTimer !== null){ clearTimeout(pendingTimer); pendingTimer = null; }
+          pendingLayer = null;
+          const previous = visibleLayer;
+          visibleLayer = layer;
           layer.setOpacity(requestedOpacity);
-          if(layers[active] && layers[active] !== layer) layers[active].setOpacity(0);
-          active = next;
-        }else{
-          // Never represent the previously selected time as the new forecast.
-          layers.forEach(existing => existing?.setOpacity(0));
-          showRadarInfo('Radarbeeld voor dit tijdstip niet beschikbaar. Probeer een ander tijdstip.');
-        }
-      };
-      const onError = () => { if(isCurrent()) hadError = true; };
-      const useFallback = () => {
-        if(!isCurrent()) return;
-        if(!usingFallback && fallbackUrl && fallbackUrl !== url){
-          usingFallback = true;
-          hadError = false;
-          layer.setUrl(fallbackUrl);
-          armTimeout();
-        }else finish(false);
-      };
-      const onLoad = () => {
-        if(!isCurrent()) return;
-        if(hadError){ useFallback(); return; }
-        finish(true);
-      };
-      const armTimeout = () => {
-        if(pendingTimer !== null) clearTimeout(pendingTimer);
-        pendingTimer = setTimeout(() => { if(isCurrent()) useFallback(); }, 4500);
-      };
-
-      layer = ensureLayer(next, url);
-      layer.on('load', onLoad);
-      layer.on('tileerror', onError);
-      pendingCleanup = detach;
-      armTimeout();
-      // Leaflet can complete synchronously when all tiles are already cached.
-      if(!layer.isLoading?.()) queueMicrotask(() => { if(isCurrent()) onLoad(); });
+          if(previous && previous !== layer) remove(previous);
+        });
+        pendingTimer = setTimeout(failed, 7000);
+        layer.addTo(map);
+      }
+      startLayer(url);
     },
     setOpacity(opacity){
       requestedOpacity = opacity;
-      if(layers[active]) layers[active].setOpacity(opacity);
+      if(visibleLayer) visibleLayer.setOpacity(opacity);
     },
     destroy(){
-      ++requestId;
-      cancelPending();
-      layers.forEach(layer=>{ if(layer && map.hasLayer(layer)) map.removeLayer(layer); });
-      layers[0]=layers[1]=null;
+      ++generation;
+      clearPending();
+      remove(visibleLayer);
+      visibleLayer = null;
     }
   };
 }
