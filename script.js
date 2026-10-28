@@ -11001,38 +11001,26 @@ $('#xweatherLayersBtn')?.addEventListener('click', async ()=>{
 function createRadarAnimator(map){
   const layers = [null, null];
   let active = 0;
+  let requestId = 0;
+  let pendingTimer = null;
+  let pendingCleanup = null;
+  let requestedOpacity = 1;
 
-  function configureLayer(layer, fallbackUrl=''){
-    layer._wfHadTileError = false;
-    layer._wfFallbackUrl = fallbackUrl || '';
-    layer._wfFallbackTried = false;
+  function cancelPending(){
+    if(pendingTimer !== null){ clearTimeout(pendingTimer); pendingTimer = null; }
+    if(pendingCleanup){ pendingCleanup(); pendingCleanup = null; }
   }
 
-  function ensureLayer(idx, url, fallbackUrl=''){
+  function ensureLayer(idx, url){
     if(!layers[idx]){
-      const layer = L.tileLayer(url, {
-        opacity:0,
-        maxZoom:14,
-        maxNativeZoom:7,
-        pane:'radarPane',
-        className:'radar-tile-layer',
-        crossOrigin:true,
-        keepBuffer:4,
-        // Op mobiel niet wachten tot pan/zoom volledig gestopt is. Leaflet mag
-        // de zichtbare radar-tegels meteen beginnen ophalen.
-        updateWhenIdle:false,
-        updateWhenZooming:false
+      layers[idx] = L.tileLayer(url, {
+        opacity:0, maxZoom:14, maxNativeZoom:7,
+        pane:'radarPane', className:'radar-tile-layer', crossOrigin:true,
+        keepBuffer:4, updateWhenIdle:false, updateWhenZooming:false
       });
-      configureLayer(layer, fallbackUrl);
-      layer.on('tileerror', ()=>{
-        // Eén missende z7-tegel kan op een iPhone een enorm rechthoekig gat
-        // worden. Toon daarom nooit een half geladen frame.
-        layer._wfHadTileError = true;
-      });
-      layer.addTo(map);
-      layers[idx] = layer;
+      layers[idx].addTo(map);
     }else{
-      configureLayer(layers[idx], fallbackUrl);
+      layers[idx].setOpacity(0);
       layers[idx].setUrl(url);
     }
     return layers[idx];
@@ -11040,59 +11028,73 @@ function createRadarAnimator(map){
 
   return {
     showFrame(url, opacity, fallbackUrl=''){
+      // An older tile load must never promote its frame after the slider moves.
+      const id = ++requestId;
+      cancelPending();
+      requestedOpacity = opacity;
+      // Until the requested frame is ready, do not leave old rain cells visible.
+      layers.forEach(existing => existing?.setOpacity(0));
       const next = 1-active;
-      const nextLayer = ensureLayer(next, url, fallbackUrl);
-      let done = false;
-      let fallbackTimer = null;
+      let usingFallback = false;
+      let hadError = false;
+      let completed = false;
+      let layer;
 
-      const reveal = ()=>{
-        if(done) return;
-
-        // Als ook maar één primaire RainViewer-tegel faalt, laad het volledige
-        // frame opnieuw via de Wheaterflow worker. Zo ontstaan geen zichtbare
-        // verticale tegelranden of halve buien.
-        if(nextLayer._wfHadTileError && nextLayer._wfFallbackUrl && !nextLayer._wfFallbackTried){
-          nextLayer._wfFallbackTried = true;
-          nextLayer._wfHadTileError = false;
-          nextLayer.once('load', reveal);
-          nextLayer.setUrl(nextLayer._wfFallbackUrl);
-          return;
+      const isCurrent = () => id === requestId && !completed;
+      const detach = () => {
+        if(!layer) return;
+        layer.off('load', onLoad);
+        layer.off('tileerror', onError);
+      };
+      const finish = (success) => {
+        if(!isCurrent()) return;
+        completed = true;
+        cancelPending();
+        if(success){
+          layer.setOpacity(requestedOpacity);
+          if(layers[active] && layers[active] !== layer) layers[active].setOpacity(0);
+          active = next;
+        }else{
+          // Never represent the previously selected time as the new forecast.
+          layers.forEach(existing => existing?.setOpacity(0));
+          showRadarInfo('Radarbeeld voor dit tijdstip niet beschikbaar. Probeer een ander tijdstip.');
         }
-
-        // Als primaire én fallbacktegels fouten geven, hou het vorige volledige
-        // frame zichtbaar in plaats van een kapotte tegel te tonen.
-        if(nextLayer._wfHadTileError){
-          done = true;
-          nextLayer.setOpacity(0);
-          showRadarInfo('Radarbeeld wordt opnieuw geladen. Zoom eventueel iets uit.');
-          return;
-        }
-
-        done = true;
-        if(fallbackTimer) clearTimeout(fallbackTimer);
-        nextLayer.setOpacity(opacity);
-        if(layers[active]) layers[active].setOpacity(0);
-        active = next;
+      };
+      const onError = () => { if(isCurrent()) hadError = true; };
+      const useFallback = () => {
+        if(!isCurrent()) return;
+        if(!usingFallback && fallbackUrl && fallbackUrl !== url){
+          usingFallback = true;
+          hadError = false;
+          layer.setUrl(fallbackUrl);
+          armTimeout();
+        }else finish(false);
+      };
+      const onLoad = () => {
+        if(!isCurrent()) return;
+        if(hadError){ useFallback(); return; }
+        finish(true);
+      };
+      const armTimeout = () => {
+        if(pendingTimer !== null) clearTimeout(pendingTimer);
+        pendingTimer = setTimeout(() => { if(isCurrent()) useFallback(); }, 4500);
       };
 
-      nextLayer.once('load', reveal);
-
-      // Geen gedeeltelijk frame na een arbitraire timeout meer. Als de primaire
-      // bron te lang blijft hangen, schakel dan gecontroleerd naar de worker.
-      fallbackTimer = setTimeout(()=>{
-        if(done) return;
-        if(nextLayer._wfFallbackUrl && !nextLayer._wfFallbackTried){
-          nextLayer._wfFallbackTried = true;
-          nextLayer._wfHadTileError = false;
-          nextLayer.once('load', reveal);
-          nextLayer.setUrl(nextLayer._wfFallbackUrl);
-        }
-      }, 2600);
+      layer = ensureLayer(next, url);
+      layer.on('load', onLoad);
+      layer.on('tileerror', onError);
+      pendingCleanup = detach;
+      armTimeout();
+      // Leaflet can complete synchronously when all tiles are already cached.
+      if(!layer.isLoading?.()) queueMicrotask(() => { if(isCurrent()) onLoad(); });
     },
     setOpacity(opacity){
+      requestedOpacity = opacity;
       if(layers[active]) layers[active].setOpacity(opacity);
     },
     destroy(){
+      ++requestId;
+      cancelPending();
       layers.forEach(layer=>{ if(layer && map.hasLayer(layer)) map.removeLayer(layer); });
       layers[0]=layers[1]=null;
     }
