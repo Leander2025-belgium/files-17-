@@ -172,6 +172,11 @@ $('#btn-download').addEventListener('click', () => {
   });
 });
 
+function notify(t) {
+  const el = $('#menu-msg'); el.textContent = t; el.hidden = false;
+  clearTimeout(notify.t); notify.t = setTimeout(() => { el.hidden = true; }, 5000);
+}
+
 // ---------- mijn stukken ----------
 function fmtBytes(n) { return n > 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.round(n / 1e3) + ' kB'; }
 async function refreshList() {
@@ -200,8 +205,13 @@ async function refreshList() {
     card.querySelector('[data-a=play]').onclick = () => play(r.id);
     card.querySelector('[data-a=show]').onclick = () => { state.size = r.size; select(r.x0 + r.size / 2, r.z0 + r.size / 2, true); };
     card.querySelector('[data-a=export]').onclick = () => exportRegion(r);
-    card.querySelector('[data-a=del]').onclick = async () => {
-      if (!confirm(`“${r.name}” verwijderen? Je bouwwerken gaan verloren.`)) return;
+    const del = card.querySelector('[data-a=del]');
+    del.onclick = async () => {
+      if (!del.dataset.sure) {
+        del.dataset.sure = '1'; del.textContent = 'Zeker verwijderen?';
+        setTimeout(() => { delete del.dataset.sure; del.textContent = '✕'; }, 3000);
+        return;
+      }
       await store.deleteRegion(r.id); refreshList();
     };
     list.appendChild(card);
@@ -210,7 +220,7 @@ async function refreshList() {
 
 async function exportRegion(r) {
   const vox = await store.loadRegionData(r.id);
-  if (!vox) return alert('Gegevens niet gevonden.');
+  if (!vox) return notify('De gegevens van dit stuk zijn niet gevonden.');
   const blob = await store.exportFile(await store.getRegionMeta(r.id), vox);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -229,14 +239,14 @@ $('#import').addEventListener('change', async (e) => {
     meta.name = (meta.name || 'Geïmporteerd') + ' (import)';
     await store.saveRegion(meta, vox);
     refreshList();
-  } catch (err) { alert('Importeren mislukt: ' + err.message); }
+  } catch (err) { notify('Importeren mislukt: ' + err.message); }
 });
 
 // ---------- spelen ----------
 async function play(id) {
   const meta = await store.getRegionMeta(id);
   const vox = await store.loadRegionData(id);
-  if (!meta || !vox) return alert('Dit stuk kon niet geladen worden.');
+  if (!meta || !vox) return notify('Dit stuk kon niet geladen worden.');
   if (!game) {
     const { Game } = await import('./game.js');
     game = new Game({
