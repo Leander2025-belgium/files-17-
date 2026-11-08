@@ -142,7 +142,7 @@ export class Game {
   }
 
   spawn() {
-    const w = this.world, c = w.size >> 1;
+    const w = this.world, c = w.size >> 1, G = this.meta.ground ?? GROUND;
     const good = new Set([B.ASPHALT, B.SIDEWALK, B.TILE, B.LINE_WHITE, B.GRAVEL, B.COBBLE, B.GRASS, B.CONCRETE]);
     for (let r = 0; r < c; r++) {
       for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
@@ -150,7 +150,7 @@ export class Game {
         const x = c + dx, z = c + dz;
         if (!w.inside(x, z)) continue;
         const top = w.columnTop(x, z);
-        if (top <= GROUND && good.has(w.get(x, top, z))) {
+        if (top <= G && good.has(w.get(x, top, z))) {
           this.player.pos.set(x + 0.5, top + 1, z + 0.5);
           return;
         }
@@ -439,11 +439,21 @@ export class Game {
     const now = performance.now();
     if (!force && now - (this.hudT || 0) < 200) return;
     this.hudT = now;
-    const p = this.player, m = this.meta;
+    const p = this.player, m = this.meta, fly = p.fly ? ' · ✈ vliegen' : '';
+    const h = Math.floor(p.pos.y - (m.ground ?? GROUND));
+    if (m.real) {
+      const lat = m.real.lat - (p.pos.z - m.size / 2) / 110574;
+      const lon = m.real.lon + (p.pos.x - m.size / 2) / (111320 * Math.cos(m.real.lat * Math.PI / 180));
+      this.ui.coords.textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)} · hoogte ${h} m`;
+      const deg = ((-p.yaw * 180 / Math.PI) % 360 + 360) % 360;
+      const dir = ['N', 'NO', 'O', 'ZO', 'Z', 'ZW', 'W', 'NW'][Math.round(deg / 45) % 8];
+      this.ui.place.textContent = `${m.name} · kijkrichting ${dir}${fly}`;
+      return;
+    }
     const ax = Math.floor(m.x0 + p.pos.x), az = Math.floor(m.z0 + p.pos.z);
     const d = districtAt(ax, az);
-    this.ui.coords.textContent = `x ${ax} · z ${az} · hoogte ${Math.floor(p.pos.y - GROUND)} m`;
-    this.ui.place.textContent = `${d.wijk} · ${d.typeName}${p.fly ? ' · ✈ vliegen' : ''}`;
+    this.ui.coords.textContent = `x ${ax} · z ${az} · hoogte ${h} m`;
+    this.ui.place.textContent = `${d.wijk} · ${d.typeName}${fly}`;
   }
 
   buildHotbar() {

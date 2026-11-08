@@ -1,10 +1,21 @@
 # Blokstad
 
-Een blokkenbouwspel in de browser, in een stad van **2,5 km × 25 km** (1 blok = 1 meter).
+Een blokkenbouwspel in de browser (1 blok = 1 meter) met twee soorten werelden:
+
+- **Echte wereld**: kies een echte plek (bv. de skyline van Frankfurt) en de game haalt de echte gebouwen, straten, water, parken en bomen op bij [OpenStreetMap](https://www.openstreetmap.org). Gebouwhoogtes, kleuren en materialen komen uit de kaartdata (`height`, `building:levels`, `building:colour`, `building:material`, `building:part`, …).
+- **Fantasiestad**: een verzonnen stad van **2,5 km × 25 km**.
+
+### Echte wereld
+
+1. Zoek een plaats, kies een snelknop (Frankfurt Skyline, Römerberg, Messeturm, …) of vul coördinaten in.
+2. Kies 128, 256 of 384 m en klik **Download echte gebouwen**. Met ↑ ↓ ← → schuif je een stuk verder.
+3. Geen internettoegang voor de game? Exporteer een gebied op [openstreetmap.org/export](https://www.openstreetmap.org/export) en open het `map.osm`-bestand in de game.
+
+Gegevens © OpenStreetMap-bijdragers (ODbL).
 
 Open `/blokstad/` op de site (of lokaal met `python3 -m http.server` in de repo-map en ga naar `http://localhost:8000/blokstad/`).
 
-## Hoe werkt het?
+## Fantasiestad: hoe werkt het?
 
 1. **Kies een stuk stad** op de overzichtskaart (noord boven, scroll naar beneden voor de hele 25 km), of gebruik de snelknoppen of x/z-coördinaten.
 2. **Kies de grootte**: 64, 128 of 256 meter in het vierkant.
@@ -40,7 +51,8 @@ Op telefoon en tablet verschijnen een joystick en knoppen.
 
 ## Bestanden
 
-- `js/city.js` — stadsgenerator (wegen, wijken, gebouwen, bomen)
+- `js/osm.js` — echte wereld: OpenStreetMap ophalen en omzetten naar blokken
+- `js/city.js` — fantasiestad-generator (wegen, wijken, gebouwen, bomen)
 - `js/worker.js` — berekent kaart, voorbeeld en 3D-gebied in de achtergrond
 - `js/mesher.js` — zet blokken om in 3D-vlakken (greedy meshing + ambient occlusion)
 - `js/game.js` — rendering (Three.js), besturing, natuurkunde, bouwen

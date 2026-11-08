@@ -1,6 +1,7 @@
 // Hoofdmenu: stadskaart, gebied kiezen, downloaden, beheren en spelen.
 import { WIDTH, LENGTH, HEIGHT, districtAt, riverX } from './city.js';
 import * as store from './storage.js';
+import { topView } from './osm.js';
 
 const $ = (s) => document.querySelector(s);
 const MAP_SCALE = 5; // meter per pixel op de overzichtskaart
@@ -55,6 +56,7 @@ function drawOverlay() {
     octx.fillStyle = '#fff'; octx.fillText(`${km} km`, 18, y + 4);
   }
   for (const r of state.regions) {
+    if (r.real) continue;
     octx.fillStyle = 'rgba(80, 220, 120, 0.35)';
     octx.strokeStyle = 'rgba(80, 220, 120, 0.95)'; octx.lineWidth = 1;
     const x = r.x0 / MAP_SCALE, y = r.z0 / MAP_SCALE, s = r.size / MAP_SCALE;
@@ -194,7 +196,7 @@ async function refreshList() {
     const edited = r.edited ? ' · bewerkt' : '';
     card.innerHTML = `
       <div class="r-title"></div>
-      <div class="muted small">${r.size}×${r.size} m · x ${r.x0} · z ${r.z0}${r.bytes ? ' · ' + fmtBytes(r.bytes) : ''}${edited}</div>
+      <div class="muted small">${r.size}×${r.size} m · ${r.real ? `📍 ${r.real.lat.toFixed(4)}, ${r.real.lon.toFixed(4)}` : `x ${r.x0} · z ${r.z0}`}${r.bytes ? ' · ' + fmtBytes(r.bytes) : ''}${edited}</div>
       <div class="r-actions">
         <button class="btn primary" data-a="play">▶ Spelen</button>
         <button class="btn" data-a="show">Toon</button>
@@ -203,7 +205,7 @@ async function refreshList() {
       </div>`;
     card.querySelector('.r-title').textContent = r.name;
     card.querySelector('[data-a=play]').onclick = () => play(r.id);
-    card.querySelector('[data-a=show]').onclick = () => { state.size = r.size; select(r.x0 + r.size / 2, r.z0 + r.size / 2, true); };
+    card.querySelector('[data-a=show]').onclick = () => r.real ? showReal(r) : (setMode('fantasy'), state.size = r.size, select(r.x0 + r.size / 2, r.z0 + r.size / 2, true));
     card.querySelector('[data-a=export]').onclick = () => exportRegion(r);
     const del = card.querySelector('[data-a=del]');
     del.onclick = async () => {
@@ -297,6 +299,136 @@ $('#btn-exit').addEventListener('click', async () => {
 });
 window.addEventListener('beforeunload', () => { if (game && game.running && game.dirty) saveGame(); });
 
+// ---------- echte wereld ----------
+function setMode(mode) {
+  state.mode = mode;
+  document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  $('#real-panel').hidden = mode !== 'real';
+  $('#fantasy-panel').hidden = mode !== 'fantasy';
+  $('#real-col').hidden = mode !== 'real';
+  $('#map-col').hidden = mode !== 'fantasy';
+  if (mode === 'fantasy') { setZoom(state.zoom); if (!state.sel) select(1050, 12500, true); }
+  try { localStorage.setItem('blokstad-mode', mode); } catch { /* geen opslag */ }
+}
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+state.rsize = 256;
+document.querySelectorAll('[data-rsize]').forEach(b => b.addEventListener('click', () => {
+  state.rsize = +b.dataset.rsize;
+  document.querySelectorAll('[data-rsize]').forEach(o => o.classList.toggle('on', o === b));
+}));
+
+const PLACES = [
+  ['Frankfurt – Skyline', 50.1113, 8.6718], ['Frankfurt – Römerberg', 50.1104, 8.6821],
+  ['Frankfurt – Messeturm', 50.1123, 8.6527], ['Frankfurt – Hauptbahnhof', 50.1070, 8.6633],
+  ['Brussel – Grote Markt', 50.8467, 4.3525], ['Brugge – Markt', 51.2088, 3.2242],
+  ['Antwerpen – Centraal', 51.2172, 4.4211], ['Parijs – Eiffeltoren', 48.8583, 2.2945],
+  ['New York – Times Square', 40.7580, -73.9855], ['Londen – The Shard', 51.5045, -0.0865],
+];
+function setPlace(name, lat, lon) {
+  $('#lat').value = (+lat).toFixed(5); $('#lon').value = (+lon).toFixed(5); $('#real-name').value = name;
+  $('#real-where').textContent = `${name} · ${(+lat).toFixed(4)}, ${(+lon).toFixed(4)}`;
+}
+for (const [name, lat, lon] of PLACES) {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.textContent = name;
+  b.onclick = () => setPlace(name, lat, lon);
+  $('#real-jumps').appendChild(b);
+}
+
+$('#search').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const q = $('#search-q').value.trim();
+  const box = $('#search-results');
+  if (!q) return;
+  box.innerHTML = '<span class="help">Zoeken…</span>';
+  try {
+    const res = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=nl&q=' + encodeURIComponent(q));
+    if (!res.ok) throw new Error(res.status);
+    const list = await res.json();
+    box.innerHTML = list.length ? '' : '<span class="help">Niets gevonden. Probeer een andere naam.</span>';
+    for (const r of list) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = r.display_name;
+      b.onclick = () => { setPlace(r.display_name.split(',').slice(0, 2).join(',').trim(), r.lat, r.lon); box.innerHTML = ''; };
+      box.appendChild(b);
+    }
+  } catch {
+    box.innerHTML = '<span class="help">Zoeken lukt hier niet (geen verbinding met OpenStreetMap). Kies een plek hieronder of vul coördinaten in.</span>';
+  }
+});
+
+document.querySelectorAll('[data-move]').forEach(b => b.addEventListener('click', () => {
+  const lat = +$('#lat').value, lon = +$('#lon').value, s = state.rsize;
+  const dLat = s / 110574, dLon = s / (111320 * Math.cos(lat * Math.PI / 180));
+  const d = b.dataset.move;
+  const nl = lat + (d === 'n' ? dLat : d === 's' ? -dLat : 0), no = lon + (d === 'e' ? dLon : d === 'w' ? -dLon : 0);
+  const base = $('#real-name').value.replace(/ \((noord|zuid|oost|west)\)$/, '');
+  setPlace(`${base} (${{ n: 'noord', s: 'zuid', e: 'oost', w: 'west' }[d]})`, nl, no);
+  $('#real-info').textContent = 'Nieuwe plek gekozen. Druk op “Download echte gebouwen” om dit stuk te halen.';
+}));
+
+function drawRealPreview(data, size) {
+  const c = $('#real-preview');
+  c.width = c.height = size;
+  c.getContext('2d').putImageData(new ImageData(data, size, size), 0, 0);
+}
+
+function realJob(msg, name) {
+  if (state.busy) return;
+  state.busy = true;
+  $('#btn-real').disabled = true;
+  const wrap = $('#real-progress'), bar = $('#real-bar'), txt = $('#real-text');
+  wrap.hidden = false; bar.style.width = '2%'; txt.textContent = 'Starten…';
+  const done = () => { state.busy = false; $('#btn-real').disabled = false; };
+  ask(msg, async (m) => {
+    if (m.type === 'progress') { bar.style.width = Math.round(m.p * 100) + '%'; txt.textContent = m.text; }
+    else if (m.type === 'error') { txt.textContent = m.message + ' Probeer het opnieuw, of gebruik een OSM-bestand.'; bar.style.width = '0%'; done(); }
+    else if (m.type === 'osmDone') {
+      drawRealPreview(m.preview, m.size);
+      setPlace(name || `${m.lat.toFixed(4)}, ${m.lon.toFixed(4)}`, m.lat, m.lon);
+      const meta = {
+        id: 'r' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36),
+        name: name || `Plek ${m.lat.toFixed(4)}, ${m.lon.toFixed(4)}`, x0: 0, z0: 0, size: m.size, H: m.H, ground: m.ground,
+        real: { lat: m.lat, lon: m.lon }, created: Date.now(), wijk: name || 'Echte wereld', type: 'Echte wereld',
+      };
+      try {
+        await store.saveRegion(meta, m.vox);
+        bar.style.width = '100%';
+        txt.textContent = `Klaar: ${m.buildings} gebouwen. Je vindt het bij “Mijn stukken”.`;
+        $('#real-info').textContent = `${meta.name} · ${m.size}×${m.size} m · ${m.buildings} gebouwen · tot ${m.H - m.ground} m hoog.`;
+      } catch (err) { txt.textContent = 'Opslaan mislukt: ' + err.message; }
+      done();
+      refreshList();
+    }
+  });
+}
+
+$('#btn-real').addEventListener('click', () => {
+  const lat = parseFloat($('#lat').value), lon = parseFloat($('#lon').value);
+  if (!(Math.abs(lat) <= 85) || !(Math.abs(lon) <= 180)) { $('#real-text').textContent = 'Vul een geldige breedte- en lengtegraad in.'; $('#real-progress').hidden = false; return; }
+  realJob({ type: 'osm', lat, lon, size: state.rsize }, $('#real-name').value.trim());
+});
+$('#osm-file').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  const text = await f.text();
+  realJob({ type: 'osm', text, size: state.rsize }, f.name.replace(/\.(osm|xml|json)$/i, '') === 'map' ? '' : f.name.replace(/\.(osm|xml|json)$/i, ''));
+});
+
+async function showReal(r) {
+  setMode('real');
+  setPlace(r.name, r.real.lat, r.real.lon);
+  const vox = await store.loadRegionData(r.id);
+  if (vox) drawRealPreview(topView(vox, r.size, r.H), r.size);
+  $('#real-info').textContent = `${r.name} · ${r.size}×${r.size} m`;
+}
+
 // start
 setZoom(1);
-refreshList().then(() => select(1050, 12500, true));
+let startMode = 'real';
+try { startMode = localStorage.getItem('blokstad-mode') || 'real'; } catch { /* geen opslag */ }
+setPlace('Frankfurt – Skyline', 50.1113, 8.6718);
+refreshList().then(() => setMode(startMode));

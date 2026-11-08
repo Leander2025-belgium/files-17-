@@ -1,6 +1,7 @@
 // Web Worker: berekent de stadskaart, voorbeelden en volledige 3D-gebieden.
 import { fillColumn, generateRegion, WIDTH, LENGTH, GROUND, HEIGHT } from './city.js';
 import { BLOCKS } from './blocks.js';
+import { parseOSM, fetchOSM, rasterize, topView } from './osm.js';
 
 const col = new Uint8Array(HEIGHT);
 
@@ -55,6 +56,8 @@ self.onmessage = (e) => {
       }
     }
     self.postMessage({ type: 'preview', id: m.id, size, data }, [data.buffer]);
+  } else if (m.type === 'osm') {
+    realWorld(m).catch(err => self.postMessage({ type: 'error', id: m.id, message: err.message || String(err) }));
   } else if (m.type === 'region') {
     const { x0, z0, size } = m;
     let last = 0;
@@ -65,3 +68,31 @@ self.onmessage = (e) => {
     self.postMessage({ type: 'region', id: m.id, vox }, [vox.buffer]);
   }
 };
+
+async function realWorld(m) {
+  const status = (text, p) => self.postMessage({ type: 'progress', id: m.id, text, p });
+  let text = m.text, lat = m.lat, lon = m.lon, size = m.size;
+  if (!text) {
+    status('Kaartgegevens opvragen bij OpenStreetMap…', 0.05);
+    text = await fetchOSM(lat, lon, size, t => status(t, 0.1));
+  }
+  status('Kaartgegevens lezen…', 0.3);
+  const osm = parseOSM(text);
+  if (lat == null || lon == null) {
+    if (osm.bounds) {
+      lat = (osm.bounds.minlat + osm.bounds.maxlat) / 2; lon = (osm.bounds.minlon + osm.bounds.maxlon) / 2;
+      const h = (osm.bounds.maxlat - osm.bounds.minlat) * 110574;
+      const w = (osm.bounds.maxlon - osm.bounds.minlon) * 111320 * Math.cos(lat * Math.PI / 180);
+      size = Math.max(32, Math.min(size, Math.floor(Math.min(w, h) / 16) * 16));
+    } else {
+      let a = 0, b = 0, n = 0;
+      for (const [la, lo] of osm.nodes.values()) { a += la; b += lo; n++; }
+      lat = a / n; lon = b / n;
+    }
+  }
+  status('Gebouwen en straten omzetten naar blokken…', 0.4);
+  const r = rasterize(osm, lat, lon, size, p => status('Gebouwen en straten omzetten naar blokken…', 0.4 + p * 0.55));
+  const preview = topView(r.vox, size, r.H);
+  self.postMessage({ type: 'osmDone', id: m.id, vox: r.vox, H: r.H, ground: r.ground, buildings: r.buildings, lat, lon, size, preview },
+    [r.vox.buffer, preview.buffer]);
+}
