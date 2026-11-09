@@ -90,9 +90,14 @@
   #real-text { font-size: 13px; margin-top: 4px; color: var(--muted); }
   aside a { color: var(--accent); }
   .real-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-right: 1px solid var(--line); }
-  .real-body { flex: 1; overflow: auto; display: grid; place-items: center; align-content: center; gap: 12px; padding: 16px; background: #0c1017; }
-  #real-preview { width: min(100%, 70vh); aspect-ratio: 1; image-rendering: pixelated; border-radius: 10px; background: #1b2230; border: 1px solid var(--line); }
-  #real-info { max-width: 60ch; text-align: center; }
+  .real-body { flex: 1; min-height: 0; position: relative; background: #0c1017; }
+  #realmap { position: absolute; inset: 0; background: #1b2230; }
+  .leaflet-container { font: inherit; }
+  #map-hint, #map-note, #real-result { position: absolute; z-index: 900; background: rgba(17,22,31,.88); color: var(--text); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+  #map-hint { top: 10px; left: 50%; transform: translateX(-50%); padding: 5px 12px; pointer-events: none; white-space: nowrap; max-width: calc(100% - 120px); overflow: hidden; text-overflow: ellipsis; }
+  #map-note { left: 16px; right: 16px; top: 50px; padding: 10px 12px; max-width: 520px; margin: 0 auto; }
+  #real-result { left: 10px; bottom: 26px; padding: 8px; width: 196px; display: grid; gap: 6px; }
+  #real-preview { width: 100%; aspect-ratio: 1; image-rendering: pixelated; border-radius: 6px; display: block; }
 
   @media (max-width: 800px) {
     .real-col { border-right: 0; border-bottom: 1px solid var(--line); }
@@ -178,8 +183,13 @@
       <span id="real-where" class="small muted"></span>
     </div>
     <div class="real-body">
-      <canvas id="real-preview" width="256" height="256"></canvas>
-      <div id="real-info" class="help">Kies links een plek en druk op <b>Download echte gebouwen</b>. Hier verschijnt dan het bovenaanzicht van het stuk, met noord boven.</div>
+      <div id="realmap" aria-label="Wereldkaart om een gebied te kiezen"></div>
+      <div id="map-hint">Klik op de kaart of sleep het gele vierkant naar het gebied dat je wilt.</div>
+      <div id="map-note" hidden>De kaartbeelden kunnen op deze pagina niet laden, omdat ze geen verbinding met openstreetmap.org mag maken. Klikken om een plek te kiezen werkt wel. Open de game op je eigen website voor de volledige kaart.</div>
+      <div id="real-result" hidden>
+        <canvas id="real-preview" width="256" height="256"></canvas>
+        <div id="real-info" class="small"></div>
+      </div>
     </div>
   </section>
 
@@ -368,6 +378,8 @@
   </div>
 </div>
 
+<link rel="stylesheet" href="./vendor/leaflet.css">
+<script src="./vendor/leaflet.js"></script>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
 </script>

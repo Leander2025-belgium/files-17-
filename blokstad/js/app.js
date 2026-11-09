@@ -184,6 +184,7 @@ function fmtBytes(n) { return n > 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.roun
 async function refreshList() {
   try { state.regions = await store.listRegions(); } catch { state.regions = []; }
   drawOverlay();
+  drawSavedOnMap();
   const list = $('#regions');
   list.innerHTML = '';
   if (!state.regions.length) {
@@ -308,6 +309,7 @@ function setMode(mode) {
   $('#real-col').hidden = mode !== 'real';
   $('#map-col').hidden = mode !== 'fantasy';
   if (mode === 'fantasy') { setZoom(state.zoom); if (!state.sel) select(1050, 12500, true); }
+  if (mode === 'real') initMap();
   try { localStorage.setItem('blokstad-mode', mode); } catch { /* geen opslag */ }
 }
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
@@ -316,6 +318,7 @@ state.rsize = 256;
 document.querySelectorAll('[data-rsize]').forEach(b => b.addEventListener('click', () => {
   state.rsize = +b.dataset.rsize;
   document.querySelectorAll('[data-rsize]').forEach(o => o.classList.toggle('on', o === b));
+  updateRect(false);
 }));
 
 const PLACES = [
@@ -325,10 +328,98 @@ const PLACES = [
   ['Antwerpen – Centraal', 51.2172, 4.4211], ['Parijs – Eiffeltoren', 48.8583, 2.2945],
   ['New York – Times Square', 40.7580, -73.9855], ['Londen – The Shard', 51.5045, -0.0865],
 ];
-function setPlace(name, lat, lon) {
+function setPlace(name, lat, lon, fly = true) {
   $('#lat').value = (+lat).toFixed(5); $('#lon').value = (+lon).toFixed(5); $('#real-name').value = name;
   $('#real-where').textContent = `${name} · ${(+lat).toFixed(4)}, ${(+lon).toFixed(4)}`;
+  updateRect(fly);
 }
+
+// ---------- wereldkaart (Leaflet + OpenStreetMap) ----------
+let lmap = null, selRect = null, savedLayer = null;
+function squareBounds(lat, lon, size) {
+  const dLat = size / 2 / 110574, dLon = size / 2 / (111320 * Math.cos(lat * Math.PI / 180));
+  return [[lat - dLat, lon - dLon], [lat + dLat, lon + dLon]];
+}
+function updateRect(fly) {
+  if (!lmap) return;
+  const lat = +$('#lat').value, lon = +$('#lon').value;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+  selRect.setBounds(squareBounds(lat, lon, state.rsize));
+  if (fly) lmap.setView([lat, lon], Math.max(lmap.getZoom(), state.rsize > 256 ? 16 : 17));
+}
+let nameReq = 0;
+async function nameFor(lat, lon) {
+  const my = ++nameReq;
+  const fallback = `Plek ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  $('#real-name').value = fallback;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=nl&lat=${lat}&lon=${lon}`);
+    const j = await r.json();
+    const a = j.address || {};
+    const street = a.road || a.pedestrian || a.square || a.neighbourhood || a.suburb;
+    const city = a.city || a.town || a.village || a.municipality;
+    const name = [city, street].filter(Boolean).join(' – ');
+    if (name && my === nameReq) { $('#real-name').value = name; $('#real-where').textContent = `${name} · ${lat.toFixed(4)}, ${lon.toFixed(4)}`; }
+  } catch { /* zonder internet blijft de coördinaat de naam */ }
+}
+function pickOnMap(lat, lon) {
+  $('#lat').value = lat.toFixed(5); $('#lon').value = lon.toFixed(5);
+  $('#real-where').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  updateRect(false);
+}
+function initMap() {
+  if (lmap) { lmap.invalidateSize(); return; }
+  if (!window.L) { $('#map-note').hidden = false; $('#map-note').textContent = 'De kaart kon niet geladen worden. Je kan nog steeds coördinaten invullen.'; return; }
+  const lat = +$('#lat').value, lon = +$('#lon').value;
+  lmap = L.map('realmap', { worldCopyJump: true }).setView([lat, lon], 16);
+  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+  }).addTo(lmap);
+  let errs = 0, oks = 0;
+  tiles.on('tileerror', () => { if (++errs >= 3 && !oks) $('#map-note').hidden = false; });
+  tiles.on('tileload', () => { oks++; $('#map-note').hidden = true; });
+  savedLayer = L.layerGroup().addTo(lmap);
+  selRect = L.rectangle(squareBounds(lat, lon, state.rsize), { color: '#ffd34d', weight: 3, fillColor: '#ffd34d', fillOpacity: 0.15 }).addTo(lmap);
+  selRect.bindTooltip('Dit stuk wordt gedownload', { direction: 'top' });
+  let drag = null, justDragged = false;
+  selRect.on('mousedown', (e) => {
+    const c = selRect.getBounds().getCenter();
+    drag = { dLat: c.lat - e.latlng.lat, dLon: c.lng - e.latlng.lng, moved: false };
+    lmap.dragging.disable();
+    L.DomEvent.stop(e);
+  });
+  lmap.on('mousemove', (e) => {
+    if (!drag) return;
+    drag.moved = true;
+    pickOnMap(e.latlng.lat + drag.dLat, e.latlng.lng + drag.dLon);
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    if (drag.moved) { justDragged = true; setTimeout(() => { justDragged = false; }, 50); nameFor(+$('#lat').value, +$('#lon').value); }
+    drag = null; lmap.dragging.enable();
+  };
+  lmap.on('mouseup', endDrag);
+  document.addEventListener('mouseup', endDrag);
+  lmap.on('click', (e) => {
+    if (justDragged) return;
+    const w = e.latlng.wrap();
+    pickOnMap(w.lat, w.lng);
+    nameFor(w.lat, w.lng);
+    $('#real-result').hidden = true;
+  });
+  drawSavedOnMap();
+}
+function drawSavedOnMap() {
+  if (!savedLayer) return;
+  savedLayer.clearLayers();
+  for (const r of state.regions) {
+    if (!r.real) continue;
+    L.rectangle(squareBounds(r.real.lat, r.real.lon, r.size), { color: '#5fd27a', weight: 2, fillOpacity: 0.2, interactive: true })
+      .bindTooltip(`${r.name} (gedownload)`).addTo(savedLayer);
+  }
+}
+$('#lat').addEventListener('change', () => updateRect(true));
+$('#lon').addEventListener('change', () => updateRect(true));
 for (const [name, lat, lon] of PLACES) {
   const b = document.createElement('button');
   b.className = 'chip'; b.textContent = name;
@@ -366,13 +457,14 @@ document.querySelectorAll('[data-move]').forEach(b => b.addEventListener('click'
   const nl = lat + (d === 'n' ? dLat : d === 's' ? -dLat : 0), no = lon + (d === 'e' ? dLon : d === 'w' ? -dLon : 0);
   const base = $('#real-name').value.replace(/ \((noord|zuid|oost|west)\)$/, '');
   setPlace(`${base} (${{ n: 'noord', s: 'zuid', e: 'oost', w: 'west' }[d]})`, nl, no);
-  $('#real-info').textContent = 'Nieuwe plek gekozen. Druk op “Download echte gebouwen” om dit stuk te halen.';
+  $('#real-result').hidden = true;
 }));
 
 function drawRealPreview(data, size) {
   const c = $('#real-preview');
   c.width = c.height = size;
   c.getContext('2d').putImageData(new ImageData(data, size, size), 0, 0);
+  $('#real-result').hidden = false;
 }
 
 function realJob(msg, name) {
