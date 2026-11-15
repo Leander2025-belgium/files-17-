@@ -1,0 +1,15 @@
+{
+  "name": "ai-assistent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Persoonlijke AI-assistent: programmeren, informatie zoeken en webpagina's lezen",
+  "bin": { "ai": "./assistent.js" },
+  "scripts": {
+    "start": "node assistent.js",
+    "test": "node --check assistent.js && node --test tools.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  }
+}
