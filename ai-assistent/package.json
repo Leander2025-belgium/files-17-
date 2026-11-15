@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Persoonlijke AI-assistent: programmeren, informatie zoeken en webpagina's lezen",
-  "bin": { "ai": "./assistent.js" },
+  "bin": {
+    "ai": "./lokaal.js",
+    "ai-claude": "./assistent.js"
+  },
   "scripts": {
-    "start": "node assistent.js",
-    "test": "node --check assistent.js && node --test tools.test.js"
+    "start": "node lokaal.js",
+    "start:claude": "node assistent.js",
+    "test": "node --check assistent.js && node --check lokaal.js && node --test tools.test.js web.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0"
