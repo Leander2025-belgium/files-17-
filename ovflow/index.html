@@ -5,70 +5,97 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>OVFlow – reisplanner België</title>
   <meta name="description" content="OVFlow: routeplanner, live vertrektijden en live volgen voor NMBS, De Lijn, TEC en MIVB in heel België.">
-  <meta name="theme-color" content="#0b1f3a">
+  <meta name="theme-color" content="#f6f5f0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1714" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="OVFlow">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="./ovflow.css">
 </head>
 <body data-view="plan">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-9-9.4C1.9 7 4.2 4 7.4 4c2 0 3.6 1.1 4.6 2.6C13 5.1 14.6 4 16.6 4 19.8 4 22.1 7 21 10.6 19.5 15.4 12 20 12 20z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M8 20V5M4 9l4-4 4 4M16 4v15M12 15l4 4 4-4"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+    <symbol id="i-updown" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20H4z"/><path d="M10 20v-5h4v5"/></symbol>
+    <symbol id="i-work" viewBox="0 0 24 24"><rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V5.5h6v2M3.5 12.5h17M11 12.5v2h2v-2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.5M4 13a8 8 0 0 0 14.3 4.5"/><path d="M5 3v4h4M19 21v-4h-4"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-9 6-14 15-14 0 9-5 15-14 15"/><path d="M5 19l8-8"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+    <symbol id="i-train" viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="13" rx="3"/><path d="M5 10.5h14M9 20l-2 1.5M15 20l2 1.5"/><circle cx="9" cy="13.5" r=".8"/><circle cx="15" cy="13.5" r=".8"/></symbol>
+  </defs>
+</svg>
 <div id="app">
-  <header class="topbar">
-    <a class="brand" href="#/plan" aria-label="OVFlow start">
-      <img src="./icons/icon.svg" alt="" width="30" height="30">
-      <span>OV<b>Flow</b></span>
-    </a>
-    <div class="ops" aria-label="Vervoerders">
-      <span class="op-dot" style="--c:#0069b4" title="NMBS / SNCB">NMBS</span>
-      <span class="op-dot" style="--c:#ffd400;--t:#1a1a1a" title="De Lijn">De Lijn</span>
-      <span class="op-dot" style="--c:#e2001a" title="TEC">TEC</span>
-      <span class="op-dot" style="--c:#ea5b0c" title="MIVB / STIB">MIVB</span>
-    </div>
-    <span id="netStatus" class="net" hidden>offline</span>
-  </header>
+  <span id="netStatus" class="net" hidden>Offline</span>
 
   <main class="layout">
     <section class="panel" id="panel">
 
-      <!-- ============ PLANNEN ============ -->
+      <!-- ============ REIS PLANNEN ============ -->
       <div class="view" id="view-plan">
-        <form id="planForm" class="card plan-form" autocomplete="off">
-          <div class="od">
-            <div class="od-line" aria-hidden="true"><i></i><i></i></div>
-            <div class="od-fields">
-              <div class="field ac-wrap">
-                <label for="fromInput">Van</label>
-                <input id="fromInput" placeholder="Vertrekpunt, halte of adres" spellcheck="false">
-                <button type="button" class="icon-btn" id="fromLocate" title="Mijn locatie" aria-label="Gebruik mijn locatie">◎</button>
-              </div>
-              <div class="field ac-wrap">
-                <label for="toInput">Naar</label>
-                <input id="toInput" placeholder="Bestemming, halte of adres" spellcheck="false">
-              </div>
+        <header class="hero">
+          <div class="eyebrow"><i></i>Op weg op jouw manier</div>
+          <h1>Waar gaan we naartoe<span>?</span></h1>
+          <p>Een nieuwe dag. Een vertrouwde route. Of ergens helemaal anders.</p>
+        </header>
+
+        <form id="planForm" class="card plan-card" autocomplete="off">
+          <div class="card-head">
+            <h2>Plan je reis</h2>
+            <span class="muted">Van deur tot avontuur</span>
+          </div>
+          <div class="od-box">
+            <div class="od-row ac-wrap">
+              <span class="od-mark from" aria-hidden="true"></span>
+              <label for="fromInput">Van</label>
+              <input id="fromInput" placeholder="Waar vertrek je?" spellcheck="false">
+              <button type="button" class="icon-btn accent" id="fromLocate" title="Mijn locatie" aria-label="Gebruik mijn locatie"><svg><use href="#i-locate"/></svg></button>
             </div>
-            <button type="button" class="swap" id="swapBtn" title="Omwisselen" aria-label="Van en naar omwisselen">⇅</button>
+            <button type="button" class="swap" id="swapBtn" title="Omwisselen" aria-label="Van en naar omwisselen"><svg><use href="#i-swap"/></svg></button>
+            <div class="od-row ac-wrap">
+              <span class="od-mark to" aria-hidden="true"></span>
+              <label for="toInput">Naar</label>
+              <input id="toInput" placeholder="Waar wil je naartoe?" spellcheck="false">
+            </div>
           </div>
-          <div class="row time-row">
-            <select id="timeMode" aria-label="Tijdstip">
-              <option value="now">Nu vertrekken</option>
-              <option value="dep">Vertrek om</option>
-              <option value="arr">Aankomst om</option>
-            </select>
-            <input type="datetime-local" id="timeInput" aria-label="Datum en tijd" hidden>
+
+          <div class="when-row">
+            <label class="when">
+              <svg><use href="#i-clock"/></svg>
+              <select id="timeMode" aria-label="Tijdstip">
+                <option value="now">Nu vertrekken</option>
+                <option value="dep">Vertrek om</option>
+                <option value="arr">Aankomst om</option>
+              </select>
+              <svg class="chev"><use href="#i-updown"/></svg>
+            </label>
+            <button type="button" class="pref-btn" id="prefBtn" aria-expanded="false"><svg><use href="#i-sliders"/></svg>Voorkeuren <span id="optSummary"></span></button>
           </div>
-          <details class="options">
-            <summary>Opties <span id="optSummary"></span></summary>
+          <input type="datetime-local" id="timeInput" class="time-input" aria-label="Datum en tijd" hidden>
+
+          <div class="options" id="options" hidden>
+            <div class="opt-label">Vervoermiddelen</div>
             <div class="chips" id="modeChips" role="group" aria-label="Vervoermiddelen">
-              <button type="button" class="chip on" data-mode="train">🚆 Trein</button>
-              <button type="button" class="chip on" data-mode="metro">🚇 Metro</button>
-              <button type="button" class="chip on" data-mode="tram">🚋 Tram</button>
-              <button type="button" class="chip on" data-mode="bus">🚌 Bus</button>
+              <button type="button" class="chip on" data-mode="train">Trein</button>
+              <button type="button" class="chip on" data-mode="metro">Metro</button>
+              <button type="button" class="chip on" data-mode="tram">Tram</button>
+              <button type="button" class="chip on" data-mode="bus">Bus</button>
             </div>
-            <div class="row opt-row">
+            <div class="opt-grid">
               <label>Overstappen
                 <select id="maxTransfers">
                   <option value="">Onbeperkt</option>
@@ -86,68 +113,76 @@
                 </select>
               </label>
             </div>
-            <label class="check"><input type="checkbox" id="wheelchair"> ♿ Rolstoeltoegankelijk</label>
-          </details>
-          <button class="btn primary big" type="submit" id="planBtn">Plan mijn reis</button>
+            <label class="check"><input type="checkbox" id="wheelchair"> Rolstoeltoegankelijk</label>
+          </div>
+
+          <button class="btn primary big" type="submit" id="planBtn"><span>Vind mijn route</span><i class="go"><svg><use href="#i-arrow-up"/></svg></i></button>
+          <p class="tagline"><svg><use href="#i-leaf"/></svg>Een kleine stap. Een fijnere reis.</p>
         </form>
 
-        <div id="quickRoutes" class="quick"></div>
         <div id="planStatus" class="status" role="status" aria-live="polite"></div>
         <div id="planResults" class="results"></div>
+
+        <section class="home-extra" id="homeExtra">
+          <div class="sec-head">
+            <h2>Jouw vaste plekken</h2>
+            <a href="#/fav" class="link-arrow">Bewerken <svg><use href="#i-arrow"/></svg></a>
+          </div>
+          <div class="places" id="placeCards"></div>
+          <div id="quickRoutes" class="quick"></div>
+
+          <div class="card deps-card">
+            <div class="card-head">
+              <div>
+                <div class="eyebrow small-eyebrow">Binnenkort onderweg</div>
+                <h2>Vertrekken</h2>
+              </div>
+              <button type="button" class="icon-btn" id="homeDepsRefresh" aria-label="Vernieuwen"><svg><use href="#i-refresh"/></svg></button>
+            </div>
+            <div id="homeDeps"></div>
+          </div>
+        </section>
       </div>
 
-      <!-- ============ LIVE KAART ============ -->
-      <div class="view" id="view-live">
-        <div class="card">
-          <h2>Live voertuigen</h2>
-          <p class="muted small">Alle bussen, trams, metro's en treinen die nu rijden, op basis van de actuele dienstregeling en realtime gegevens. Tik op een voertuig om de rit te volgen.</p>
-          <div class="chips" id="liveOps">
-            <button type="button" class="chip on op" data-op="nmbs" style="--c:#0069b4">NMBS</button>
-            <button type="button" class="chip on op" data-op="delijn" style="--c:#ffd400;--t:#1a1a1a">De Lijn</button>
-            <button type="button" class="chip on op" data-op="tec" style="--c:#e2001a">TEC</button>
-            <button type="button" class="chip on op" data-op="mivb" style="--c:#ea5b0c">MIVB</button>
-          </div>
-          <div class="chips" id="liveModes">
-            <button type="button" class="chip on" data-mode="train">🚆 Trein</button>
-            <button type="button" class="chip on" data-mode="metro">🚇 Metro</button>
-            <button type="button" class="chip on" data-mode="tram">🚋 Tram</button>
-            <button type="button" class="chip on" data-mode="bus">🚌 Bus</button>
-          </div>
-          <div id="liveStatus" class="status small"></div>
-          <div class="row">
-            <button type="button" class="btn" id="liveLocate">◎ Naar mijn locatie</button>
-            <button type="button" class="btn" id="liveBelgium">🇧🇪 Heel België</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ============ HALTES / VERTREKKEN ============ -->
+      <!-- ============ VERTREKKEN: haltes ============ -->
       <div class="view" id="view-stops">
+        <header class="hero compact">
+          <div class="eyebrow"><i></i>Live vertrektijden</div>
+          <h1>Vertrekken</h1>
+        </header>
+        <div class="seg wide" role="tablist">
+          <a href="#/stops" class="on" role="tab">Bus, tram &amp; metro</a>
+          <a href="#/trains" role="tab">NMBS-treinen</a>
+        </div>
         <div class="card">
-          <h2>Vertrektijden</h2>
           <div class="field ac-wrap solo">
-            <input id="stopSearch" placeholder="Zoek een halte of station (bv. De Brouckère, Gent Korenmarkt)" spellcheck="false" aria-label="Halte zoeken">
+            <input id="stopSearch" placeholder="Zoek een halte of station" spellcheck="false" aria-label="Halte zoeken">
           </div>
-          <button type="button" class="btn" id="nearbyBtn">◎ Haltes in de buurt</button>
+          <button type="button" class="btn outline" id="nearbyBtn"><svg><use href="#i-locate"/></svg>Haltes in de buurt</button>
         </div>
         <div id="nearbyStatus" class="status"></div>
         <div id="nearbyList" class="list"></div>
         <div id="favStopsQuick" class="list"></div>
       </div>
 
-      <!-- ============ TREINEN (iRail) ============ -->
+      <!-- ============ VERTREKKEN: treinen (iRail) ============ -->
       <div class="view" id="view-trains">
+        <header class="hero compact">
+          <div class="eyebrow"><i></i>Live vertrektijden</div>
+          <h1>Vertrekken</h1>
+        </header>
+        <div class="seg wide" role="tablist">
+          <a href="#/stops" role="tab">Bus, tram &amp; metro</a>
+          <a href="#/trains" class="on" role="tab">NMBS-treinen</a>
+        </div>
         <div class="card">
-          <h2>NMBS-treinen</h2>
           <div class="field ac-wrap solo">
             <input id="stationSearch" placeholder="Station (bv. Brussel-Centraal)" spellcheck="false" aria-label="Station zoeken">
           </div>
-          <div class="row">
-            <button type="button" class="btn" id="nearStation">◎ Dichtstbijzijnde station</button>
-          </div>
+          <button type="button" class="btn outline" id="nearStation"><svg><use href="#i-locate"/></svg>Dichtstbijzijnde station</button>
           <form class="row" id="trainForm">
             <input id="trainNumber" placeholder="Treinnummer (bv. IC 1832)" aria-label="Treinnummer" spellcheck="false">
-            <button class="btn" type="submit">Zoek trein</button>
+            <button class="btn" type="submit">Zoek</button>
           </form>
         </div>
         <div id="favStations" class="list"></div>
@@ -157,17 +192,54 @@
         </div>
       </div>
 
-      <!-- ============ FAVORIETEN ============ -->
-      <div class="view" id="view-fav">
+      <!-- ============ LIVE VOLGEN ============ -->
+      <div class="view" id="view-live">
+        <header class="hero compact">
+          <div class="eyebrow"><i></i>Nu onderweg in België</div>
+          <h1>Live volgen</h1>
+        </header>
+        <div id="liveFollowCard"></div>
         <div class="card">
-          <h2>Mijn plaatsen</h2>
+          <p class="muted small" style="margin-top:0">Alle bussen, trams, metro's en treinen die nu rijden. Tik op een voertuig om zijn rit te volgen.</p>
+          <div class="chips" id="liveOps">
+            <button type="button" class="chip on op" data-op="nmbs" style="--c:#0069b4">NMBS</button>
+            <button type="button" class="chip on op" data-op="delijn" style="--c:#ffd400;--t:#1a1a1a">De Lijn</button>
+            <button type="button" class="chip on op" data-op="tec" style="--c:#e2001a">TEC</button>
+            <button type="button" class="chip on op" data-op="mivb" style="--c:#ea5b0c">MIVB</button>
+          </div>
+          <div class="chips" id="liveModes">
+            <button type="button" class="chip on" data-mode="train">Trein</button>
+            <button type="button" class="chip on" data-mode="metro">Metro</button>
+            <button type="button" class="chip on" data-mode="tram">Tram</button>
+            <button type="button" class="chip on" data-mode="bus">Bus</button>
+          </div>
+          <div id="liveStatus" class="status small"></div>
+          <div class="row">
+            <button type="button" class="btn outline" id="liveLocate"><svg><use href="#i-locate"/></svg>Mijn locatie</button>
+            <button type="button" class="btn outline" id="liveBelgium">Heel België</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ BEWAARD ============ -->
+      <div class="view" id="view-fav">
+        <header class="hero compact">
+          <div class="eyebrow"><i></i>Alles op één plek</div>
+          <h1>Bewaard</h1>
+        </header>
+        <div class="card">
+          <h3>Jouw vaste plekken</h3>
           <div class="field ac-wrap">
-            <label for="homeInput">🏠 Thuis</label>
+            <label for="homeInput">Thuis</label>
             <input id="homeInput" placeholder="Adres of halte" spellcheck="false">
           </div>
           <div class="field ac-wrap">
-            <label for="workInput">💼 Werk / school</label>
+            <label for="workInput">Werk</label>
             <input id="workInput" placeholder="Adres of halte" spellcheck="false">
+          </div>
+          <div class="field ac-wrap">
+            <label for="favInput">Favoriet</label>
+            <input id="favInput" placeholder="Adres of halte" spellcheck="false">
           </div>
         </div>
         <div class="card">
@@ -175,17 +247,32 @@
           <div id="favRoutes" class="list"></div>
         </div>
         <div class="card">
-          <h3>Favoriete haltes & stations</h3>
+          <h3>Favoriete haltes en stations</h3>
           <div id="favStops" class="list"></div>
         </div>
+      </div>
+
+      <!-- ============ PROFIEL ============ -->
+      <div class="view" id="view-profile">
+        <header class="hero compact">
+          <div class="eyebrow"><i></i>Jouw OVFlow</div>
+          <h1>Profiel</h1>
+        </header>
         <div class="card">
           <h3>Instellingen</h3>
-          <button type="button" class="btn" id="notifBtn">🔔 Meldingen inschakelen</button>
-          <button type="button" class="btn" id="installBtn" hidden>📲 Installeer OVFlow</button>
-          <button type="button" class="btn danger" id="clearBtn">Wis alle opgeslagen gegevens</button>
+          <button type="button" class="btn outline full" id="notifBtn">Meldingen inschakelen</button>
+          <button type="button" class="btn outline full" id="installBtn" hidden>Installeer OVFlow op je toestel</button>
+          <button type="button" class="btn outline full danger" id="clearBtn">Wis alle opgeslagen gegevens</button>
         </div>
         <div class="card about">
           <h3>Over OVFlow</h3>
+          <p class="small">Eén app voor NMBS, De Lijn, TEC en MIVB in heel België.</p>
+          <div class="ops">
+            <span class="op-tag" style="--c:#0069b4">NMBS</span>
+            <span class="op-tag" style="--c:#ffd400;--t:#1a1a1a">De Lijn</span>
+            <span class="op-tag" style="--c:#e2001a">TEC</span>
+            <span class="op-tag" style="--c:#ea5b0c">MIVB</span>
+          </div>
           <p class="small">Gegevens: <a href="https://transitous.org" target="_blank" rel="noopener">Transitous</a> (MOTIS) met open data van NMBS/SNCB, De Lijn, TEC en MIVB/STIB (CC-BY 4.0), en <a href="https://irail.be" target="_blank" rel="noopener">iRail</a> voor NMBS-liveboards. Kaart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-bijdragers, © CARTO.</p>
           <p class="small muted">OVFlow is geen officiële app van de vervoerders. Controleer bij twijfel ook de info in het station of aan de halte.</p>
         </div>
@@ -204,7 +291,7 @@
 
     <div class="map-wrap">
       <div id="map" aria-label="Kaart"></div>
-      <button type="button" class="map-btn" id="mapLocate" title="Mijn locatie" aria-label="Toon mijn locatie">◎</button>
+      <button type="button" class="map-btn" id="mapLocate" title="Mijn locatie" aria-label="Toon mijn locatie"><svg><use href="#i-locate"/></svg></button>
       <button type="button" class="map-btn expand" id="mapExpand" title="Kaart groter" aria-label="Kaart groter of kleiner">⤢</button>
     </div>
   </main>
@@ -217,11 +304,11 @@
   </div>
 
   <nav class="tabbar" aria-label="Hoofdmenu">
-    <a href="#/plan" data-tab="plan"><span>🧭</span>Plannen</a>
-    <a href="#/live" data-tab="live"><span>🗺️</span>Live</a>
-    <a href="#/stops" data-tab="stops"><span>🚏</span>Vertrek</a>
-    <a href="#/trains" data-tab="trains"><span>🚆</span>Treinen</a>
-    <a href="#/fav" data-tab="fav"><span>⭐</span>Mijn</a>
+    <a href="#/plan" data-tab="plan"><svg><use href="#i-route"/></svg>Reis plannen</a>
+    <a href="#/stops" data-tab="deps"><svg><use href="#i-clock"/></svg>Vertrekken</a>
+    <a href="#/live" data-tab="live"><svg><use href="#i-locate"/></svg>Live volgen</a>
+    <a href="#/fav" data-tab="fav"><svg><use href="#i-heart"/></svg>Bewaard</a>
+    <a href="#/profile" data-tab="profile"><svg><use href="#i-info"/></svg>Profiel</a>
   </nav>
   <div id="toast" class="toast" role="alert" hidden></div>
 </div>

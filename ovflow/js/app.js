@@ -113,7 +113,7 @@ function getPosition({ timeout = 12000 } = {}) {
 /* ================================================================== */
 const map = L.map('map', { zoomControl: false, attributionControl: true, preferCanvas: true }).setView([50.75, 4.45], 8);
 const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'rastertiles/voyager'}/{z}/{x}/{y}{r}.png`, {
+L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
   maxZoom: 19, subdomains: 'abcd',
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a> · <a href="https://transitous.org">Transitous</a>'
 }).addTo(map);
@@ -152,6 +152,12 @@ function fitTo(latlngs, maxZoom = 16) {
   map.fitBounds(b.pad(0.12), { maxZoom, animate: true });
 }
 
+const PLACE_META = {
+  home: { name: 'Thuis', emoji: '🏠', icon: 'i-home' },
+  work: { name: 'Werk', emoji: '💼', icon: 'i-work' },
+  fav: { name: 'Favoriet', emoji: '♥', icon: 'i-heart' }
+};
+
 /* ================================================================== */
 /* Autocomplete                                                        */
 /* ================================================================== */
@@ -178,8 +184,9 @@ function attachAutocomplete(input, { types, withMyLocation = false, onSelect, st
     if (withMyLocation) out.push({ icon: '◎', name: 'Mijn locatie', sub: 'Huidige GPS-positie', data: { myLocation: true } });
     const fav = db.get('places', {});
     for (const [k, p] of Object.entries(fav)) {
-      if (p && (!q || p.label.toLowerCase().includes(q.toLowerCase()) || (k === 'home' ? 'thuis' : 'werk').startsWith(q.toLowerCase())))
-        out.push({ icon: k === 'home' ? '🏠' : '💼', name: k === 'home' ? 'Thuis' : 'Werk / school', sub: esc(p.label), value: p.label, data: p });
+      const meta = PLACE_META[k]; if (!meta || !p) continue;
+      if (!q || p.label.toLowerCase().includes(q.toLowerCase()) || meta.name.toLowerCase().startsWith(q.toLowerCase()))
+        out.push({ icon: meta.emoji, name: meta.name, sub: esc(p.label), value: p.label, data: p });
     }
     return out;
   };
@@ -335,6 +342,7 @@ async function runPlan(pageCursor, direction) {
     }
     addRecent(state.from, state.to);
     renderPlan();
+    if (!pageCursor) requestAnimationFrame(() => $('planResults').scrollIntoView({ behavior: 'smooth', block: 'start' }));
     setStatus(status, '');
   } catch (e) {
     const m = errMsg(e);
@@ -342,6 +350,11 @@ async function runPlan(pageCursor, direction) {
   } finally {
     $('planBtn').disabled = false;
   }
+}
+
+function clearPlan() {
+  state.plan = null; renderPlan(); invalidateMap();
+  $('panel').scrollTop = 0;
 }
 
 function legSummary(it) {
@@ -357,14 +370,16 @@ function itinFirstTransit(it) { return it.legs.find(l => isTransitMode(l.mode));
 function renderPlan() {
   const box = $('planResults');
   const p = state.plan;
-  if (!p) { box.innerHTML = ''; return; }
+  document.body.classList.toggle('has-plan', !!p);
+  if (!p) { box.innerHTML = ''; layers.route.clearLayers(); return; }
   let html = '';
   if (!p.itineraries.length && !p.direct.length) {
-    box.innerHTML = '<div class="empty">Geen verbindingen gevonden. Probeer een ander tijdstip of minder filters.</div>';
+    box.innerHTML = '<div class="empty">Geen verbindingen gevonden. Probeer een ander tijdstip of minder filters.<br><button class="btn small" id="clearPlan" style="margin-top:12px">Opnieuw beginnen</button></div>';
+    $('clearPlan').onclick = clearPlan;
     return;
   }
-  html += `<div class="row" style="margin:0 0 8px;justify-content:space-between"><b>${esc(state.from.label)} → ${esc(state.to.label)}</b>
-    <button class="btn small" id="saveRoute">☆ Bewaar route</button></div>`;
+  html += `<div class="results-head"><b>${esc(state.from.label)} → ${esc(state.to.label)}</b>
+    <span class="row" style="margin:0;flex-wrap:nowrap"><button class="btn small" id="saveRoute">♡ Bewaar</button><button class="btn small" id="clearPlan" aria-label="Sluit resultaten">✕</button></span></div>`;
   if (p.previousPageCursor) html += `<div class="page-btns"><button class="btn small" id="earlier">↑ Eerdere verbindingen</button></div><div style="height:8px"></div>`;
   let lastDay = '';
   p.itineraries.forEach((it, i) => {
@@ -399,8 +414,11 @@ function renderPlan() {
   $('earlier')?.addEventListener('click', () => runPlan(p.previousPageCursor, 'earlier'));
   $('later')?.addEventListener('click', () => runPlan(p.nextPageCursor, 'later'));
   $('saveRoute').onclick = () => saveRoute(state.from, state.to);
-  // preview van de eerste route op de kaart
-  if (p.itineraries[0] && state.view === 'plan') drawItinerary(p.itineraries[0], { fit: true });
+  $('clearPlan').onclick = clearPlan;
+  // preview van de eerste route op de kaart (kaart wordt pas nu zichtbaar op mobiel)
+  if (p.itineraries[0] && state.view === 'plan') {
+    requestAnimationFrame(() => { map.invalidateSize(); drawItinerary(p.itineraries[0], { fit: true }); });
+  }
 }
 
 function legLatLngs(leg) {
@@ -538,16 +556,98 @@ function renderQuick() {
   const box = $('quickRoutes');
   const places = db.get('places', {});
   const btns = [];
-  if (places.home) btns.push({ label: '🏠 Naar huis', fn: () => quickTo(places.home) });
-  if (places.work) btns.push({ label: '💼 Naar werk', fn: () => quickTo(places.work) });
+  renderPlaceCards(places);
   db.get('routes', []).forEach(r => btns.push({ label: `⭐ ${r.from.label} → ${r.to.label}`, fn: () => { setPlace('from', r.from); setPlace('to', r.to); runPlan(); } }));
   db.get('recent', []).slice(0, 4).forEach(r => btns.push({ label: `🕑 ${r.from.label} → ${r.to.label}`, fn: () => { setPlace('from', r.from); setPlace('to', r.to); runPlan(); } }));
   box.innerHTML = '';
   btns.forEach(b => { const el = document.createElement('button'); el.type = 'button'; el.textContent = b.label; el.onclick = b.fn; box.appendChild(el); });
 }
+function renderPlaceCards(places = db.get('places', {})) {
+  const box = $('placeCards'); box.innerHTML = '';
+  Object.entries(PLACE_META).forEach(([k, m]) => {
+    const p = places[k];
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'place ' + k;
+    b.innerHTML = `<span class="pi"><svg><use href="#${m.icon}"/></svg></span><span><b>${m.name}</b><small>${p ? esc(p.label) : 'Voeg toe'}</small></span>`;
+    b.onclick = () => p ? quickTo(p) : go('#/fav');
+    box.appendChild(b);
+  });
+}
 async function quickTo(place) {
   try { setPlace('from', await resolveMyLocation()); } catch (e) { toast(e.message); return; }
   setPlace('to', place); runPlan();
+}
+
+/* ---------- Voorkeuren ---------- */
+$('prefBtn').onclick = () => {
+  const o = $('options'); o.hidden = !o.hidden;
+  $('prefBtn').setAttribute('aria-expanded', String(!o.hidden));
+};
+
+/* ---------- Home: vertrekken in de buurt ---------- */
+let homeDepsAt = 0, homeDepsBusy = false;
+async function loadHomeDeps(force = false) {
+  const box = $('homeDeps');
+  if (homeDepsBusy || (!force && Date.now() - homeDepsAt < 60000 && box.dataset.filled)) return;
+  let granted = false;
+  try { granted = (await navigator.permissions?.query({ name: 'geolocation' }))?.state === 'granted'; } catch { /* */ }
+  if (!granted && !force && !state.me) {
+    box.innerHTML = `<p class="muted small" style="margin:4px 0 0">Zie meteen wat er in jouw buurt vertrekt.</p>
+      <button type="button" class="btn outline full" id="homeDepsGo"><svg><use href="#i-locate"/></svg>Toon vertrekken in de buurt</button>`;
+    $('homeDepsGo').onclick = () => loadHomeDeps(true);
+    return;
+  }
+  homeDepsBusy = true;
+  box.innerHTML = '<div class="status"><span class="spinner"></span>Vertrekken in de buurt zoeken…</div>';
+  try {
+    const pos = await getPosition();
+    const d = 0.005;
+    const stops = await api.mapStops({ min: [pos[0] - d, pos[1] - d * 1.5], max: [pos[0] + d, pos[1] + d * 1.5] });
+    const uniq = new Map();
+    stops.forEach(st => {
+      const dist = haversine(pos, [st.lat, st.lon]);
+      const k = st.parentId || st.name;
+      if (!uniq.has(k) || uniq.get(k).dist > dist) uniq.set(k, { ...st, dist });
+    });
+    const near = [...uniq.values()].sort((a, b) => a.dist - b.dist).slice(0, 3);
+    if (!near.length) { box.innerHTML = '<p class="muted small">Geen haltes gevonden in je directe buurt.</p>'; return; }
+    const res = await Promise.allSettled(near.map(st => api.stoptimes({ stopId: st.stopId, n: 6 }).then(r => (r.stopTimes || []).map(x => ({ ...x, _stop: st })))));
+    const now = Date.now();
+    const list = res.flatMap(r => r.status === 'fulfilled' ? r.value : [])
+      .filter(x => !(x.cancelled || x.tripCancelled))
+      .map(x => ({ ...x, _t: toMs(x.place.departure || x.place.scheduledDeparture) }))
+      .filter(x => x._t >= now - 60000)
+      .sort((a, b) => a._t - b._t || a._stop.dist - b._stop.dist)
+      .filter((x, i, a) => !x.tripId || a.findIndex(y => y.tripId === x.tripId) === i)
+      .slice(0, 6);
+    if (!list.length) { box.innerHTML = '<p class="muted small">Er vertrekt de komende tijd niets in je buurt.</p>'; return; }
+    box.innerHTML = list.map(x => {
+      const op = detectOperator(x.tripId, x.agencyName, x.place.stopId);
+      const mins = Math.round((x._t - now) / 60000);
+      const dl = delayMin(x.place.departure, x.place.scheduledDeparture);
+      rememberStop(x._stop.stopId, x._stop.name);
+      return `<div class="home-dep" data-trip="${esc(x.tripId || '')}" data-stop="${esc(x._stop.stopId)}">
+        <div>${badge(x, op, x.mode)}</div>
+        <div class="dest"><b>${esc(x.headsign || x.tripTo?.name || '')}</b><span>${esc(x._stop.name)} · ${distance(x._stop.dist)}</span></div>
+        <div class="when-min">${mins <= 0 ? 'nu' : mins < 60 ? mins + ' min' : hhmm(x._t)}<small>${hhmm(x._t)}${dl > 0 ? ` <span class="delay">+${dl}</span>` : ''}</small></div></div>`;
+    }).join('');
+    box.dataset.filled = '1'; homeDepsAt = Date.now();
+    box.querySelectorAll('.home-dep').forEach(r => r.onclick = () => go(r.dataset.trip ? '#/trip/' + encodeURIComponent(r.dataset.trip) : '#/stop/' + encodeURIComponent(r.dataset.stop)));
+  } catch (e) {
+    box.innerHTML = `<p class="status error">${esc(errMsg(e))}</p>`;
+  } finally { homeDepsBusy = false; }
+}
+$('homeDepsRefresh').onclick = () => loadHomeDeps(true);
+
+function renderLiveFollowCard() {
+  const box = $('liveFollowCard');
+  if (!state.follow) { box.innerHTML = ''; return; }
+  const st = followStatus();
+  box.innerHTML = `<div class="live-box"><div class="small" style="opacity:.8;letter-spacing:.14em;text-transform:uppercase;font-weight:700">Jouw reis</div>
+    <div class="now">${st.icon} ${esc(st.title)}</div><div class="sub">${esc(st.sub)}</div>
+    <div class="bar"><i style="width:${Math.round(st.progress * 100)}%"></i></div>
+    <button class="btn" id="openFollow">Bekijk je reis →</button></div>`;
+  $('openFollow').onclick = () => go('#/follow');
 }
 
 /* ================================================================== */
@@ -947,7 +1047,7 @@ async function showStop(stopId) {
     if (isFav()) db.set('favStops', list.filter(s => s.id !== stopId)); else { list.push({ id: stopId, name: state.stopNames[stopId] || name, kind: 'stop' }); db.set('favStops', list); toast('Halte bewaard ⭐'); }
     renderFav(); showStopHead();
   } });
-  const showStopHead = () => detailHead(`${esc(state.stopNames[stopId] || name)}<small>${opTag(detectOperator(stopId))} Vertrektijden · live</small>`, [favBtn(), { icon: '🧭', title: 'Plan hierheen', fn: planToStop }]);
+  const showStopHead = () => detailHead(`${esc(state.stopNames[stopId] || name)}<small>${opTag(detectOperator(stopId))} Vertrektijden · live</small>`, [favBtn(), { icon: '#i-route', title: 'Plan hierheen', fn: planToStop }]);
   const planToStop = () => {
     const p = data?.place;
     setPlace('to', { label: state.stopNames[stopId] || name, place: stopId, lat: p?.lat, lon: p?.lon, type: 'STOP', id: stopId });
@@ -1157,12 +1257,13 @@ function bindPlaceInput(id, key) {
   attachAutocomplete(input, { onSelect: p => {
     if (p.myLocation) return;
     const all = db.get('places', {}); all[key] = slim(p); db.set('places', all);
-    toast(`${key === 'home' ? 'Thuis' : 'Werk'} opgeslagen`); renderQuick();
+    toast(`${PLACE_META[key].name} opgeslagen`); renderQuick();
   } });
   input.addEventListener('change', () => { if (!input.value.trim()) { const all = db.get('places', {}); delete all[key]; db.set('places', all); renderQuick(); } });
 }
 bindPlaceInput('homeInput', 'home');
 bindPlaceInput('workInput', 'work');
+bindPlaceInput('favInput', 'fav');
 
 function renderFav() {
   const routes = db.get('routes', []);
@@ -1196,7 +1297,7 @@ $('notifBtn').onclick = async () => {
   updateNotifBtn();
 };
 function updateNotifBtn() {
-  if ('Notification' in window && Notification.permission === 'granted') { $('notifBtn').textContent = '🔔 Meldingen staan aan'; $('notifBtn').disabled = true; }
+  if ('Notification' in window && Notification.permission === 'granted') { $('notifBtn').textContent = 'Meldingen staan aan'; $('notifBtn').disabled = true; }
 }
 $('clearBtn').onclick = () => {
   if (!confirm('Alle favorieten, recente routes en instellingen van OVFlow wissen?')) return;
@@ -1213,14 +1314,14 @@ $('installBtn').onclick = async () => { if (!installEvt) return; installEvt.prom
 function detailHead(title, actions = []) {
   $('detailTitle').innerHTML = title;
   const box = $('detailActions'); box.innerHTML = '';
-  actions.forEach(a => { const b = document.createElement('button'); b.className = 'icon-btn'; b.title = a.title; b.setAttribute('aria-label', a.title); b.textContent = a.icon; b.onclick = a.fn; box.appendChild(b); });
+  actions.forEach(a => { const b = document.createElement('button'); b.className = 'icon-btn'; b.title = a.title; b.setAttribute('aria-label', a.title); if (a.icon.startsWith('#')) b.innerHTML = `<svg><use href="${a.icon}"/></svg>`; else b.textContent = a.icon; b.onclick = a.fn; box.appendChild(b); });
 }
 function detail(title, body, actions) {
   if (title) detailHead(title, actions); else if (actions?.length) detailHead($('detailTitle').innerHTML, actions);
   $('detailBody').innerHTML = body;
   $('panel').scrollTop = 0;
 }
-let lastMainView = 'plan';
+let lastMainView = 'plan', lastDepsView = 'stops';
 $('backBtn').onclick = () => { if (history.length > 1 && state.cameFromApp) history.back(); else go('#/' + lastMainView); };
 
 function go(hash, replace = false) {
@@ -1236,7 +1337,10 @@ function setView(v) {
   state.view = v;
   document.body.dataset.view = v;
   if (v !== 'detail') lastMainView = v;
-  document.querySelectorAll('.tabbar a').forEach(a => a.classList.toggle('on', a.dataset.tab === (v === 'detail' ? lastMainView : v)));
+  const TAB = { plan: 'plan', stops: 'deps', trains: 'deps', live: 'live', fav: 'fav', profile: 'profile' };
+  const tab = TAB[v === 'detail' ? lastMainView : v];
+  document.querySelectorAll('.tabbar a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
+  document.querySelector('.tabbar a[data-tab="deps"]').href = lastDepsView === 'trains' ? '#/trains' : '#/stops';
   if (prev !== v) invalidateMap();
 }
 function route() {
@@ -1253,15 +1357,17 @@ function route() {
   switch (name) {
     case 'live':
       setView('live');
+      renderLiveFollowCard();
       if (map.getZoom() < 9) {
         if (state.me) map.setView(state.me, 13); else map.setView([50.846, 4.357], 13);
       }
       every('live', liveFetch, 30000);
       every('liveTick', liveTick, 1000, false);
       break;
-    case 'stops': setView('stops'); renderFav(); break;
-    case 'trains': setView('trains'); renderFav(); loadDisturbances(); break;
-    case 'fav': setView('fav'); renderFav(); updateNotifBtn(); break;
+    case 'stops': lastDepsView = 'stops'; setView('stops'); renderFav(); break;
+    case 'trains': lastDepsView = 'trains'; setView('trains'); renderFav(); loadDisturbances(); break;
+    case 'fav': setView('fav'); renderFav(); break;
+    case 'profile': setView('profile'); updateNotifBtn(); break;
     case 'route': setView('detail'); lastMainView = 'plan'; showRouteDetail(); break;
     case 'follow': setView('detail'); renderFollowDetail(); break;
     case 'trip': setView('detail'); showTrip(arg); break;
@@ -1270,6 +1376,8 @@ function route() {
     case 'train': setView('detail'); lastMainView = 'trains'; showTrain(arg); break;
     default: {
       setView('plan');
+      document.body.classList.toggle('has-plan', !!state.plan);
+      if (!state.plan) loadHomeDeps();
       if (query) {
         const q = new URLSearchParams(query);
         const parse = v => { if (!v) return null; const [place, ...label] = v.split('|'); const ll = place.split(','); return { place, label: label.join('|') || place, lat: +ll[0], lon: +ll[1] }; };

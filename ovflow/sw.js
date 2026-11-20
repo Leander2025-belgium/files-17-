@@ -1,5 +1,5 @@
 // OVFlow service worker – app-shell offline, API altijd live
-const VERSION = 'ovflow-v1';
+const VERSION = 'ovflow-v2';
 const SHELL = ['./', './index.html', './ovflow.css', './js/app.js', './js/api.js', './js/util.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png'];
 const CDN = ['https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'];
 
