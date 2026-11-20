@@ -180,7 +180,9 @@ function isLiveDataRequest(url) {
     "api.rainviewer.com",
     "api.dataplatform.knmi.nl",
     "aviationweather.gov",
-    "api.wheaterflow.be"
+    "api.wheaterflow.be",
+    "api.transitous.org",
+    "api.irail.be"
   ].some(host => url.hostname.includes(host));
 }
 

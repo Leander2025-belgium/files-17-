@@ -1193,6 +1193,23 @@ export default {
       );
 
 
+    /* OVFlow: beperkte proxy naar Transitous en iRail */
+    if (url.pathname === '/api/ov-proxy') {
+      const h = { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,OPTIONS', 'X-OVFlow-Proxy': '1' };
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
+      let target;
+      try { target = new URL(url.searchParams.get('url') || ''); } catch { target = null; }
+      if (!target || target.protocol !== 'https:' || target.port || !['api.transitous.org', 'api.irail.be'].includes(target.hostname)) {
+        return new Response(JSON.stringify({ error: 'Ongeldige of niet-toegestane URL' }), { status: 400, headers: h });
+      }
+      try {
+        const up = await fetch(target.toString(), { headers: { Accept: 'application/json', 'User-Agent': 'OVFlow/1.0 (open source OV-app voor Belgie)' } });
+        return new Response(await up.text(), { status: up.status, headers: { ...h, 'Cache-Control': up.ok ? 'public, max-age=15' : 'no-store' } });
+      } catch {
+        return new Response(JSON.stringify({ error: 'OV-server niet bereikbaar' }), { status: 502, headers: h });
+      }
+    }
+
     /* Xweather observations, server-side credentials only */
     if(url.pathname === '/api/xweather-conditions'){
       const lat=Number(url.searchParams.get('lat')), lon=Number(url.searchParams.get('lon'));
