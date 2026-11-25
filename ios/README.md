@@ -7,7 +7,7 @@ Deze map is volledig aanvullend. De bestaande PWA-bestanden (`index.html`, `scri
 - De webclient is een statische, installable PWA in de repository-root. `script.js` beheert schermstatus, locatie, weersdata en de bestaande Wheaterflow Intelligence-laag.
 - De PWA haalt de hoofdforecast momenteel rechtstreeks bij Open-Meteo op. Rain ETA wordt client-side uit `minutely_15` afgeleid met een natgrens van 0,1 mm, maximaal twaalf kwartierframes en een confidence-score.
 - `api.wheaterflow.be` levert bestaande account-, profiel-, community-, push- en KNMI-functies. Providercredentials horen aan die serverkant; het publieke `/api/health`-endpoint is de operationele controle.
-- Vercel- en Netlify-adapters in `api/` en `netlify/functions/` ondersteunen de webdeployments. De iOS-map wordt door geen van die webbuilds als frontendcode geladen.
+- De website draait op Cloudflare Pages (`functions/`) en de eigen server (`backend/`). De iOS-map wordt niet als frontendcode geladen.
 - Voor de companion ontbrak een server-side Rain ETA-contract. Dat contract is daarom als een kleine, zelfstandige uitbreiding toegevoegd zonder de bestaande PWA-datastroom te veranderen.
 
 ## Architectuur
@@ -41,7 +41,7 @@ De companion gebruikt:
 GET https://api.wheaterflow.be/api/rain-eta?lat=51.2405&lon=2.9309&name=Oostende
 ```
 
-De implementatie staat in `server/rain-eta-service.mjs`. Adapters voor Vercel en Netlify staan in `api/rain-eta.js` en `netlify/functions/rain-eta.js`. Voor de bestaande Express-server:
+De implementatie staat in `server/rain-eta-service.mjs`. Voor de bestaande Express-server:
 
 ```js
 app.get('/api/rain-eta', require('./rain-eta-route.cjs'));

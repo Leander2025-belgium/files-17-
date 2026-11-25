@@ -2,62 +2,39 @@
 
 Live weer, radar, waarschuwingen, community, persoonlijke klimaatdata en een professionele weerkaart.
 
-## Online plaatsen zonder Netlify
+## Hosting
 
-Gebruik bij voorkeur Vercel voor deze versie. De app ondersteunt automatisch:
+- **Frontend + kleine API's:** Cloudflare Pages. De statische site staat in de root; de API-routes staan in `functions/api/` (Pages Functions):
+  - `/api/alerts` — waarschuwingen (KV namespace `ALERTS`)
+  - `/api/admin-login` — admin-login met sessiecookie (KV namespace `WHEATERFLOW_ADMIN_SECURITY`)
+  - `/api/metar` — METAR-proxy (aviationweather.gov)
+  - `/api/xweather-config`, `/api/xweather-conditions` — Xweather
+- **Eigen server:** `backend/` draait op `https://api.wheaterflow.be` (accounts, community, push, bliksem, KMI/KNMI, weer-engine). De TV-koppeling via WebSocket draait met `server/tv-pairing-server.js`.
 
-- Netlify Functions via `/.netlify/functions/...`
-- Vercel Functions via `/api/...`
+Headers en de `/tv`-route staan in `_headers` en `_redirects`.
 
-In Vercel:
+## Cloudflare Pages instellen
 
-1. Maak een account op `vercel.com`.
-2. Kies `Add New` -> `Project`.
-3. Kies je GitHub-repository.
-4. Framework preset: `Other`.
-5. Build command: `npm run build`.
-6. Output directory: laat leeg of gebruik `.`.
-7. Voeg de environment variables hieronder toe.
-8. Klik `Deploy`.
+Build command: `npm run build` — output directory: `/` (root).
 
-## Environment variables
-
-Zet deze waarden in Vercel bij `Project Settings` -> `Environment Variables`:
+Bindings (Settings → Functions):
 
 ```text
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
-VAPID_SUBJECT=
+KV namespace  ALERTS
+KV namespace  WHEATERFLOW_ADMIN_SECURITY
+```
+
+Variables & secrets (Settings → Environment variables):
+
+```text
+ADMIN_PASSWORD_HASH=      # pbkdf2$<iteraties>$<salt-base64>$<hash-base64>
+ADMIN_SESSION_SECRET=
+ADMIN_TOKEN=              # optioneel, Bearer-token als alternatief voor de login
 XWEATHER_CLIENT_ID=
 XWEATHER_CLIENT_SECRET=
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PRIVATE_KEY` en `XWEATHER_CLIENT_SECRET` mogen nooit in frontendcode of GitHub staan.
-
-## Xweather MapsGL instellen
-
-De professionele weerkaart gebruikt Xweather MapsGL. Zet deze waarden in Netlify bij:
-
-`Project configuration` -> `Environment variables`
-
-```text
-XWEATHER_CLIENT_ID=
-XWEATHER_CLIENT_SECRET=
-```
-
-Gebruik hier je eigen Xweather API & Maps gegevens. Zet deze waarden niet in `script.js`, `index.html`, GitHub of een publieke frontend-variabele.
-
-De app haalt de instellingen op via Netlify of Vercel:
-
-```text
-/.netlify/functions/xweather-config
-/api/xweather-config
-```
-
-Wanneer Xweather niet geconfigureerd is of een laag niet beschikbaar is binnen je abonnement, blijft de bestaande radar werken.
+Secrets horen nooit in frontendcode of GitHub. Als Xweather niet geconfigureerd is of een laag niet in je abonnement zit, blijft de gewone radar werken.
 
 ## Build
 

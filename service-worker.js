@@ -189,7 +189,7 @@ self.addEventListener("fetch", event => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
 
-  if (isLiveDataRequest(url) || url.pathname.includes("/.netlify/functions/") || url.pathname.startsWith("/api/")) {
+  if (isLiveDataRequest(url) || url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(request, { cache: "no-store" }));
     return;
   }
