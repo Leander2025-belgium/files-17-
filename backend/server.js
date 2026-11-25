@@ -664,7 +664,16 @@ app.post('/api/admin-push',async(req,res)=>{
 
 
 
-app.get('/api/xweather-config',(req,res)=>res.json({configured:Boolean(process.env.XWEATHER_CLIENT_ID&&process.env.XWEATHER_CLIENT_SECRET),clientId:process.env.XWEATHER_CLIENT_ID||null,clientSecret:process.env.XWEATHER_CLIENT_SECRET||null}));
+// MapsGL heeft id + secret in de browser nodig: gebruik een aparte, domein-beperkte
+// Xweather-applicatie (XWEATHER_MAPS_*). De gewone XWEATHER_CLIENT_* blijven server-side.
+app.get('/api/xweather-config',(req,res)=>{
+  const caller=req.get('origin')||(()=>{try{return new URL(req.get('referer')||'').origin}catch{return ''}})();
+  res.set('Cache-Control','no-store'); res.set('Vary','Origin, Referer');
+  if(!caller || !allowed.includes(caller)) return res.status(403).json({configured:false,error:'forbidden'});
+  const clientId=process.env.XWEATHER_MAPS_CLIENT_ID||process.env.XWEATHER_CLIENT_ID||null;
+  const clientSecret=process.env.XWEATHER_MAPS_CLIENT_SECRET||process.env.XWEATHER_CLIENT_SECRET||null;
+  res.json({configured:Boolean(clientId&&clientSecret),clientId,clientSecret});
+});
 
 
 app.get('/api/lightning', async (req,res)=>{

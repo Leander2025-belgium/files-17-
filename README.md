@@ -30,11 +30,22 @@ Variables & secrets (Settings → Environment variables):
 ADMIN_PASSWORD_HASH=      # pbkdf2$<iteraties>$<salt-base64>$<hash-base64>
 ADMIN_SESSION_SECRET=
 ADMIN_TOKEN=              # optioneel, Bearer-token als alternatief voor de login
-XWEATHER_CLIENT_ID=
+XWEATHER_CLIENT_ID=           # server-side (observaties, bliksem)
 XWEATHER_CLIENT_SECRET=
+XWEATHER_MAPS_CLIENT_ID=      # publiek, voor de MapsGL-kaart in de browser
+XWEATHER_MAPS_CLIENT_SECRET=
 ```
 
 Secrets horen nooit in frontendcode of GitHub. Als Xweather niet geconfigureerd is of een laag niet in je abonnement zit, blijft de gewone radar werken.
+
+### Xweather-sleutels beveiligen
+
+MapsGL draait in de browser, dus de kaartsleutel is altijd zichtbaar in het netwerkverkeer. Daarom werk je met twee Xweather-applicaties (xweather.com → Account → Apps):
+
+1. **Kaart (publiek):** namespace `wheaterflow.be,*.wheaterflow.be` (en eventueel `localhost`). Zet deze in `XWEATHER_MAPS_CLIENT_ID` / `XWEATHER_MAPS_CLIENT_SECRET`. Vreemde sites kunnen deze sleutel dan niet gebruiken.
+2. **Server (geheim):** voor `backend/` en `/api/xweather-conditions`. Zet deze in `XWEATHER_CLIENT_ID` / `XWEATHER_CLIENT_SECRET`, zowel in Cloudflare als op de eigen server.
+
+`/api/xweather-config` geeft de kaartsleutel alleen nog aan de eigen site (Origin/Referer-controle). Zolang de `XWEATHER_MAPS_*`-waarden ontbreken, valt het terug op de serversleutel.
 
 ## Build
 
