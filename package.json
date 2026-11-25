@@ -6,13 +6,11 @@
   "description": "Live weer, radar en weerwaarschuwingen",
   "scripts": {
     "build": "npm run test",
-    "test": "node --check script.js && node --check service-worker.js && node --check tvPairingService.js && node --check netlify/functions/tv-pairing.js && node --check api/tv-pairing.js && node --check server/rain-eta-service.mjs && node --check api/rain-eta.js && node --check weather-charts.js && node --check performance.js && node --test tests/rain-eta.test.js tests/weather-charts.test.js",
+    "test": "node --check script.js && node --check service-worker.js && node --check tvPairingService.js && node --check server/rain-eta-service.mjs && node --check weather-charts.js && node --check performance.js && node --check functions/api/alerts.js && node --check functions/api/admin-login.js && node --check functions/api/metar.js && node --check functions/api/xweather-config.js && node --check functions/api/xweather-conditions.js && node --test tests/rain-eta.test.js tests/weather-charts.test.js",
     "generate-vapid": "web-push generate-vapid-keys",
     "tv-pairing-server": "node server/tv-pairing-server.js"
   },
   "dependencies": {
-    "@netlify/blobs": "^8.2.0",
-    "@supabase/supabase-js": "^2.110.8",
     "web-push": "^3.6.7",
     "ws": "^8.18.3"
   }

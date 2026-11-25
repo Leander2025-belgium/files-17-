@@ -1,0 +1,20 @@
+/manifest.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+
+/service-worker.js
+  Cache-Control: no-cache
+
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/script.js
+  Cache-Control: no-cache
+
+/castService.js
+  Cache-Control: no-cache
+
+/tvPairingService.js
+  Cache-Control: no-cache
+
+/style.css
+  Cache-Control: no-cache
