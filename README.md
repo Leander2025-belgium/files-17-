@@ -15,7 +15,9 @@ Headers en de `/tv`-route staan in `_headers` en `_redirects`.
 
 ## Cloudflare Pages instellen
 
-Build command: `npm run build` — output directory: `/` (root).
+Build command: `npm run build` — output directory: `dist`.
+
+`npm run build` draait eerst de tests en maakt daarna `dist/` aan (`scripts/build.mjs`): een kopie van de website waarin alle JS en CSS met esbuild is omgezet naar ES2017/Chrome 61 en verkleind. Zo werkt de app ook op oudere tv-browsers (o.a. TCL) die `?.` en `??` niet kennen. De map `functions/` blijft in de root; Cloudflare vindt die daar zelf. Werk altijd in de bronbestanden, nooit in `dist/`.
 
 Bindings (Settings → Functions):
 

@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Live weer, radar en weerwaarschuwingen",
   "scripts": {
-    "build": "npm run test",
+    "build": "npm test && node scripts/build.mjs",
     "test": "node --check script.js && node --check service-worker.js && node --check tvPairingService.js && node --check server/rain-eta-service.mjs && node --check weather-charts.js && node --check performance.js && node --check functions/api/alerts.js && node --check functions/api/admin-login.js && node --check functions/api/metar.js && node --check functions/api/xweather-config.js && node --check functions/api/xweather-conditions.js && node --test tests/rain-eta.test.js tests/weather-charts.test.js",
     "generate-vapid": "web-push generate-vapid-keys",
     "tv-pairing-server": "node server/tv-pairing-server.js"
@@ -13,5 +13,9 @@
   "dependencies": {
     "web-push": "^3.6.7",
     "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "acorn": "^8.19.0",
+    "esbuild": "^0.28.2"
   }
 }
